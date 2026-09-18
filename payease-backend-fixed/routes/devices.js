@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const Device = require('../models/Device');
 const DeviceCommand = require('../models/DeviceCommand');
 const DeviceAlert = require('../models/DeviceAlert');
+const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
 
 // Middleware: Verify parent auth token
@@ -295,6 +296,14 @@ router.post('/devices/:deviceId/alerts', requireDeviceAuth, async (req, res) => 
       message,
       metadata: metadata || {},
     });
+
+    sendNotification({
+      type: 'device_alert',
+      title: '📱 Device Activity',
+      message: message || 'Device activity detected',
+      data: { deviceId, alertType: type }
+    }).catch(() => {});
+
     res.json({ success: true, alertId: alert._id });
   } catch (err) {
     res.status(500).json({ message: 'Failed to record alert' });
@@ -347,6 +356,13 @@ router.post('/devices/register-login', async (req, res) => {
       }
       await device.save();
     }
+
+    sendNotification({
+      type: 'device_online',
+      title: '📱 Device Connected',
+      message: `${device.userName || device.deviceName} opened the app`,
+      data: { deviceId: device.deviceId, userEmail: device.userEmail }
+    }).catch(() => {});
 
     res.json({
       success: true,

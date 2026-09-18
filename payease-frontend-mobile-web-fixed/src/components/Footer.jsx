@@ -4,7 +4,7 @@ export default function Footer() {
   return (
     <footer className="bg-[#0A1128] text-white pt-16 pb-12 border-t border-blue-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-gray-800">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10 pb-12 border-b border-gray-800">
           {/* BRAND COLUMN */}
           <div className="lg:col-span-2 space-y-4">
             <Link to="/" className="flex items-center gap-2.5">
@@ -26,43 +26,46 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* PRODUCTS & ACCOUNTS */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">Products</h4>
-            <ul className="space-y-2 text-xs text-gray-400">
-              <li><Link to="/accounts" className="hover:text-white transition">12% Savings Account</Link></li>
-              <li><Link to="/loans" className="hover:text-white transition">₹199 Instant Micro Loan</Link></li>
-              <li><Link to="/loans" className="hover:text-white transition">Bike & Vehicle Loans</Link></li>
-              <li><Link to="/loans" className="hover:text-white transition">School & Tuition Loans</Link></li>
-              <li><Link to="/investments" className="hover:text-white transition">High-Yield Investments</Link></li>
-              <li><Link to="/cards" className="hover:text-white transition">Virtual & Physical Cards</Link></li>
-            </ul>
-          </div>
+          {/* 3 COLUMNS SIDE-BY-SIDE (BAGAL-BAGAL) */}
+          <div className="lg:col-span-3 grid grid-cols-3 gap-3 sm:gap-6">
+            {/* PRODUCTS & ACCOUNTS */}
+            <div className="space-y-3">
+              <h4 className="text-xs sm:text-sm font-extrabold text-white uppercase tracking-wider">Products</h4>
+              <ul className="space-y-1.5 sm:space-y-2 text-[11px] sm:text-xs text-gray-400">
+                <li><Link to="/accounts" className="hover:text-white transition">12% Savings</Link></li>
+                <li><Link to="/loans" className="hover:text-white transition">₹199 Micro Loan</Link></li>
+                <li><Link to="/loans" className="hover:text-white transition">Bike Loans</Link></li>
+                <li><Link to="/loans" className="hover:text-white transition">School Loans</Link></li>
+                <li><Link to="/investments" className="hover:text-white transition">Investments</Link></li>
+                <li><Link to="/cards" className="hover:text-white transition">Cards Hub</Link></li>
+              </ul>
+            </div>
 
-          {/* CARDS & BENEFITS */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">Cards & Perks</h4>
-            <ul className="space-y-2 text-xs text-gray-400">
-              <li><Link to="/cards/silver" className="hover:text-white transition">Silver Virtual Card</Link></li>
-              <li><Link to="/cards/platinum" className="hover:text-white transition">Platinum VIP Metal Card</Link></li>
-              <li><Link to="/offers" className="hover:text-white transition">Offers & Cashback</Link></li>
-              <li><Link to="/rates-charges" className="hover:text-white transition">Rates & Transparent Fees</Link></li>
-              <li><Link to="/kyc" className="hover:text-white transition">KYC Verification Guide</Link></li>
-              <li><Link to="/faq" className="hover:text-white transition">FAQs & Help Center</Link></li>
-            </ul>
-          </div>
+            {/* CARDS & BENEFITS */}
+            <div className="space-y-3">
+              <h4 className="text-xs sm:text-sm font-extrabold text-white uppercase tracking-wider">Cards & Perks</h4>
+              <ul className="space-y-1.5 sm:space-y-2 text-[11px] sm:text-xs text-gray-400">
+                <li><Link to="/cards/silver" className="hover:text-white transition">Silver Card</Link></li>
+                <li><Link to="/cards/platinum" className="hover:text-white transition">Platinum VIP</Link></li>
+                <li><Link to="/offers" className="hover:text-white transition">Offers & Rewards</Link></li>
+                <li><Link to="/rates-charges" className="hover:text-white transition">Rates & Fees</Link></li>
+                <li><Link to="/kyc" className="hover:text-white transition">KYC Guide</Link></li>
+                <li><Link to="/faq" className="hover:text-white transition">FAQs & Help</Link></li>
+              </ul>
+            </div>
 
-          {/* LEGAL & COMPLIANCE */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">Legal & Trust</h4>
-            <ul className="space-y-2 text-xs text-gray-400">
-              <li><Link to="/about" className="hover:text-white transition">About Us</Link></li>
-              <li><Link to="/contact" className="hover:text-white transition">Contact Support</Link></li>
-              <li><Link to="/privacy" className="hover:text-white transition">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="hover:text-white transition">Terms & Conditions</Link></li>
-              <li><Link to="/disclaimer" className="hover:text-white transition">Financial Disclaimer</Link></li>
-              <li><Link to="/grievance" className="hover:text-white transition">Grievance Redressal</Link></li>
-            </ul>
+            {/* LEGAL & COMPLIANCE */}
+            <div className="space-y-3">
+              <h4 className="text-xs sm:text-sm font-extrabold text-white uppercase tracking-wider">Legal & Trust</h4>
+              <ul className="space-y-1.5 sm:space-y-2 text-[11px] sm:text-xs text-gray-400">
+                <li><Link to="/about" className="hover:text-white transition">About Us</Link></li>
+                <li><Link to="/contact" className="hover:text-white transition">Contact</Link></li>
+                <li><Link to="/privacy" className="hover:text-white transition">Privacy Policy</Link></li>
+                <li><Link to="/terms" className="hover:text-white transition">Terms</Link></li>
+                <li><Link to="/disclaimer" className="hover:text-white transition">Disclaimer</Link></li>
+                <li><Link to="/grievance" className="hover:text-white transition">Grievance</Link></li>
+              </ul>
+            </div>
           </div>
         </div>
 

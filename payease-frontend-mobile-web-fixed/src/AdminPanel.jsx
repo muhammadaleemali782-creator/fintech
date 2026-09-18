@@ -617,12 +617,31 @@ export default function AdminPanel() {
             <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
                 <div>
-                  <h3 className="text-lg font-bold font-display">📱 App Devices & Remote Uninstall Lock</h3>
-                  <p className="text-xs text-gray-500">Jab user app download karke account banayega, to uska device yahan dikhega. Aap yahan se 1-click me Device Lock laga ya hata sakte hain.</p>
+                  <h3 className="text-lg font-bold font-display">📱 App Devices & Remote Parental Bedtime Lock</h3>
+                  <p className="text-xs text-gray-500">Jab bacha app chalayega, to uska device yahan dikhega. Aap yahan se 1-click me Bedtime Lock laga ya hata sakte hain.</p>
                 </div>
                 <button onClick={loadDevices} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition">
                   🔄 Refresh Devices
                 </button>
+              </div>
+
+              {/* PIN Card for Admin */}
+              <div className="mb-6 p-4 rounded-xl bg-blue-50/80 border border-blue-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg font-bold shadow-sm">
+                    🔑
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-blue-950">Parent / Admin Secret Unlock PIN</h4>
+                    <p className="text-xs text-blue-700">Agar aap bache ke phone par hain, to lock screen par <b>"Enter Admin Password to Unlock"</b> dabakar ye PIN ya Admin Password daalein:</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3.5 py-1.5 bg-white border border-blue-300 rounded-lg font-mono font-bold text-sm text-blue-900 shadow-sm tracking-wider">
+                    PIN: 1234
+                  </span>
+                  <span className="text-xs text-blue-500 font-semibold">(Ya Admin Password)</span>
+                </div>
               </div>
 
               {devices.length === 0 ? (

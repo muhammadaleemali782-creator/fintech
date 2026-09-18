@@ -14,6 +14,7 @@ export default function AdminPanel() {
   const [stats, setStats] = useState({});
   const [pending, setPending] = useState([]);
   const [users, setUsers] = useState([]);
+  const [devices, setDevices] = useState([]);
   const [loans, setLoans] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
@@ -98,9 +99,39 @@ export default function AdminPanel() {
     try { const res = await fetch(`${API}/loan/all`, { headers }); const d = await res.json(); setLoans(Array.isArray(d) ? d : []); } catch {}
   }, []); // eslint-disable-line
 
+  const loadDevices = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/v1/admin/devices`, { headers });
+      const d = await res.json();
+      if (d.devices) setDevices(d.devices);
+    } catch {}
+  }, []); // eslint-disable-line
+
+  const lockDevice = async (deviceId) => {
+    try {
+      const res = await fetch(`${API}/v1/admin/devices/${deviceId}/lock`, { method: "POST", headers });
+      const d = await res.json();
+      showToast(d.message || "Lock command sent to device!", "success");
+      setTimeout(loadDevices, 1000);
+    } catch {
+      showToast("Failed to lock device", "error");
+    }
+  };
+
+  const unlockDevice = async (deviceId) => {
+    try {
+      const res = await fetch(`${API}/v1/admin/devices/${deviceId}/unlock`, { method: "POST", headers });
+      const d = await res.json();
+      showToast(d.message || "Unlock command sent to device!", "success");
+      setTimeout(loadDevices, 1000);
+    } catch {
+      showToast("Failed to unlock device", "error");
+    }
+  };
+
   const loadAll = useCallback(() => {
-    loadStats(); loadPending(); loadUsers(); loadLoans(); loadSettings(); loadNotifications();
-  }, [loadStats, loadPending, loadUsers, loadLoans, loadSettings, loadNotifications]);
+    loadStats(); loadPending(); loadUsers(); loadLoans(); loadSettings(); loadNotifications(); loadDevices();
+  }, [loadStats, loadPending, loadUsers, loadLoans, loadSettings, loadNotifications, loadDevices]);
 
   useEffect(() => {
     loadAll();
@@ -241,6 +272,7 @@ export default function AdminPanel() {
     { key: "alerts", label: "Live Alerts", icon: "🔔", badge: unreadNotifs },
     { key: "loans", label: "Loans", icon: "🏦" },
     { key: "users", label: "Users", icon: "👥" },
+    { key: "devices", label: "App Lock", icon: "🔒", badge: devices.filter(d => d.adminStatus === "active").length },
     { key: "settings", label: "Settings", icon: "⚙️" },
   ];
 
@@ -576,6 +608,86 @@ export default function AdminPanel() {
                     ))}
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* APP DEVICES LOCK */}
+          {tab === "devices" && (
+            <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+                <div>
+                  <h3 className="text-lg font-bold font-display">📱 App Devices & Remote Uninstall Lock</h3>
+                  <p className="text-xs text-gray-500">Jab user app download karke account banayega, to uska device yahan dikhega. Aap yahan se 1-click me Device Lock laga ya hata sakte hain.</p>
+                </div>
+                <button onClick={loadDevices} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition">
+                  🔄 Refresh Devices
+                </button>
+              </div>
+
+              {devices.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <p className="text-3xl mb-2">📱</p>
+                  <p className="text-gray-500 text-sm font-semibold">No app devices connected yet</p>
+                  <p className="text-gray-400 text-xs mt-1">Jab koi user Android app me login ya signup karega, to uska device auto-connect hokar yahan aa jayega.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        <th className="pb-3">User</th>
+                        <th className="pb-3">Device Model</th>
+                        <th className="pb-3">Last Seen</th>
+                        <th className="pb-3">OS Lock Status</th>
+                        <th className="pb-3 text-right">Remote Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {devices.map((d) => (
+                        <tr key={d.deviceId} className="hover:bg-gray-50/50 transition">
+                          <td className="py-3.5">
+                            <p className="font-bold text-gray-900">{d.userName || "User"}</p>
+                            <p className="text-xs text-gray-400 font-mono">{d.userEmail || d.deviceId}</p>
+                          </td>
+                          <td className="py-3.5 text-xs text-gray-600 font-medium">
+                            📱 {d.deviceName || "Android Phone"}
+                          </td>
+                          <td className="py-3.5 text-xs text-gray-400">
+                            {d.lastSeenAt ? new Date(d.lastSeenAt).toLocaleTimeString() : "Recent"}
+                          </td>
+                          <td className="py-3.5">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                              d.adminStatus === "active"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-gray-100 text-gray-600 border border-gray-200"
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${d.adminStatus === "active" ? "bg-green-500" : "bg-gray-400"}`}></span>
+                              {d.adminStatus === "active" ? "🔒 LOCKED (Uninstall Blocked)" : "🔓 UNLOCKED"}
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-right">
+                            {d.adminStatus === "active" ? (
+                              <button
+                                onClick={() => unlockDevice(d.deviceId)}
+                                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-sm transition"
+                              >
+                                🔓 Unlock Device (Allow Uninstall)
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => lockDevice(d.deviceId)}
+                                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition"
+                              >
+                                🔒 Lock Device (Send OS Prompt)
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           )}

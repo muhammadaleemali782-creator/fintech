@@ -1,0 +1,15 @@
+# Educa Fintech
+
+> Smart Fintech & Micro-Lending Platform. 12% Annual Interest on Savings Account, Instant ₹199 Recharge Loans, and Education/Vehicle Financing without CIBIL barriers.
+
+## Core Products & Services
+
+- **12% Annual Interest Savings Account**: Flat 12% APY calculated daily, zero minimum balance requirement, instant 24x7 withdrawal.
+- **Micro Recharge Loans**: Instant ₹199 mobile recharge loan disbursed directly via UPI with zero CIBIL check.
+- **Bike & Two-Wheeler Loans**: Financing up to ₹1,50,000 with flexible EMI options up to 36 months.
+- **School & Tuition Fee Financing**: Dedicated educational loans for students and parents.
+- **Virtual Credit Cards**: Silver & VIP Platinum virtual cards with reward points and security controls.
+
+## Website & Access
+- Official Website: https://educaintech.vercel.app
+- Account Type: Free zero-balance account opening

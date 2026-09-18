@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
 import EvervaultCardScanner from "./components/EvervaultCardScanner";
-
 import { API } from "./config";
 
 /* ═══════════════════════════════════════════════════════════
@@ -41,126 +42,7 @@ function Counter({ to, suffix = "", prefix = "", decimals = 0 }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   NAVBAR
-═══════════════════════════════════════════════════════════ */
-function Navbar({ onLogin }) {
-  const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
-  }, []);
-
-  const navLinks = [
-    { label: "12% Savings", id: "savings" },
-    { label: "Recharge to Bike Loan", id: "loans" },
-    { label: "School Fees Loan", id: "school-loan" },
-    { label: "EMI Calculator", id: "emi-calculator" },
-    { label: "About Us", id: "about" },
-  ];
-
-  const scrollTo = (id) => {
-    setMenuOpen(false);
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  return (
-    <header
-      className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-[#FAFBFF]/90 backdrop-blur-xl border-b border-[#E8EDF5] shadow-sm"
-          : "bg-transparent border-b border-transparent"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
-        {/* LOGO */}
-        <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#1D6AE5] to-[#0DC98A] flex items-center justify-center text-white font-black text-lg shadow-md shadow-blue-500/20">
-            E
-          </div>
-          <div>
-            <span className="font-extrabold text-xl text-[#0C1B3A] tracking-tight">
-              Educa<span className="text-[#1D6AE5]">Fintech</span>
-            </span>
-            <span className="hidden sm:inline-block ml-2 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
-              🔥 12% Savings APY
-            </span>
-          </div>
-        </div>
-
-        {/* DESKTOP NAV */}
-        <nav className="hidden lg:flex items-center gap-6">
-          {navLinks.map((l) => (
-            <button
-              key={l.id}
-              onClick={() => scrollTo(l.id)}
-              className="text-xs sm:text-sm font-bold text-gray-600 hover:text-[#1D6AE5] transition py-1"
-            >
-              {l.label}
-            </button>
-          ))}
-        </nav>
-
-        {/* CTA */}
-        <div className="hidden sm:flex items-center gap-3">
-          <button
-            onClick={onLogin}
-            className="text-sm font-bold text-gray-700 hover:text-[#1D6AE5] px-3 py-2 transition"
-          >
-            Sign In
-          </button>
-          <button
-            onClick={onLogin}
-            className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold text-white bg-[#1D6AE5] hover:bg-[#1558cc] active:scale-95 transition shadow-md shadow-blue-500/25 flex items-center gap-1.5"
-          >
-            <span>🏦</span> Open 12% Account
-          </button>
-        </div>
-
-        {/* MOBILE MENU TOGGLE */}
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="lg:hidden p-2 rounded-lg bg-gray-100 text-gray-700 text-lg"
-          aria-label="Menu"
-        >
-          {menuOpen ? "✕" : "☰"}
-        </button>
-      </div>
-
-      {/* MOBILE DRAWER */}
-      {menuOpen && (
-        <div className="lg:hidden bg-white/95 backdrop-blur-xl border-b border-gray-200 px-6 py-4 space-y-3">
-          {navLinks.map((l) => (
-            <button
-              key={l.id}
-              onClick={() => scrollTo(l.id)}
-              className="block w-full text-left text-sm font-semibold text-gray-700 py-2 border-b border-gray-50"
-            >
-              {l.label}
-            </button>
-          ))}
-          <div className="pt-2 flex flex-col gap-2">
-            <button
-              onClick={onLogin}
-              className="w-full py-2.5 rounded-xl text-sm font-bold text-[#1D6AE5] border border-[#1D6AE5]"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={onLogin}
-              className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-[#1D6AE5]"
-            >
-              Open 12% Account / Apply Loan
-            </button>
-          </div>
-        </div>
-      )}
-    </header>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════
    HERO SECTION (With Evervault Quantum Card Scanner Stream)
@@ -817,39 +699,6 @@ function AboutSection({ onLogin }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FOOTER
-═══════════════════════════════════════════════════════════ */
-function Footer() {
-  return (
-    <footer className="bg-white border-t border-[#E8EDF5] py-12">
-      <div className="max-w-7xl mx-auto px-5 md:px-8">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#1D6AE5] to-[#0DC98A] flex items-center justify-center text-white font-black text-sm">
-              E
-            </div>
-            <span className="font-extrabold text-lg text-[#0C1B3A]">
-              Educa<span className="text-[#1D6AE5]">Fintech</span>
-            </span>
-          </div>
-
-          <p className="text-xs text-gray-400 text-center">
-            © 2026 Educa Fintech Pvt. Ltd. · Micro Loans, Investments & School Fee Financing · All Rights Reserved
-          </p>
-
-          <div className="flex gap-5 text-xs text-gray-500 font-medium">
-            <a href="#" className="hover:text-[#1D6AE5] transition">Privacy Policy</a>
-            <a href="#" className="hover:text-[#1D6AE5] transition">Terms of Loan</a>
-            <a href="#" className="hover:text-[#1D6AE5] transition">₹199 Policy</a>
-            <a href="#" className="hover:text-[#1D6AE5] transition">Contact Us</a>
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
    MAIN LANDING PAGE EXPORT
 ═══════════════════════════════════════════════════════════ */
 export default function LandingPage() {
@@ -858,7 +707,7 @@ export default function LandingPage() {
 
   return (
     <div className="font-sans text-[#0C1B3A] bg-[#FAFBFF] min-h-screen">
-      <Navbar onLogin={handleLogin} />
+      <Header />
       <HeroSection onLogin={handleLogin} />
       <EmiCalculatorSection onLogin={handleLogin} />
       <ServicesSection onLogin={handleLogin} />

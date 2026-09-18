@@ -19,4 +19,4 @@ User-agent: Google-Extended
 Allow: /
 
 # Sitemap Location
-Sitemap: https://educaintech.vercel.app/sitemap.xml
+Sitemap: https://educafintech.vercel.app/sitemap.xml

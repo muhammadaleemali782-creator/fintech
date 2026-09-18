@@ -4,7 +4,7 @@ import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
 import BottomNav from "./components/BottomNav";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import { API } from "./config";
 
 export default function Dashboard() {
   const token = localStorage.getItem("token");

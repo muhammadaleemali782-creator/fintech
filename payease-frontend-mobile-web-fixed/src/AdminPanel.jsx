@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import { API } from "./config";
 
 export default function AdminPanel() {
   const token = localStorage.getItem("token");

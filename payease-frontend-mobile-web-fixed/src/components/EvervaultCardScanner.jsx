@@ -1,8 +1,24 @@
-﻿import { useState, useEffect } from "react";
+import { useEffect, useRef } from "react";
 
-export default function EvervaultCardScanner({ onApply }) {
-  const [activeIndex, setActiveIndex] = useState(0);
+const CODE_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789(){}[]<>;:,._-+=!@#$%^&*|\\/\"'`~?";
 
+export default function EvervaultCardScanner() {
+  const containerRef = useRef(null);
+  const cardLineRef = useRef(null);
+  const particleCanvasRef = useRef(null);
+  const scannerCanvasRef = useRef(null);
+
+  const stateRef = useRef({
+    position: 0,
+    velocity: 25, // Gentle, calm, smooth speed (px/sec)
+    direction: -1, // Infinite continuous one-direction loop (leftward)
+    lastTime: performance.now(),
+    containerWidth: 0,
+    cardLineWidth: 0,
+    scanningActive: false,
+  });
+
+  // Card themes for Educa Fintech
   const cardDefs = [
     {
       id: "savings",
@@ -66,141 +82,378 @@ export default function EvervaultCardScanner({ onApply }) {
     },
   ];
 
-  // Auto-cycle through cards smoothly without canvas lag
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % cardDefs.length);
-    }, 4500);
-    return () => clearInterval(timer);
-  }, [cardDefs.length]);
+  // Helper to generate ASCII code block
+  const generateAscii = (w = 48, h = 18) => {
+    const lines = [];
+    const snippets = [
+      "// EDUCA_FINTECH_PROTOCOL v4.2",
+      "const SAVINGS_APY = 0.1200;",
+      "const RECHARGE_LOAN = 199.00;",
+      "const BIKE_LOAN_MAX = 150000;",
+      "verify_identity(uid, KYC_LEVEL_1);",
+      "instant_disburse_upi(user, amount);",
+      "function calculate_interest(p, t) {",
+      "  return p * Math.pow(1 + 0.12, t);",
+      "}",
+      "sha256_hash_signature(tx_token);",
+      "emit_approval_webhook(admin_channel);",
+      "play_audio_chime(FREQS.HIGH);",
+    ];
 
-  const activeCard = cardDefs[activeIndex];
+    for (let r = 0; r < h; r++) {
+      let line = snippets[r % snippets.length];
+      while (line.length < w) {
+        line += " " + CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+      }
+      lines.push(line.slice(0, w));
+    }
+    return lines.join("\n");
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     BACKGROUND PARTICLES CANVAS
+  ═══════════════════════════════════════════════════════════ */
+  useEffect(() => {
+    const canvas = particleCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let animId;
+
+    const resize = () => {
+      canvas.width = canvas.parentElement?.offsetWidth || window.innerWidth;
+      canvas.height = canvas.parentElement?.offsetHeight || 380;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const count = 90;
+    const particles = Array.from({ length: count }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.3 + 0.2,
+      vy: (Math.random() - 0.5) * 0.2,
+      r: Math.random() * 1.5 + 0.4,
+      alpha: Math.random() * 0.6 + 0.2,
+      hue: Math.random() > 0.5 ? 210 : 160,
+    }));
+
+    const render = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x > canvas.width + 10) p.x = -10;
+        if (p.x < -10) p.x = canvas.width + 10;
+        if (p.y > canvas.height + 10) p.y = -10;
+        if (p.y < -10) p.y = canvas.height + 10;
+
+        ctx.fillStyle = `hsla(${p.hue}, 80%, 70%, ${p.alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      animId = requestAnimationFrame(render);
+    };
+    render();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
+  /* ═══════════════════════════════════════════════════════════
+     VERTICAL SCANNER LASER BEAM CANVAS
+  ═══════════════════════════════════════════════════════════ */
+  useEffect(() => {
+    const canvas = scannerCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let animId;
+
+    const resize = () => {
+      canvas.width = canvas.parentElement?.offsetWidth || window.innerWidth;
+      canvas.height = canvas.parentElement?.offsetHeight || 380;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const particles = [];
+    const maxParticles = 280;
+
+    const render = () => {
+      const w = canvas.width;
+      const h = canvas.height;
+      const lightBarX = w / 2;
+      const lightBarWidth = 4;
+      const isScanning = stateRef.current.scanningActive;
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.globalCompositeOperation = "lighter";
+
+      // 1. Core bright laser beam
+      const coreGrad = ctx.createLinearGradient(lightBarX - 4, 0, lightBarX + 4, 0);
+      coreGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+      coreGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.95)");
+      coreGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+      ctx.fillStyle = coreGrad;
+      ctx.fillRect(lightBarX - lightBarWidth / 2, 0, lightBarWidth, h);
+
+      // 2. Violet / Cyan Glow beam
+      const glowGrad = ctx.createLinearGradient(lightBarX - 25, 0, lightBarX + 25, 0);
+      glowGrad.addColorStop(0, "rgba(0, 229, 255, 0)");
+      glowGrad.addColorStop(0.5, isScanning ? "rgba(139, 92, 246, 0.6)" : "rgba(0, 229, 255, 0.35)");
+      glowGrad.addColorStop(1, "rgba(0, 229, 255, 0)");
+
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(lightBarX - 20, 0, 40, h);
+
+      // 3. Spray particles emitted from laser beam
+      if (particles.length < maxParticles) {
+        const pCount = isScanning ? 4 : 2;
+        for (let i = 0; i < pCount; i++) {
+          particles.push({
+            x: lightBarX + (Math.random() - 0.5) * 4,
+            y: Math.random() * h,
+            vx: (Math.random() * 1.5 + 0.4) * (Math.random() > 0.3 ? 1 : -1),
+            vy: (Math.random() - 0.5) * 0.7,
+            alpha: 1,
+            r: Math.random() * 1.6 + 0.4,
+            color: Math.random() > 0.5 ? "rgba(0, 229, 255, " : "rgba(196, 181, 253, ",
+          });
+        }
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= isScanning ? 0.015 : 0.022;
+
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        ctx.fillStyle = `${p.color}${p.alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      animId = requestAnimationFrame(render);
+    };
+    render();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
+  /* ═══════════════════════════════════════════════════════════
+     PURE AUTOMATIC ONE-WAY INFINITE LOOP (No clicks, no dragging)
+  ═══════════════════════════════════════════════════════════ */
+  useEffect(() => {
+    const container = containerRef.current;
+    const cardLine = cardLineRef.current;
+    if (!container || !cardLine) return;
+
+    let animId;
+
+    const updateDimensions = () => {
+      stateRef.current.containerWidth = container.offsetWidth || window.innerWidth;
+      const cardCount = cardLine.children.length;
+      const firstCard = cardLine.children[0];
+      const cardWidth = firstCard ? firstCard.offsetWidth : 340;
+      const gap = 32;
+      // Total span of all cards
+      stateRef.current.cardLineWidth = (cardWidth + gap) * cardCount;
+    };
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+
+    const updateCardClipping = () => {
+      const containerRect = container.getBoundingClientRect();
+      const scannerX = containerRect.left + containerRect.width / 2;
+      let anyScanning = false;
+
+      const wrappers = cardLine.querySelectorAll(".evervault-card-wrapper");
+      wrappers.forEach((wrapper) => {
+        const rect = wrapper.getBoundingClientRect();
+        const cardLeft = rect.left;
+        const cardRight = rect.right;
+        const cardWidth = rect.width;
+
+        const normalCard = wrapper.querySelector(".card-normal");
+        const asciiCard = wrapper.querySelector(".card-ascii");
+        if (!normalCard || !asciiCard) return;
+
+        if (cardLeft < scannerX && cardRight > scannerX) {
+          anyScanning = true;
+          const progress = ((scannerX - cardLeft) / cardWidth) * 100;
+          normalCard.style.clipPath = `inset(0 0 0 ${progress}%)`;
+          asciiCard.style.clipPath = `inset(0 calc(100% - ${progress}%) 0 0)`;
+        } else if (cardRight <= scannerX) {
+          normalCard.style.clipPath = "inset(0 0 0 100%)";
+          asciiCard.style.clipPath = "inset(0 0% 0 0)";
+        } else {
+          normalCard.style.clipPath = "inset(0 0 0 0%)";
+          asciiCard.style.clipPath = "inset(0 100% 0 0)";
+        }
+      });
+
+      stateRef.current.scanningActive = anyScanning;
+    };
+
+    // Continuous loop with constant smooth velocity
+    const animateLoop = () => {
+      const s = stateRef.current;
+      const now = performance.now();
+      const dt = (now - s.lastTime) / 1000;
+      s.lastTime = now;
+
+      // Move continuously in one direction (leftward)
+      s.position += s.velocity * s.direction * dt;
+
+      // Seamless infinite loop wrap
+      // Half-way loop wrap so cards are never interrupted
+      const halfWidth = s.cardLineWidth / 2;
+      if (s.position < -halfWidth) {
+        s.position += halfWidth;
+      }
+
+      cardLine.style.transform = `translateX(${s.position}px)`;
+      updateCardClipping();
+
+      animId = requestAnimationFrame(animateLoop);
+    };
+    animId = requestAnimationFrame(animateLoop);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", updateDimensions);
+    };
+  }, []);
+
+  // Duplicate cards twice (25 cards total) so infinite wrap is completely seamless
+  const repeatedCards = Array.from({ length: 25 }, (_, i) => ({
+    ...cardDefs[i % cardDefs.length],
+    idx: i,
+  }));
 
   return (
-    <div className="w-full bg-[#0A101D] py-8 sm:py-12 border-y border-white/5 relative overflow-hidden">
-      {/* Background Ambient Glow */}
-      <div
-        className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-1000"
-        style={{ backgroundColor: activeCard.accent }}
+    <div
+      ref={containerRef}
+      className="relative w-full overflow-hidden bg-[#0A0D14] py-8 my-5 border-y border-white/10 shadow-2xl pointer-events-none select-none"
+      style={{ minHeight: "360px" }}
+    >
+      {/* 1. BACKGROUND STARS CANVAS */}
+      <canvas
+        ref={particleCanvasRef}
+        className="absolute inset-0 w-full h-full pointer-events-none z-0 opacity-70"
       />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        {/* Header Badges */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-mono tracking-widest text-gray-300 uppercase">
-              Educa Verified Digital Cards
-            </span>
-          </div>
+      {/* 2. VERTICAL LASER SCANNER CANVAS */}
+      <canvas
+        ref={scannerCanvasRef}
+        className="absolute inset-0 w-full h-full pointer-events-none z-20"
+      />
 
-          <div className="flex items-center gap-1.5">
-            {cardDefs.map((c, idx) => (
-              <button
-                key={c.id}
-                onClick={() => setActiveIndex(idx)}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  idx === activeIndex ? "w-8 bg-[#38BDF8]" : "w-2 bg-white/20 hover:bg-white/40"
-                }`}
-                aria-label={`Go to card ${idx + 1}`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Featured Card + Quick Details Grid */}
-        <div className="grid md:grid-cols-12 gap-6 items-center">
-          {/* Card Visual with 3D Depth */}
-          <div className="md:col-span-6 lg:col-span-5 flex justify-center">
+      {/* 3. NON-INTERACTIVE CONTINUOUS CARD STREAM */}
+      <div className="relative w-full h-[280px] sm:h-[310px] flex items-center z-10 overflow-visible pointer-events-none">
+        <div
+          ref={cardLineRef}
+          className="flex items-center gap-6 sm:gap-8 whitespace-nowrap will-change-transform px-4 pointer-events-none"
+          style={{ transform: "translateX(0px)" }}
+        >
+          {repeatedCards.map((c, i) => (
             <div
-              className="w-full max-w-sm h-56 sm:h-60 rounded-3xl p-6 text-white shadow-2xl relative flex flex-col justify-between transition-all duration-500 transform hover:scale-[1.02]"
+              key={i}
+              className="evervault-card-wrapper relative shrink-0 w-[260px] h-[165px] sm:w-[320px] sm:h-[200px] md:w-[360px] md:h-[225px] rounded-2xl overflow-hidden pointer-events-none"
               style={{
-                background: activeCard.bg,
-                border: `1px solid ${activeCard.accent}44`,
-                boxShadow: `0 20px 40px -15px ${activeCard.accent}33`,
+                boxShadow: "0 15px 35px rgba(0, 0, 0, 0.8)",
               }}
             >
-              {/* Card Top: Logo & Type */}
-              <div className="flex justify-between items-start">
-                <div>
-                  <span
-                    className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full tracking-wider"
-                    style={{ backgroundColor: `${activeCard.accent}22`, color: activeCard.accent }}
-                  >
-                    {activeCard.badge}
-                  </span>
-                  <p className="text-xs font-mono text-gray-300 mt-2 tracking-wider">
-                    {activeCard.type}
-                  </p>
-                </div>
-                <span className="text-3xl">{activeCard.icon}</span>
-              </div>
-
-              {/* Card Middle: Number */}
-              <div>
-                <p className="font-mono text-lg tracking-widest text-white/90 font-semibold">
-                  {activeCard.number}
-                </p>
-              </div>
-
-              {/* Card Bottom: Holder Name & Valid */}
-              <div className="flex justify-between items-end text-xs">
-                <div>
-                  <p className="text-[9px] uppercase tracking-wider text-gray-400">Cardholder</p>
-                  <p className="font-bold text-white tracking-wide text-sm">{activeCard.name}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[9px] uppercase tracking-wider text-gray-400">Status</p>
-                  <p className="font-bold tracking-wide" style={{ color: activeCard.accent }}>
-                    {activeCard.valid}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Card Info & Quick CTA */}
-          <div className="md:col-span-6 lg:col-span-7 space-y-4">
-            <div>
-              <span className="text-xs font-mono uppercase tracking-widest text-[#38BDF8]">
-                Featured Product
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
-                {activeCard.name}
-              </h2>
-              <p className="text-sm text-gray-400 mt-2 leading-relaxed">
-                {activeCard.tagline}. Open your account in 2 minutes with instant verification and guaranteed returns.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-2">
-              {cardDefs.map((c, idx) => (
-                <button
-                  key={c.id}
-                  onClick={() => setActiveIndex(idx)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition ${
-                    idx === activeIndex
-                      ? "bg-white text-gray-900 font-bold shadow"
-                      : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  {c.icon} {c.name.split(" ")[0]}
-                </button>
-              ))}
-            </div>
-
-            <div className="pt-2 flex items-center gap-3">
-              <button
-                onClick={onApply}
-                className="px-6 py-3 bg-[#1D6AE5] hover:bg-[#1557bf] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 transition active:scale-95"
+              {/* (A) NORMAL CARD DESIGN */}
+              <div
+                className="card-normal absolute inset-0 rounded-2xl p-4 sm:p-5 text-white flex flex-col justify-between overflow-hidden border border-white/15 pointer-events-none"
+                style={{
+                  background: c.bg,
+                }}
               >
-                Apply / Open Account →
-              </button>
-              <span className="text-xs text-gray-400 font-mono">
-                100% Paperless • Zero CIBIL
-              </span>
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl sm:text-2xl">{c.icon}</span>
+                    <div>
+                      <div className="text-[8px] sm:text-[9px] tracking-wider uppercase font-bold text-white/60">
+                        {c.type}
+                      </div>
+                      <div className="text-xs sm:text-sm font-extrabold text-white">
+                        {c.name}
+                      </div>
+                    </div>
+                  </div>
+                  <span
+                    className="text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: `${c.accent}25`,
+                      color: c.accent,
+                      border: `1px solid ${c.accent}60`,
+                    }}
+                  >
+                    {c.badge}
+                  </span>
+                </div>
+
+                {/* Card Number & Tagline */}
+                <div className="my-auto">
+                  <div
+                    className="font-mono text-sm sm:text-base tracking-widest font-bold"
+                    style={{ color: c.accent }}
+                  >
+                    {c.number}
+                  </div>
+                  <p className="text-[9px] sm:text-xs text-gray-300 mt-1 line-clamp-1">
+                    {c.tagline}
+                  </p>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between text-[8px] sm:text-[10px] text-white/70 border-t border-white/10 pt-2">
+                  <div>
+                    <span className="block text-[7px] uppercase tracking-wider text-white/40">
+                      Product
+                    </span>
+                    <span className="font-bold text-white">EDUCA FINTECH</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block text-[7px] uppercase tracking-wider text-white/40">
+                      Approval
+                    </span>
+                    <span className="font-bold text-cyan-300">{c.valid}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* (B) ASCII MATRIX CODE (Revealed by Center Scanner) */}
+              <div
+                className="card-ascii absolute inset-0 rounded-2xl bg-black/95 p-3 text-cyan-400 font-mono text-[8px] sm:text-[9px] leading-[11px] overflow-hidden select-none border border-cyan-500/40 pointer-events-none"
+                style={{
+                  textShadow: "0 0 5px rgba(0, 229, 255, 0.6)",
+                }}
+              >
+                <div className="text-[7px] text-purple-300 font-bold mb-1 opacity-70">
+                  // DECRYPTED SCAN: {c.type}
+                </div>
+                <pre className="font-mono whitespace-pre-wrap opacity-90 leading-tight">
+                  {generateAscii(38, 14)}
+                </pre>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

@@ -1,0 +1,7 @@
+PORT=5000
+NODE_ENV=production
+MONGO_URI=mongodb+srv://drzeba4_db_user:4T9z0U0fYzpbCRy6@cluster0.mlyharv.mongodb.net/paymentdb?retryWrites=true&w=majority
+JWT_SECRET=educa_fintech_super_secret_secure_key_2026_9840_xyz
+ADMIN_EMAIL=admin@educa.com
+ADMIN_PASSWORD=Admin@12345
+CLIENT_URL=*

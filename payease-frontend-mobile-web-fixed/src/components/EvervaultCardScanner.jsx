@@ -346,7 +346,7 @@ export default function EvervaultCardScanner() {
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden bg-[#0A0D14] py-8 my-5 rounded-3xl border border-white/10 shadow-2xl pointer-events-none select-none"
+      className="relative w-full overflow-hidden bg-[#0A0D14] py-8 my-5 border-y border-white/10 shadow-2xl pointer-events-none select-none"
       style={{ minHeight: "360px" }}
     >
       {/* 1. BACKGROUND STARS CANVAS */}

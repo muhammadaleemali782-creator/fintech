@@ -179,19 +179,16 @@ function HeroSection({ onLogin }) {
         {/* TOP TAGLINE & CALLOUT */}
         <div className={`text-center max-w-4xl mx-auto transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
           
-          {/* SLEEK LIVE STATUS BADGE (NO AWKWARD WRAPPING) */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50/90 border border-blue-200/80 shadow-xs backdrop-blur-md mb-4 text-xs font-semibold text-blue-900 select-none">
+          {/* SLEEK LIVE STATUS BADGE */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50/90 border border-blue-200/80 shadow-xs backdrop-blur-md mb-4 text-xs font-semibold text-blue-900 select-none">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-extrabold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded text-[11px] tracking-wide uppercase">
-              12% APY
+            <span className="font-extrabold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded text-[11px] tracking-wide uppercase">
+              12% Saal Ka
             </span>
-            <span className="text-gray-800 font-bold">World's #1 Savings</span>
-            <span className="text-gray-300">·</span>
-            <span className="text-blue-600 font-semibold hidden xs:inline">Loans from ₹199</span>
-            <span className="text-blue-600 font-semibold xs:hidden">₹199 Loans</span>
+            <span className="text-gray-800 font-bold">Saving Account Par Paye</span>
           </div>
 
           {/* HEADLINE: CRAFTED OPTICAL HIERARCHY */}
@@ -204,21 +201,20 @@ function HeroSection({ onLogin }) {
 
           {/* REFINED SUBCONTENT */}
           <p className="text-xs sm:text-base text-gray-600 leading-relaxed max-w-xl mx-auto mb-5 px-2">
-            Jise koi loan nahi deta, use <strong className="text-gray-950 font-bold">Educa Fintech</strong> deta hai — bina CIBIL jhanjhat ke. Sath me pao duniya ka sabse zyada{" "}
+            Jise koi loan nahi deta, use <strong className="text-gray-950 font-bold">Educa Fintech</strong> deta hai — bina CIBIL jhanjhat ke. Sath me pao{" "}
             <strong className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/70 inline-block">
-              12% Flat APY
+              12% saal ka interest
             </strong>{" "}
             saving account par!
           </p>
 
           {/* SINGLE HIGH-CONVERTING FINTECH CTA */}
-          <div className="max-w-sm sm:max-w-md mx-auto mb-6 px-2">
+          <div className="max-w-xs sm:max-w-sm mx-auto mb-6 px-2">
             <button
               onClick={onLogin}
-              className="w-full py-3.5 px-4 sm:px-6 rounded-2xl font-black text-xs sm:text-base text-white bg-gradient-to-r from-[#1D6AE5] via-[#1558cc] to-[#0DC98A] hover:opacity-95 active:scale-[0.98] transition-all duration-150 shadow-xl shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer tracking-tight whitespace-nowrap"
+              className="w-full py-3.5 px-6 rounded-2xl font-black text-sm sm:text-base text-white bg-gradient-to-r from-[#1D6AE5] via-[#1558cc] to-[#0DC98A] hover:opacity-95 active:scale-[0.98] transition-all duration-150 shadow-xl shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer tracking-tight"
             >
-              <span>💰</span>
-              <span>12% Interest Roz Pao — Free Khata Kholein</span>
+              <span>Open Free Account</span>
               <span>→</span>
             </button>
             
@@ -237,16 +233,16 @@ function HeroSection({ onLogin }) {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* ══════════════════════════════════════════════════════
-            EVERVAULT QUANTUM CARD SCANNER (SEAMLESS INTEGRATION)
-        ══════════════════════════════════════════════════════ */}
-        <div className={`relative transition-all duration-800 ${mounted ? "opacity-100 scale-100" : "opacity-0 scale-98"}`}>
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/15 via-emerald-500/15 to-teal-500/15 rounded-3xl blur-xl opacity-75 pointer-events-none" />
-          <div className="relative">
-            <EvervaultCardScanner onApply={onLogin} />
-          </div>
-        </div>
+      {/* ══════════════════════════════════════════════════════
+          WALL-TO-WALL EVERVAULT QUANTUM CARD SCANNER
+      ══════════════════════════════════════════════════════ */}
+      <div className={`w-full relative transition-all duration-800 ${mounted ? "opacity-100 scale-100" : "opacity-0 scale-98"}`}>
+        <EvervaultCardScanner onApply={onLogin} />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 relative">
 
         {/* BOTTOM QUICK FORM + HIGHLIGHT CARDS */}
         <div className="grid lg:grid-cols-12 gap-8 items-center mt-10">

@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Educa Fintech</string>
+    <string name="device_admin_label">Educa Child Protection</string>
+    <string name="device_admin_description">Protects the Educa Fintech app from unauthorized removal on child devices.</string>
+    <string name="admin_warning_msg">Parental authorization is required to deactivate protection or uninstall Educa Fintech.</string>
+</resources>

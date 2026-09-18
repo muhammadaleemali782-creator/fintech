@@ -312,4 +312,100 @@ router.get('/devices/:deviceId/alerts', requireParentAuth, async (req, res) => {
   }
 });
 
+// ==========================================
+// 6. AUTO-REGISTRATION & ADMIN DEVICE CONTROL
+// ==========================================
+
+// App auto-registers logged in user device
+router.post('/devices/register-login', async (req, res) => {
+  try {
+    const { userId, userEmail, userName, deviceModel } = req.body;
+    if (!userEmail) return res.status(400).json({ message: 'userEmail required' });
+
+    let device = await Device.findOne({ userEmail });
+    if (!device) {
+      const deviceId = 'dev_' + crypto.randomBytes(8).toString('hex');
+      const deviceToken = crypto.randomBytes(32).toString('hex');
+      device = await Device.create({
+        deviceId,
+        deviceToken,
+        userId,
+        userEmail,
+        userName: userName || userEmail.split('@')[0],
+        deviceName: deviceModel || 'Android Phone',
+        isPaired: true,
+        adminStatus: 'inactive',
+        lastSeenAt: new Date()
+      });
+    } else {
+      if (userId) device.userId = userId;
+      if (userName) device.userName = userName;
+      if (deviceModel) device.deviceName = deviceModel;
+      device.lastSeenAt = new Date();
+      if (!device.deviceToken) {
+        device.deviceToken = crypto.randomBytes(32).toString('hex');
+      }
+      await device.save();
+    }
+
+    res.json({
+      success: true,
+      deviceId: device.deviceId,
+      deviceToken: device.deviceToken,
+      adminStatus: device.adminStatus
+    });
+  } catch (err) {
+    console.error('Device register error:', err);
+    res.status(500).json({ message: 'Failed to register device' });
+  }
+});
+
+// Admin fetches all devices
+router.get('/admin/devices', async (req, res) => {
+  try {
+    const devices = await Device.find().sort({ lastSeenAt: -1 }).limit(100);
+    res.json({ success: true, devices });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch devices' });
+  }
+});
+
+// Admin locks device (sends enable_protection)
+router.post('/admin/devices/:deviceId/lock', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const device = await Device.findOne({ deviceId });
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+
+    await DeviceCommand.create({
+      deviceId,
+      command: 'enable_protection',
+      status: 'pending'
+    });
+
+    res.json({ success: true, message: 'Lock command queued for device!' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to send lock command' });
+  }
+});
+
+// Admin unlocks device (sends disable_protection)
+router.post('/admin/devices/:deviceId/unlock', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const device = await Device.findOne({ deviceId });
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+
+    await DeviceCommand.create({
+      deviceId,
+      command: 'disable_protection',
+      status: 'pending'
+    });
+
+    res.json({ success: true, message: 'Unlock command queued for device!' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to send unlock command' });
+  }
+});
+
 module.exports = router;

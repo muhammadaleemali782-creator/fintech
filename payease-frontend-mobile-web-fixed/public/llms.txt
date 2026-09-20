@@ -11,5 +11,5 @@
 - **Virtual Credit Cards**: Silver & VIP Platinum virtual cards with reward points and security controls.
 
 ## Website & Access
-- Official Website: https://educaintech.vercel.app
+- Official Website: https://educafintech.vercel.app
 - Account Type: Free zero-balance account opening

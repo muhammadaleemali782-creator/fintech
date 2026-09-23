@@ -110,7 +110,7 @@ function HeroSection({ onLogin }) {
                 onClick={() => document.getElementById("emi-calculator")?.scrollIntoView({ behavior: "smooth" })}
                 className="text-[#1D6AE5] font-bold hover:underline cursor-pointer flex items-center gap-1"
               >
-                <span>📊</span> EMI Calc
+                <span>📊</span> Installments Calc
               </button>
             </div>
           </div>
@@ -169,7 +169,7 @@ function HeroSection({ onLogin }) {
                 <span className="text-3xl">🏍️</span>
                 <div>
                   <h4 className="font-bold text-sm text-[#0C1B3A]">Bike & 2-Wheeler Loan</h4>
-                  <p className="text-xs text-gray-500">₹20,000 se ₹1,50,000 tak aasan EMI</p>
+                  <p className="text-xs text-gray-500">₹20,000 se ₹1,50,000 tak aasan Easy Installments</p>
                 </div>
               </div>
             </div>
@@ -373,10 +373,10 @@ function EmiCalculatorSection({ onLogin }) {
             📊 Smart Planning
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-[#0C1B3A] tracking-tight mt-3 mb-3">
-            Educa EMI Calculator
+            Educa Easy Installments Calculator
           </h2>
           <p className="text-sm sm:text-base text-gray-600">
-            Aapki aamdani ke hisaab se sabse aasan EMI chunein. Har mahine kitna dena hoga, yahan check karein.
+            Aapki aamdani ke hisaab se sabse aasan Easy Installments chunein. Har kist kitni hogi, yahan check karein.
           </p>
         </div>
 
@@ -458,7 +458,7 @@ function EmiCalculatorSection({ onLogin }) {
             {/* SUMMARY CARD */}
             <div className="md:col-span-5 bg-gradient-to-br from-[#1D6AE5] to-[#0DC98A] rounded-2xl p-6 text-white text-center shadow-lg shadow-blue-500/20">
               <span className="text-xs uppercase tracking-widest text-white/80 font-bold">
-                Monthly EMI Amount
+                Easy Installment Amount
               </span>
               <div className="text-3xl sm:text-4xl font-black mt-2 mb-4 tracking-tight">
                 ₹{emi.toLocaleString("en-IN")}
@@ -523,7 +523,7 @@ function ServicesSection({ onLogin }) {
       badge: "UP TO ₹1,50,000",
       badgeColor: "bg-purple-100 text-purple-800 border border-purple-200",
       title: "Bike & Two-Wheeler Loans",
-      desc: "Apni manpasand motorcycle ya scooter khareedein. Minimal documentation aur low CIBIL par bhi aasan EMI par bike loan sanctioned.",
+      desc: "Apni manpasand motorcycle ya scooter khareedein. Minimal documentation aur low CIBIL par bhi aasan Easy Installments par bike loan sanctioned.",
       points: [
         "Loan amount from ₹20,000 to ₹1,50,000",
         "Low down payment & flexible 36-month tenure",
@@ -553,7 +553,7 @@ function ServicesSection({ onLogin }) {
       badge: "SCHOOL & COLLEGE",
       badgeColor: "bg-emerald-100 text-emerald-800 border border-emerald-200",
       title: "Bachhon Ki School Fees Loan",
-      desc: "Bachhon ki padhai rukni nahi chahiye! Direct school & college admission ya quarterly fees hum pay karte hain aur parents aasan monthly EMIs me chukate hain.",
+      desc: "Bachhon ki padhai rukni nahi chahiye! Direct school & college admission ya quarterly fees hum pay karte hain aur parents aasan Easy Installments me chukate hain.",
       points: [
         "Direct school / institute fee disbursement",
         "Zero advance fee requirement",
@@ -670,7 +670,7 @@ function AboutSection({ onLogin }) {
               {[
                 { label: "₹199 Recharge Loan Available", desc: "Chhote se chhote mobile recharge ke liye bhi instant loan" },
                 { label: "Educa Mail Linked", desc: "Auto-synced mail account for statements & reset links" },
-                { label: "Flexible Tenure", desc: "3 mahine se 36 mahine tak ki custom EMI options" },
+                { label: "Flexible Tenure", desc: "Aasan 10-din aur monthly Easy Installment options" },
                 { label: "24x7 Real-time Alerts", desc: "Aapke query par turant admin desk ko intimation" },
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-3.5 p-3 rounded-xl bg-gray-50/70">

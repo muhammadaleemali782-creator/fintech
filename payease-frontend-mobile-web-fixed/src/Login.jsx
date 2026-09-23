@@ -30,7 +30,12 @@ export default function Login() {
       const res = await fetch(`${API}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...loginData, rememberMe }),
+        body: JSON.stringify({
+          identifier: loginData.email.trim(),
+          email: loginData.email.trim(),
+          password: loginData.password,
+          rememberMe
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Invalid credentials");
@@ -181,13 +186,13 @@ export default function Login() {
           {tab === "login" && (
             <form onSubmit={handleStandardLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Email / Phone</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Mobile Number / Email</label>
                 <input
-                  type="email"
+                  type="text"
                   required
                   value={loginData.email}
                   onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                  placeholder="name@email.com"
+                  placeholder="9876543210 ya name@email.com"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6AE5] focus:border-transparent outline-none transition text-sm"
                 />
               </div>

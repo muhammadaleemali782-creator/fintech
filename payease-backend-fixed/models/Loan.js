@@ -2,26 +2,54 @@ const mongoose = require('mongoose');
 
 const loanSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  accountNumber: { type: String, unique: true, sparse: true }, // e.g. EFSPL0001
+  loanType: { type: String, enum: ['personal', 'student', 'micro_business'], default: 'personal' },
   amount: { type: Number, required: true },
-  interestRate: { type: Number, required: true },
-  tenure: { type: Number, required: true }, // months
-  emiAmount: { type: Number, required: true },
+  interestRate: { type: Number, default: 1.34 }, // 1.34% per installment
+  interestRatePerInstallment: { type: Number, default: 1.34 },
+  cycleDays: { type: Number, default: 10 },
+  installmentsCount: { type: Number, required: true }, // min 12, max 30
+  tenure: { type: Number }, // fallback tenure in months or installments
+  installmentAmount: { type: Number, required: true },
+  emiAmount: { type: Number }, // legacy alias for installmentAmount
+  processingFee: { type: Number, default: 0 }, // 5%
+  upiCharges: { type: Number, default: 0 }, // 1%
+  advanceDeduction: { type: Number, default: 0 }, // advance installment deducted upfront
+  disbursalAmount: { type: Number, required: true }, // Net payout
   totalPayable: { type: Number, required: true },
   paidAmount: { type: Number, default: 0 },
   remainingAmount: { type: Number },
+  documents: {
+    aadharNumber: String,
+    panNumber: String,
+    bankAccountNumber: String,
+    bankIfsc: String,
+    upiQrUrl: String
+  },
   status: { 
     type: String, 
     enum: ['pending', 'approved', 'rejected', 'active', 'closed'], 
     default: 'pending' 
   },
-  emiSchedule: [{
+  installmentSchedule: [{
+    installmentNo: Number,
     month: Number,
     dueDate: Date,
     amount: Number,
     status: { type: String, enum: ['pending', 'paid', 'overdue'], default: 'pending' },
     paidOn: Date
   }],
-  purpose: String,
+  emiSchedule: [{
+    installmentNo: Number,
+    month: Number,
+    dueDate: Date,
+    amount: Number,
+    status: { type: String, enum: ['pending', 'paid', 'overdue'], default: 'pending' },
+    paidOn: Date
+  }],
+  purpose: { type: String, default: 'Personal Loan' },
+  referralCommissionPaid: { type: Boolean, default: false },
+  referralCommissionAmount: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 

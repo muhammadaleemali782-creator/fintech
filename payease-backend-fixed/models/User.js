@@ -3,9 +3,12 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
-  phone: { type: String, required: true },
+  phone: { type: String, required: true, unique: true, sparse: true },
   password: { type: String, required: true },
   balance: { type: Number, default: 0 },
+  profitBalance: { type: Number, default: 0 }, // Capitalised profits
+  duesBalance: { type: Number, default: 0 }, // Total pending loan installments & card dues
+  loanLimit: { type: Number, default: 10000 }, // Doubles on completion (10k -> 20k -> 40k -> 50k max)
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   upiId: { type: String },
   bankAccount: {

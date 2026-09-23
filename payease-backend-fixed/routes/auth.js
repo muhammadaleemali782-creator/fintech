@@ -50,8 +50,13 @@ router.post('/register', registerRules, async (req, res) => {
 
     const { name, email, phone, password, referralCode } = req.body;
 
-    const exists = await User.findOne({ email });
-    if (exists) return res.status(400).json({ message: 'Email already registered' });
+    const exists = await User.findOne({
+      $or: [{ email: email.toLowerCase() }, { phone: phone.trim() }]
+    });
+    if (exists) {
+      const msg = exists.email.toLowerCase() === email.toLowerCase() ? 'Email already registered' : 'Mobile number already registered';
+      return res.status(400).json({ message: msg });
+    }
 
     const hashed = await bcrypt.hash(password, 12);
 
@@ -68,9 +73,10 @@ router.post('/register', registerRules, async (req, res) => {
 
     const user = await User.create({
       name,
-      email,
-      phone,
+      email: email.toLowerCase(),
+      phone: phone.trim(),
       password: hashed,
+      loanLimit: 10000,
       referredBy
     });
 
@@ -97,9 +103,13 @@ router.post('/register', registerRules, async (req, res) => {
       user: {
         id: user._id,
         name,
-        email,
+        email: user.email,
+        phone: user.phone,
         role: user.role,
         balance: 0,
+        profitBalance: 0,
+        duesBalance: 0,
+        loanLimit: user.loanLimit || 10000,
         referralCode: user.referralCode
       }
     });
@@ -109,14 +119,23 @@ router.post('/register', registerRules, async (req, res) => {
   }
 });
 
-// Regular Login
-router.post('/login', loginRules, async (req, res) => {
+// Regular Login (Supports Email OR Mobile Number)
+router.post('/login', async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ message: errors.array()[0].msg });
+    const rawId = (req.body.identifier || req.body.email || req.body.phone || '').trim();
+    const { password, rememberMe } = req.body;
 
-    const { email, password, rememberMe } = req.body;
-    const user = await User.findOne({ email });
+    if (!rawId || !password) {
+      return res.status(400).json({ message: 'Email/Mobile number and password required' });
+    }
+
+    const isEmail = rawId.includes('@');
+    const query = isEmail ? { email: rawId.toLowerCase() } : { phone: rawId };
+    let user = await User.findOne(query);
+    if (!user && !isEmail) {
+      // Fallback: check email in case user didn't enter @
+      user = await User.findOne({ email: rawId.toLowerCase() });
+    }
 
     if (!user || !(await bcrypt.compare(password, user.password)))
       return res.status(400).json({ message: 'Invalid credentials' });
@@ -132,9 +151,13 @@ router.post('/login', loginRules, async (req, res) => {
       user: {
         id: user._id,
         name: user.name,
-        email,
+        email: user.email,
+        phone: user.phone,
         role: user.role,
         balance: user.balance,
+        profitBalance: user.profitBalance || 0,
+        duesBalance: user.duesBalance || 0,
+        loanLimit: user.loanLimit || 10000,
         referralCode: user.referralCode
       }
     });

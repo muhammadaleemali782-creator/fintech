@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const { protect } = require('../middleware/auth');
+const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
 
 // Helper to evaluate and credit daily 1% monthly yield on lowest 24h primary balance
@@ -307,6 +308,62 @@ router.post('/yield/calculate', protect, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: 'Failed to calculate yield' });
+  }
+});
+
+// Submit KYC Verification with Aadhaar, PAN, Google Drive Link & Document
+router.post('/kyc/submit', protect, async (req, res) => {
+  try {
+    const { aadharNumber, panNumber, googleDriveLink, docUrl } = req.body;
+    if (!aadharNumber && !googleDriveLink && !docUrl) {
+      return res.status(400).json({ message: 'Aadhaar Number, Document ya Google Drive Link zaroori hai.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.kycStatus = 'pending';
+    if (aadharNumber) user.aadharNumber = aadharNumber;
+    user.kycDocuments = {
+      aadharNumber: aadharNumber || user.aadharNumber || '',
+      panNumber: panNumber ? panNumber.toUpperCase() : '',
+      googleDriveLink: googleDriveLink || '',
+      docUrl: docUrl || '',
+      submittedAt: new Date()
+    };
+
+    await user.save();
+
+    sendNotification({
+      type: 'kyc_submitted',
+      title: 'New KYC Document Submission 📄',
+      message: `${user.name} (${user.email || user.phone}) ne KYC documents submit kiye hain.`,
+      data: { userId: user._id, name: user.name, googleDriveLink }
+    });
+
+    res.json({
+      message: 'KYC documents successfully submit ho gaye hain! Admin team jald verify karegi.',
+      kycStatus: user.kycStatus,
+      kycDocuments: user.kycDocuments
+    });
+  } catch (err) {
+    console.error('KYC submit error:', err);
+    res.status(500).json({ message: 'KYC submit karne me samasya aayi.' });
+  }
+});
+
+// Get user's KYC status
+router.get('/kyc', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('kycStatus kycDocuments kycVerifiedAt aadharNumber');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({
+      kycStatus: user.kycStatus || 'none',
+      kycDocuments: user.kycDocuments || {},
+      kycVerifiedAt: user.kycVerifiedAt
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch KYC status' });
   }
 });
 

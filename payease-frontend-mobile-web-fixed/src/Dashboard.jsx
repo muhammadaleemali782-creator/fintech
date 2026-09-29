@@ -321,6 +321,17 @@ export default function Dashboard() {
   const [resetError, setResetError] = useState("");
   const [resetSubmitting, setResetSubmitting] = useState(false);
 
+  // KYC Form State (Aadhaar, PAN, Google Drive Link & Document Upload)
+  const [kycForm, setKycForm] = useState({
+    aadharNumber: "",
+    panNumber: "",
+    googleDriveLink: "",
+    docName: "",
+    docUrl: ""
+  });
+  const [kycSubmitting, setKycSubmitting] = useState(false);
+  const [kycError, setKycError] = useState("");
+
   const showToast = (text, type = "success") => setToast({ text, type });
   const closeModal = () => {
     if (qrScannerRef.current) {
@@ -336,6 +347,7 @@ export default function Dashboard() {
     setCameraError("");
     setPinError("");
     setResetError("");
+    setKycError("");
     setModal(null);
     setAccountModal(null);
   };
@@ -652,21 +664,30 @@ export default function Dashboard() {
   };
 
   const parseScannedQr = (text) => {
-    if (!text) return "";
+    if (!text) return { recipient: "", name: "" };
     let clean = text.trim();
+    let recipient = "";
+    let name = "";
+
     if (clean.includes("to=")) {
-      const match = clean.match(/to=([^&]+)/);
-      if (match && match[1]) return decodeURIComponent(match[1]);
+      const matchTo = clean.match(/to=([^&]+)/);
+      if (matchTo && matchTo[1]) recipient = decodeURIComponent(matchTo[1]);
+      const matchName = clean.match(/name=([^&]+)/);
+      if (matchName && matchName[1]) name = decodeURIComponent(matchName[1]);
+    } else if (clean.startsWith("upi://pay")) {
+      const matchPa = clean.match(/pa=([^&]+)/);
+      if (matchPa && matchPa[1]) recipient = decodeURIComponent(matchPa[1]);
+      const matchPn = clean.match(/pn=([^&]+)/);
+      if (matchPn && matchPn[1]) name = decodeURIComponent(matchPn[1]);
+    } else {
+      recipient = clean.replace(/^educa:\/\/pay\?to=/i, "");
     }
-    if (clean.startsWith("upi://pay")) {
-      const match = clean.match(/pa=([^&]+)/);
-      if (match && match[1]) return decodeURIComponent(match[1]);
-    }
-    return clean.replace(/^educa:\/\/pay\?to=/i, "");
+
+    return { recipient, name };
   };
 
   const handleScanSuccess = async (decodedText) => {
-    const recipient = parseScannedQr(decodedText);
+    const { recipient, name } = parseScannedQr(decodedText);
     if (qrScannerRef.current) {
       try {
         if (qrScannerRef.current.isScanning) {
@@ -678,8 +699,11 @@ export default function Dashboard() {
     }
     setCameraActive(false);
     setSendForm(prev => ({ ...prev, recipient }));
+    if (name) {
+      setRecipientInfo({ name, uniqueId: recipient });
+    }
     setModal("send_money");
-    showToast(`QR Scanned: ${recipient}`, "success");
+    showToast(name ? `QR Scanned: ${name}` : `QR Scanned: ${recipient}`, "success");
   };
 
   const handleGalleryQr = async (e) => {
@@ -958,6 +982,97 @@ export default function Dashboard() {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Client-side image compression for KYC (zero server bloat)
+  const handleKycFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      showToast("File size 15MB se kam honi chahiye", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 1200;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL("image/jpeg", 0.75);
+        setKycForm(prev => ({ ...prev, docName: file.name, docUrl: compressed }));
+      };
+      img.onerror = () => {
+        setKycForm(prev => ({ ...prev, docName: file.name, docUrl: event.target.result }));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Submit KYC (Aadhaar, PAN, Google Drive link, and document)
+  const submitKyc = async () => {
+    if (!kycForm.aadharNumber && !kycForm.googleDriveLink && !kycForm.docUrl) {
+      setKycError("Kripya Aadhaar Number, Document ya Google Drive link enter karein.");
+      return;
+    }
+    if (kycForm.aadharNumber) {
+      const clean = kycForm.aadharNumber.replace(/\s+/g, "");
+      if (!/^\d{12}$/.test(clean)) {
+        setKycError("Kripya 12-digit valid Aadhaar number darj karein.");
+        return;
+      }
+    }
+    setKycSubmitting(true);
+    setKycError("");
+    try {
+      const res = await fetch(`${API}/user/kyc/submit`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          aadharNumber: kycForm.aadharNumber.replace(/\s+/g, ""),
+          panNumber: kycForm.panNumber.trim().toUpperCase(),
+          googleDriveLink: kycForm.googleDriveLink.trim(),
+          docUrl: kycForm.docUrl
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || "KYC documents successfully submitted!", "success");
+        setUserProfile(prev => ({
+          ...prev,
+          kycStatus: "pending",
+          aadharNumber: kycForm.aadharNumber.replace(/\s+/g, ""),
+          kycDocuments: data.kycDocuments || {
+            aadharNumber: kycForm.aadharNumber,
+            panNumber: kycForm.panNumber,
+            googleDriveLink: kycForm.googleDriveLink,
+            docUrl: kycForm.docUrl
+          }
+        }));
+        closeModal();
+      } else {
+        setKycError(data.message || "KYC submit karne me samasya aayi.");
+      }
+    } catch {
+      setKycError("Network error. Kripya dobara try karein.");
+    } finally {
+      setKycSubmitting(false);
+    }
   };
 
   const submitDeposit = async () => {
@@ -1336,15 +1451,6 @@ export default function Dashboard() {
               <span>⚙️</span> <span className="hidden sm:inline">Settings</span>
             </button>
 
-            <button
-              onClick={() => setModal("profile")}
-              className="flex items-center gap-2 px-2.5 py-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full transition active:scale-95"
-            >
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-                {(userStored.name || "U")[0].toUpperCase()}
-              </div>
-              <span className="text-xs font-bold text-gray-700 hidden sm:inline">{userStored.name || "Profile"}</span>
-            </button>
             <button onClick={logout} className="hidden sm:inline-block px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-semibold text-xs">
               {txt.logout}
             </button>
@@ -2094,9 +2200,19 @@ export default function Dashboard() {
             />
             {lookingUp && <p className="text-[11px] text-blue-600 mt-1">Checking recipient...</p>}
             {recipientInfo && (
-              <div className="p-2.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 font-bold mt-1.5 flex items-center justify-between">
-                <span>Paying to: {recipientInfo.name}</span>
-                <span className="font-mono text-[10px] text-green-700">✓ Verified</span>
+              <div className="p-3 bg-emerald-50 border-2 border-emerald-300 rounded-xl text-xs text-emerald-950 font-bold mt-2 flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center">
+                    {(recipientInfo.name || "U")[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <span className="text-emerald-800 text-[10px] uppercase font-bold block">Paying To (Verified User)</span>
+                    <span className="text-sm font-black text-emerald-950">{recipientInfo.name}</span>
+                  </div>
+                </div>
+                <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold">
+                  ✓ Verified
+                </span>
               </div>
             )}
             {lookupError && <p className="text-[11px] text-red-500 mt-1">{lookupError}</p>}
@@ -2980,6 +3096,63 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* E-KYC STATUS & DOCUMENT CARD */}
+          <div className="p-3.5 bg-white border border-gray-200/90 rounded-2xl shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">
+                  {userProfile.kycStatus === "verified" ? "✅" : userProfile.kycStatus === "pending" ? "⏳" : userProfile.kycStatus === "rejected" ? "❌" : "📄"}
+                </span>
+                <div>
+                  <h4 className="font-extrabold text-xs text-gray-900">
+                    {userProfile.kycStatus === "verified"
+                      ? "e-KYC Verified"
+                      : userProfile.kycStatus === "pending"
+                      ? "e-KYC Under Review"
+                      : userProfile.kycStatus === "rejected"
+                      ? "e-KYC Rejected"
+                      : "e-KYC Verification Required"}
+                  </h4>
+                  <p className="text-[11px] text-gray-500">
+                    {userProfile.kycStatus === "verified"
+                      ? "Aadhaar verified • Silver & VIP eligibility unlocked"
+                      : userProfile.kycStatus === "pending"
+                      ? "Documents submitted • Review in progress by Admin"
+                      : userProfile.kycStatus === "rejected"
+                      ? "Please re-upload clear Aadhaar / Google Drive link"
+                      : "Upload Aadhaar / Drive link to activate debit cards"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModal("kyc")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 shadow-xs shrink-0 ${
+                  userProfile.kycStatus === "verified"
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                    : userProfile.kycStatus === "pending"
+                    ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
+              >
+                {userProfile.kycStatus === "verified" ? "View KYC" : userProfile.kycStatus === "pending" ? "Update" : "Verify →"}
+              </button>
+            </div>
+            {userProfile.kycDocuments?.googleDriveLink && (
+              <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                <span className="text-gray-500 font-medium">Google Drive Document:</span>
+                <a
+                  href={userProfile.kycDocuments.googleDriveLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 font-bold hover:underline flex items-center gap-1"
+                >
+                  📁 Open Link ↗
+                </a>
+              </div>
+            )}
+          </div>
+
           {/* AGENT PARTNER BADGE IF APPLIED OR APPROVED */}
           {(userProfile.role === "agent" || userProfile.agentProfile?.status === "approved") ? (
             <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl">
@@ -3008,6 +3181,17 @@ export default function Dashboard() {
 
           {/* Quick Actions in Profile */}
           <div className="space-y-2">
+            {/* COMPLETE E-KYC VERIFICATION BUTTON */}
+            <button
+              onClick={() => { setModal("kyc"); }}
+              className="w-full py-2.5 px-4 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200 text-blue-900 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
+            >
+              <span className="flex items-center gap-2"><span>📄</span> e-KYC Document Verification</span>
+              <span className="text-blue-600 font-extrabold text-xs">
+                {userProfile.kycStatus === "verified" ? "✓ Verified" : "Submit →"}
+              </span>
+            </button>
+
             {/* VIEW PRIMARY WALLET AMOUNT & PASSBOOK STATEMENT */}
             <button
               onClick={() => { setModal("passbook"); }}
@@ -3086,13 +3270,14 @@ export default function Dashboard() {
       ══════════════════════════════════════════════════════ */}
       {(() => {
         const isSilverUnlocked = Boolean(
-          userProfile.cardTier === "silver" ||
-          userProfile.cardTier === "platinum" ||
-          userProfile.isSilverUnlocked
+          userProfile.cardStatus?.silver?.unlocked === true ||
+          userProfile.isSilverUnlocked === true ||
+          (userProfile.kycStatus === "verified" && (userProfile.depositsCount || 0) > 0)
         );
         const isPlatinumUnlocked = Boolean(
-          userProfile.cardTier === "platinum" ||
-          (userProfile.loansCount || 0) >= 4
+          userProfile.cardStatus?.platinum?.unlocked === true ||
+          userProfile.isPlatinumUnlocked === true ||
+          (userProfile.kycStatus === "verified" && (userProfile.loansCount || 0) >= 4)
         );
 
         return (
@@ -3107,7 +3292,7 @@ export default function Dashboard() {
                     cardTab === "silver" ? "bg-white text-gray-900 shadow-xs" : "text-gray-500 hover:text-gray-900"
                   }`}
                 >
-                  Silver Debit {isSilverUnlocked ? "(Active)" : "(Locked)"}
+                  Silver Debit {isSilverUnlocked ? "(Active)" : "(Locked 🔒)"}
                 </button>
                 <button
                   type="button"
@@ -3116,7 +3301,7 @@ export default function Dashboard() {
                     cardTab === "platinum" ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-xs" : "text-gray-500 hover:text-gray-900"
                   }`}
                 >
-                  👑 Platinum VIP {isPlatinumUnlocked ? "(Unlocked)" : "(Locked)"}
+                  👑 Platinum VIP {isPlatinumUnlocked ? "(Unlocked)" : "(Locked 🔒)"}
                 </button>
               </div>
 
@@ -3125,6 +3310,28 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="bg-gradient-to-tr from-slate-200 via-gray-300 to-slate-400 p-5 rounded-3xl text-slate-800 shadow-xl border border-white/60 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-36 h-36 bg-white/20 rounded-full -mr-16 -mt-16 pointer-events-none" />
+                    
+                    {/* PHYSICAL FROSTED LOCK OVERLAY FOR SILVER CARD */}
+                    {!isSilverUnlocked && (
+                      <div className="absolute inset-0 z-20 bg-slate-900/65 backdrop-blur-[3px] rounded-3xl flex flex-col items-center justify-center p-4 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-white/20 border border-white/30 backdrop-blur-md flex items-center justify-center text-2xl shadow-lg mb-2">
+                          🔒
+                        </div>
+                        <span className="text-white font-black text-xs uppercase tracking-wider">
+                          Silver Debit Card Locked
+                        </span>
+                        <span className="text-slate-200 text-[11px] max-w-[210px] mt-1 font-medium leading-tight">
+                          Complete e-KYC verification & 1st deposit (min ₹500) to unlock
+                        </span>
+                        <button
+                          onClick={() => { closeModal(); setModal("kyc"); }}
+                          className="mt-3 px-3.5 py-1.5 bg-white text-slate-900 font-extrabold text-[11px] rounded-xl shadow-md hover:bg-slate-100 transition active:scale-95"
+                        >
+                          Complete e-KYC Now →
+                        </button>
+                      </div>
+                    )}
+
                     <div className="flex justify-between items-start mb-6">
                       <div>
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 block">
@@ -3159,7 +3366,7 @@ export default function Dashboard() {
                     </div>
 
                     <div className="font-mono font-bold text-base sm:text-lg tracking-widest text-slate-800 mb-4">
-                      4214 •••• •••• 9821
+                      {isSilverUnlocked ? "4214 •••• •••• 9821" : "•••• •••• •••• ••••"}
                     </div>
 
                     <div className="flex justify-between items-end text-xs">
@@ -3169,7 +3376,7 @@ export default function Dashboard() {
                       </div>
                       <div className="text-right">
                         <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Expires</span>
-                        <span className="font-mono font-bold text-slate-900">09/29</span>
+                        <span className="font-mono font-bold text-slate-900">{isSilverUnlocked ? "09/29" : "••/••"}</span>
                       </div>
                       <div className="font-black text-slate-900 tracking-wider text-sm">
                         RuPay
@@ -3182,7 +3389,7 @@ export default function Dashboard() {
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-xs text-blue-700">🎯 Silver Unlock Criteria:</span>
                       <span className="text-xs font-mono font-bold text-emerald-700">
-                        {isSilverUnlocked ? "100% Unlocked" : (userProfile.kycStatus === "verified" ? "50% Completed" : "25% Completed")}
+                        {isSilverUnlocked ? "100% Unlocked" : (userProfile.kycStatus === "verified" ? "50% Completed" : "0% Completed")}
                       </span>
                     </div>
 
@@ -3190,7 +3397,7 @@ export default function Dashboard() {
                     <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden border border-slate-300/60">
                       <div
                         className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-500"
-                        style={{ width: isSilverUnlocked ? "100%" : (userProfile.kycStatus === "verified" ? "50%" : "25%") }}
+                        style={{ width: isSilverUnlocked ? "100%" : (userProfile.kycStatus === "verified" ? "50%" : "0%") }}
                       />
                     </div>
 
@@ -3199,7 +3406,7 @@ export default function Dashboard() {
                         <span className={userProfile.kycStatus === "verified" ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
                           {userProfile.kycStatus === "verified" ? "✓" : "○"}
                         </span>
-                        <span>Complete KYC / Profile Verification</span>
+                        <span>Complete e-KYC Verification</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={(userProfile.depositsCount || 0) > 0 ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
@@ -3215,10 +3422,10 @@ export default function Dashboard() {
                       </div>
                     ) : (
                       <button
-                        onClick={() => { closeModal(); setModal("deposit"); }}
+                        onClick={() => { closeModal(); setModal(userProfile.kycStatus === "verified" ? "deposit" : "kyc"); }}
                         className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition"
                       >
-                        Add Money (Min ₹500) to Unlock Silver Card →
+                        {userProfile.kycStatus === "verified" ? "Add Money (Min ₹500) to Activate Card →" : "Complete e-KYC to Unlock Card →"}
                       </button>
                     )}
                   </div>
@@ -3228,6 +3435,25 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="bg-gradient-to-tr from-slate-950 via-zinc-900 to-neutral-900 p-5 rounded-3xl text-amber-100 shadow-2xl border border-amber-500/30 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 rounded-full -mr-20 -mt-20 pointer-events-none blur-xl" />
+                    
+                    {/* PHYSICAL FROSTED GOLD LOCK OVERLAY FOR PLATINUM VIP CARD */}
+                    {!isPlatinumUnlocked && (
+                      <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-[3px] rounded-3xl flex flex-col items-center justify-center p-4 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 backdrop-blur-md flex items-center justify-center text-2xl shadow-lg mb-2">
+                          🔒
+                        </div>
+                        <span className="text-amber-300 font-black text-xs uppercase tracking-wider">
+                          Platinum VIP Card Locked
+                        </span>
+                        <span className="text-amber-100/90 text-[11px] max-w-[220px] mt-1 font-medium leading-tight">
+                          Complete 4 loan repayments & verified e-KYC to unlock
+                        </span>
+                        <div className="mt-3 px-3 py-1 bg-amber-400/10 border border-amber-400/30 rounded-xl text-[10px] font-mono font-bold text-amber-300">
+                          Repayments Progress: {Math.min(userProfile.loansCount || 0, 4)} / 4
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex justify-between items-start mb-6">
                       <div>
                         <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
@@ -3257,7 +3483,7 @@ export default function Dashboard() {
                     </div>
 
                     <div className="font-mono font-bold text-base sm:text-lg tracking-widest text-amber-200 mb-4">
-                      5399 •••• •••• 8842
+                      {isPlatinumUnlocked ? "5399 •••• •••• 8842" : "•••• •••• •••• ••••"}
                     </div>
 
                     <div className="flex justify-between items-end text-xs">
@@ -3267,7 +3493,7 @@ export default function Dashboard() {
                       </div>
                       <div className="text-right">
                         <span className="text-[9px] uppercase tracking-wider text-amber-400/70 block">Expires</span>
-                        <span className="font-mono font-bold text-amber-100">12/30</span>
+                        <span className="font-mono font-bold text-amber-100">{isPlatinumUnlocked ? "12/30" : "••/••"}</span>
                       </div>
                       <div className="font-black text-amber-400 tracking-wider text-sm">
                         VISA VIP
@@ -3303,12 +3529,14 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-amber-600 font-bold">○</span>
-                        <span>OR total transaction volume of ₹50,000+ across all wallets</span>
+                        <span className={userProfile.kycStatus === "verified" ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
+                          {userProfile.kycStatus === "verified" ? "✓" : "○"}
+                        </span>
+                        <span>Verified e-KYC Identity Check</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-amber-600 font-bold">○</span>
-                        <span>OR direct invite approval by Educa Admin</span>
+                        <span>OR total transaction volume of ₹50,000+ across all wallets</span>
                       </div>
                     </div>
 
@@ -3334,6 +3562,155 @@ export default function Dashboard() {
           </Sheet>
         );
       })()}
+
+      {/* ══════════════════════════════════════════════════════
+          E-KYC DOCUMENT VERIFICATION SHEET (GOOGLE DRIVE & FILE UPLOAD)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "kyc"} onClose={closeModal} title="e-KYC Document Verification" icon="📄">
+        <div className="space-y-4">
+          <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-900 space-y-1">
+            <div className="font-extrabold flex items-center gap-1.5 text-blue-950">
+              <span>🛡️</span> Zero Storage Strain Verification
+            </div>
+            <p className="text-blue-800 text-[11px] leading-relaxed">
+              Aap apne Aadhaar / PAN card ka Google Drive link share kar sakte hain ya image upload kar sakte hain. Admin aur aap dono bina data limit ke access kar sakenge.
+            </p>
+          </div>
+
+          {/* Current KYC Status Indicator */}
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between text-xs">
+            <span className="font-bold text-gray-700">Current Status:</span>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+              userProfile.kycStatus === "verified"
+                ? "bg-emerald-100 text-emerald-800"
+                : userProfile.kycStatus === "pending"
+                ? "bg-amber-100 text-amber-800"
+                : userProfile.kycStatus === "rejected"
+                ? "bg-rose-100 text-rose-800"
+                : "bg-slate-100 text-slate-700"
+            }`}>
+              {userProfile.kycStatus || "Not Submitted"}
+            </span>
+          </div>
+
+          {/* 12-Digit Aadhaar Input */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Aadhaar Card Number (12 Digits) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={14}
+              placeholder="xxxx xxxx xxxx"
+              value={kycForm.aadharNumber}
+              onChange={e => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 12);
+                const formatted = val.replace(/(\d{4})(?=\d)/g, "$1 ");
+                setKycForm({ ...kycForm, aadharNumber: formatted });
+              }}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl font-mono text-sm tracking-widest focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          {/* PAN Card Input (Optional) */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              PAN Card Number (Optional)
+            </label>
+            <input
+              type="text"
+              maxLength={10}
+              placeholder="ABCDE1234F"
+              value={kycForm.panNumber}
+              onChange={e => setKycForm({ ...kycForm, panNumber: e.target.value.toUpperCase() })}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl font-mono text-sm uppercase focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          {/* Google Drive Link Input */}
+          <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/80 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-emerald-950">
+                📁 Google Drive Document Link (Recommended)
+              </label>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                Zero Storage Load
+              </span>
+            </div>
+            <input
+              type="url"
+              placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+              value={kycForm.googleDriveLink}
+              onChange={e => setKycForm({ ...kycForm, googleDriveLink: e.target.value })}
+              className="w-full px-3.5 py-2.5 bg-white border border-emerald-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+            <p className="text-[10px] text-emerald-800">
+              💡 Google Drive me Aadhaar / ID upload karein, "Anyone with link can view" par set karein aur link yaha paste karein.
+            </p>
+          </div>
+
+          {/* Or Upload Photo from Device */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Or Upload Photo / Document
+            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex-1 cursor-pointer py-2.5 px-3 bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-300 rounded-xl text-xs text-gray-600 font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <span>📎</span>
+                <span className="truncate">{kycForm.docName || "Choose Image / File"}</span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={handleKycFileChange}
+                  className="hidden"
+                />
+              </label>
+              {kycForm.docUrl && (
+                <button
+                  type="button"
+                  onClick={() => setKycForm({ ...kycForm, docName: "", docUrl: "" })}
+                  className="px-3 py-2.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition"
+                  title="Remove upload"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {kycForm.docUrl && (
+              <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-3">
+                <img src={kycForm.docUrl} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-gray-200" />
+                <div className="text-[11px] text-gray-600 truncate flex-1">
+                  <span className="font-bold text-gray-800 block truncate">{kycForm.docName}</span>
+                  <span className="text-emerald-600 font-bold">✓ Ready for upload</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {kycError && (
+            <p className="text-xs text-rose-600 font-semibold">{kycError}</p>
+          )}
+
+          <div className="flex gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={closeModal}
+              className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submitKyc}
+              disabled={kycSubmitting}
+              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-50"
+            >
+              {kycSubmitting ? "Submitting..." : "Submit for Verification →"}
+            </button>
+          </div>
+        </div>
+      </Sheet>
 
       {/* ══════════════════════════════════════════════════════
           SETTINGS & ACCESSIBILITY SHEET (UNIFIED)

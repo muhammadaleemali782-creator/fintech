@@ -255,6 +255,46 @@ router.post('/user/:id/card-tier', protect, admin, async (req, res) => {
   }
 });
 
+// KYC Verification: Approve & Reject
+router.post('/kyc/:id/approve', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.kycStatus = 'verified';
+    user.kycVerifiedAt = new Date();
+    if (!user.cardStatus) {
+      user.cardStatus = {
+        silver: { unlocked: true, cardNumber: `4532 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 1200` },
+        platinum: { unlocked: false, cardNumber: `5421 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 8840` }
+      };
+    }
+    user.cardStatus.silver.unlocked = true;
+    user.markModified('cardStatus');
+    await user.save();
+
+    res.json({ message: `User ${user.name} KYC verified successfully!`, user });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to verify KYC' });
+  }
+});
+
+router.post('/kyc/:id/reject', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.kycStatus = 'rejected';
+    await user.save();
+
+    res.json({ message: `User ${user.name} KYC marked as rejected.`, user });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to reject KYC' });
+  }
+});
+
 // Dashboard stats
 router.get('/stats', protect, admin, async (req, res) => {
   try {

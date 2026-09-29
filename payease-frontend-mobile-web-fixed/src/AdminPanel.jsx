@@ -266,6 +266,30 @@ export default function AdminPanel() {
     }
   };
 
+  const approveKyc = async (userId) => {
+    if (!window.confirm("Approve KYC documents for this user? This will also unlock their Silver Card.")) return;
+    try {
+      const res = await fetch(`${API}/admin/kyc/${userId}/approve`, { method: "POST", headers });
+      const data = await res.json();
+      showToast(data.message, res.ok ? "success" : "error");
+      if (res.ok) loadUsers();
+    } catch {
+      showToast("Failed to approve KYC", "error");
+    }
+  };
+
+  const rejectKyc = async (userId) => {
+    if (!window.confirm("Reject KYC documents for this user?")) return;
+    try {
+      const res = await fetch(`${API}/admin/kyc/${userId}/reject`, { method: "POST", headers });
+      const data = await res.json();
+      showToast(data.message, res.ok ? "success" : "error");
+      if (res.ok) loadUsers();
+    } catch {
+      showToast("Failed to reject KYC", "error");
+    }
+  };
+
   const approveLoan = async (id) => {
     if (!window.confirm("Approve and disburse this loan?")) return;
     const res = await fetch(`${API}/loan/${id}/approve`, { method: "POST", headers });
@@ -302,13 +326,14 @@ export default function AdminPanel() {
   const loanStatusColor = { pending: "bg-yellow-100 text-yellow-700", active: "bg-blue-100 text-blue-700", closed: "bg-green-100 text-green-700", rejected: "bg-red-100 text-red-700" };
 
   const pendingAgentsCount = agents.filter(a => a.agentProfile?.status === "pending").length;
+  const pendingKycCount = users.filter(u => u.kycStatus === "pending").length;
 
   const tabs = [
     { key: "pending", label: "Pending", icon: "⏳", badge: pending.length },
     { key: "alerts", label: "Live Alerts", icon: "🔔", badge: unreadNotifs },
     { key: "agents", label: "Agent Partners", icon: "🤝", badge: pendingAgentsCount },
     { key: "loans", label: "Loans", icon: "🏦" },
-    { key: "users", label: "Users", icon: "👥" },
+    { key: "users", label: "Users & KYC", icon: "👥", badge: pendingKycCount },
     { key: "devices", label: "App Lock", icon: "🔒", badge: devices.filter(d => d.adminStatus === "active").length },
     { key: "settings", label: "Settings", icon: "⚙️" },
   ];
@@ -579,7 +604,18 @@ export default function AdminPanel() {
           {/* USERS */}
           {tab === "users" && (
             <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-              <h3 className="text-lg font-bold font-display mb-5">All Users</h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                <div>
+                  <h3 className="text-lg font-bold font-display">All Users & Verification</h3>
+                  <p className="text-xs text-gray-500">Manage KYC documents, card tiers, custom interest rates and accounts</p>
+                </div>
+                {pendingKycCount > 0 && (
+                  <span className="px-3 py-1 bg-amber-100 border border-amber-300 text-amber-900 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
+                    <span>📄</span> {pendingKycCount} KYC Pending Approval
+                  </span>
+                )}
+              </div>
+
               {users.length === 0 ? (
                 <p className="py-10 text-center text-gray-300 text-sm">No users found</p>
               ) : (
@@ -588,7 +624,7 @@ export default function AdminPanel() {
                     <table className="w-full">
                       <thead>
                         <tr className="text-left text-xs text-gray-400 uppercase border-b">
-                          {["User", "Interest Rate (Custom)", "Card Tier", "Wallets", "Balance", "Referrals", "Status", "Action"].map(h => <th key={h} className="pb-3 font-semibold pr-3">{h}</th>)}
+                          {["User", "KYC & Drive Doc", "Interest Rate (Custom)", "Card Tier", "Wallets", "Balance", "Referrals", "Status", "Action"].map(h => <th key={h} className="pb-3 font-semibold pr-3">{h}</th>)}
                         </tr>
                       </thead>
                       <tbody className="text-sm">
@@ -597,6 +633,80 @@ export default function AdminPanel() {
                             <td className="py-3 pr-3">
                               <p className="font-semibold text-gray-900">{u.name}</p>
                               <p className="text-gray-400 text-xs">{u.email}</p>
+                              <p className="text-gray-400 text-[11px] font-mono">{u.phone}</p>
+                            </td>
+
+                            {/* KYC & GOOGLE DRIVE DOCS */}
+                            <td className="py-3 pr-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1">
+                                  {u.kycStatus === "verified" ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                      ✓ Verified
+                                    </span>
+                                  ) : u.kycStatus === "pending" ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                      ⏳ Pending
+                                    </span>
+                                  ) : u.kycStatus === "rejected" ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                                      ✕ Rejected
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">
+                                      ○ None
+                                    </span>
+                                  )}
+                                  {u.kycDocuments?.aadharNumber && (
+                                    <span className="text-[10px] text-gray-500 font-mono">
+                                      UID: {u.kycDocuments.aadharNumber.slice(0, 4)}••••
+                                    </span>
+                                  )}
+                                </div>
+
+                                {u.kycDocuments?.googleDriveLink && (
+                                  <div>
+                                    <a
+                                      href={u.kycDocuments.googleDriveLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-bold hover:underline bg-blue-50 px-2 py-0.5 rounded"
+                                    >
+                                      📁 View Drive ↗
+                                    </a>
+                                  </div>
+                                )}
+
+                                {u.kycDocuments?.docUrl && (
+                                  <div>
+                                    <a
+                                      href={u.kycDocuments.docUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-[11px] text-indigo-600 font-bold hover:underline bg-indigo-50 px-2 py-0.5 rounded"
+                                    >
+                                      🖼 Preview Doc
+                                    </a>
+                                  </div>
+                                )}
+
+                                {u.kycStatus === "pending" && (
+                                  <div className="flex items-center gap-1 pt-1">
+                                    <button
+                                      onClick={() => approveKyc(u._id)}
+                                      className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold shadow-2xs active:scale-95"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      onClick={() => rejectKyc(u._id)}
+                                      className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded text-[10px] font-bold"
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </td>
 
                             {/* CUSTOM INTEREST RATE PER USER */}
@@ -699,10 +809,44 @@ export default function AdminPanel() {
                           <div>
                             <p className="font-bold text-sm text-gray-900">{u.name}</p>
                             <p className="text-xs text-gray-400">{u.email}</p>
+                            <p className="text-[11px] font-mono text-gray-400">{u.phone}</p>
                           </div>
                           <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${u.isBlocked ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
                             {u.isBlocked ? "Blocked" : "Active"}
                           </span>
+                        </div>
+
+                        {/* MOBILE KYC ROW */}
+                        <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100 text-xs mb-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-gray-700">KYC:</span>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                u.kycStatus === "verified" ? "bg-emerald-100 text-emerald-800" :
+                                u.kycStatus === "pending" ? "bg-amber-100 text-amber-800" :
+                                u.kycStatus === "rejected" ? "bg-rose-100 text-rose-800" :
+                                "bg-gray-100 text-gray-500"
+                              }`}>
+                                {u.kycStatus || "none"}
+                              </span>
+                            </div>
+                            {u.kycDocuments?.googleDriveLink && (
+                              <a
+                                href={u.kycDocuments.googleDriveLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold"
+                              >
+                                📁 Drive Link ↗
+                              </a>
+                            )}
+                          </div>
+                          {u.kycStatus === "pending" && (
+                            <div className="flex items-center gap-2 pt-1 border-t border-blue-100">
+                              <button onClick={() => approveKyc(u._id)} className="flex-1 py-1 bg-emerald-600 text-white rounded text-[11px] font-bold">✓ Approve</button>
+                              <button onClick={() => rejectKyc(u._id)} className="flex-1 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[11px] font-bold">Reject</button>
+                            </div>
+                          )}
                         </div>
 
                         {/* MOBILE CONTROLS: INTEREST + CARD TIER */}

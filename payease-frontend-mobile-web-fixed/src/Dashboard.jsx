@@ -1045,8 +1045,9 @@ export default function Dashboard() {
 
   const navItems = [
     { key: "home", label: "Home", icon: "🏠", onClick: () => { setShowLoans(false); window.scrollTo({ top: 0, behavior: "smooth" }); } },
-    { key: "pay", label: "Scan & Pay", icon: "📷", onClick: () => setModal("send_money") },
     { key: "loans", label: "Loans", icon: "🏦", onClick: loadLoans },
+    { key: "scan", label: "Scan QR", icon: "📷", isCenter: true, onClick: () => setModal("scan_qr") },
+    { key: "passbook", label: "Passbook", icon: "💳", onClick: () => setModal("passbook") },
     { key: "profile", label: "Profile", icon: "👤", onClick: () => setModal("profile") },
   ];
 
@@ -1063,59 +1064,17 @@ export default function Dashboard() {
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
-            {/* Voice Guide Accessibility Button (Blind / Screen Reader assistance) */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Unified Settings Button (Language, Blind Voice Guide, & Tour) */}
             <button
-              onClick={speakDashboard}
-              aria-label={txt.voiceGuide}
-              className={`px-2 sm:px-2.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border ${
-                isSpeaking
-                  ? "bg-amber-100 text-amber-900 border-amber-300 animate-pulse"
-                  : "bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-              }`}
-              title="Voice Reader for Visually Impaired"
+              onClick={() => setModal("settings")}
+              aria-label="Settings and Accessibility"
+              className="px-2.5 sm:px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-gray-200"
+              title="Settings & Accessibility"
             >
-              <span>{isSpeaking ? "⏹️" : "🔊"}</span>
-              <span className="hidden md:inline">{isSpeaking ? txt.listening : txt.voiceGuide}</span>
+              <span>⚙️</span> <span className="hidden sm:inline">Settings</span>
             </button>
 
-            {/* Language Switcher */}
-            <div className="flex items-center bg-gray-100 p-0.5 rounded-xl border border-gray-200">
-              <button
-                type="button"
-                onClick={() => handleLanguageChange("hinglish")}
-                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition ${
-                  lang === "hinglish" ? "bg-white text-blue-600 shadow-xs" : "text-gray-500 hover:text-gray-900"
-                }`}
-              >
-                Hing
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLanguageChange("hindi")}
-                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition ${
-                  lang === "hindi" ? "bg-white text-blue-600 shadow-xs" : "text-gray-500 hover:text-gray-900"
-                }`}
-              >
-                हिंदी
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLanguageChange("english")}
-                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition ${
-                  lang === "english" ? "bg-white text-blue-600 shadow-xs" : "text-gray-500 hover:text-gray-900"
-                }`}
-              >
-                EN
-              </button>
-            </div>
-
-            <button
-              onClick={() => setModal("scan_qr")}
-              className="px-2.5 sm:px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-emerald-200"
-            >
-              <span>📷</span> <span className="hidden sm:inline">{txt.scanQr}</span>
-            </button>
             <button
               onClick={() => setModal("profile")}
               className="flex items-center gap-2 px-2.5 py-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full transition active:scale-95"
@@ -1137,7 +1096,7 @@ export default function Dashboard() {
         {/* ══════════════════════════════════════════════════════
             1. TOP ROW: PROFIT WALLET & DUES WALLET (SIDE-BY-SIDE)
         ══════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-2 gap-3 mb-3.5">
+        <div className="grid grid-cols-2 gap-3 mb-4">
           {/* Left: Profit Wallet Balance Card */}
           <div
             onClick={() => setAccountModal("debt")}
@@ -1160,78 +1119,101 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right: Dues Wallet Balance Card */}
+          {/* Right: Dues Wallet Balance Card (LOCKED IF NO ACTIVE DUES) */}
           <div
             onClick={() => setAccountModal("personal_loan")}
-            className="bg-gradient-to-br from-amber-600 via-rose-600 to-red-700 rounded-3xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98] transition hover:shadow-xl"
+            className={`rounded-3xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98] transition hover:shadow-xl ${
+              (userProfile.duesBalance || 0) > 0
+                ? "bg-gradient-to-br from-amber-600 via-rose-600 to-red-700"
+                : "bg-gradient-to-br from-slate-700 via-slate-800 to-zinc-900 border border-slate-600/40"
+            }`}
           >
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-rose-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.duesWallet}</span>
-                <span className="text-base sm:text-lg">📅</span>
+                <span className="text-base sm:text-lg">
+                  {(userProfile.duesBalance || 0) > 0 ? "📅" : "🔒"}
+                </span>
               </div>
               <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate">
-                ₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}
+                {(userProfile.duesBalance || 0) > 0 ? (
+                  `₹${(userProfile.duesBalance || 0).toLocaleString("en-IN")}`
+                ) : (
+                  <span className="text-slate-200 text-xl sm:text-2xl font-bold flex items-center gap-1.5">
+                    <span>🔒</span> Locked
+                  </span>
+                )}
               </h3>
-              <p className="text-rose-100/90 text-[11px] hidden sm:block">Pending Easy Installments & collections</p>
+              <p className="text-rose-100/90 text-[11px] hidden sm:block">
+                {(userProfile.duesBalance || 0) > 0
+                  ? "Pending Easy Installments & collections"
+                  : "Loan lene par dues wallet active hoga"}
+              </p>
             </div>
-            <div className="pt-2 border-t border-rose-400/40 flex justify-between items-center text-[11px] text-rose-100 relative z-10 mt-2">
-              <span>1st, 11th, 21st</span>
-              <span className="font-bold underline">Details →</span>
+            <div className="pt-2 border-t border-white/20 flex justify-between items-center text-[11px] text-rose-100 relative z-10 mt-2">
+              <span>{(userProfile.duesBalance || 0) > 0 ? "1st, 11th, 21st" : "No Active Dues"}</span>
+              <span className="font-bold underline">
+                {(userProfile.duesBalance || 0) > 0 ? "Details →" : "Apply Loan →"}
+              </span>
             </div>
           </div>
         </div>
 
         {/* ══════════════════════════════════════════════════════
-            2. MAIN WALLET BALANCE CARD (PIN-PROTECTED BALANCE)
+            2. PROMINENT CENTER QR SCANNER HERO (NO SCREEN AMOUNT)
         ══════════════════════════════════════════════════════ */}
-        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 rounded-3xl p-5 sm:p-6 text-white shadow-xl relative overflow-hidden mb-6 sm:mb-8">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 pointer-events-none" />
-          <div className="relative z-10 mb-4">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-white/80 text-xs font-bold uppercase tracking-wider">{txt.primaryBalance}</span>
-              <span className="text-lg">💵</span>
+        <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden mb-6 sm:mb-8 text-center">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-16 -mt-16 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500/20 rounded-full -ml-12 -mb-12 pointer-events-none" />
+          
+          <div className="relative z-10 flex flex-col items-center justify-center">
+            {/* Center Big QR Button */}
+            <button
+              onClick={() => setModal("scan_qr")}
+              className="group relative flex flex-col items-center justify-center p-5 sm:p-6 bg-white rounded-3xl shadow-2xl hover:shadow-cyan-500/25 active:scale-95 transition-all duration-300 w-full max-w-xs mx-auto border-2 border-white/60"
+            >
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl text-white shadow-lg shadow-blue-500/30 mb-3 group-hover:scale-105 transition-transform">
+                📷
+              </div>
+              <span className="text-base sm:text-lg font-black text-gray-900 group-hover:text-blue-600 transition-colors">
+                Scan Any QR Code
+              </span>
+              <span className="text-xs text-gray-500 font-medium mt-0.5">
+                Camera Scanner & Gallery Upload
+              </span>
+              <div className="mt-3 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-wider">
+                Instant P2P & Merchant Pay
+              </div>
+            </button>
+
+            {/* Quick Action Pill Buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-5 w-full">
+              <button
+                onClick={() => setModal("send_money")}
+                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5"
+              >
+                <span>⚡</span> Send Money
+              </button>
+              <button
+                onClick={() => setModal("my_qr")}
+                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5"
+              >
+                <span>📱</span> My QR Code
+              </button>
+              <button
+                onClick={() => setModal("deposit")}
+                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5"
+              >
+                <span>➕</span> Add Money
+              </button>
+              <button
+                onClick={() => setModal("withdraw")}
+                className="py-2 px-4 bg-white/10 hover:bg-white/20 backdrop-blur text-white/90 rounded-xl font-bold text-xs border border-white/20 active:scale-95 transition flex items-center gap-1.5"
+              >
+                <span>↓</span> Cash Out
+              </button>
             </div>
-            {balanceRevealed ? (
-              <div className="flex items-center gap-3">
-                <h2 className="text-3xl sm:text-4xl font-black font-display">
-                  ₹{balance.toLocaleString("en-IN")}
-                </h2>
-                <button
-                  onClick={() => setBalanceRevealed(false)}
-                  className="px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-semibold text-white/90 border border-white/20 transition active:scale-95"
-                >
-                  🙈 {txt.hide}
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <span className="text-2xl sm:text-3xl font-black font-display tracking-widest text-blue-200">
-                  ₹ • • • • • •
-                </span>
-                <button
-                  onClick={handleCheckBalanceClick}
-                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur rounded-xl text-xs font-bold text-white border border-white/30 flex items-center gap-1.5 shadow-sm active:scale-95 transition"
-                >
-                  <span>👁️</span> {txt.checkBalance}
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2 relative z-10">
-            <button onClick={() => setModal("scan_qr")} className="flex-1 py-2 bg-emerald-400 hover:bg-emerald-300 text-gray-950 rounded-xl font-black text-xs hover:shadow-md active:scale-95 transition-all flex items-center justify-center gap-1">
-              <span>📷</span> Scan QR
-            </button>
-            <button onClick={() => setModal("send_money")} className="flex-1 py-2 bg-white text-blue-700 rounded-xl font-bold text-xs hover:shadow-md active:scale-95 transition-all">
-              ⚡ Send
-            </button>
-            <button onClick={() => setModal("deposit")} className="flex-1 py-2 bg-white/20 backdrop-blur text-white border border-white/30 rounded-xl font-bold text-xs hover:bg-white/30 active:scale-95 transition-all">
-              + Add
-            </button>
-            <button onClick={() => setModal("withdraw")} className="flex-1 py-2 bg-white/10 backdrop-blur text-white border border-white/20 rounded-xl font-bold text-xs hover:bg-white/20 active:scale-95 transition-all">
-              ↓ Cash Out
-            </button>
           </div>
         </div>
 
@@ -2630,195 +2612,358 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           MY EDUCA CARDS & VIP TIERS SHEET
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "cards"} onClose={closeModal} title="Educa Smart Cards & VIP" icon="💳">
+      {(() => {
+        const isSilverUnlocked = Boolean(
+          userProfile.cardTier === "silver" ||
+          userProfile.cardTier === "platinum" ||
+          userProfile.isSilverUnlocked
+        );
+        const isPlatinumUnlocked = Boolean(
+          userProfile.cardTier === "platinum" ||
+          (userProfile.loansCount || 0) >= 4
+        );
+
+        return (
+          <Sheet open={modal === "cards"} onClose={closeModal} title="Educa Smart Cards & VIP" icon="💳">
+            <div className="space-y-4">
+              {/* Tab Selector */}
+              <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setCardTab("silver")}
+                  className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                    cardTab === "silver" ? "bg-white text-gray-900 shadow-xs" : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  Silver Debit {isSilverUnlocked ? "(Active)" : "(Locked)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCardTab("platinum")}
+                  className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                    cardTab === "platinum" ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-xs" : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  👑 Platinum VIP {isPlatinumUnlocked ? "(Unlocked)" : "(Locked)"}
+                </button>
+              </div>
+
+              {cardTab === "silver" ? (
+                /* SILVER DIGITAL DEBIT CARD */
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-tr from-slate-200 via-gray-300 to-slate-400 p-5 rounded-3xl text-slate-800 shadow-xl border border-white/60 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-36 h-36 bg-white/20 rounded-full -mr-16 -mt-16 pointer-events-none" />
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 block">
+                          Educa Digital Banking
+                        </span>
+                        <span className="text-base font-black text-slate-900">SILVER DEBIT</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black ${
+                        isSilverUnlocked
+                          ? "bg-emerald-600/10 border border-emerald-600/30 text-emerald-800"
+                          : "bg-slate-800/10 border border-slate-700/30 text-slate-700"
+                      }`}>
+                        {isSilverUnlocked ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping" />
+                            ACTIVE
+                          </>
+                        ) : (
+                          <>
+                            <span>🔒</span> LOCKED
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* EMV Chip & Contactless */}
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-9 h-7 bg-amber-300/80 rounded-md border border-amber-500/40 relative overflow-hidden flex items-center justify-center">
+                        <div className="w-full border-t border-amber-600/50" />
+                      </div>
+                      <span className="text-slate-600 text-lg">📡</span>
+                    </div>
+
+                    <div className="font-mono font-bold text-base sm:text-lg tracking-widest text-slate-800 mb-4">
+                      4214 •••• •••• 9821
+                    </div>
+
+                    <div className="flex justify-between items-end text-xs">
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Cardholder</span>
+                        <span className="font-bold text-slate-900 uppercase">{userStored.name || "Educa Member"}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Expires</span>
+                        <span className="font-mono font-bold text-slate-900">09/29</span>
+                      </div>
+                      <div className="font-black text-slate-900 tracking-wider text-sm">
+                        RuPay
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Silver Card Perks & Status */}
+                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-white space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-xs text-blue-300">🎯 Silver Unlock Criteria:</span>
+                      <span className="text-xs font-mono font-bold text-emerald-400">
+                        {isSilverUnlocked ? "100% Unlocked" : (userProfile.kycStatus === "verified" ? "50% Completed" : "25% Completed")}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                        style={{ width: isSilverUnlocked ? "100%" : (userProfile.kycStatus === "verified" ? "50%" : "25%") }}
+                      />
+                    </div>
+
+                    <div className="space-y-2 text-xs text-slate-300 pt-1">
+                      <div className="flex items-center gap-2">
+                        <span className={userProfile.kycStatus === "verified" ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                          {userProfile.kycStatus === "verified" ? "✓" : "○"}
+                        </span>
+                        <span>Complete KYC / Profile Verification</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={(userProfile.depositsCount || 0) > 0 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                          {(userProfile.depositsCount || 0) > 0 ? "✓" : "○"}
+                        </span>
+                        <span>First wallet deposit (min ₹500) ya 1 transaction</span>
+                      </div>
+                    </div>
+
+                    {isSilverUnlocked ? (
+                      <div className="p-2.5 bg-emerald-950/60 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs">
+                        ✓ Silver Card Active: ₹1,00,000 / day online limits & 0 fees.
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { closeModal(); setModal("deposit"); }}
+                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition"
+                      >
+                        Add Money (Min ₹500) to Unlock Silver Card →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* PLATINUM VIP CREDIT CARD */
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-tr from-slate-950 via-zinc-900 to-neutral-900 p-5 rounded-3xl text-amber-100 shadow-2xl border border-amber-500/30 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 rounded-full -mr-20 -mt-20 pointer-events-none blur-xl" />
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
+                          Educa Private Wealth
+                        </span>
+                        <span className="text-base font-black bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-500 bg-clip-text text-transparent">
+                          PLATINUM VIP
+                        </span>
+                      </div>
+                      {isPlatinumUnlocked ? (
+                        <span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-black text-[10px] rounded-full shadow-xs">
+                          👑 VIP ACTIVE
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 bg-zinc-800 border border-amber-500/40 text-amber-300 font-black text-[10px] rounded-full">
+                          🔒 LOCKED
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Gold EMV Chip & Contactless */}
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-9 h-7 bg-gradient-to-br from-yellow-300 to-amber-500 rounded-md border border-amber-200/50 flex items-center justify-center shadow-xs">
+                        <div className="w-full border-t border-amber-800/40" />
+                      </div>
+                      <span className="text-amber-400 text-lg">📡</span>
+                    </div>
+
+                    <div className="font-mono font-bold text-base sm:text-lg tracking-widest text-amber-200 mb-4">
+                      5399 •••• •••• 8842
+                    </div>
+
+                    <div className="flex justify-between items-end text-xs">
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider text-amber-400/70 block">Cardholder</span>
+                        <span className="font-bold text-amber-100 uppercase">{userStored.name || "Educa Member"}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] uppercase tracking-wider text-amber-400/70 block">Expires</span>
+                        <span className="font-mono font-bold text-amber-100">12/30</span>
+                      </div>
+                      <div className="font-black text-amber-400 tracking-wider text-sm">
+                        VISA VIP
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Platinum Unlock Criteria & Progress */}
+                  <div className="p-4 bg-slate-900 border border-amber-500/30 rounded-2xl text-white space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-xs text-amber-300">🎯 VIP Unlock Criteria:</span>
+                      <span className="text-xs font-mono font-bold text-emerald-400">
+                        {Math.min(100, Math.round(((userProfile.loansCount || 0) / 4) * 100))}% Completed
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+                      <div
+                        className="bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, Math.round(((userProfile.loansCount || 0) / 4) * 100))}%` }}
+                      />
+                    </div>
+
+                    <div className="space-y-2 text-xs text-slate-300 pt-1">
+                      <div className="flex items-center gap-2">
+                        <span className={(userProfile.loansCount || 0) >= 4 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                          {(userProfile.loansCount || 0) >= 4 ? "✓" : "○"}
+                        </span>
+                        <span>
+                          Complete <strong>4 loan installments</strong> on time:{" "}
+                          <span className="font-mono text-amber-300">{Math.min(userProfile.loansCount || 0, 4)} / 4</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-400 font-bold">○</span>
+                        <span>OR total transaction volume of ₹50,000+ across all wallets</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-400 font-bold">○</span>
+                        <span>OR direct invite approval by Educa Admin</span>
+                      </div>
+                    </div>
+
+                    {isPlatinumUnlocked ? (
+                      <button
+                        onClick={() => showToast("🎉 Platinum VIP Card is activated for your account!", "success")}
+                        className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-extrabold text-xs rounded-xl shadow-md active:scale-95 transition"
+                      >
+                        Manage Platinum VIP Card →
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => { closeModal(); setAccountModal("personal_loan"); }}
+                        className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 font-bold text-xs rounded-xl transition active:scale-95 text-center block"
+                      >
+                        View Personal Loan to Build Score →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Sheet>
+        );
+      })()}
+
+      {/* ══════════════════════════════════════════════════════
+          SETTINGS & ACCESSIBILITY SHEET (UNIFIED)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "settings"} onClose={closeModal} title="Settings & Accessibility" icon="⚙️">
         <div className="space-y-4">
-          {/* Tab Selector */}
-          <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
+          {/* Section 1: Language */}
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl space-y-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🌐</span>
+              <div>
+                <h4 className="font-extrabold text-xs text-gray-900">App Language (भाषा)</h4>
+                <p className="text-[11px] text-gray-500">Apni pasandida bhasha chunein</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("hinglish")}
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-0.5 border ${
+                  lang === "hinglish"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
+                }`}
+              >
+                <span>Hinglish</span>
+                <span className="text-[10px] opacity-80">(Default)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("hindi")}
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-0.5 border ${
+                  lang === "hindi"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
+                }`}
+              >
+                <span>हिंदी</span>
+                <span className="text-[10px] opacity-80">(Hindi)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("english")}
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-0.5 border ${
+                  lang === "english"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
+                }`}
+              >
+                <span>English</span>
+                <span className="text-[10px] opacity-80">(EN)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Section 2: Voice Guide Assistant for Blind / Visually Impaired */}
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔊</span>
+                <div>
+                  <h4 className="font-extrabold text-xs text-blue-950">Voice Guide (दृष्टिबाधित सहायता)</h4>
+                  <p className="text-[11px] text-blue-700">Blind & Visually Impaired Voice Reader</p>
+                </div>
+              </div>
+              {isSpeaking && (
+                <span className="px-2 py-0.5 bg-amber-200 text-amber-900 rounded-full font-black text-[10px] animate-pulse">
+                  Speaking...
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-blue-900/90 leading-relaxed">
+              Yeh feature primary balance aur sabhi options ko aawaz mein bol kar sunata hai taaki blind users bina kisi pareshani ke app chala sakein.
+            </p>
+
             <button
               type="button"
-              onClick={() => setCardTab("silver")}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
-                cardTab === "silver" ? "bg-white text-gray-900 shadow-xs" : "text-gray-500 hover:text-gray-900"
+              onClick={speakDashboard}
+              className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-95 ${
+                isSpeaking
+                  ? "bg-amber-500 hover:bg-amber-600 text-white"
+                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
               }`}
             >
-              Silver Debit (Active)
-            </button>
-            <button
-              type="button"
-              onClick={() => setCardTab("platinum")}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
-                cardTab === "platinum" ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-xs" : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              👑 Platinum VIP {((userProfile.loansCount || 0) >= 4 || userProfile.cardTier === "platinum") ? "(Unlocked)" : "(Locked)"}
+              <span>{isSpeaking ? "⏹️" : "🔊"}</span>
+              <span>{isSpeaking ? "Aawaz Band Karein (Stop Audio)" : "Aawaz Me Suniye (Read Screen Aloud)"}</span>
             </button>
           </div>
 
-          {cardTab === "silver" ? (
-            /* SILVER DIGITAL DEBIT CARD */
-            <div className="space-y-4">
-              <div className="bg-gradient-to-tr from-slate-200 via-gray-300 to-slate-400 p-5 rounded-3xl text-slate-800 shadow-xl border border-white/60 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-36 h-36 bg-white/20 rounded-full -mr-16 -mt-16 pointer-events-none" />
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 block">
-                      Educa Digital Banking
-                    </span>
-                    <span className="text-base font-black text-slate-900">SILVER DEBIT</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-600/10 border border-emerald-600/30 text-emerald-800 rounded-full text-[10px] font-black">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping" />
-                    ACTIVE
-                  </div>
-                </div>
-
-                {/* EMV Chip & Contactless */}
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-9 h-7 bg-amber-300/80 rounded-md border border-amber-500/40 relative overflow-hidden flex items-center justify-center">
-                    <div className="w-full border-t border-amber-600/50" />
-                  </div>
-                  <span className="text-slate-600 text-lg">📡</span>
-                </div>
-
-                <div className="font-mono font-bold text-base sm:text-lg tracking-widest text-slate-800 mb-4">
-                  4214 •••• •••• 9821
-                </div>
-
-                <div className="flex justify-between items-end text-xs">
-                  <div>
-                    <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Cardholder</span>
-                    <span className="font-bold text-slate-900 uppercase">{userStored.name || "Educa Member"}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Expires</span>
-                    <span className="font-mono font-bold text-slate-900">09/29</span>
-                  </div>
-                  <div className="font-black text-slate-900 tracking-wider text-sm">
-                    RuPay
-                  </div>
-                </div>
-              </div>
-
-              {/* Silver Card Perks & Status */}
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-emerald-700 font-bold text-xs">✓ Criteria Completed:</span>
-                  <span className="text-xs text-emerald-900 font-medium">Verified Active Account</span>
-                </div>
-                <div className="text-xs text-emerald-800 space-y-1">
-                  <p>• ₹1,00,000 / day online payments and UPI limits</p>
-                  <p>• Zero transaction charges on P2P & Wallet load</p>
-                  <p>• Instant QR scanning and payment authorization</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* PLATINUM VIP CREDIT CARD */
-            <div className="space-y-4">
-              <div className="bg-gradient-to-tr from-slate-950 via-zinc-900 to-neutral-900 p-5 rounded-3xl text-amber-100 shadow-2xl border border-amber-500/30 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 rounded-full -mr-20 -mt-20 pointer-events-none blur-xl" />
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
-                      Educa Private Wealth
-                    </span>
-                    <span className="text-base font-black bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-500 bg-clip-text text-transparent">
-                      PLATINUM VIP
-                    </span>
-                  </div>
-                  {((userProfile.loansCount || 0) >= 4 || userProfile.cardTier === "platinum") ? (
-                    <span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-black text-[10px] rounded-full shadow-xs">
-                      👑 VIP ACTIVE
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 bg-zinc-800 border border-amber-500/40 text-amber-300 font-black text-[10px] rounded-full">
-                      🔒 LOCKED
-                    </span>
-                  )}
-                </div>
-
-                {/* Gold EMV Chip & Contactless */}
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-9 h-7 bg-gradient-to-br from-yellow-300 to-amber-500 rounded-md border border-amber-200/50 flex items-center justify-center shadow-xs">
-                    <div className="w-full border-t border-amber-800/40" />
-                  </div>
-                  <span className="text-amber-400 text-lg">📡</span>
-                </div>
-
-                <div className="font-mono font-bold text-base sm:text-lg tracking-widest text-amber-200 mb-4">
-                  5399 •••• •••• 8842
-                </div>
-
-                <div className="flex justify-between items-end text-xs">
-                  <div>
-                    <span className="text-[9px] uppercase tracking-wider text-amber-400/70 block">Cardholder</span>
-                    <span className="font-bold text-amber-100 uppercase">{userStored.name || "Educa Member"}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[9px] uppercase tracking-wider text-amber-400/70 block">Expires</span>
-                    <span className="font-mono font-bold text-amber-100">12/30</span>
-                  </div>
-                  <div className="font-black text-amber-400 tracking-wider text-sm">
-                    VISA VIP
-                  </div>
-                </div>
-              </div>
-
-              {/* Platinum Unlock Criteria & Progress */}
-              <div className="p-4 bg-slate-900 border border-amber-500/30 rounded-2xl text-white space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-xs text-amber-300">🎯 VIP Unlock Criteria:</span>
-                  <span className="text-xs font-mono font-bold text-emerald-400">
-                    {Math.min(100, Math.round(((userProfile.loansCount || 0) / 4) * 100))}% Completed
-                  </span>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
-                  <div
-                    className="bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, Math.round(((userProfile.loansCount || 0) / 4) * 100))}%` }}
-                  />
-                </div>
-
-                <div className="space-y-2 text-xs text-slate-300 pt-1">
-                  <div className="flex items-center gap-2">
-                    <span className={(userProfile.loansCount || 0) >= 4 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
-                      {(userProfile.loansCount || 0) >= 4 ? "✓" : "○"}
-                    </span>
-                    <span>
-                      Complete <strong>4 loan installments</strong> on time:{" "}
-                      <span className="font-mono text-amber-300">{Math.min(userProfile.loansCount || 0, 4)} / 4</span>
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-amber-400 font-bold">○</span>
-                    <span>OR total transaction volume of ₹50,000+ across all wallets</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-amber-400 font-bold">○</span>
-                    <span>OR direct invite approval by Educa Admin</span>
-                  </div>
-                </div>
-
-                {((userProfile.loansCount || 0) >= 4 || userProfile.cardTier === "platinum") ? (
-                  <button
-                    onClick={() => showToast("🎉 Platinum VIP Card is activated for your account!", "success")}
-                    className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-extrabold text-xs rounded-xl shadow-md active:scale-95 transition"
-                  >
-                    Manage Platinum VIP Card →
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => { closeModal(); setAccountModal("personal_loan"); }}
-                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 font-bold text-xs rounded-xl transition active:scale-95 text-center block"
-                  >
-                    View Personal Loan to Build Score →
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Section 3: Feature Tour */}
+          <button
+            type="button"
+            onClick={() => { closeModal(); setTourStep(0); setShowTour(true); }}
+            className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
+          >
+            <span className="flex items-center gap-2"><span>🎓</span> Replay App Feature Tour</span>
+            <span className="text-gray-400">→</span>
+          </button>
         </div>
       </Sheet>
 

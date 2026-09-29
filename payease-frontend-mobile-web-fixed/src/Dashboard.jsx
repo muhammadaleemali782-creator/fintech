@@ -33,6 +33,144 @@ const getUpcomingDailyDates = (count = 6) => {
   return dates;
 };
 
+// UI Localization Dictionary (Hinglish, Hindi, English)
+const UI_TEXT = {
+  hinglish: {
+    appTitle: "Educa Finance",
+    scanQr: "Scan QR",
+    voiceGuide: "Voice Guide",
+    listening: "Bol raha hai...",
+    profitWallet: "Profit Wallet",
+    duesWallet: "Dues Wallet",
+    primaryBalance: "Primary Wallet Balance",
+    checkBalance: "Check Balance",
+    hide: "Hide",
+    cardsAndVip: "My Educa Cards & VIP",
+    cardsSubtitle: "Silver Debit & Platinum VIP Criteria",
+    appTour: "App Feature Tour",
+    passbookHistory: "View Wallet Amount & Passbook History",
+    passbookSub: "Check balance, incoming & outgoing transactions",
+    myQrCode: "My QR Code",
+    resetPin: "Change / Reset 6-Digit Wallet PIN",
+    logout: "Log Out",
+    activeAccount: "Active Account",
+    lifetimeId: "LIFETIME",
+    copyId: "Copy ID",
+    copied: "✓ Copied",
+    skipTour: "Skip Tour",
+    next: "Next →",
+    finish: "Got It, Let's Go! 🚀",
+    back: "← Back",
+  },
+  hindi: {
+    appTitle: "एड्युका फाइनेंस",
+    scanQr: "QR स्कैन",
+    voiceGuide: "आवाज़ गाइड",
+    listening: "बोल रहा है...",
+    profitWallet: "प्रॉफ़िट वॉलेट",
+    duesWallet: "देय राशि (Dues)",
+    primaryBalance: "प्राइमरी वॉलेट बैलेंस",
+    checkBalance: "बैलेंस देखें",
+    hide: "छिपाएं",
+    cardsAndVip: "मेरे एड्युका कार्ड्स व VIP",
+    cardsSubtitle: "सिल्वर डेबिट और प्लैटिनम VIP की शर्तें",
+    appTour: "ऐप फ़ीचर टूर गाइड",
+    passbookHistory: "वॉलेट राशि व पासबुक इतिहास देखें",
+    passbookSub: "बैलेंस और लेन-देन का पूरा विवरण",
+    myQrCode: "मेरा QR कोड",
+    resetPin: "6-अंकों का पिन बदलें / रीसेट करें",
+    logout: "लॉग आउट",
+    activeAccount: "सक्रिय खाता",
+    lifetimeId: "लाइफटाइम",
+    copyId: "ID कॉपी करें",
+    copied: "✓ कॉपी हुआ",
+    skipTour: "टूर छोड़ें",
+    next: "आगे →",
+    finish: "समझ गया, शुरू करें! 🚀",
+    back: "← पीछे",
+  },
+  english: {
+    appTitle: "Educa Finance",
+    scanQr: "Scan QR",
+    voiceGuide: "Voice Guide",
+    listening: "Speaking...",
+    profitWallet: "Profit Wallet",
+    duesWallet: "Dues Wallet",
+    primaryBalance: "Primary Wallet Balance",
+    checkBalance: "Check Balance",
+    hide: "Hide",
+    cardsAndVip: "My Educa Cards & VIP",
+    cardsSubtitle: "Silver Debit & Platinum VIP Criteria",
+    appTour: "App Feature Tour",
+    passbookHistory: "View Wallet Amount & Passbook History",
+    passbookSub: "Check balance, incoming & outgoing transactions",
+    myQrCode: "My QR Code",
+    resetPin: "Change / Reset 6-Digit Wallet PIN",
+    logout: "Log Out",
+    activeAccount: "Active Account",
+    lifetimeId: "LIFETIME",
+    copyId: "Copy ID",
+    copied: "✓ Copied",
+    skipTour: "Skip Tour",
+    next: "Next →",
+    finish: "Got It, Let's Go! 🚀",
+    back: "← Back",
+  }
+};
+
+const tourSteps = [
+  {
+    title: "Profit Wallet & Dues Wallet",
+    titleHi: "प्रॉफ़िट वॉलेट और देय वॉलेट",
+    desc: "Aapke dashboard ke top par Profit Wallet (365-Day 18% Bonds aur returns ke liye) aur Dues Wallet (1st, 11th, 21st ki pending installments) side-by-side milte hain.",
+    descHi: "डैशबोर्ड के शीर्ष पर प्रॉफिट वॉलेट और देय राशि वॉलेट एक साथ दिए गए हैं ताकि आप आसानी से अपने मुनाफे और किश्तों को ट्रैक कर सकें।",
+    descEn: "At the top of your dashboard, monitor your Profit Wallet (for 365-day 18% bonds & returns) and Dues Wallet (tracking collections on 1st, 11th, and 21st).",
+    icon: "📈",
+    badge: "Step 1 of 5",
+    color: "from-emerald-600 to-teal-700"
+  },
+  {
+    title: "Primary Wallet & 6-Digit PIN",
+    titleHi: "प्राइमरी वॉलेट और 6-अंकों का सुरक्षा पिन",
+    desc: "Aapka main wallet balance PhonePe style 6-digit security PIN aur biometric fingerprint se protected rehta hai. Balance hamesha chupa rehta hai jab tak aap unlock na karein.",
+    descHi: "आपका मुख्य बैलेंस 6-अंकों के सुरक्षा पिन और फिंगरप्रिंट से सुरक्षित रहता है। बैलेंस देखने के लिए पिन दर्ज करें।",
+    descEn: "Your primary balance is secured by a 6-digit security PIN and biometric fingerprint lock. It remains masked until you unlock it.",
+    icon: "🔒",
+    badge: "Step 2 of 5",
+    color: "from-blue-600 to-indigo-700"
+  },
+  {
+    title: "Micro Loans & Business Capital",
+    titleHi: "पर्सनल व माइक्रो बिज़नेस लोन",
+    desc: "₹5K se ₹50K tak ke personal loans with easy installments, aur 60-120 days ke daily collection business loans. Kisi bhi samay loan full payoff karke band kar sakte hain!",
+    descHi: "₹5,000 से ₹50,000 तक आसान किश्तों में पर्सनल लोन और 60 से 120 दिनों के डेली कलेक्शन बिज़नेस लोन उपलब्ध हैं।",
+    descEn: "Access personal loans up to ₹50K with easy installments, and daily collection business loans (60-120 days) with early full settlement privileges.",
+    icon: "💼",
+    badge: "Step 3 of 5",
+    color: "from-amber-600 to-orange-700"
+  },
+  {
+    title: "Camera & Gallery QR Scanner",
+    titleHi: "कैमरा व गैलरी QR स्कैनर",
+    desc: "Top bar me 'Scan QR' button se aap direct phone camera se scan kar sakte hain, ya photo gallery se QR image select karke instant payment kar sakte hain.",
+    descHi: "कैमरे से सीधे QR कोड स्कैन करें या अपनी गैलरी से QR फोटो चुनकर तुरंत भुगतान करें।",
+    descEn: "Scan merchant or peer QR codes directly through your device camera or upload a QR image from your photo gallery.",
+    icon: "📷",
+    badge: "Step 4 of 5",
+    color: "from-purple-600 to-violet-700"
+  },
+  {
+    title: "Single Member ID & Smart Cards",
+    titleHi: "स्थायी मेंबर ID व स्मार्ट कार्ड्स",
+    desc: "Aapka lifetime EDUCA ID sabhi services ke liye single identity hai. Profile me jakar Silver Debit Card aur Platinum VIP Card ke unlock criteria dekhein!",
+    descHi: "आपकी स्थायी ID हमेशा सक्रिय रहती है। प्रोफ़ाइल में अपने सिल्वर डेबिट कार्ड और प्लैटिनम VIP कार्ड की स्थिति देखें।",
+    descEn: "Your lifetime EDUCA ID is your unified identity. Access your Silver Debit Card and track your Platinum VIP card unlock criteria in Profile!",
+    icon: "💳",
+    badge: "Step 5 of 5",
+    color: "from-slate-800 to-slate-900"
+  }
+];
+
 export default function Dashboard() {
   const token = localStorage.getItem("token");
   const userStored = JSON.parse(localStorage.getItem("user") || "{}");
@@ -45,7 +183,7 @@ export default function Dashboard() {
   const [bonds, setBonds] = useState([]);
   const [showLoans, setShowLoans] = useState(false);
   const [toast, setToast] = useState({ text: "", type: "" });
-  const [modal, setModal] = useState(null); // 'deposit' | 'withdraw' | 'profile' | 'my_qr' | 'send_money' | 'passbook'
+  const [modal, setModal] = useState(null); // 'deposit' | 'withdraw' | 'profile' | 'my_qr' | 'send_money' | 'passbook' | 'cards'
   const [passbookFilter, setPassbookFilter] = useState("all"); // 'all' | 'in' | 'out'
   const [accountModal, setAccountModal] = useState(null); // 'wallet' | 'debt' | 'lending' | 'personal_loan' | 'student_loan' | 'business_loan'
   const [currentRate, setCurrentRate] = useState(12);
@@ -58,6 +196,16 @@ export default function Dashboard() {
   const [activatingWallet, setActivatingWallet] = useState("");
   const [claimingCard, setClaimingCard] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
+
+  // Language & Voice Guide State
+  const [lang, setLang] = useState(() => localStorage.getItem("educa_lang") || "hinglish");
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // Guided Feature Tour State
+  const [showTour, setShowTour] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+
+  const txt = UI_TEXT[lang] || UI_TEXT.hinglish;
 
   const [depForm, setDepForm] = useState({ amount: "", method: "upi", utrNumber: "" });
   const [wdForm, setWdForm] = useState({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "" });
@@ -174,6 +322,65 @@ export default function Dashboard() {
       window.AndroidBiometric.authenticateBiometric();
     } else {
       showToast("Fingerprint authentication active in EducaFintech Android App", "info");
+    }
+  };
+
+  const handleLanguageChange = (newLang) => {
+    setLang(newLang);
+    localStorage.setItem("educa_lang", newLang);
+  };
+
+  const finishTour = () => {
+    localStorage.setItem("educa_tour_completed", "true");
+    setShowTour(false);
+    setTourStep(0);
+  };
+
+  const speakDashboard = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      showToast("Speech synthesis is not supported on this browser.", "error");
+      return;
+    }
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const userName = userStored.name || "User";
+    const primaryBal = balance || 0;
+    const profitBal = userProfile.profitBalance || 0;
+    const duesBal = userProfile.duesBalance || 0;
+
+    let text = "";
+    let langCode = "hi-IN";
+
+    if (lang === "hindi") {
+      text = `नमस्ते ${userName}. आपका प्राइमरी वॉलेट बैलेंस है ${primaryBal} रुपये. आपका प्रॉफिट वॉलेट है ${profitBal} रुपये, और देय राशि है ${duesBal} रुपये. क्यूआर स्कैन करने या पैसे भेजने के लिए ऊपर दिए गए बटनों का उपयोग करें.`;
+      langCode = "hi-IN";
+    } else if (lang === "english") {
+      text = `Hello ${userName}. Your primary wallet balance is ${primaryBal} rupees. Your profit wallet balance is ${profitBal} rupees, and dues wallet balance is ${duesBal} rupees. You can scan QR or transfer money with one tap.`;
+      langCode = "en-IN";
+    } else {
+      // Hinglish
+      text = `Namaste ${userName}. Aapka primary wallet balance hai ${primaryBal} rupaye. Profit wallet me hain ${profitBal} rupaye, aur Dues wallet me bacha hai ${duesBal} rupaye. Scan QR aur Send Money buttons se aap payments kar sakte hain.`;
+      langCode = "hi-IN";
+    }
+
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = langCode;
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setIsSpeaking(false);
     }
   };
 
@@ -555,7 +762,23 @@ export default function Dashboard() {
     loadCurrentRate();
     loadLoans();
     loadBonds();
+
+    // Check if new user guided feature tour should run
+    const tourDone = localStorage.getItem("educa_tour_completed");
+    if (!tourDone) {
+      const tourTimer = setTimeout(() => setShowTour(true), 1200);
+      return () => clearTimeout(tourTimer);
+    }
   }, [loadDashboard]);
+
+  // Clean up speech synthesis on component unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   // Personal Loan Calculations
   const isFirstTime = (userProfile.loansCount || 0) === 0;
@@ -831,21 +1054,67 @@ export default function Dashboard() {
     <div className="bg-gray-50 min-h-[100dvh] pb-safe-nav sm:pb-0 font-sans">
       {/* NAVBAR */}
       <nav className="bg-white shadow-sm sticky top-0 z-30 border-b border-gray-100 safe-top">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
           <div className="flex items-center gap-2.5">
             <span className="text-2xl">🎓</span>
             <div>
               <h1 className="text-lg sm:text-xl font-black font-display bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent leading-none">
-                Educa Finance
+                {txt.appTitle}
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            {/* Voice Guide Accessibility Button (Blind / Screen Reader assistance) */}
+            <button
+              onClick={speakDashboard}
+              aria-label={txt.voiceGuide}
+              className={`px-2 sm:px-2.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border ${
+                isSpeaking
+                  ? "bg-amber-100 text-amber-900 border-amber-300 animate-pulse"
+                  : "bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+              }`}
+              title="Voice Reader for Visually Impaired"
+            >
+              <span>{isSpeaking ? "⏹️" : "🔊"}</span>
+              <span className="hidden md:inline">{isSpeaking ? txt.listening : txt.voiceGuide}</span>
+            </button>
+
+            {/* Language Switcher */}
+            <div className="flex items-center bg-gray-100 p-0.5 rounded-xl border border-gray-200">
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("hinglish")}
+                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition ${
+                  lang === "hinglish" ? "bg-white text-blue-600 shadow-xs" : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                Hing
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("hindi")}
+                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition ${
+                  lang === "hindi" ? "bg-white text-blue-600 shadow-xs" : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                हिंदी
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("english")}
+                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition ${
+                  lang === "english" ? "bg-white text-blue-600 shadow-xs" : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                EN
+              </button>
+            </div>
+
             <button
               onClick={() => setModal("scan_qr")}
               className="px-2.5 sm:px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-emerald-200"
             >
-              <span>📷</span> <span className="hidden sm:inline">Scan</span> QR
+              <span>📷</span> <span className="hidden sm:inline">{txt.scanQr}</span>
             </button>
             <button
               onClick={() => setModal("profile")}
@@ -856,7 +1125,9 @@ export default function Dashboard() {
               </div>
               <span className="text-xs font-bold text-gray-700 hidden sm:inline">{userStored.name || "Profile"}</span>
             </button>
-            <button onClick={logout} className="hidden sm:inline-block px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-semibold text-xs">Logout</button>
+            <button onClick={logout} className="hidden sm:inline-block px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-semibold text-xs">
+              {txt.logout}
+            </button>
           </div>
         </div>
       </nav>
@@ -875,7 +1146,7 @@ export default function Dashboard() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-emerald-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">Profit Wallet</span>
+                <span className="text-emerald-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.profitWallet}</span>
                 <span className="text-base sm:text-lg">📈</span>
               </div>
               <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate">
@@ -897,7 +1168,7 @@ export default function Dashboard() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-rose-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">Dues Wallet</span>
+                <span className="text-rose-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.duesWallet}</span>
                 <span className="text-base sm:text-lg">📅</span>
               </div>
               <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate">
@@ -919,7 +1190,7 @@ export default function Dashboard() {
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 pointer-events-none" />
           <div className="relative z-10 mb-4">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-white/80 text-xs font-bold uppercase tracking-wider">Primary Wallet Balance</span>
+              <span className="text-white/80 text-xs font-bold uppercase tracking-wider">{txt.primaryBalance}</span>
               <span className="text-lg">💵</span>
             </div>
             {balanceRevealed ? (
@@ -931,7 +1202,7 @@ export default function Dashboard() {
                   onClick={() => setBalanceRevealed(false)}
                   className="px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-semibold text-white/90 border border-white/20 transition active:scale-95"
                 >
-                  🙈 Hide
+                  🙈 {txt.hide}
                 </button>
               </div>
             ) : (
@@ -943,7 +1214,7 @@ export default function Dashboard() {
                   onClick={handleCheckBalanceClick}
                   className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur rounded-xl text-xs font-bold text-white border border-white/30 flex items-center gap-1.5 shadow-sm active:scale-95 transition"
                 >
-                  <span>👁️</span> Check Balance
+                  <span>👁️</span> {txt.checkBalance}
                 </button>
               </div>
             )}
@@ -2293,18 +2564,51 @@ export default function Dashboard() {
                   💳
                 </div>
                 <div>
-                  <span className="block font-black text-sm text-white">View Wallet Amount & Passbook History</span>
-                  <span className="block text-[11px] text-blue-100 font-normal">Check balance, incoming & outgoing transactions</span>
+                  <span className="block font-black text-sm text-white">{txt.passbookHistory}</span>
+                  <span className="block text-[11px] text-blue-100 font-normal">{txt.passbookSub}</span>
                 </div>
               </div>
               <span className="text-white/80 font-bold text-base">→</span>
+            </button>
+
+            {/* MY EDUCA CARDS & VIP TIERS */}
+            <button
+              onClick={() => { setModal("cards"); }}
+              className="w-full p-3.5 bg-gradient-to-r from-slate-900 via-zinc-900 to-amber-950 border border-amber-500/30 text-white rounded-2xl font-bold text-xs flex items-center justify-between shadow-lg active:scale-95 transition"
+            >
+              <div className="flex items-center gap-3 text-left">
+                <div className="w-9 h-9 bg-amber-400/20 border border-amber-400/40 rounded-xl flex items-center justify-center text-lg shrink-0">
+                  💳
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-sm text-white">{txt.cardsAndVip}</span>
+                    <span className="px-1.5 py-0.5 bg-amber-400/20 text-amber-300 text-[10px] font-black rounded uppercase">
+                      Silver & VIP
+                    </span>
+                  </div>
+                  <span className="block text-[11px] text-amber-200/80 font-normal">
+                    {txt.cardsSubtitle}
+                  </span>
+                </div>
+              </div>
+              <span className="text-amber-300 font-bold text-base">→</span>
+            </button>
+
+            {/* APP FEATURE TOUR */}
+            <button
+              onClick={() => { closeModal(); setTourStep(0); setShowTour(true); }}
+              className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
+            >
+              <span className="flex items-center gap-2"><span>🎓</span> {txt.appTour}</span>
+              <span className="text-gray-400">→</span>
             </button>
 
             <button
               onClick={() => { setModal("my_qr"); }}
               className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
             >
-              <span className="flex items-center gap-2"><span>📱</span> My QR Code</span>
+              <span className="flex items-center gap-2"><span>📱</span> {txt.myQrCode}</span>
               <span className="text-gray-400">→</span>
             </button>
 
@@ -2312,14 +2616,209 @@ export default function Dashboard() {
               onClick={handleOpenResetPin}
               className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
             >
-              <span className="flex items-center gap-2"><span>🔒</span> Change / Reset 6-Digit Wallet PIN</span>
+              <span className="flex items-center gap-2"><span>🔒</span> {txt.resetPin}</span>
               <span className="text-gray-400">→</span>
             </button>
           </div>
 
           <button onClick={logout} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-100 active:bg-red-200 transition">
-            Log Out from Account
+            {txt.logout}
           </button>
+        </div>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
+          MY EDUCA CARDS & VIP TIERS SHEET
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "cards"} onClose={closeModal} title="Educa Smart Cards & VIP" icon="💳">
+        <div className="space-y-4">
+          {/* Tab Selector */}
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
+            <button
+              type="button"
+              onClick={() => setCardTab("silver")}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                cardTab === "silver" ? "bg-white text-gray-900 shadow-xs" : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              Silver Debit (Active)
+            </button>
+            <button
+              type="button"
+              onClick={() => setCardTab("platinum")}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                cardTab === "platinum" ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-xs" : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              👑 Platinum VIP {((userProfile.loansCount || 0) >= 4 || userProfile.cardTier === "platinum") ? "(Unlocked)" : "(Locked)"}
+            </button>
+          </div>
+
+          {cardTab === "silver" ? (
+            /* SILVER DIGITAL DEBIT CARD */
+            <div className="space-y-4">
+              <div className="bg-gradient-to-tr from-slate-200 via-gray-300 to-slate-400 p-5 rounded-3xl text-slate-800 shadow-xl border border-white/60 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-36 h-36 bg-white/20 rounded-full -mr-16 -mt-16 pointer-events-none" />
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 block">
+                      Educa Digital Banking
+                    </span>
+                    <span className="text-base font-black text-slate-900">SILVER DEBIT</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-600/10 border border-emerald-600/30 text-emerald-800 rounded-full text-[10px] font-black">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping" />
+                    ACTIVE
+                  </div>
+                </div>
+
+                {/* EMV Chip & Contactless */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-9 h-7 bg-amber-300/80 rounded-md border border-amber-500/40 relative overflow-hidden flex items-center justify-center">
+                    <div className="w-full border-t border-amber-600/50" />
+                  </div>
+                  <span className="text-slate-600 text-lg">📡</span>
+                </div>
+
+                <div className="font-mono font-bold text-base sm:text-lg tracking-widest text-slate-800 mb-4">
+                  4214 •••• •••• 9821
+                </div>
+
+                <div className="flex justify-between items-end text-xs">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Cardholder</span>
+                    <span className="font-bold text-slate-900 uppercase">{userStored.name || "Educa Member"}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Expires</span>
+                    <span className="font-mono font-bold text-slate-900">09/29</span>
+                  </div>
+                  <div className="font-black text-slate-900 tracking-wider text-sm">
+                    RuPay
+                  </div>
+                </div>
+              </div>
+
+              {/* Silver Card Perks & Status */}
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-700 font-bold text-xs">✓ Criteria Completed:</span>
+                  <span className="text-xs text-emerald-900 font-medium">Verified Active Account</span>
+                </div>
+                <div className="text-xs text-emerald-800 space-y-1">
+                  <p>• ₹1,00,000 / day online payments and UPI limits</p>
+                  <p>• Zero transaction charges on P2P & Wallet load</p>
+                  <p>• Instant QR scanning and payment authorization</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* PLATINUM VIP CREDIT CARD */
+            <div className="space-y-4">
+              <div className="bg-gradient-to-tr from-slate-950 via-zinc-900 to-neutral-900 p-5 rounded-3xl text-amber-100 shadow-2xl border border-amber-500/30 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 rounded-full -mr-20 -mt-20 pointer-events-none blur-xl" />
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
+                      Educa Private Wealth
+                    </span>
+                    <span className="text-base font-black bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-500 bg-clip-text text-transparent">
+                      PLATINUM VIP
+                    </span>
+                  </div>
+                  {((userProfile.loansCount || 0) >= 4 || userProfile.cardTier === "platinum") ? (
+                    <span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-black text-[10px] rounded-full shadow-xs">
+                      👑 VIP ACTIVE
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 bg-zinc-800 border border-amber-500/40 text-amber-300 font-black text-[10px] rounded-full">
+                      🔒 LOCKED
+                    </span>
+                  )}
+                </div>
+
+                {/* Gold EMV Chip & Contactless */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-9 h-7 bg-gradient-to-br from-yellow-300 to-amber-500 rounded-md border border-amber-200/50 flex items-center justify-center shadow-xs">
+                    <div className="w-full border-t border-amber-800/40" />
+                  </div>
+                  <span className="text-amber-400 text-lg">📡</span>
+                </div>
+
+                <div className="font-mono font-bold text-base sm:text-lg tracking-widest text-amber-200 mb-4">
+                  5399 •••• •••• 8842
+                </div>
+
+                <div className="flex justify-between items-end text-xs">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider text-amber-400/70 block">Cardholder</span>
+                    <span className="font-bold text-amber-100 uppercase">{userStored.name || "Educa Member"}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] uppercase tracking-wider text-amber-400/70 block">Expires</span>
+                    <span className="font-mono font-bold text-amber-100">12/30</span>
+                  </div>
+                  <div className="font-black text-amber-400 tracking-wider text-sm">
+                    VISA VIP
+                  </div>
+                </div>
+              </div>
+
+              {/* Platinum Unlock Criteria & Progress */}
+              <div className="p-4 bg-slate-900 border border-amber-500/30 rounded-2xl text-white space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-xs text-amber-300">🎯 VIP Unlock Criteria:</span>
+                  <span className="text-xs font-mono font-bold text-emerald-400">
+                    {Math.min(100, Math.round(((userProfile.loansCount || 0) / 4) * 100))}% Completed
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+                  <div
+                    className="bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.round(((userProfile.loansCount || 0) / 4) * 100))}%` }}
+                  />
+                </div>
+
+                <div className="space-y-2 text-xs text-slate-300 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className={(userProfile.loansCount || 0) >= 4 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                      {(userProfile.loansCount || 0) >= 4 ? "✓" : "○"}
+                    </span>
+                    <span>
+                      Complete <strong>4 loan installments</strong> on time:{" "}
+                      <span className="font-mono text-amber-300">{Math.min(userProfile.loansCount || 0, 4)} / 4</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-400 font-bold">○</span>
+                    <span>OR total transaction volume of ₹50,000+ across all wallets</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-400 font-bold">○</span>
+                    <span>OR direct invite approval by Educa Admin</span>
+                  </div>
+                </div>
+
+                {((userProfile.loansCount || 0) >= 4 || userProfile.cardTier === "platinum") ? (
+                  <button
+                    onClick={() => showToast("🎉 Platinum VIP Card is activated for your account!", "success")}
+                    className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-extrabold text-xs rounded-xl shadow-md active:scale-95 transition"
+                  >
+                    Manage Platinum VIP Card →
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { closeModal(); setAccountModal("personal_loan"); }}
+                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 font-bold text-xs rounded-xl transition active:scale-95 text-center block"
+                  >
+                    View Personal Loan to Build Score →
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </Sheet>
 
@@ -2468,6 +2967,84 @@ export default function Dashboard() {
           </div>
         </div>
       </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
+          NEW USER GUIDED FEATURE TOUR MODAL
+      ══════════════════════════════════════════════════════ */}
+      {showTour && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 w-full max-w-md shadow-2xl border border-gray-100 relative overflow-hidden">
+            {/* Header with step pill & skip */}
+            <div className="flex justify-between items-center mb-4">
+              <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-[11px] font-black rounded-full uppercase tracking-wider">
+                {tourSteps[tourStep].badge}
+              </span>
+              <button
+                type="button"
+                onClick={finishTour}
+                className="text-xs font-bold text-gray-400 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100 transition"
+              >
+                {txt.skipTour} ✕
+              </button>
+            </div>
+
+            {/* Graphic card for current step */}
+            <div className={`p-6 rounded-2xl bg-gradient-to-br ${tourSteps[tourStep].color} text-white shadow-lg mb-5 text-center relative overflow-hidden`}>
+              <div className="text-4xl sm:text-5xl mb-3">{tourSteps[tourStep].icon}</div>
+              <h3 className="text-lg sm:text-xl font-black font-display mb-1.5">
+                {lang === "hindi" ? tourSteps[tourStep].titleHi : tourSteps[tourStep].title}
+              </h3>
+              <p className="text-xs sm:text-sm text-white/90 leading-relaxed font-medium">
+                {lang === "hindi"
+                  ? tourSteps[tourStep].descHi
+                  : lang === "english"
+                  ? tourSteps[tourStep].descEn
+                  : tourSteps[tourStep].desc}
+              </p>
+            </div>
+
+            {/* Stepper Dots Indicator */}
+            <div className="flex justify-center items-center gap-1.5 mb-6">
+              {tourSteps.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setTourStep(idx)}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    tourStep === idx ? "w-7 bg-blue-600" : "w-2 bg-gray-200 hover:bg-gray-300"
+                  }`}
+                  aria-label={`Go to tour step ${idx + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2.5">
+              {tourStep > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setTourStep((s) => s - 1)}
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition active:scale-95"
+                >
+                  {txt.back}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (tourStep < tourSteps.length - 1) {
+                    setTourStep((s) => s + 1);
+                  } else {
+                    finishTour();
+                  }
+                }}
+                className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 transition active:scale-95 text-center"
+              >
+                {tourStep === tourSteps.length - 1 ? txt.finish : txt.next}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toast msg={toast} onHide={() => setToast({ text: "", type: "" })} />
 

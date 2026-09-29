@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { API } from "./config";
@@ -9,6 +9,16 @@ export default function Login() {
   const [msg, setMsg] = useState({ text: "", type: "" });
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [showMailModal, setShowMailModal] = useState(false);
+
+  // Auto-redirect if already logged in (never kick user to login page)
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    if (token && user) {
+      window.location.replace(user.role === "admin" ? "/admin" : "/dashboard");
+    }
+  }, []);
 
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [mailLoginData, setMailLoginData] = useState({ email: "", password: "" });
@@ -246,15 +256,24 @@ export default function Login() {
                 {loading ? "Signing in..." : "Sign In to Account →"}
               </button>
 
-              <div className="text-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setTab("mail-login"); setMsg({ text: "", type: "" }); }}
-                  className="text-xs text-gray-500 hover:text-[#1D6AE5] flex items-center justify-center gap-1.5 mx-auto font-medium"
-                >
-                  <span>✉️</span> Or sign in using your <strong>Educa Mail</strong> ID
-                </button>
+              <div className="relative my-3">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-3 text-gray-400 font-semibold">Or continue with</span>
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setShowMailModal(true)}
+                className="w-full py-2.5 px-4 bg-white hover:bg-blue-50/50 border-2 border-gray-200 hover:border-blue-400 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 shadow-xs transition active:scale-95"
+              >
+                <span className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#1D6AE5] to-[#0DC98A] text-white flex items-center justify-center text-xs font-black shadow-xs">E</span>
+                <span>Sign in with Educa Mail</span>
+                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded-md">1-Click SSO</span>
+              </button>
             </form>
           )}
 
@@ -492,6 +511,25 @@ export default function Login() {
               >
                 {loading ? "Creating Account..." : regData.isAgent ? "Submit Agent Application →" : "Create Account & Educa Mail →"}
               </button>
+
+              <div className="relative my-3">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-3 text-gray-400 font-semibold">Or instant sign up with</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowMailModal(true)}
+                className="w-full py-2.5 px-4 bg-white hover:bg-emerald-50/50 border-2 border-gray-200 hover:border-emerald-400 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 shadow-xs transition active:scale-95"
+              >
+                <span className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#1D6AE5] to-[#0DC98A] text-white flex items-center justify-center text-xs font-black shadow-xs">E</span>
+                <span>Sign up with Educa Mail</span>
+                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded-md">Fast Sign-Up</span>
+              </button>
             </form>
           )}
 
@@ -556,6 +594,79 @@ export default function Login() {
           🔒 256-bit Encrypted · RBI Registered NBFC Partners · Educa Fintech
         </p>
       </div>
+
+      {/* EDUCA MAIL SINGLE SIGN-ON POPUP MODAL (GOOGLE-STYLE) */}
+      {showMailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 w-full max-w-sm shadow-2xl border border-gray-100 relative">
+            <button
+              onClick={() => setShowMailModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-lg w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition"
+            >
+              ✕
+            </button>
+
+            <div className="text-center mb-5">
+              <div className="w-12 h-12 bg-gradient-to-tr from-[#1D6AE5] to-[#0DC98A] text-white font-black text-xl rounded-2xl flex items-center justify-center mx-auto shadow-md mb-2">
+                E
+              </div>
+              <h3 className="font-extrabold text-base text-gray-900">Sign in with Educa Mail</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Instant SSO for Educa Fintech & Mail
+              </p>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                await handleMailLogin(e);
+                setShowMailModal(false);
+              }}
+              className="space-y-3.5"
+            >
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Educa Mail ID</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={mailLoginData.email}
+                    onChange={(e) => setMailLoginData({ ...mailLoginData, email: e.target.value })}
+                    placeholder="name@educamail.com"
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#1D6AE5] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  required
+                  value={mailLoginData.password}
+                  onChange={(e) => setMailLoginData({ ...mailLoginData, password: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#1D6AE5] outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 transition active:scale-95"
+              >
+                {loading ? "Connecting..." : "Continue with Educa Mail →"}
+              </button>
+
+              <div className="p-2.5 bg-emerald-50 rounded-xl text-[11px] text-emerald-800 flex items-start gap-2">
+                <span className="text-sm">✨</span>
+                <span>
+                  Educa Mail id daalne par bina alag registration ke Fintech account auto-connect ho jayega.
+                </span>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -47,8 +47,9 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
-          {/* 1. Home */}
-          <Route path="/" element={<LandingPage />} />
+          {/* 1. Direct App Login on root */}
+          <Route path="/" element={<Login />} />
+          <Route path="/home" element={<LandingPage />} />
 
           {/* 2. About Us */}
           <Route path="/about" element={<AboutPage />} />

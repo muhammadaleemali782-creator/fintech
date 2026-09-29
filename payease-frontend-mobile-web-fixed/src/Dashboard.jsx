@@ -231,6 +231,26 @@ export default function Dashboard() {
   const [profitHistory, setProfitHistory] = useState([]);
   const [loadingProfitHistory, setLoadingProfitHistory] = useState(false);
 
+  // Camera Flashlight / Torch State
+  const [hasTorch, setHasTorch] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+
+  const toggleTorch = async () => {
+    try {
+      const videoElem = document.querySelector("#educa-qr-reader video");
+      if (videoElem && videoElem.srcObject) {
+        const track = videoElem.srcObject.getVideoTracks()[0];
+        const next = !torchOn;
+        await track.applyConstraints({
+          advanced: [{ torch: next }]
+        });
+        setTorchOn(next);
+      }
+    } catch (e) {
+      console.warn("Torch failed:", e);
+    }
+  };
+
   // Language & Voice Guide State
   const [lang, setLang] = useState(() => localStorage.getItem("educa_lang") || "hinglish");
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -689,14 +709,26 @@ export default function Dashboard() {
           qrScannerRef.current = scanner;
           scanner.start(
             { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 220, height: 220 } },
+            { fps: 15, qrbox: { width: 250, height: 250 } },
             (decodedText) => {
               if (mounted) handleScanSuccess(decodedText);
             },
             () => {}
           )
           .then(() => {
-            if (mounted) setCameraActive(true);
+            if (mounted) {
+              setCameraActive(true);
+              try {
+                const videoElem = document.querySelector("#educa-qr-reader video");
+                if (videoElem && videoElem.srcObject) {
+                  const track = videoElem.srcObject.getVideoTracks()[0];
+                  const caps = track?.getCapabilities?.();
+                  if (caps && "torch" in caps) {
+                    setHasTorch(true);
+                  }
+                }
+              } catch (e) {}
+            }
           })
           .catch((err) => {
             console.warn("Camera start failed:", err);
@@ -721,6 +753,8 @@ export default function Dashboard() {
           qrScannerRef.current = null;
         }
         setCameraActive(false);
+        setTorchOn(false);
+        setHasTorch(false);
       };
     }
   }, [modal]);
@@ -1769,33 +1803,110 @@ export default function Dashboard() {
       </Sheet>
 
       {/* ══════════════════════════════════════════════════════
-          SCAN QR CODE SHEET (CAMERA + GALLERY)
+          SCAN QR CODE SHEET (REDESIGNED ULTRA-POLISHED SCANNER)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "scan_qr"} onClose={closeModal} title="Scan QR Code" icon={<ScannerIcon className="w-5 h-5 text-cyan-500 inline" />}>
+      <Sheet
+        open={modal === "scan_qr"}
+        onClose={closeModal}
+        title="Scan Any QR Code"
+        icon={<ScannerIcon className="w-5 h-5 text-cyan-400 inline" />}
+        dark={true}
+        extraHeader={
+          hasTorch ? (
+            <button
+              type="button"
+              onClick={toggleTorch}
+              className={`px-2.5 py-1 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+                torchOn
+                  ? "bg-amber-400 text-slate-950 border-amber-300 shadow-md shadow-amber-400/30"
+                  : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 active:scale-95"
+              }`}
+              title="Toggle Flashlight"
+            >
+              <span>{torchOn ? "🔦 On" : "🔦 Flash"}</span>
+            </button>
+          ) : null
+        }
+      >
         <div className="space-y-4">
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900">
-            📸 Phone camera se QR scan karein ya phone ki <strong>Gallery</strong> se QR image chunein.
+          {/* Top Info Banner / Status Pill */}
+          <div className="flex items-center justify-between px-3.5 py-2 rounded-2xl bg-slate-950/80 border border-slate-800/80 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="text-slate-200 font-semibold text-[11px]">UPI & BharatQR Auto-Detect</span>
+            </div>
+            <span className="text-[10px] text-cyan-300 font-bold bg-cyan-950/70 px-2 py-0.5 rounded-lg border border-cyan-500/30">
+              ⚡ Instant Pay
+            </span>
           </div>
 
-          {/* Scanner Viewport */}
-          <div className="relative rounded-2xl overflow-hidden bg-slate-900 border-2 border-slate-700 min-h-[260px] flex items-center justify-center">
-            <div id="educa-qr-reader" className="w-full h-full min-h-[260px]" />
+          {/* Scanner Viewport with Custom High-Tech Viewfinder Reticle */}
+          <div className="relative rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 h-[340px] sm:h-[380px] flex items-center justify-center shadow-2xl">
+            {/* The html5-qrcode video viewport */}
+            <div id="educa-qr-reader" className="w-full h-full" />
+
+            {/* Custom High-Tech Laser Viewfinder Reticle Overlay */}
+            {cameraActive && (
+              <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-4">
+                {/* 240x240 Target Box with Glowing Cyan Corner Brackets */}
+                <div className="relative w-60 h-60 sm:w-64 sm:h-64 flex items-center justify-center">
+                  {/* Top-Left Bracket */}
+                  <div className="absolute top-0 left-0 w-8 h-8 border-t-3 border-l-3 border-cyan-400 rounded-tl-xl shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                  {/* Top-Right Bracket */}
+                  <div className="absolute top-0 right-0 w-8 h-8 border-t-3 border-r-3 border-cyan-400 rounded-tr-xl shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                  {/* Bottom-Left Bracket */}
+                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-3 border-l-3 border-cyan-400 rounded-bl-xl shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                  {/* Bottom-Right Bracket */}
+                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-3 border-r-3 border-cyan-400 rounded-br-xl shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+
+                  {/* Corner Finder Dots */}
+                  <div className="absolute top-2 left-2 w-1.5 h-1.5 rounded-full bg-cyan-400/90" />
+                  <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-cyan-400/90" />
+                  <div className="absolute bottom-2 left-2 w-1.5 h-1.5 rounded-full bg-cyan-400/90" />
+                  <div className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-full bg-cyan-400/90" />
+
+                  {/* High-Tech Animated Laser Beam Line */}
+                  <div className="absolute inset-x-2 top-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_14px_#22d3ee] animate-laserBeam" />
+                </div>
+
+                {/* Floating Micro-Instruction Badge */}
+                <div className="mt-4 px-3.5 py-1.5 rounded-full bg-slate-900/90 backdrop-blur-md border border-slate-700/80 text-[11px] font-semibold text-cyan-200 flex items-center gap-2 shadow-lg">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span>QR code ko frame ke andar rakhein</span>
+                </div>
+              </div>
+            )}
+
+            {/* Camera Initializing State */}
             {!cameraActive && !cameraError && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 gap-2 bg-slate-900/90 p-4 text-center">
-                <div className="w-8 h-8 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs font-semibold">Camera shuru ho raha hai...</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 gap-3 bg-slate-950 p-6 text-center">
+                <div className="w-10 h-10 border-3 border-cyan-400 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(34,211,238,0.3)]" />
+                <span className="text-xs font-semibold text-slate-200">Camera shuru ho raha hai...</span>
+                <span className="text-[11px] text-slate-500">Fast QR Scanner sensor loading</span>
               </div>
             )}
+
+            {/* Camera Error State */}
             {cameraError && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-amber-300 gap-2 bg-slate-900/95 p-6 text-center">
-                <span className="text-2xl">⚠️</span>
-                <span className="text-xs font-medium text-slate-200">{cameraError}</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-200 gap-3 bg-slate-950/95 p-6 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center text-2xl">
+                  ⚠️
+                </div>
+                <h4 className="text-sm font-bold text-white">Camera Access Required</h4>
+                <p className="text-xs text-slate-400 max-w-xs">{cameraError}</p>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById("gallery-qr-upload")?.click()}
+                  className="mt-2 py-2.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition active:scale-95"
+                >
+                  Choose from Gallery Instead →
+                </button>
               </div>
             )}
           </div>
 
-          {/* Gallery Pick Option */}
-          <div className="space-y-2">
+          {/* Action Buttons Toolbar: Gallery & My QR */}
+          <div className="grid grid-cols-2 gap-2.5 pt-1">
             <input
               type="file"
               id="gallery-qr-upload"
@@ -1806,13 +1917,35 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => document.getElementById("gallery-qr-upload")?.click()}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95"
+              className="w-full py-3.5 px-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:opacity-95 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 transition"
             >
-              <span>🖼️</span> Gallery se QR Code Photo Chunein
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <span>Gallery se QR Chunein</span>
             </button>
-            <p className="text-[11px] text-gray-400 text-center">
-              Screenshot ya gallery se QR image select karke auto-fill karein.
-            </p>
+
+            <button
+              type="button"
+              onClick={() => { closeModal(); setTimeout(() => setModal("my_qr"), 150); }}
+              className="w-full py-3.5 px-3 bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
+            >
+              <span className="text-base">📱</span>
+              <span>Mera QR Code</span>
+            </button>
+          </div>
+
+          {/* Footer Trust Badges */}
+          <div className="text-center pt-1 text-[11px] text-slate-500 flex items-center justify-center gap-2">
+            <span>Google Pay</span>
+            <span>·</span>
+            <span>PhonePe</span>
+            <span>·</span>
+            <span>Paytm</span>
+            <span>·</span>
+            <span>BharatQR</span>
           </div>
 
           {/* Temporary hidden container for scanning gallery files */}

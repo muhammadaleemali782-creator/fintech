@@ -42,3 +42,47 @@ h1, h2, h3, .font-display {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Html5Qrcode Custom Viewfinder & Camera Overrides */
+#educa-qr-reader {
+  border: none !important;
+  background: transparent !important;
+  position: relative !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+#educa-qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 1.5rem !important;
+}
+#qr-shaded-region {
+  display: none !important;
+}
+#educa-qr-reader img[alt="Info icon"] {
+  display: none !important;
+}
+#educa-qr-reader__scan_region {
+  min-height: 100% !important;
+}
+
+@keyframes laserBeam {
+  0% {
+    top: 6%;
+    opacity: 0.7;
+  }
+  50% {
+    top: 92%;
+    opacity: 1;
+  }
+  100% {
+    top: 6%;
+    opacity: 0.7;
+  }
+}
+.animate-laserBeam {
+  animation: laserBeam 2.2s ease-in-out infinite;
+}
+

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import QRCode from "qrcode";
 import Sheet from "./components/Sheet";
 import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
@@ -20,6 +21,17 @@ const getUpcomingDates = (count = 6) => {
   return dates;
 };
 
+// Helper: Calculate daily collection dates for micro business
+const getUpcomingDailyDates = (count = 6) => {
+  const dates = [];
+  let cur = new Date();
+  for (let i = 0; i < count; i++) {
+    cur.setDate(cur.getDate() + 1);
+    dates.push(new Date(cur));
+  }
+  return dates;
+};
+
 export default function Dashboard() {
   const token = localStorage.getItem("token");
   const userStored = JSON.parse(localStorage.getItem("user") || "{}");
@@ -29,9 +41,10 @@ export default function Dashboard() {
   const [balance, setBalance] = useState(0);
   const [txns, setTxns] = useState([]);
   const [loans, setLoans] = useState([]);
+  const [bonds, setBonds] = useState([]);
   const [showLoans, setShowLoans] = useState(false);
   const [toast, setToast] = useState({ text: "", type: "" });
-  const [modal, setModal] = useState(null);
+  const [modal, setModal] = useState(null); // 'deposit' | 'withdraw' | 'profile' | 'my_qr' | 'send_money'
   const [accountModal, setAccountModal] = useState(null); // 'wallet' | 'debt' | 'lending' | 'personal_loan' | 'student_loan' | 'business_loan'
   const [currentRate, setCurrentRate] = useState(12);
   const [referralCode, setReferralCode] = useState(userStored.referralCode || "");
@@ -42,14 +55,23 @@ export default function Dashboard() {
   const [cardTab, setCardTab] = useState("silver");
   const [activatingWallet, setActivatingWallet] = useState("");
   const [claimingCard, setClaimingCard] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState("");
 
   const [depForm, setDepForm] = useState({ amount: "", method: "upi", utrNumber: "" });
   const [wdForm, setWdForm] = useState({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "" });
   
-  // Personal Loan Application State (10-day Easy Installments, 1.34% per installment, max 10k initially)
+  // P2P Transfer State
+  const [sendForm, setSendForm] = useState({ recipient: "", amount: "", notes: "" });
+  const [recipientInfo, setRecipientInfo] = useState(null);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+
+  // Personal Loan Application State (₹5k-₹50k, 15-30 Easy Installments, 1.34% per installment)
   const [loanForm, setLoanForm] = useState({
-    amount: 10000,
-    installmentsCount: 12,
+    amount: 5000,
+    hasChequeFacility: false,
+    chequeNumber: "",
+    installmentsCount: 15,
     purpose: "Personal Needs",
     aadharNumber: "",
     panNumber: "",
@@ -58,11 +80,73 @@ export default function Dashboard() {
     upiId: ""
   });
 
+  // Micro Business Loan State (Daily collection: 60d@18%, 80d@24%, 100d@30%, 120d@36%)
+  const [mblForm, setMblForm] = useState({
+    amount: 10000,
+    days: 60,
+    purpose: "Shop Inventory & Working Capital",
+    businessName: "",
+    aadharNumber: "",
+    panNumber: "",
+    bankAccountNumber: "",
+    bankIfsc: ""
+  });
+
+  // Lending Bond Selection (40 or 80 months)
+  const [lendingBondType, setLendingBondType] = useState("lending_40");
+
   const showToast = (text, type = "success") => setToast({ text, type });
   const closeModal = () => {
     setModal(null);
     setAccountModal(null);
   };
+
+  const userUniqueId = userProfile.phone
+    ? `EDUCA-${userProfile.referralCode || userProfile.phone}`
+    : `EDUCA-${referralCode || "USER"}`;
+
+  // Generate QR Code
+  useEffect(() => {
+    if (userUniqueId) {
+      QRCode.toDataURL(`educa://pay?to=${userUniqueId}&name=${encodeURIComponent(userStored.name || "User")}`, {
+        width: 250,
+        margin: 2,
+        color: { dark: "#0A192F", light: "#ffffff" }
+      })
+        .then(url => setQrDataUrl(url))
+        .catch(() => {});
+    }
+  }, [userUniqueId, userStored.name]);
+
+  // Recipient Auto-Lookup with Debounce
+  useEffect(() => {
+    const q = sendForm.recipient.trim();
+    if (q.length < 4) {
+      setRecipientInfo(null);
+      setLookupError("");
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setLookingUp(true);
+      setLookupError("");
+      try {
+        const res = await fetch(`${API}/transaction/lookup/${encodeURIComponent(q)}`, { headers });
+        const data = await res.json();
+        if (res.ok) {
+          setRecipientInfo(data);
+          setLookupError("");
+        } else {
+          setRecipientInfo(null);
+          setLookupError(data.message || "User nahi mila");
+        }
+      } catch {
+        setLookupError("Checking recipient failed");
+      } finally {
+        setLookingUp(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [sendForm.recipient]);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -77,6 +161,7 @@ export default function Dashboard() {
         setCardTab("platinum");
       }
       loadTransactions();
+      loadBonds();
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -143,33 +228,60 @@ export default function Dashboard() {
     } catch {}
   };
 
+  const loadBonds = async () => {
+    try {
+      const res = await fetch(`${API}/bond/my`, { headers });
+      const data = await res.json();
+      setBonds(Array.isArray(data) ? data : []);
+    } catch {}
+  };
+
   const loadCurrentRate = async () => {
     try {
       const res = await fetch(`${API}/loan/current-rate`);
       const data = await res.json();
-      setCurrentRate(data.interestRate || 12);
+      setCurrentRate(data.interestRate || 1.34);
     } catch {}
   };
 
-  useEffect(() => { loadDashboard(); loadCurrentRate(); loadLoans(); }, [loadDashboard]);
+  useEffect(() => {
+    loadDashboard();
+    loadCurrentRate();
+    loadLoans();
+    loadBonds();
+  }, [loadDashboard]);
 
-  // Live Auto-Disbursal Calculations for Personal Loan
-  const eligibleLimit = userProfile.loanLimit || 10000;
-  const quoteAmount = Math.min(Math.max(Number(loanForm.amount) || 1000, 1000), eligibleLimit);
-  const quoteCount = Math.min(Math.max(Number(loanForm.installmentsCount) || 12, 12), 30);
-  const quoteRate = 1.34; // 1.34% per 10-day Easy Installment
+  // Personal Loan Calculations
+  const isFirstTime = (userProfile.loansCount || 0) === 0;
+  const maxLimit = isFirstTime
+    ? (loanForm.hasChequeFacility ? 10000 : 5000)
+    : (userProfile.loanLimit || 10000);
+
+  const quoteAmount = Math.min(Math.max(Number(loanForm.amount) || 5000, 5000), maxLimit);
+  const quoteCount = Math.min(Math.max(Number(loanForm.installmentsCount) || 15, 15), 30);
+  const quoteRate = 1.34;
   const principalPerInstallment = quoteAmount / quoteCount;
   const interestPerInstallment = (quoteAmount * quoteRate) / 100;
   const installmentAmount = Math.round(principalPerInstallment + interestPerInstallment);
   const totalPayable = installmentAmount * quoteCount;
   const processingFee = Math.round(quoteAmount * 0.05); // 5%
   const upiCharges = Math.round(quoteAmount * 0.01); // 1%
-  const advanceDeduction = installmentAmount; // 1st Easy Installment deducted upfront
+  const advanceDeduction = installmentAmount; // 1st installment deducted upfront
   const disbursalAmount = Math.max(0, quoteAmount - (processingFee + upiCharges + advanceDeduction));
   const previewDates = getUpcomingDates(Math.min(quoteCount, 6));
 
-  const copyReferralCode = () => {
-    navigator.clipboard.writeText(referralCode);
+  // Micro Business Loan Calculations (Daily collection)
+  const mblAmount = Math.min(Math.max(Number(mblForm.amount) || 5000, 5000), 50000);
+  const mblDays = Number(mblForm.days) || 60;
+  const mblRateMap = { 60: 18, 80: 24, 100: 30, 120: 36 };
+  const mblRate = mblRateMap[mblDays] || 18;
+  const mblInterest = Math.round((mblAmount * mblRate) / 100);
+  const mblTotalPayable = mblAmount + mblInterest;
+  const mblDailyInstallment = Math.round(mblTotalPayable / mblDays);
+  const mblPreviewDates = getUpcomingDailyDates(6);
+
+  const copyText = (text) => {
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -191,9 +303,50 @@ export default function Dashboard() {
     if (res.ok) { closeModal(); setWdForm({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "" }); loadDashboard(); }
   };
 
+  // Submit P2P Transfer (App-to-App)
+  const submitTransfer = async () => {
+    const amt = Number(sendForm.amount);
+    if (!amt || amt < 1 || !Number.isInteger(amt)) {
+      return showToast("Valid amount daalein (minimum ₹1, bina decimals)", "error");
+    }
+    if (amt > balance) {
+      return showToast(`Wallet me paryapt balance nahi hai. Available: ₹${balance.toLocaleString("en-IN")}`, "error");
+    }
+    if (!sendForm.recipient) {
+      return showToast("Recipient Phone, Email ya Unique ID daalein", "error");
+    }
+    try {
+      const res = await fetch(`${API}/transaction/transfer`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          recipient: sendForm.recipient.trim(),
+          amount: amt,
+          notes: sendForm.notes.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || "🎉 Transfer successful!", "success");
+        closeModal();
+        setSendForm({ recipient: "", amount: "", notes: "" });
+        setRecipientInfo(null);
+        loadDashboard();
+      } else {
+        showToast(data.message || "Transfer fail ho gaya", "error");
+      }
+    } catch {
+      showToast("Network error transferring funds", "error");
+    }
+  };
+
+  // Submit Personal Loan Application
   const submitPersonalLoan = async () => {
     if (!loanForm.aadharNumber || !loanForm.panNumber || !loanForm.bankAccountNumber) {
       return showToast("Kripya Aadhar, PAN aur Bank Account details darj karein", "error");
+    }
+    if (isFirstTime && loanForm.hasChequeFacility && !loanForm.chequeNumber) {
+      return showToast("Kripya Cheque Number darj karein", "error");
     }
 
     try {
@@ -201,15 +354,19 @@ export default function Dashboard() {
         method: "POST",
         headers,
         body: JSON.stringify({
+          loanType: "personal",
           amount: quoteAmount,
           installmentsCount: quoteCount,
+          hasChequeFacility: isFirstTime ? !!loanForm.hasChequeFacility : false,
+          chequeNumber: loanForm.chequeNumber,
           purpose: loanForm.purpose || "Personal Needs",
           documents: {
             aadharNumber: loanForm.aadharNumber,
             panNumber: loanForm.panNumber,
             bankAccountNumber: loanForm.bankAccountNumber,
             bankIfsc: loanForm.bankIfsc,
-            upiId: loanForm.upiId
+            upiId: loanForm.upiId,
+            chequeNumber: loanForm.chequeNumber
           }
         })
       });
@@ -227,6 +384,98 @@ export default function Dashboard() {
     }
   };
 
+  // Submit Micro Business Loan Application
+  const submitMicroBusinessLoan = async () => {
+    if (!mblForm.aadharNumber || !mblForm.panNumber || !mblForm.bankAccountNumber) {
+      return showToast("Kripya Aadhar, PAN aur Bank Account details darj karein", "error");
+    }
+
+    try {
+      const res = await fetch(`${API}/loan/apply`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          loanType: "micro_business",
+          amount: mblAmount,
+          days: mblDays,
+          purpose: mblForm.purpose || "Micro Business Working Capital",
+          documents: {
+            aadharNumber: mblForm.aadharNumber,
+            panNumber: mblForm.panNumber,
+            bankAccountNumber: mblForm.bankAccountNumber,
+            bankIfsc: mblForm.bankIfsc,
+            businessName: mblForm.businessName
+          }
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || "Micro Business Loan application submitted!", "success");
+        closeModal();
+        loadLoans();
+        loadDashboard();
+      } else {
+        showToast(data.message || "Failed to submit business loan", "error");
+      }
+    } catch {
+      showToast("Network error submitting business loan", "error");
+    }
+  };
+
+  // Create 365-Day Fixed Bond (Debit)
+  const createDebitBond = async () => {
+    if (balance < 100000) {
+      return showToast("1 Lakh ka bond banane ke liye wallet me kam se kam ₹1,00,000 hona chahiye", "error");
+    }
+    if (!window.confirm("₹1,00,000 ka 365-Day Fixed Bond lock karein? Maturity par ₹1,18,000 Profit Wallet me add hoga.")) return;
+    try {
+      const res = await fetch(`${API}/bond/create`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ bondType: "debit_365", amount: 100000 })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("🎉 365-Day Bond created! ₹1,18,000 maturity scheduled.", "success");
+        loadDashboard();
+        loadBonds();
+      } else {
+        showToast(data.message || "Failed to create bond", "error");
+      }
+    } catch {
+      showToast("Network error creating bond", "error");
+    }
+  };
+
+  // Create Lending Monthly Bond (40 or 80 Months)
+  const createLendingBond = async (type = "lending_40") => {
+    if (balance < 100000) {
+      return showToast("Lending Bond banane ke liye wallet me kam se kam ₹1,00,000 hona chahiye", "error");
+    }
+    const msg = type === "lending_40"
+      ? "₹1,00,000 ka 40 Months Lending Bond lock karein? (₹1,40,000 return @ ₹3,500/month)"
+      : "₹1,00,000 ka 80 Months Lending Bond lock karein? (₹1,80,000 return @ ₹2,250/month)";
+    if (!window.confirm(msg)) return;
+    try {
+      const res = await fetch(`${API}/bond/create`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ bondType: type, amount: 100000 })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || "🎉 Lending Bond created successfully!", "success");
+        loadDashboard();
+        loadBonds();
+      } else {
+        showToast(data.message || "Failed to create lending bond", "error");
+      }
+    } catch {
+      showToast("Network error creating lending bond", "error");
+    }
+  };
+
+  // Pay Easy Installment
   const payInstallment = async (id, instAmount) => {
     if (!window.confirm(`Pay Easy Installment of ₹${instAmount}?`)) return;
     const res = await fetch(`${API}/loan/${id}/pay-installment`, { method: "POST", headers });
@@ -235,35 +484,68 @@ export default function Dashboard() {
     if (res.ok) { loadLoans(); loadDashboard(); }
   };
 
+  // Settle & Close Loan Early in Full
+  const closeLoanEarly = async (id, payoffAmount) => {
+    if (!window.confirm(`Kya aap loan ko ₹${payoffAmount.toLocaleString("en-IN")} me early payoff karke close karna chahte hain?`)) return;
+    try {
+      const res = await fetch(`${API}/loan/${id}/close-early`, { method: "POST", headers });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("🎉 Loan full payoff ho kar close ho gaya! Limit upgrade ho chuki hai.", "success");
+        loadLoans();
+        loadDashboard();
+      } else {
+        showToast(data.message || "Early closure fail ho gaya", "error");
+      }
+    } catch {
+      showToast("Network error during early closure", "error");
+    }
+  };
+
   const logout = () => { localStorage.clear(); window.location.href = "/"; };
 
-  const activePersonalLoan = loans.find(l => l.status === "active" || l.status === "pending" || l.status === "approved");
+  const activePersonalLoan = loans.find(l => (l.status === "active" || l.status === "pending" || l.status === "approved") && l.loanType === "personal");
+  const activeBusinessLoan = loans.find(l => (l.status === "active" || l.status === "pending" || l.status === "approved") && l.loanType === "micro_business");
 
   const quickActions = [
-    { icon: "💸", label: "Deposit", sub: "Add funds", color: "bg-green-100", action: () => setModal("deposit") },
-    { icon: "💰", label: "Withdraw", sub: "Cash out", color: "bg-red-100", action: () => setModal("withdraw") },
-    { icon: "🏦", label: "Apply Loan", sub: "10-day cycle", color: "bg-blue-100", action: () => setAccountModal("personal_loan") },
-    { icon: "📋", label: "My Loans", sub: "Installments", color: "bg-purple-100", action: loadLoans },
+    { icon: "📱", label: "My QR Code", sub: "Scan to receive", color: "bg-blue-100", action: () => setModal("my_qr") },
+    { icon: "⚡", label: "Send Money", sub: "Instant P2P", color: "bg-emerald-100", action: () => setModal("send_money") },
+    { icon: "🏦", label: "Personal Loan", sub: "10-day cycle", color: "bg-purple-100", action: () => setAccountModal("personal_loan") },
+    { icon: "🏬", label: "Business Loan", sub: "Daily collection", color: "bg-amber-100", action: () => setAccountModal("business_loan") },
   ];
 
   const navItems = [
     { key: "home", label: "Home", icon: "🏠", onClick: () => { setShowLoans(false); window.scrollTo({ top: 0, behavior: "smooth" }); } },
+    { key: "pay", label: "Scan & Pay", icon: "📷", onClick: () => setModal("send_money") },
     { key: "loans", label: "Loans", icon: "🏦", onClick: loadLoans },
-    { key: "add", label: "Add Money", icon: "➕", onClick: () => setModal("deposit") },
     { key: "profile", label: "Profile", icon: "👤", onClick: () => setModal("profile") },
   ];
 
   return (
-    <div className="bg-gray-50 min-h-[100dvh] pb-safe-nav sm:pb-0">
+    <div className="bg-gray-50 min-h-[100dvh] pb-safe-nav sm:pb-0 font-sans">
+      {/* NAVBAR */}
       <nav className="bg-white shadow-sm sticky top-0 z-30 border-b border-gray-100 safe-top">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <span className="text-2xl">🎓</span>
-            <h1 className="text-lg sm:text-xl font-black font-display bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">Educa Finance</h1>
+            <div>
+              <h1 className="text-lg sm:text-xl font-black font-display bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent leading-none">
+                Educa Finance
+              </h1>
+              <span className="text-[10px] font-mono text-gray-500 font-bold tracking-wider">
+                ID: {userUniqueId}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2.5 sm:gap-4">
+            <button
+              onClick={() => setModal("my_qr")}
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1D6AE5] rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-blue-200"
+            >
+              <span>📷</span> <span className="hidden sm:inline">My</span> QR
+            </button>
             <div className="text-right hidden sm:block">
-              <p className="text-xs text-gray-400">Welcome back</p>
+              <p className="text-xs text-gray-400">Welcome</p>
               <p className="font-bold text-sm text-gray-800">{userStored.name || "User"}</p>
             </div>
             <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-full flex items-center justify-center font-bold text-sm shrink-0">
@@ -291,8 +573,15 @@ export default function Dashboard() {
               <h2 className="text-3xl sm:text-4xl font-black font-display mb-4">₹{balance.toLocaleString("en-IN")}</h2>
             </div>
             <div className="flex gap-2 relative z-10">
-              <button onClick={() => setModal("deposit")} className="flex-1 py-2 bg-white text-blue-700 rounded-xl font-bold text-xs hover:shadow-md active:scale-95 transition-all">+ Add Money</button>
-              <button onClick={() => setModal("withdraw")} className="flex-1 py-2 bg-white/20 backdrop-blur text-white border border-white/30 rounded-xl font-bold text-xs hover:bg-white/30 active:scale-95 transition-all">↓ Withdraw</button>
+              <button onClick={() => setModal("send_money")} className="flex-1 py-2 bg-emerald-400 hover:bg-emerald-300 text-gray-950 rounded-xl font-black text-xs hover:shadow-md active:scale-95 transition-all">
+                ⚡ Send Money
+              </button>
+              <button onClick={() => setModal("deposit")} className="flex-1 py-2 bg-white text-blue-700 rounded-xl font-bold text-xs hover:shadow-md active:scale-95 transition-all">
+                + Add Money
+              </button>
+              <button onClick={() => setModal("withdraw")} className="flex-1 py-2 bg-white/20 backdrop-blur text-white border border-white/30 rounded-xl font-bold text-xs hover:bg-white/30 active:scale-95 transition-all">
+                ↓ Cash Out
+              </button>
             </div>
           </div>
 
@@ -305,11 +594,11 @@ export default function Dashboard() {
                 <span className="text-lg">📈</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-black font-display mb-1">₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")}</h2>
-              <p className="text-emerald-100/90 text-xs mb-4">Capitalised yield, referral rewards & cashbacks</p>
+              <p className="text-emerald-100/90 text-xs mb-4">365-Day Bond (₹18k profit), yield & referral rewards</p>
             </div>
             <div className="pt-2 border-t border-emerald-500/40 flex justify-between items-center text-xs text-emerald-100 relative z-10">
               <span>Savings Yield: <strong>{userProfile.interestRate || currentRate}% APY</strong></span>
-              <span className="font-bold text-white">Auto Credited</span>
+              <button onClick={() => setAccountModal("debt")} className="text-xs font-bold underline hover:text-white">View Bonds →</button>
             </div>
           </div>
 
@@ -325,14 +614,25 @@ export default function Dashboard() {
               <p className="text-rose-100/90 text-xs mb-4">Pending Easy Installments & scheduled collections</p>
             </div>
             <div className="pt-2 border-t border-rose-400/40 flex justify-between items-center text-xs text-rose-100 relative z-10">
-              <span>Cycle: <strong>1st, 11th & 21st</strong></span>
+              <span>Cycle: <strong>1st, 11th & 21st (or Daily)</strong></span>
               <button onClick={() => setAccountModal("debt")} className="text-xs font-bold underline hover:text-white">View Details →</button>
             </div>
           </div>
         </div>
 
+        {/* QUICK ACTIONS ROW */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          {quickActions.map(({ icon, label, sub, color, action }) => (
+            <div key={label} onClick={action} className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm hover:shadow-xl active:scale-[0.98] cursor-pointer transition-all sm:hover:-translate-y-1 border border-gray-100">
+              <div className={`w-11 h-11 sm:w-12 sm:h-12 ${color} rounded-xl flex items-center justify-center text-xl sm:text-2xl mb-2.5 sm:mb-3`}>{icon}</div>
+              <h3 className="font-bold text-sm text-gray-800">{label}</h3>
+              <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
+            </div>
+          ))}
+        </div>
+
         {/* ══════════════════════════════════════════════════════
-            6 MODULAR ACCOUNTS SECTION (CLICK TO VIEW DETAILS)
+            6 MODULAR ACCOUNTS SECTION (CLICK TO VIEW FULL DATA)
         ══════════════════════════════════════════════════════ */}
         <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-gray-100 mb-6 sm:mb-8">
           <div className="flex justify-between items-center mb-5">
@@ -359,12 +659,12 @@ export default function Dashboard() {
                     💰
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-blue-100 text-blue-800">
-                    Primary
+                    Primary Cash
                   </span>
                 </div>
                 <h4 className="font-extrabold text-base text-gray-900">Wallet Account</h4>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
-                  Available cash balance, deposits, instant withdrawals aur daily transactions statement.
+                  Available cash balance, QR payments, instant app-to-app transfer aur statement.
                 </p>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
@@ -373,7 +673,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* 2. Debt Account */}
+            {/* 2. Debt Account (Dues & 365-Day 1 Lakh Bond) */}
             <div
               onClick={() => setAccountModal("debt")}
               className="p-5 rounded-2xl border-2 border-gray-200 hover:border-rose-500 bg-white hover:bg-rose-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
@@ -384,21 +684,21 @@ export default function Dashboard() {
                     📑
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-100 text-rose-800">
-                    10-Day Cycle
+                    365-Day Bond
                   </span>
                 </div>
-                <h4 className="font-extrabold text-base text-gray-900">Debt Account</h4>
+                <h4 className="font-extrabold text-base text-gray-900">Debt & Bond Account</h4>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
-                  Puri kiston ka hisaab, upcoming collection dates (1st, 11th, 21st) aur pending dues.
+                  1 Lakh ka 365-Day Bond (₹1,18,000 profit return) aur pending loan dues.
                 </p>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
                 <span className="font-bold text-rose-600">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")} Due</span>
-                <span className="text-rose-600 font-bold">Open Account →</span>
+                <span className="text-rose-600 font-bold">Open Bonds & Dues →</span>
               </div>
             </div>
 
-            {/* 3. Lending Account */}
+            {/* 3. Lending Account (40 & 80 Months Monthly Return Bonds) */}
             <div
               onClick={() => setAccountModal("lending")}
               className="p-5 rounded-2xl border-2 border-gray-200 hover:border-purple-500 bg-white hover:bg-purple-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
@@ -409,21 +709,21 @@ export default function Dashboard() {
                     🤝
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-purple-100 text-purple-800">
-                    Credit Line
+                    Monthly Payouts
                   </span>
                 </div>
                 <h4 className="font-extrabold text-base text-gray-900">Lending Account</h4>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
-                  Micro-credit lines, peer-to-peer limits up to ₹1,50,000 aur credit profile health.
+                  1 Lakh par ₹1,40,000 (₹3,500/mo x 40m) ya ₹1,80,000 (80m) monthly payouts.
                 </p>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-purple-700">Up to ₹1.5L Limit</span>
-                <span className="text-purple-600 font-bold">Open Account →</span>
+                <span className="font-bold text-purple-700">₹3,500/mo Returns</span>
+                <span className="text-purple-600 font-bold">Open Lending →</span>
               </div>
             </div>
 
-            {/* 4. Personal Loan Account */}
+            {/* 4. Personal Loan Account (5k-50k, 10-day cycle, Cheque facility) */}
             <div
               onClick={() => setAccountModal("personal_loan")}
               className="p-5 rounded-2xl border-2 border-emerald-500/50 bg-emerald-50/20 hover:border-emerald-600 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
@@ -434,19 +734,19 @@ export default function Dashboard() {
                     🏦
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800">
-                    {activePersonalLoan ? (activePersonalLoan.accountNumber || "EFSPL0001") : "10-Day Easy Installments"}
+                    {activePersonalLoan ? (activePersonalLoan.accountNumber || "EFSPL0001") : "₹5k-₹50k"}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-base text-gray-900">Personal Loan Account</h4>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
                   {activePersonalLoan
-                    ? `Active loan: ${activePersonalLoan.accountNumber || "EFSPL0001"} • Kist schedule aur repayment.`
-                    : `10k initial limit • Full repayment par double (10k -> 20k -> 40k -> 50k max).`}
+                    ? `Active: ${activePersonalLoan.accountNumber} • Early payoff option available.`
+                    : `1st time: ₹5k without cheque / ₹10k with cheque. Min 15 Easy Installments.`}
                 </p>
               </div>
               <div className="pt-3 border-t border-emerald-200/60 flex items-center justify-between text-xs">
                 <span className="font-bold text-emerald-800">
-                  {activePersonalLoan ? `₹${activePersonalLoan.amount.toLocaleString("en-IN")}` : `Limit ₹${eligibleLimit.toLocaleString("en-IN")}`}
+                  {activePersonalLoan ? `₹${activePersonalLoan.amount.toLocaleString("en-IN")}` : `Limit ₹${maxLimit.toLocaleString("en-IN")}`}
                 </span>
                 <span className="text-emerald-700 font-bold">
                   {activePersonalLoan ? "View Loan Data →" : "Apply Loan →"}
@@ -479,228 +779,44 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* 6. Micro Business Loan Account */}
+            {/* 6. Micro Business Loan Account (Daily Collection) */}
             <div
               onClick={() => setAccountModal("business_loan")}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-amber-500 bg-white hover:bg-amber-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+              className="p-5 rounded-2xl border-2 border-amber-500/50 bg-amber-50/20 hover:border-amber-600 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
             >
               <div>
                 <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl">
+                  <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl">
                     🏬
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-800">
-                    Vendor Credit
+                    {activeBusinessLoan ? "Daily Active" : "Daily Collection"}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-base text-gray-900">Micro Business Loan Account</h4>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
-                  Shopkeepers, dukandaaro aur chhote vendors ke liye working capital aur fast 24-hr disbursal.
+                  Daily collection mode: 60d (18%), 80d (24%), 100d (30%), 120d (36%) interest tiers.
                 </p>
               </div>
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-amber-700">₹5,000 - ₹50,000</span>
-                <span className="text-amber-600 font-bold">Open Account →</span>
+              <div className="pt-3 border-t border-amber-200/60 flex items-center justify-between text-xs">
+                <span className="font-bold text-amber-800">
+                  {activeBusinessLoan ? `₹${activeBusinessLoan.installmentAmount}/day` : "₹5k - ₹50k Daily"}
+                </span>
+                <span className="text-amber-700 font-bold">
+                  {activeBusinessLoan ? "View Daily Loan →" : "Apply Daily Loan →"}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
         {/* ══════════════════════════════════════════════════════
-            VIRTUAL CARDS HUB (SILVER & PLATINUM VIP CARDS)
+            MY LOANS SECTION (STRICTLY 'EASY INSTALLMENTS' & EARLY CLOSURE)
         ══════════════════════════════════════════════════════ */}
-        <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-gray-100 mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
-                <span>💳</span> Educa Digital Cards
-              </h3>
-              <p className="text-xs text-gray-500">
-                Silver (Standard) & Platinum (VIP) virtual debit & credit cards
-              </p>
-            </div>
-
-            {/* CARD SELECTOR TABS */}
-            <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl self-start sm:self-auto">
-              <button
-                onClick={() => setCardTab("silver")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                  cardTab === "silver"
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-800"
-                }`}
-              >
-                🥈 Silver Card
-              </button>
-              <button
-                onClick={() => setCardTab("platinum")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                  cardTab === "platinum"
-                    ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-sm"
-                    : "text-gray-500 hover:text-gray-800"
-                }`}
-              >
-                <span>👑</span> Platinum VIP
-                {userProfile.cardTier !== "platinum" && !userProfile.cardStatus?.platinum?.unlocked && (
-                  <span className="text-[10px]">🔒</span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            {/* CARD VISUAL PREVIEW */}
-            <div className="lg:col-span-6 flex justify-center">
-              {cardTab === "silver" ? (
-                /* SILVER CARD */
-                <div className="w-full max-w-sm aspect-[1.586] rounded-2xl p-5 sm:p-6 text-gray-900 shadow-2xl relative overflow-hidden flex flex-col justify-between border border-gray-300/80 bg-gradient-to-br from-slate-100 via-gray-200 to-slate-300">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-widest font-black text-gray-500">Educa Digital</div>
-                      <div className="text-lg font-black tracking-tight text-gray-900">Silver Classic</div>
-                    </div>
-                    <span className="text-xs font-black px-2 py-0.5 rounded bg-gray-900 text-white">DEBIT</span>
-                  </div>
-                  <div className="my-2">
-                    <div className="text-base sm:text-lg font-mono tracking-widest font-bold text-gray-800">
-                      4532 •••• •••• 8912
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-end text-xs">
-                    <div>
-                      <div className="text-[9px] uppercase tracking-wider text-gray-500">Cardholder</div>
-                      <div className="font-bold text-gray-900 truncate max-w-[140px] uppercase">
-                        {userStored.name || "User"}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[9px] uppercase tracking-wider text-gray-500">Expires</div>
-                      <div className="font-mono font-bold text-gray-900">08/29</div>
-                    </div>
-                    <div className="text-sm font-black italic tracking-tighter text-blue-900">VISA</div>
-                  </div>
-                </div>
-              ) : (
-                /* PLATINUM VIP CARD */
-                <div className="w-full max-w-sm aspect-[1.586] rounded-2xl p-5 sm:p-6 text-white shadow-2xl relative overflow-hidden flex flex-col justify-between border border-amber-400/40 bg-gradient-to-br from-gray-950 via-slate-900 to-amber-950">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-widest font-black text-amber-400">Educa Exclusive</div>
-                      <div className="text-lg font-black tracking-tight text-amber-200">Platinum VIP</div>
-                    </div>
-                    <span className="text-xs font-black px-2 py-0.5 rounded bg-gradient-to-r from-amber-400 to-yellow-500 text-gray-950">VIP</span>
-                  </div>
-                  <div className="my-2">
-                    <div className="text-base sm:text-lg font-mono tracking-widest font-bold text-amber-100">
-                      5421 •••• •••• 9901
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-end text-xs">
-                    <div>
-                      <div className="text-[9px] uppercase tracking-wider text-amber-400/80">Cardholder</div>
-                      <div className="font-bold text-white truncate max-w-[140px] uppercase">
-                        {userStored.name || "User"}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[9px] uppercase tracking-wider text-amber-400/80">Expires</div>
-                      <div className="font-mono font-bold text-amber-200">12/32</div>
-                    </div>
-                    <div className="text-sm font-black tracking-wider text-amber-400">RUPAY VIP</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* CARD DETAILS */}
-            <div className="lg:col-span-6 space-y-4">
-              {cardTab === "silver" ? (
-                <div>
-                  <h4 className="font-extrabold text-base text-gray-900">Silver Debit Card (Active)</h4>
-                  <p className="text-xs text-gray-500 mt-1 mb-3">
-                    Daily transactions, recharge aur online payment ke liye ready. No annual maintenance charge.
-                  </p>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl">
-                      <span className="text-gray-500">Daily Online Spend Limit:</span>
-                      <span className="font-bold text-gray-900">₹50,000 / day</span>
-                    </div>
-                    <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl">
-                      <span className="text-gray-500">ATM Withdrawal (Partner):</span>
-                      <span className="font-bold text-gray-900">Free 5 txn/mo</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <h4 className="font-extrabold text-base text-gray-900">Platinum VIP Card</h4>
-                  <p className="text-xs text-gray-500 mt-1 mb-3">
-                    Exclusive credit perks, concierge support aur higher borrowing limits.
-                  </p>
-                  {userProfile.cardTier === "platinum" || userProfile.cardStatus?.platinum?.unlocked ? (
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-bold">
-                      🎉 Platinum VIP Card is Active on your Account!
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-                        🔒 Complete 4 loans without default or request Admin VIP invite to unlock.
-                      </div>
-                      <button
-                        onClick={claimPlatinumCard}
-                        disabled={claimingCard}
-                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-bold text-xs shadow-md active:scale-95 transition"
-                      >
-                        {claimingCard ? "Checking..." : "Claim Platinum VIP Card"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          {quickActions.map(({ icon, label, sub, color, action }) => (
-            <div key={label} onClick={action} className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm hover:shadow-xl active:scale-[0.98] cursor-pointer transition-all sm:hover:-translate-y-1 border border-gray-100">
-              <div className={`w-11 h-11 sm:w-12 sm:h-12 ${color} rounded-xl flex items-center justify-center text-xl sm:text-2xl mb-2.5 sm:mb-3`}>{icon}</div>
-              <h3 className="font-bold text-sm text-gray-800">{label}</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Referral Box */}
-        {referralCode && (
-          <div className="bg-gradient-to-r from-orange-500 to-yellow-500 rounded-2xl p-5 text-white shadow-lg mb-6 sm:mb-8">
-            <div className="flex justify-between items-start flex-wrap gap-4">
-              <div>
-                <p className="text-white/80 text-sm font-semibold mb-1">🎯 Tumhara Referral Code</p>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xl sm:text-2xl font-black font-mono tracking-wider">{referralCode}</span>
-                  <button onClick={copyReferralCode} className="px-3 py-1.5 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-lg text-xs font-bold transition border border-white/30">
-                    {copied ? "✅ Copied!" : "📋 Copy"}
-                  </button>
-                </div>
-                <p className="text-white/70 text-xs mt-1">Yeh code share karo — jab unka loan approve ho, tumhe commission milega!</p>
-              </div>
-              {referralEarnings > 0 && (
-                <div className="bg-white/20 rounded-xl px-4 py-3 text-center">
-                  <p className="text-white/70 text-xs">Total Earned</p>
-                  <p className="text-xl sm:text-2xl font-black">₹{referralEarnings.toLocaleString("en-IN")}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* My Loans Section (Strictly No 'EMI' - Uses 'Easy Installments') */}
         {showLoans && (
           <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6 sm:mb-8 border border-gray-100">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold font-display">My Loans (10-Day Easy Installments)</h3>
+              <h3 className="text-lg font-bold font-display">My Active Loans</h3>
               <button onClick={() => setShowLoans(false)} className="text-xs text-gray-400 hover:text-gray-600">Hide</button>
             </div>
             {loans.length === 0 ? <p className="text-gray-400 text-center py-8 text-sm">No active loans found</p> : (
@@ -708,6 +824,8 @@ export default function Dashboard() {
                 {loans.map(l => {
                   const progress = l.totalPayable ? (l.paidAmount / l.totalPayable) * 100 : 0;
                   const instAmt = l.installmentAmount || l.emiAmount || 0;
+                  const payoffAmt = l.remainingAmount || (l.totalPayable - l.paidAmount);
+                  const isDaily = l.collectionFrequency === "daily";
                   return (
                     <div key={l._id} className="border border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-md transition">
                       <div className="flex justify-between items-start mb-3">
@@ -719,25 +837,33 @@ export default function Dashboard() {
                                 {l.accountNumber}
                               </span>
                             )}
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700">
+                              {isDaily ? "Daily Collection" : "10-Day Cycle"}
+                            </span>
                           </div>
                           <p className="text-xs text-gray-500 mt-0.5">
-                            {l.purpose || "Personal Loan"} • 10-Day Cycle • Rate: 1.34%/installment
+                            {l.purpose || "Loan"} • {isDaily ? `${l.dailyTenureDays || l.installmentsCount} Days @ ${l.interestRate}%` : `${l.installmentsCount} Easy Installments @ 1.34%/kist`}
                           </p>
                         </div>
                         <StatusBadge status={l.status} />
                       </div>
                       <div className="grid grid-cols-3 gap-2 sm:gap-3 text-sm mb-3">
-                        <div><p className="text-gray-400 text-xs">Easy Installment</p><p className="font-bold">₹{instAmt}</p></div>
-                        <div><p className="text-gray-400 text-xs">Installments</p><p className="font-bold">{l.installmentsCount || l.tenure} total</p></div>
-                        <div><p className="text-gray-400 text-xs">Paid</p><p className="font-bold text-green-600">₹{l.paidAmount}</p></div>
+                        <div><p className="text-gray-400 text-xs">{isDaily ? "Daily Kist" : "Easy Installment"}</p><p className="font-bold">₹{instAmt}</p></div>
+                        <div><p className="text-gray-400 text-xs">Total Duration</p><p className="font-bold">{l.installmentsCount || l.tenure} {isDaily ? "Days" : "Installments"}</p></div>
+                        <div><p className="text-gray-400 text-xs">Remaining Dues</p><p className="font-bold text-rose-600">₹{payoffAmt}</p></div>
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
                         <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
                       </div>
                       {l.status === "active" && (
-                        <button onClick={() => payInstallment(l._id, instAmt)} className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-sm hover:shadow-lg active:scale-[0.98] transition">
-                          Pay Easy Installment ₹{instAmt}
-                        </button>
+                        <div className="flex gap-2">
+                          <button onClick={() => payInstallment(l._id, instAmt)} className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-xs hover:shadow-lg active:scale-[0.98] transition">
+                            Pay Kist ₹{instAmt}
+                          </button>
+                          <button onClick={() => closeLoanEarly(l._id, payoffAmt)} className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs border border-emerald-300 transition active:scale-[0.98]">
+                            ⚡ Full Payoff (₹{payoffAmt})
+                          </button>
+                        </div>
                       )}
                     </div>
                   );
@@ -747,158 +873,143 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Transactions */}
+        {/* TRANSACTIONS SECTION */}
         <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
           <div className="flex justify-between items-center mb-4 sm:mb-5">
             <h3 className="text-lg font-bold font-display">Recent Transactions</h3>
-            <span className="text-xs text-gray-400">{txns.length} transactions</span>
+            <span className="text-xs text-gray-400">{txns.length} records</span>
           </div>
 
           {txns.length === 0 ? (
             <p className="py-8 text-center text-gray-300 text-sm">No transactions yet</p>
           ) : (
             <div className="space-y-3">
-              {txns.slice(0, 10).map(t => (
-                <div key={t._id} className="flex items-center justify-between border border-gray-100 rounded-xl p-3.5 hover:bg-gray-50/50 transition">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0 ${t.type === "deposit" ? "bg-green-50" : "bg-red-50"}`}>
-                      {t.type === "deposit" ? "🟢" : "🔴"}
+              {txns.slice(0, 10).map(t => {
+                const isCredit = t.type === "deposit" || t.type === "transfer_received" || t.type === "bond_payout" || t.type === "loan_disbursal";
+                return (
+                  <div key={t._id} className="flex items-center justify-between border border-gray-100 rounded-xl p-3.5 hover:bg-gray-50/50 transition">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0 ${isCredit ? "bg-green-50" : "bg-red-50"}`}>
+                        {isCredit ? "🟢" : "🔴"}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm capitalize">
+                          {t.type.replace(/_/g, " ")} <span className="text-gray-400 font-normal uppercase text-[10px]">{t.method}</span>
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(t.createdAt).toLocaleDateString("en-IN")} • {t.remarks || t.recipientIdentifier || ""}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-sm capitalize">{t.type} <span className="text-gray-400 font-normal uppercase text-[10px]">{t.method}</span></p>
-                      <p className="text-xs text-gray-400">{new Date(t.createdAt).toLocaleDateString("en-IN")}</p>
+                    <div className="text-right">
+                      <p className={`font-bold text-sm ${isCredit ? "text-green-600" : "text-red-500"}`}>
+                        {isCredit ? "+" : "-"}₹{t.amount.toLocaleString("en-IN")}
+                      </p>
+                      <StatusBadge status={t.status} />
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`font-bold text-sm ${t.type === "deposit" ? "text-green-600" : "text-red-500"}`}>{t.type === "deposit" ? "+" : "-"}₹{t.amount.toLocaleString("en-IN")}</p>
-                    <StatusBadge status={t.status} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════
-          ACCOUNT DETAILS SHEETS ("Sabka sara data vha click karne baad hi dikhe")
+          1. MY QR CODE SHEET
       ══════════════════════════════════════════════════════ */}
-
-      {/* 1. WALLET ACCOUNT SHEET */}
-      <Sheet open={accountModal === "wallet"} onClose={closeModal} title="Wallet Account" icon="💰">
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
-            <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Available Cash Balance</span>
-            <div className="text-3xl font-black font-display my-1">₹{balance.toLocaleString("en-IN")}</div>
-            <p className="text-xs text-blue-100">Ready for instant UPI, recharge aur withdrawal</p>
+      <Sheet open={modal === "my_qr"} onClose={closeModal} title="My Educa QR Code" icon="📱">
+        <div className="text-center space-y-4">
+          <p className="text-xs text-gray-500">
+            Kisi bhi Educa User se instant paise mangwane ke liye yeh QR Code scan karwayen:
+          </p>
+          <div className="p-4 bg-white rounded-3xl border-2 border-gray-200 shadow-lg inline-block mx-auto">
+            {qrDataUrl ? (
+              <img src={qrDataUrl} alt="Educa QR" className="w-56 h-56 mx-auto rounded-xl" />
+            ) : (
+              <div className="w-56 h-56 flex items-center justify-center text-xs text-gray-400">Generating QR...</div>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={() => { setAccountModal(null); setModal("deposit"); }} className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition">
-              + Add Funds
-            </button>
-            <button onClick={() => { setAccountModal(null); setModal("withdraw"); }} className="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-bold text-xs transition">
-              ↓ Withdraw Cash
-            </button>
+          <div className="bg-gray-50 rounded-2xl p-3 text-xs space-y-1">
+            <div className="font-bold text-gray-900 text-sm">{userStored.name || "User"}</div>
+            <div className="font-mono text-blue-700 font-bold tracking-wider">{userUniqueId}</div>
+            <div className="text-gray-500">{userProfile.phone || userStored.email}</div>
           </div>
-          <div className="border-t border-gray-100 pt-3">
-            <h5 className="font-bold text-xs text-gray-700 uppercase mb-2">Account Overview</h5>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between p-2 bg-gray-50 rounded-lg">
-                <span className="text-gray-500">Account Type</span>
-                <span className="font-bold text-gray-800">Full KYC Digital Wallet</span>
-              </div>
-              <div className="flex justify-between p-2 bg-gray-50 rounded-lg">
-                <span className="text-gray-500">Daily Payout Limit</span>
-                <span className="font-bold text-gray-800">₹1,00,000 / day</span>
-              </div>
-              <div className="flex justify-between p-2 bg-gray-50 rounded-lg">
-                <span className="text-gray-500">Total Transactions</span>
-                <span className="font-bold text-gray-800">{txns.length} records</span>
-              </div>
-            </div>
-          </div>
+          <button
+            onClick={() => copyText(userUniqueId)}
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95"
+          >
+            {copied ? "✅ Payment ID Copied!" : "📋 Copy Payment ID"}
+          </button>
         </div>
       </Sheet>
 
-      {/* 2. DEBT ACCOUNT SHEET */}
-      <Sheet open={accountModal === "debt"} onClose={closeModal} title="Debt Account" icon="📑">
+      {/* ══════════════════════════════════════════════════════
+          2. SEND MONEY / P2P TRANSFER SHEET
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "send_money"} onClose={closeModal} title="Send Money (App-to-App)" icon="⚡">
         <div className="space-y-4">
-          <div className="bg-gradient-to-r from-rose-600 to-red-700 rounded-2xl p-5 text-white">
-            <span className="text-xs text-rose-100 font-bold uppercase tracking-wider">Total Pending Dues</span>
-            <div className="text-3xl font-black font-display my-1">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}</div>
-            <p className="text-xs text-rose-100">Collection strictly scheduled on 1st, 11th & 21st of each month</p>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900">
+            ⚡ <strong>Instant Wallet Transfer:</strong> Kisi bhi user ke Phone Number, Unique ID ya Email par seedha transfer karein.
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900">
-            📌 <strong>10-Day Cycle Rule:</strong> Har mahine ki 1, 11 aur 21 tareekh ko Easy Installment collect hoti hai. Time par pay karne se aapki loan limit 10k se 20k, 40k, aur max 50k ho jaati hai!
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Recipient Phone / Unique ID / Email</label>
+            <input
+              type="text"
+              placeholder="e.g. 9876543210 ya EDUCA-EFUSR1234"
+              value={sendForm.recipient}
+              onChange={e => setSendForm({ ...sendForm, recipient: e.target.value })}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            {lookingUp && <p className="text-[11px] text-blue-600 mt-1">Checking recipient...</p>}
+            {recipientInfo && (
+              <div className="p-2.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 font-bold mt-1.5 flex items-center justify-between">
+                <span>Paying to: {recipientInfo.name}</span>
+                <span className="font-mono text-[10px] text-green-700">✓ Verified</span>
+              </div>
+            )}
+            {lookupError && <p className="text-[11px] text-red-500 mt-1">{lookupError}</p>}
           </div>
 
-          {activePersonalLoan ? (
-            <div className="border border-gray-200 rounded-xl p-4 space-y-2 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-gray-900">{activePersonalLoan.accountNumber || "EFSPL0001"}</span>
-                <StatusBadge status={activePersonalLoan.status} />
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Per Installment:</span>
-                <span className="font-bold text-gray-900">₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount}</span>
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Remaining Total:</span>
-                <span className="font-bold text-rose-600">₹{activePersonalLoan.remainingAmount || activePersonalLoan.amount}</span>
-              </div>
-              {activePersonalLoan.status === "active" && (
-                <button
-                  onClick={() => payInstallment(activePersonalLoan._id, activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount)}
-                  className="w-full mt-2 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-xs shadow-sm hover:shadow"
-                >
-                  Pay Next Easy Installment (₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount})
-                </button>
-              )}
+          <div>
+            <div className="flex justify-between text-xs font-bold mb-1">
+              <span className="text-gray-700">Amount (₹)</span>
+              <span className="text-gray-400">Available: ₹{balance.toLocaleString("en-IN")}</span>
             </div>
-          ) : (
-            <div className="text-center py-4 text-xs text-gray-400">
-              Koi active loan ya pending dues nahi hain.
-            </div>
-          )}
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="Transfer amount"
+              value={sendForm.amount}
+              onChange={e => setSendForm({ ...sendForm, amount: e.target.value })}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-base"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Remarks / Note (Optional)</label>
+            <input
+              type="text"
+              placeholder="e.g. For dinner, fees, etc."
+              value={sendForm.notes}
+              onChange={e => setSendForm({ ...sendForm, notes: e.target.value })}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          <button
+            onClick={submitTransfer}
+            className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
+          >
+            Send Money Now →
+          </button>
         </div>
       </Sheet>
 
-      {/* 3. LENDING ACCOUNT SHEET */}
-      <Sheet open={accountModal === "lending"} onClose={closeModal} title="Lending Account" icon="🤝">
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-purple-700 to-indigo-800 rounded-2xl p-5 text-white">
-            <span className="text-xs text-purple-100 font-bold uppercase tracking-wider">Credit Line Limit</span>
-            <div className="text-3xl font-black font-display my-1">Up to ₹1,50,000</div>
-            <p className="text-xs text-purple-100">Vehicle loans, emergency financing aur credit line</p>
-          </div>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl">
-              <span className="text-gray-500">Status</span>
-              <span className="font-bold text-purple-700">{userProfile.wallets?.lending?.active ? "Active" : "Not Activated"}</span>
-            </div>
-            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl">
-              <span className="text-gray-500">Max Bike Loan</span>
-              <span className="font-bold text-gray-800">₹1,50,000</span>
-            </div>
-            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl">
-              <span className="text-gray-500">Interest Calculation</span>
-              <span className="font-bold text-gray-800">Daily reducing basis</span>
-            </div>
-          </div>
-          {!userProfile.wallets?.lending?.active && (
-            <button
-              onClick={() => activateWallet("lending")}
-              disabled={activatingWallet === "lending"}
-              className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs shadow-sm transition"
-            >
-              {activatingWallet === "lending" ? "Activating..." : "⚡ Activate Lending Wallet"}
-            </button>
-          )}
-        </div>
-      </Sheet>
-
-      {/* 4. PERSONAL LOAN ACCOUNT SHEET & APPLICATION */}
+      {/* ══════════════════════════════════════════════════════
+          3. PERSONAL LOAN ACCOUNT SHEET & APPLICATION
+      ══════════════════════════════════════════════════════ */}
       <Sheet open={accountModal === "personal_loan"} onClose={closeModal} title="Personal Loan Account" icon="🏦">
         {activePersonalLoan ? (
           <div className="space-y-4">
@@ -912,33 +1023,68 @@ export default function Dashboard() {
               <div className="text-2xl sm:text-3xl font-black font-mono my-1 tracking-wider">
                 {activePersonalLoan.accountNumber || "EFSPL0001"}
               </div>
-              <p className="text-xs text-emerald-100">Sanctioned Amount: ₹{activePersonalLoan.amount.toLocaleString("en-IN")}</p>
+              <p className="text-xs text-emerald-100">Sanctioned: ₹{activePersonalLoan.amount.toLocaleString("en-IN")}</p>
             </div>
 
             <div className="border border-gray-100 rounded-2xl p-4 bg-gray-50 space-y-2 text-xs">
               <div className="flex justify-between"><span className="text-gray-500">Tenure:</span><span className="font-bold">{activePersonalLoan.installmentsCount || activePersonalLoan.tenure} Easy Installments</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Cycle:</span><span className="font-bold">10 Days (1st, 11th, 21st)</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Per Installment:</span><span className="font-bold text-emerald-700">₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Total Paid:</span><span className="font-bold text-blue-600">₹{activePersonalLoan.paidAmount || 0}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Remaining:</span><span className="font-bold text-rose-600">₹{activePersonalLoan.remainingAmount || activePersonalLoan.amount}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Remaining Balance:</span><span className="font-bold text-rose-600">₹{activePersonalLoan.remainingAmount || activePersonalLoan.amount}</span></div>
             </div>
 
             {activePersonalLoan.status === "active" && (
-              <button
-                onClick={() => payInstallment(activePersonalLoan._id, activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount)}
-                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
-              >
-                Pay Easy Installment ₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount}
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => payInstallment(activePersonalLoan._id, activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount)}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
+                >
+                  Pay Next Easy Installment (₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount})
+                </button>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
+                  ⚡ <strong>Loan Early Closure:</strong> 9th installment se pehle pura loan close karne par agent ko 1:1 profit bonus milta hai aur limit turant double ho jaati hai!
+                </div>
+                <button
+                  onClick={() => closeLoanEarly(activePersonalLoan._id, activePersonalLoan.remainingAmount || activePersonalLoan.amount)}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm active:scale-95 transition"
+                >
+                  Close Loan Early (Payoff ₹{activePersonalLoan.remainingAmount || activePersonalLoan.amount}) →
+                </button>
+              </div>
             )}
           </div>
         ) : (
-          /* APPLY FOR PERSONAL LOAN FORM */
+          /* APPLY PERSONAL LOAN */
           <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900">
-              ⚡ <strong>1st Time Limit:</strong> Max ₹10,000. Full repayment par limit double hogi (10k → 20k → 40k → 50k max).<br />
-              Cycle: <strong>10 din ki Easy Installment (1, 11, 21 tareekh).</strong>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 space-y-1">
+              <div>⚡ <strong>Amount:</strong> ₹5,000 se ₹50,000 tak.</div>
+              <div>📝 <strong>1st Time:</strong> ₹5,000 bina cheque, ₹10,000 cheque facility ke sath.</div>
+              <div>📅 <strong>Tenure:</strong> Minimum 15 Easy Installments (10-din cycle: 1, 11, 21 tareekh).</div>
             </div>
+
+            {/* Cheque Facility Toggle for 1st-Time Borrowers */}
+            {isFirstTime && (
+              <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-purple-900">
+                  <input
+                    type="checkbox"
+                    checked={loanForm.hasChequeFacility}
+                    onChange={e => setLoanForm({ ...loanForm, hasChequeFacility: e.target.checked, amount: e.target.checked ? 10000 : 5000 })}
+                    className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+                  />
+                  <span>Use Cheque Facility (Unlock up to ₹10,000 limit)</span>
+                </label>
+                {loanForm.hasChequeFacility && (
+                  <input
+                    type="text"
+                    placeholder="Cheque Number (e.g. CHQ123456)"
+                    value={loanForm.chequeNumber}
+                    onChange={e => setLoanForm({ ...loanForm, chequeNumber: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-purple-300 rounded-lg text-xs outline-none"
+                  />
+                )}
+              </div>
+            )}
 
             {/* Amount Slider */}
             <div>
@@ -948,20 +1094,20 @@ export default function Dashboard() {
               </div>
               <input
                 type="range"
-                min="1000"
-                max={eligibleLimit}
+                min="5000"
+                max={maxLimit}
                 step="1000"
                 value={quoteAmount}
                 onChange={e => setLoanForm({ ...loanForm, amount: Number(e.target.value) })}
                 className="w-full accent-emerald-600 cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                <span>Min ₹1,000</span>
-                <span>Max Eligible ₹{eligibleLimit.toLocaleString("en-IN")}</span>
+                <span>Min ₹5,000</span>
+                <span>Max Eligible ₹{maxLimit.toLocaleString("en-IN")}</span>
               </div>
             </div>
 
-            {/* Installments Slider */}
+            {/* Installments Slider (Min 15, Max 30) */}
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="text-gray-700">Easy Installments Count:</span>
@@ -969,7 +1115,7 @@ export default function Dashboard() {
               </div>
               <input
                 type="range"
-                min="12"
+                min="15"
                 max="30"
                 step="1"
                 value={quoteCount}
@@ -977,13 +1123,13 @@ export default function Dashboard() {
                 className="w-full accent-blue-600 cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                <span>Min 12</span>
-                <span>Max 30 Easy Installments</span>
+                <span>Min 15 Installments</span>
+                <span>Max 30 Installments</span>
               </div>
             </div>
 
             {/* Live Auto-Disbursal Breakdown */}
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3.5 space-y-2 text-xs">
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3.5 space-y-1.5 text-xs">
               <div className="font-bold text-gray-800 text-[11px] uppercase tracking-wider border-b border-gray-200 pb-1">
                 Disbursal Calculation Breakdown
               </div>
@@ -1004,7 +1150,7 @@ export default function Dashboard() {
                 <span className="font-bold">₹{processingFee}</span>
               </div>
               <div className="flex justify-between text-red-600">
-                <span>- 1% UPI Pay Charges:</span>
+                <span>- 1% UPI/Cash Charge:</span>
                 <span className="font-bold">₹{upiCharges}</span>
               </div>
               <div className="flex justify-between text-red-600">
@@ -1017,15 +1163,14 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Upcoming Collection Dates Preview */}
-            <div className="p-3 bg-blue-50/60 rounded-xl text-[11px] text-blue-900">
-              <span className="font-bold">Collection Dates: </span>
+            {/* Upcoming Collection Dates */}
+            <div className="p-2.5 bg-blue-50/60 rounded-xl text-[11px] text-blue-900">
+              <span className="font-bold">10-Day Cycle Dates: </span>
               {previewDates.map(d => `${d.getDate()}/${d.getMonth()+1}`).join(", ")}... (Every 1st, 11th, 21st)
             </div>
 
             {/* Document Verification Inputs */}
             <div className="space-y-2.5 pt-2 border-t border-gray-100">
-              <div className="text-xs font-bold text-gray-800">Required KYC & Bank Details:</div>
               <input
                 type="text"
                 placeholder="Aadhar Number (12 digits)"
@@ -1035,7 +1180,7 @@ export default function Dashboard() {
               />
               <input
                 type="text"
-                placeholder="PAN Number (e.g. ABCDE1234F)"
+                placeholder="PAN Number (ABCDE1234F)"
                 value={loanForm.panNumber}
                 onChange={e => setLoanForm({ ...loanForm, panNumber: e.target.value.toUpperCase() })}
                 className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
@@ -1056,13 +1201,6 @@ export default function Dashboard() {
                   className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
                 />
               </div>
-              <input
-                type="text"
-                placeholder="UPI ID (for auto disbursal)"
-                value={loanForm.upiId}
-                onChange={e => setLoanForm({ ...loanForm, upiId: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500"
-              />
             </div>
 
             <button
@@ -1075,7 +1213,292 @@ export default function Dashboard() {
         )}
       </Sheet>
 
-      {/* 5. STUDENT LOAN ACCOUNT SHEET */}
+      {/* ══════════════════════════════════════════════════════
+          4. MICRO BUSINESS LOAN (DAILY COLLECTION: 60/80/100/120 DAYS)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={accountModal === "business_loan"} onClose={closeModal} title="Micro Business Loan (Daily Collection)" icon="🏬">
+        {activeBusinessLoan ? (
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-amber-600 to-orange-700 rounded-2xl p-5 text-white">
+              <span className="text-xs uppercase tracking-wider text-amber-100 font-bold">Active Daily Loan</span>
+              <div className="text-2xl font-black font-mono my-1">{activeBusinessLoan.accountNumber}</div>
+              <p className="text-xs text-amber-100">Amount: ₹{activeBusinessLoan.amount.toLocaleString("en-IN")}</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-2xl space-y-2 text-xs border border-gray-200">
+              <div className="flex justify-between"><span>Daily Installment:</span><span className="font-bold text-amber-700">₹{activeBusinessLoan.installmentAmount}/day</span></div>
+              <div className="flex justify-between"><span>Duration:</span><span className="font-bold">{activeBusinessLoan.dailyTenureDays || activeBusinessLoan.installmentsCount} Days</span></div>
+              <div className="flex justify-between"><span>Remaining Dues:</span><span className="font-bold text-rose-600">₹{activeBusinessLoan.remainingAmount}</span></div>
+            </div>
+            {activeBusinessLoan.status === "active" && (
+              <button
+                onClick={() => payInstallment(activeBusinessLoan._id, activeBusinessLoan.installmentAmount)}
+                className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
+              >
+                Pay Daily Kist (₹{activeBusinessLoan.installmentAmount})
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
+              🏬 <strong>Daily Collection Tiers:</strong><br />
+              60 Days → 18% | 80 Days → 24% | 100 Days → 30% | 120 Days → 36%
+            </div>
+
+            {/* Amount Slider */}
+            <div>
+              <div className="flex justify-between text-xs font-bold mb-1">
+                <span className="text-gray-700">Business Capital:</span>
+                <span className="font-mono text-amber-700 text-sm">₹{mblAmount.toLocaleString("en-IN")}</span>
+              </div>
+              <input
+                type="range"
+                min="5000"
+                max="50000"
+                step="1000"
+                value={mblAmount}
+                onChange={e => setMblForm({ ...mblForm, amount: Number(e.target.value) })}
+                className="w-full accent-amber-600 cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                <span>Min ₹5,000</span>
+                <span>Max ₹50,000</span>
+              </div>
+            </div>
+
+            {/* Tenure Buttons */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-2">Tenure (Daily Days):</label>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { days: 60, rate: "18%" },
+                  { days: 80, rate: "24%" },
+                  { days: 100, rate: "30%" },
+                  { days: 120, rate: "36%" }
+                ].map(tier => (
+                  <button
+                    key={tier.days}
+                    type="button"
+                    onClick={() => setMblForm({ ...mblForm, days: tier.days })}
+                    className={`py-2 px-1 rounded-xl text-center border font-bold text-xs transition ${
+                      mblDays === tier.days
+                        ? "bg-amber-600 text-white border-amber-600 shadow-md"
+                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    <div>{tier.days} Days</div>
+                    <div className="text-[10px] font-normal opacity-80">{tier.rate}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Live Daily Breakdown */}
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3.5 space-y-1.5 text-xs">
+              <div className="flex justify-between text-gray-600">
+                <span>Total Interest ({mblRate}%):</span>
+                <span className="font-bold text-gray-900">₹{mblInterest.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Total Repayment:</span>
+                <span className="font-bold text-gray-900">₹{mblTotalPayable.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
+                <span className="font-black text-gray-900">Daily Kist (Har Roz):</span>
+                <span className="text-base font-black text-amber-700">₹{mblDailyInstallment} / day</span>
+              </div>
+            </div>
+
+            <div className="p-2.5 bg-amber-50/60 rounded-xl text-[11px] text-amber-900">
+              <span className="font-bold">Next 6 Days Schedule: </span>
+              {mblPreviewDates.map(d => `${d.getDate()}/${d.getMonth()+1}`).join(", ")}...
+            </div>
+
+            {/* KYC Inputs */}
+            <div className="space-y-2 pt-1 border-t border-gray-100">
+              <input
+                type="text"
+                placeholder="Shop / Business Name"
+                value={mblForm.businessName}
+                onChange={e => setMblForm({ ...mblForm, businessName: e.target.value })}
+                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Aadhar Number"
+                  value={mblForm.aadharNumber}
+                  onChange={e => setMblForm({ ...mblForm, aadharNumber: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <input
+                  type="text"
+                  placeholder="PAN Number"
+                  value={mblForm.panNumber}
+                  onChange={e => setMblForm({ ...mblForm, panNumber: e.target.value.toUpperCase() })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 uppercase"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Bank Account Number"
+                value={mblForm.bankAccountNumber}
+                onChange={e => setMblForm({ ...mblForm, bankAccountNumber: e.target.value })}
+                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            <button
+              onClick={submitMicroBusinessLoan}
+              className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
+            >
+              Apply for Daily Business Loan →
+            </button>
+          </div>
+        )}
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
+          5. DEBT ACCOUNT SHEET (DUES & 365-DAY 1 LAKH BOND)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={accountModal === "debt"} onClose={closeModal} title="Debt & Bond Account" icon="📑">
+        <div className="space-y-4">
+          <div className="bg-gradient-to-r from-rose-600 to-red-700 rounded-2xl p-5 text-white">
+            <span className="text-xs text-rose-100 font-bold uppercase tracking-wider">Total Pending Dues</span>
+            <div className="text-3xl font-black font-display my-1">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}</div>
+            <p className="text-xs text-rose-100">Scheduled on 1st, 11th & 21st (or daily for micro business)</p>
+          </div>
+
+          {/* 365-DAY 1 LAKH BOND CREATION */}
+          <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-2.5">
+            <div className="flex justify-between items-start">
+              <div>
+                <h5 className="font-extrabold text-sm text-emerald-900">365-Day Fixed Bond (₹1,00,000)</h5>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  1 Lakh ka bond 365 din ke liye lock karein. Maturity par <strong>₹1,18,000</strong> seedha Profit Wallet me credit hoga!
+                </p>
+              </div>
+              <span className="px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded font-black text-[10px]">18% PROFIT</span>
+            </div>
+            <button
+              onClick={createDebitBond}
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95"
+            >
+              Create ₹1,00,000 Fixed Bond Now →
+            </button>
+          </div>
+
+          {/* ACTIVE BONDS LIST */}
+          {bonds.filter(b => b.bondType === "debit_365").length > 0 && (
+            <div className="space-y-2 border-t border-gray-100 pt-3">
+              <h5 className="text-xs font-bold text-gray-700 uppercase">My Active 365-Day Bonds</h5>
+              {bonds.filter(b => b.bondType === "debit_365").map(b => (
+                <div key={b._id} className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs space-y-1">
+                  <div className="flex justify-between font-bold">
+                    <span>Principal: ₹{b.principalAmount.toLocaleString("en-IN")}</span>
+                    <span className="text-emerald-700">Maturity: ₹{b.returnAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500 text-[11px]">
+                    <span>Matures On: {new Date(b.maturityDate).toLocaleDateString("en-IN")}</span>
+                    <span className="capitalize font-semibold text-blue-600">{b.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
+          6. LENDING ACCOUNT SHEET (40 & 80 MONTHS MONTHLY BONDS)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={accountModal === "lending"} onClose={closeModal} title="Lending Account (Monthly Return)" icon="🤝">
+        <div className="space-y-4">
+          <div className="bg-gradient-to-r from-purple-700 to-indigo-800 rounded-2xl p-5 text-white">
+            <span className="text-xs text-purple-100 font-bold uppercase tracking-wider">Lending Monthly Bonds</span>
+            <div className="text-3xl font-black font-display my-1">₹3,500 / Month</div>
+            <p className="text-xs text-purple-100">₹1 Lakh par ₹1,40,000 (40 mo) ya ₹1,80,000 (80 mo) payouts</p>
+          </div>
+
+          <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-2xl space-y-3">
+            <div className="text-xs font-bold text-purple-900">Select Monthly Bond Option (₹1,00,000 Investment):</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setLendingBondType("lending_40")}
+                className={`p-3 rounded-xl border text-center transition ${
+                  lendingBondType === "lending_40"
+                    ? "bg-purple-600 text-white border-purple-600 shadow-md font-bold"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-purple-100"
+                }`}
+              >
+                <div className="text-xs font-bold">40 Months</div>
+                <div className="text-sm font-black mt-0.5">₹1,40,000 Return</div>
+                <div className="text-[10px] opacity-80">₹3,500 / month</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLendingBondType("lending_80")}
+                className={`p-3 rounded-xl border text-center transition ${
+                  lendingBondType === "lending_80"
+                    ? "bg-purple-600 text-white border-purple-600 shadow-md font-bold"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-purple-100"
+                }`}
+              >
+                <div className="text-xs font-bold">80 Months</div>
+                <div className="text-sm font-black mt-0.5">₹1,80,000 Return</div>
+                <div className="text-[10px] opacity-80">₹2,250 / month</div>
+              </button>
+            </div>
+            <button
+              onClick={() => createLendingBond(lendingBondType)}
+              className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95"
+            >
+              Invest ₹1,00,000 in {lendingBondType === "lending_40" ? "40M" : "80M"} Lending Bond →
+            </button>
+          </div>
+
+          {/* ACTIVE LENDING BONDS */}
+          {bonds.filter(b => b.bondType.startsWith("lending")).length > 0 && (
+            <div className="space-y-2 border-t border-gray-100 pt-3">
+              <h5 className="text-xs font-bold text-gray-700 uppercase">My Active Lending Bonds</h5>
+              {bonds.filter(b => b.bondType.startsWith("lending")).map(b => (
+                <div key={b._id} className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs space-y-1">
+                  <div className="flex justify-between font-bold">
+                    <span>Invested: ₹{b.principalAmount.toLocaleString("en-IN")}</span>
+                    <span className="text-purple-700">₹{b.monthlyPayout}/mo</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500 text-[11px]">
+                    <span>Payouts: {b.payoutsCompleted || 0} / {b.tenureMonths} Months</span>
+                    <span className="text-emerald-700 font-bold">Total: ₹{b.returnAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Sheet>
+
+      {/* 7. WALLET ACCOUNT SHEET */}
+      <Sheet open={accountModal === "wallet"} onClose={closeModal} title="Wallet Account" icon="💰">
+        <div className="space-y-4">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
+            <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Available Cash Balance</span>
+            <div className="text-3xl font-black font-display my-1">₹{balance.toLocaleString("en-IN")}</div>
+            <p className="text-xs text-blue-100">Ready for instant UPI, recharge aur withdrawal</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => { setAccountModal(null); setModal("deposit"); }} className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition">
+              + Add Funds
+            </button>
+            <button onClick={() => { setAccountModal(null); setModal("withdraw"); }} className="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-bold text-xs transition">
+              ↓ Withdraw Cash
+            </button>
+          </div>
+        </div>
+      </Sheet>
+
+      {/* 8. STUDENT LOAN ACCOUNT SHEET */}
       <Sheet open={accountModal === "student_loan"} onClose={closeModal} title="Student Loan Account" icon="🎓">
         <div className="space-y-4">
           <div className="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl p-5 text-white">
@@ -1084,52 +1507,9 @@ export default function Dashboard() {
             <p className="text-xs text-cyan-100">School & College fee direct institute transfer</p>
           </div>
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl">
-              <span className="text-gray-500">Max Facility</span>
-              <span className="font-bold text-gray-800">Up to ₹1,00,000</span>
-            </div>
-            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl">
-              <span className="text-gray-500">Collateral Required</span>
-              <span className="font-bold text-emerald-700">Zero (Bina Guarantee)</span>
-            </div>
-            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl">
-              <span className="text-gray-500">Disbursal Method</span>
-              <span className="font-bold text-gray-800">Direct School / Institute Account</span>
-            </div>
+            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl"><span className="text-gray-500">Max Facility</span><span className="font-bold text-gray-800">Up to ₹1,00,000</span></div>
+            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl"><span className="text-gray-500">Collateral Required</span><span className="font-bold text-emerald-700">Zero (Bina Guarantee)</span></div>
           </div>
-          <button
-            onClick={() => { setAccountModal(null); setAccountModal("personal_loan"); }}
-            className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold text-xs shadow-sm transition"
-          >
-            Apply for Fee Assistance →
-          </button>
-        </div>
-      </Sheet>
-
-      {/* 6. MICRO BUSINESS LOAN ACCOUNT SHEET */}
-      <Sheet open={accountModal === "business_loan"} onClose={closeModal} title="Micro Business Loan Account" icon="🏬">
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-amber-600 to-orange-700 rounded-2xl p-5 text-white">
-            <span className="text-xs text-amber-100 font-bold uppercase tracking-wider">Vendor Working Capital</span>
-            <div className="text-3xl font-black font-display my-1">₹5,000 - ₹50,000</div>
-            <p className="text-xs text-amber-100">Fast 24-hr settlement for shopkeepers & vendors</p>
-          </div>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl">
-              <span className="text-gray-500">Repayment Mode</span>
-              <span className="font-bold text-gray-800">10-Day Easy Installments</span>
-            </div>
-            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl">
-              <span className="text-gray-500">Approval Time</span>
-              <span className="font-bold text-emerald-700">Same-Day Sanction</span>
-            </div>
-          </div>
-          <button
-            onClick={() => { setAccountModal(null); setAccountModal("personal_loan"); }}
-            className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shadow-sm transition"
-          >
-            Apply for Business Working Capital →
-          </button>
         </div>
       </Sheet>
 
@@ -1180,7 +1560,7 @@ export default function Dashboard() {
         </div>
       </Sheet>
 
-      {/* PROFILE SHEET (mobile nav) */}
+      {/* PROFILE SHEET */}
       <Sheet open={modal === "profile"} onClose={closeModal} title="Profile" icon="👤">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-full flex items-center justify-center font-bold text-xl shrink-0">
@@ -1189,6 +1569,7 @@ export default function Dashboard() {
           <div>
             <p className="font-bold text-gray-800">{userStored.name || "User"}</p>
             <p className="text-xs text-gray-400">{userStored.email}</p>
+            <p className="text-xs font-mono text-blue-600 font-bold mt-0.5">{userUniqueId}</p>
           </div>
         </div>
         <button onClick={logout} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 active:bg-red-200 transition">Logout</button>

@@ -120,6 +120,7 @@ app.use('/api/transaction', require('./routes/transaction'));
 app.use('/api/loan', require('./routes/loan'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/bond', require('./routes/bond'));
 app.use('/v1', require('./routes/devices'));
 app.use('/api/v1', require('./routes/devices'));
 

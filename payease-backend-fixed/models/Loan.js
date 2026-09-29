@@ -4,11 +4,13 @@ const loanSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   accountNumber: { type: String, unique: true, sparse: true }, // e.g. EFSPL0001
   loanType: { type: String, enum: ['personal', 'student', 'micro_business'], default: 'personal' },
+  collectionFrequency: { type: String, enum: ['10_days', 'daily'], default: '10_days' },
+  dailyTenureDays: { type: Number }, // 60, 80, 100, 120 for micro_business
   amount: { type: Number, required: true },
-  interestRate: { type: Number, default: 1.34 }, // 1.34% per installment
+  interestRate: { type: Number, default: 1.34 }, // % per installment or total interest %
   interestRatePerInstallment: { type: Number, default: 1.34 },
   cycleDays: { type: Number, default: 10 },
-  installmentsCount: { type: Number, required: true }, // min 12, max 30
+  installmentsCount: { type: Number, required: true },
   tenure: { type: Number }, // fallback tenure in months or installments
   installmentAmount: { type: Number, required: true },
   emiAmount: { type: Number }, // legacy alias for installmentAmount
@@ -19,12 +21,19 @@ const loanSchema = new mongoose.Schema({
   totalPayable: { type: Number, required: true },
   paidAmount: { type: Number, default: 0 },
   remainingAmount: { type: Number },
+  hasChequeFacility: { type: Boolean, default: false },
+  chequeNumber: { type: String },
+  earlyClosed: { type: Boolean, default: false },
+  earlyClosedAt: { type: Date },
+  agentProfitPaid: { type: Boolean, default: false },
+  agentProfitAmount: { type: Number, default: 0 },
   documents: {
     aadharNumber: String,
     panNumber: String,
     bankAccountNumber: String,
     bankIfsc: String,
-    upiQrUrl: String
+    upiQrUrl: String,
+    chequeNumber: String
   },
   status: { 
     type: String, 

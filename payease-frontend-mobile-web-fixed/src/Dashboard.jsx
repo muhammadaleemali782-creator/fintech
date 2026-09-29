@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import QRCode from "qrcode";
+import { Html5Qrcode } from "html5-qrcode";
 import Sheet from "./components/Sheet";
 import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
@@ -95,11 +96,120 @@ export default function Dashboard() {
   // Lending Bond Selection (40 or 80 months)
   const [lendingBondType, setLendingBondType] = useState("lending_40");
 
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const qrScannerRef = useRef(null);
+
   const showToast = (text, type = "success") => setToast({ text, type });
   const closeModal = () => {
+    if (qrScannerRef.current) {
+      try {
+        if (qrScannerRef.current.isScanning) {
+          qrScannerRef.current.stop().catch(() => {});
+        }
+        qrScannerRef.current.clear();
+      } catch (e) {}
+      qrScannerRef.current = null;
+    }
+    setCameraActive(false);
+    setCameraError("");
     setModal(null);
     setAccountModal(null);
   };
+
+  const parseScannedQr = (text) => {
+    if (!text) return "";
+    let clean = text.trim();
+    if (clean.includes("to=")) {
+      const match = clean.match(/to=([^&]+)/);
+      if (match && match[1]) return decodeURIComponent(match[1]);
+    }
+    if (clean.startsWith("upi://pay")) {
+      const match = clean.match(/pa=([^&]+)/);
+      if (match && match[1]) return decodeURIComponent(match[1]);
+    }
+    return clean.replace(/^educa:\/\/pay\?to=/i, "");
+  };
+
+  const handleScanSuccess = async (decodedText) => {
+    const recipient = parseScannedQr(decodedText);
+    if (qrScannerRef.current) {
+      try {
+        if (qrScannerRef.current.isScanning) {
+          await qrScannerRef.current.stop();
+        }
+        qrScannerRef.current.clear();
+      } catch (e) {}
+      qrScannerRef.current = null;
+    }
+    setCameraActive(false);
+    setSendForm(prev => ({ ...prev, recipient }));
+    setModal("send_money");
+    showToast(`QR Scanned: ${recipient}`, "success");
+  };
+
+  const handleGalleryQr = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const tempScanner = new Html5Qrcode("educa-qr-reader-temp");
+      const decodedText = await tempScanner.scanFile(file, false);
+      tempScanner.clear();
+      handleScanSuccess(decodedText);
+    } catch (err) {
+      showToast("Is photo me valid QR code nahi mila. Dusri photo chunein.", "error");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    if (modal === "scan_qr") {
+      setCameraError("");
+      const timer = setTimeout(() => {
+        if (!mounted) return;
+        const readerElem = document.getElementById("educa-qr-reader");
+        if (readerElem) {
+          const scanner = new Html5Qrcode("educa-qr-reader");
+          qrScannerRef.current = scanner;
+          scanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 220, height: 220 } },
+            (decodedText) => {
+              if (mounted) handleScanSuccess(decodedText);
+            },
+            () => {}
+          )
+          .then(() => {
+            if (mounted) setCameraActive(true);
+          })
+          .catch((err) => {
+            console.warn("Camera start failed:", err);
+            if (mounted) {
+              setCameraActive(false);
+              setCameraError("Camera open nahi hua. Permission allow karein ya Gallery option use karein.");
+            }
+          });
+        }
+      }, 350);
+
+      return () => {
+        mounted = false;
+        clearTimeout(timer);
+        if (qrScannerRef.current) {
+          try {
+            if (qrScannerRef.current.isScanning) {
+              qrScannerRef.current.stop().catch(() => {});
+            }
+            qrScannerRef.current.clear();
+          } catch (e) {}
+          qrScannerRef.current = null;
+        }
+        setCameraActive(false);
+      };
+    }
+  }, [modal]);
 
   const userUniqueId = userProfile.phone
     ? `EDUCA-${userProfile.referralCode || userProfile.phone}`
@@ -537,12 +647,18 @@ export default function Dashboard() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2.5 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setModal("scan_qr")}
+              className="px-2.5 sm:px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-emerald-200"
+            >
+              <span>📷</span> <span className="hidden sm:inline">Scan</span> QR
+            </button>
             <button
               onClick={() => setModal("my_qr")}
-              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1D6AE5] rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-blue-200"
+              className="px-2.5 sm:px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1D6AE5] rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-blue-200"
             >
-              <span>📷</span> <span className="hidden sm:inline">My</span> QR
+              <span>💳</span> <span className="hidden sm:inline">My</span> QR
             </button>
             <div className="text-right hidden sm:block">
               <p className="text-xs text-gray-400">Welcome</p>
@@ -573,14 +689,14 @@ export default function Dashboard() {
               <h2 className="text-3xl sm:text-4xl font-black font-display mb-4">₹{balance.toLocaleString("en-IN")}</h2>
             </div>
             <div className="flex gap-2 relative z-10">
-              <button onClick={() => setModal("send_money")} className="flex-1 py-2 bg-emerald-400 hover:bg-emerald-300 text-gray-950 rounded-xl font-black text-xs hover:shadow-md active:scale-95 transition-all">
-                ⚡ Send Money
+              <button onClick={() => setModal("scan_qr")} className="flex-1 py-2 bg-emerald-400 hover:bg-emerald-300 text-gray-950 rounded-xl font-black text-xs hover:shadow-md active:scale-95 transition-all flex items-center justify-center gap-1">
+                <span>📷</span> Scan QR
               </button>
-              <button onClick={() => setModal("deposit")} className="flex-1 py-2 bg-white text-blue-700 rounded-xl font-bold text-xs hover:shadow-md active:scale-95 transition-all">
-                + Add Money
+              <button onClick={() => setModal("send_money")} className="flex-1 py-2 bg-white text-blue-700 rounded-xl font-bold text-xs hover:shadow-md active:scale-95 transition-all">
+                ⚡ Send
               </button>
-              <button onClick={() => setModal("withdraw")} className="flex-1 py-2 bg-white/20 backdrop-blur text-white border border-white/30 rounded-xl font-bold text-xs hover:bg-white/30 active:scale-95 transition-all">
-                ↓ Cash Out
+              <button onClick={() => setModal("deposit")} className="flex-1 py-2 bg-white/20 backdrop-blur text-white border border-white/30 rounded-xl font-bold text-xs hover:bg-white/30 active:scale-95 transition-all">
+                + Add
               </button>
             </div>
           </div>
@@ -945,6 +1061,58 @@ export default function Dashboard() {
       </Sheet>
 
       {/* ══════════════════════════════════════════════════════
+          SCAN QR CODE SHEET (CAMERA + GALLERY)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "scan_qr"} onClose={closeModal} title="Scan QR Code" icon="📷">
+        <div className="space-y-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900">
+            📸 Phone camera se QR scan karein ya phone ki <strong>Gallery</strong> se QR image chunein.
+          </div>
+
+          {/* Scanner Viewport */}
+          <div className="relative rounded-2xl overflow-hidden bg-slate-900 border-2 border-slate-700 min-h-[260px] flex items-center justify-center">
+            <div id="educa-qr-reader" className="w-full h-full min-h-[260px]" />
+            {!cameraActive && !cameraError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 gap-2 bg-slate-900/90 p-4 text-center">
+                <div className="w-8 h-8 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs font-semibold">Camera shuru ho raha hai...</span>
+              </div>
+            )}
+            {cameraError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-amber-300 gap-2 bg-slate-900/95 p-6 text-center">
+                <span className="text-2xl">⚠️</span>
+                <span className="text-xs font-medium text-slate-200">{cameraError}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Gallery Pick Option */}
+          <div className="space-y-2">
+            <input
+              type="file"
+              id="gallery-qr-upload"
+              accept="image/*"
+              className="hidden"
+              onChange={handleGalleryQr}
+            />
+            <button
+              type="button"
+              onClick={() => document.getElementById("gallery-qr-upload")?.click()}
+              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95"
+            >
+              <span>🖼️</span> Gallery se QR Code Photo Chunein
+            </button>
+            <p className="text-[11px] text-gray-400 text-center">
+              Screenshot ya gallery se QR image select karke auto-fill karein.
+            </p>
+          </div>
+
+          {/* Temporary hidden container for scanning gallery files */}
+          <div id="educa-qr-reader-temp" style={{ display: "none" }} />
+        </div>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
           2. SEND MONEY / P2P TRANSFER SHEET
       ══════════════════════════════════════════════════════ */}
       <Sheet open={modal === "send_money"} onClose={closeModal} title="Send Money (App-to-App)" icon="⚡">
@@ -954,7 +1122,16 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Recipient Phone / Unique ID / Email</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-xs font-bold text-gray-700">Recipient Phone / Unique ID / Email</label>
+              <button
+                type="button"
+                onClick={() => setModal("scan_qr")}
+                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 transition active:scale-95"
+              >
+                <span>📷</span> Scan QR / Gallery
+              </button>
+            </div>
             <input
               type="text"
               placeholder="e.g. 9876543210 ya EDUCA-EFUSR1234"

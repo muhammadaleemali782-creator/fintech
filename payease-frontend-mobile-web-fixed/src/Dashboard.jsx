@@ -137,16 +137,61 @@ export default function Dashboard() {
     setAccountModal(null);
   };
 
+  const [hasBiometric, setHasBiometric] = useState(false);
+
+  useEffect(() => {
+    if (window.AndroidBiometric?.isBiometricAvailable) {
+      try {
+        setHasBiometric(window.AndroidBiometric.isBiometricAvailable());
+      } catch {
+        setHasBiometric(false);
+      }
+    } else if (window.PublicKeyCredential) {
+      setHasBiometric(true);
+    }
+
+    window.onBiometricSuccess = () => {
+      setBalanceRevealed(true);
+      setModal(null);
+      showToast("Fingerprint verified! Balance Unlocked", "success");
+    };
+
+    window.onBiometricError = (err) => {
+      if (err && err !== "Cancelled") {
+        showToast(err, "error");
+      }
+    };
+
+    return () => {
+      delete window.onBiometricSuccess;
+      delete window.onBiometricError;
+    };
+  }, []);
+
+  const triggerBiometricAuth = () => {
+    if (window.AndroidBiometric?.authenticateBiometric) {
+      window.AndroidBiometric.authenticateBiometric();
+    } else {
+      showToast("Fingerprint authentication active in EducaFintech Android App", "info");
+    }
+  };
+
   const handleCheckBalanceClick = () => {
     setPinError("");
     setPinInput("");
     setConfirmPinInput("");
     if (!userProfile.hasWalletPin) {
       setPinSetupMode(true);
+      setModal("wallet_pin");
     } else {
       setPinSetupMode(false);
+      setModal("wallet_pin");
+      if (window.AndroidBiometric?.isBiometricAvailable && window.AndroidBiometric.isBiometricAvailable()) {
+        setTimeout(() => {
+          triggerBiometricAuth();
+        }, 200);
+      }
     }
-    setModal("wallet_pin");
   };
 
   const handlePinSubmit = async () => {
@@ -1931,6 +1976,24 @@ export default function Dashboard() {
               <>🔒 Primary Wallet Balance check karne ke liye apna 6-number ka security PIN enter karein.</>
             )}
           </div>
+
+          {!pinSetupMode && (
+            <div>
+              <button
+                type="button"
+                onClick={triggerBiometricAuth}
+                className="w-full py-3 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border-2 border-emerald-300 text-emerald-900 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-95"
+              >
+                <span className="text-xl">👆</span>
+                <span>Use Fingerprint to Unlock</span>
+              </button>
+              <div className="flex items-center gap-2 my-3">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Or Enter 6-Digit PIN</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">

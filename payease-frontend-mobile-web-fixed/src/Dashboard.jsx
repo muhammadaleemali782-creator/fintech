@@ -100,6 +100,24 @@ export default function Dashboard() {
   const [cameraError, setCameraError] = useState("");
   const qrScannerRef = useRef(null);
 
+  // 6-Digit Wallet Security PIN State (PhonePe style)
+  const [balanceRevealed, setBalanceRevealed] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [confirmPinInput, setConfirmPinInput] = useState("");
+  const [pinSetupMode, setPinSetupMode] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pinSubmitting, setPinSubmitting] = useState(false);
+
+  // Reset PIN Form
+  const [resetPinForm, setResetPinForm] = useState({
+    phone: "",
+    aadharNumber: "",
+    newPin: "",
+    confirmNewPin: ""
+  });
+  const [resetError, setResetError] = useState("");
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+
   const showToast = (text, type = "success") => setToast({ text, type });
   const closeModal = () => {
     if (qrScannerRef.current) {
@@ -113,8 +131,140 @@ export default function Dashboard() {
     }
     setCameraActive(false);
     setCameraError("");
+    setPinError("");
+    setResetError("");
     setModal(null);
     setAccountModal(null);
+  };
+
+  const handleCheckBalanceClick = () => {
+    setPinError("");
+    setPinInput("");
+    setConfirmPinInput("");
+    if (!userProfile.hasWalletPin) {
+      setPinSetupMode(true);
+    } else {
+      setPinSetupMode(false);
+    }
+    setModal("wallet_pin");
+  };
+
+  const handlePinSubmit = async () => {
+    if (pinInput.length !== 6 || !/^\d{6}$/.test(pinInput)) {
+      setPinError("Kripya 6 number ka numeric PIN enter karein.");
+      return;
+    }
+
+    if (pinSetupMode) {
+      if (pinInput !== confirmPinInput) {
+        setPinError("Dono PIN match nahi kar rahe hain.");
+        return;
+      }
+      setPinSubmitting(true);
+      setPinError("");
+      try {
+        const res = await fetch(`${API}/user/pin/set`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ pin: pinInput })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast("6-Digit Wallet PIN successfully set!", "success");
+          setUserProfile(prev => ({ ...prev, hasWalletPin: true }));
+          setBalanceRevealed(true);
+          setModal(null);
+        } else {
+          setPinError(data.message || "PIN set karne me error aaya.");
+        }
+      } catch {
+        setPinError("Network error. Kripya dobara try karein.");
+      } finally {
+        setPinSubmitting(false);
+      }
+    } else {
+      setPinSubmitting(true);
+      setPinError("");
+      try {
+        const res = await fetch(`${API}/user/pin/verify`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ pin: pinInput })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setBalance(data.balance);
+          setBalanceRevealed(true);
+          setModal(null);
+          showToast("Wallet Balance Unlocked!", "success");
+        } else {
+          if (data.needsSetup) {
+            setPinSetupMode(true);
+            setPinError("Kripya pehle apna 6-digit PIN banayein.");
+          } else {
+            setPinError(data.message || "Galat PIN. Kripya sahi PIN enter karein.");
+          }
+        }
+      } catch {
+        setPinError("Verification error. Dobara try karein.");
+      } finally {
+        setPinSubmitting(false);
+      }
+    }
+  };
+
+  const handleOpenResetPin = () => {
+    setResetPinForm({
+      phone: userProfile.phone || userStored.phone || "",
+      aadharNumber: userProfile.aadharNumber || "",
+      newPin: "",
+      confirmNewPin: ""
+    });
+    setResetError("");
+    setModal("reset_pin");
+  };
+
+  const handleResetPinSubmit = async () => {
+    const { phone, aadharNumber, newPin, confirmNewPin } = resetPinForm;
+    if (!phone || !aadharNumber || !newPin) {
+      setResetError("Sabhi fields bharna anivarya hai.");
+      return;
+    }
+    const cleanAadhar = aadharNumber.replace(/\s+/g, "");
+    if (!/^\d{12}$/.test(cleanAadhar)) {
+      setResetError("Kripya 12-digit valid Aadhar number dalein.");
+      return;
+    }
+    if (!/^\d{6}$/.test(newPin)) {
+      setResetError("Naya PIN 6 digit ka numeric hona chahiye.");
+      return;
+    }
+    if (newPin !== confirmNewPin) {
+      setResetError("Naya PIN aur confirm PIN match nahi ho rahe.");
+      return;
+    }
+    setResetSubmitting(true);
+    setResetError("");
+    try {
+      const res = await fetch(`${API}/user/pin/reset`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ phone, aadharNumber: cleanAadhar, newPin })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Wallet PIN successfully reset!", "success");
+        setUserProfile(prev => ({ ...prev, hasWalletPin: true, aadharNumber: cleanAadhar }));
+        setBalanceRevealed(true);
+        setModal(null);
+      } else {
+        setResetError(data.message || "PIN reset karne me samasya aayi.");
+      }
+    } catch {
+      setResetError("Network error. Kripya dobara try karein.");
+    } finally {
+      setResetSubmitting(false);
+    }
   };
 
   const parseScannedQr = (text) => {
@@ -642,9 +792,6 @@ export default function Dashboard() {
               <h1 className="text-lg sm:text-xl font-black font-display bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent leading-none">
                 Educa Finance
               </h1>
-              <span className="text-[10px] font-mono text-gray-500 font-bold tracking-wider">
-                ID: {userUniqueId}
-              </span>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -655,18 +802,14 @@ export default function Dashboard() {
               <span>📷</span> <span className="hidden sm:inline">Scan</span> QR
             </button>
             <button
-              onClick={() => setModal("my_qr")}
-              className="px-2.5 sm:px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1D6AE5] rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-blue-200"
+              onClick={() => setModal("profile")}
+              className="flex items-center gap-2 px-2.5 py-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full transition active:scale-95"
             >
-              <span>💳</span> <span className="hidden sm:inline">My</span> QR
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                {(userStored.name || "U")[0].toUpperCase()}
+              </div>
+              <span className="text-xs font-bold text-gray-700 hidden sm:inline">{userStored.name || "Profile"}</span>
             </button>
-            <div className="text-right hidden sm:block">
-              <p className="text-xs text-gray-400">Welcome</p>
-              <p className="font-bold text-sm text-gray-800">{userStored.name || "User"}</p>
-            </div>
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-full flex items-center justify-center font-bold text-sm shrink-0">
-              {(userStored.name || "U")[0].toUpperCase()}
-            </div>
             <button onClick={logout} className="hidden sm:inline-block px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-semibold text-xs">Logout</button>
           </div>
         </div>
@@ -675,64 +818,103 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
 
         {/* ══════════════════════════════════════════════════════
-            TOP WALLETS HEADER (AVAILABLE, PROFIT, DUES)
+            1. TOP ROW: PROFIT WALLET & DUES WALLET (SIDE-BY-SIDE)
         ══════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 sm:mb-8">
-          {/* 1. Available Wallet Balance Card */}
-          <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 rounded-3xl p-5 sm:p-6 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+        <div className="grid grid-cols-2 gap-3 mb-3.5">
+          {/* Left: Profit Wallet Balance Card */}
+          <div
+            onClick={() => setAccountModal("debt")}
+            className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 rounded-3xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98] transition hover:shadow-xl"
+          >
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-white/80 text-xs font-bold uppercase tracking-wider">Wallet Balance</span>
-                <span className="text-lg">💵</span>
+                <span className="text-emerald-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">Profit Wallet</span>
+                <span className="text-base sm:text-lg">📈</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black font-display mb-4">₹{balance.toLocaleString("en-IN")}</h2>
+              <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate">
+                ₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")}
+              </h3>
+              <p className="text-emerald-100/90 text-[11px] hidden sm:block">365-Day Bond (18% profit) & yield</p>
             </div>
-            <div className="flex gap-2 relative z-10">
-              <button onClick={() => setModal("scan_qr")} className="flex-1 py-2 bg-emerald-400 hover:bg-emerald-300 text-gray-950 rounded-xl font-black text-xs hover:shadow-md active:scale-95 transition-all flex items-center justify-center gap-1">
-                <span>📷</span> Scan QR
-              </button>
-              <button onClick={() => setModal("send_money")} className="flex-1 py-2 bg-white text-blue-700 rounded-xl font-bold text-xs hover:shadow-md active:scale-95 transition-all">
-                ⚡ Send
-              </button>
-              <button onClick={() => setModal("deposit")} className="flex-1 py-2 bg-white/20 backdrop-blur text-white border border-white/30 rounded-xl font-bold text-xs hover:bg-white/30 active:scale-95 transition-all">
-                + Add
-              </button>
+            <div className="pt-2 border-t border-emerald-500/40 flex justify-between items-center text-[11px] text-emerald-100 relative z-10 mt-2">
+              <span>{userProfile.interestRate || currentRate}% APY</span>
+              <span className="font-bold underline">Bonds →</span>
             </div>
           </div>
 
-          {/* 2. Profit Wallet Balance Card */}
-          <div className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 rounded-3xl p-5 sm:p-6 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+          {/* Right: Dues Wallet Balance Card */}
+          <div
+            onClick={() => setAccountModal("personal_loan")}
+            className="bg-gradient-to-br from-amber-600 via-rose-600 to-red-700 rounded-3xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98] transition hover:shadow-xl"
+          >
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-emerald-100 text-xs font-bold uppercase tracking-wider">Profit Wallet Balance</span>
-                <span className="text-lg">📈</span>
+                <span className="text-rose-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">Dues Wallet</span>
+                <span className="text-base sm:text-lg">📅</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black font-display mb-1">₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")}</h2>
-              <p className="text-emerald-100/90 text-xs mb-4">365-Day Bond (₹18k profit), yield & referral rewards</p>
+              <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate">
+                ₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}
+              </h3>
+              <p className="text-rose-100/90 text-[11px] hidden sm:block">Pending Easy Installments & collections</p>
             </div>
-            <div className="pt-2 border-t border-emerald-500/40 flex justify-between items-center text-xs text-emerald-100 relative z-10">
-              <span>Savings Yield: <strong>{userProfile.interestRate || currentRate}% APY</strong></span>
-              <button onClick={() => setAccountModal("debt")} className="text-xs font-bold underline hover:text-white">View Bonds →</button>
+            <div className="pt-2 border-t border-rose-400/40 flex justify-between items-center text-[11px] text-rose-100 relative z-10 mt-2">
+              <span>1st, 11th, 21st</span>
+              <span className="font-bold underline">Details →</span>
             </div>
           </div>
+        </div>
 
-          {/* 3. Dues Wallet Balance Card */}
-          <div className="bg-gradient-to-br from-amber-600 via-rose-600 to-red-700 rounded-3xl p-5 sm:p-6 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
-            <div className="relative z-10">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-rose-100 text-xs font-bold uppercase tracking-wider">Dues Wallet Balance</span>
-                <span className="text-lg">📅</span>
+        {/* ══════════════════════════════════════════════════════
+            2. MAIN WALLET BALANCE CARD (PIN-PROTECTED BALANCE)
+        ══════════════════════════════════════════════════════ */}
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 rounded-3xl p-5 sm:p-6 text-white shadow-xl relative overflow-hidden mb-6 sm:mb-8">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 pointer-events-none" />
+          <div className="relative z-10 mb-4">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-white/80 text-xs font-bold uppercase tracking-wider">Primary Wallet Balance</span>
+              <span className="text-lg">💵</span>
+            </div>
+            {balanceRevealed ? (
+              <div className="flex items-center gap-3">
+                <h2 className="text-3xl sm:text-4xl font-black font-display">
+                  ₹{balance.toLocaleString("en-IN")}
+                </h2>
+                <button
+                  onClick={() => setBalanceRevealed(false)}
+                  className="px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-semibold text-white/90 border border-white/20 transition active:scale-95"
+                >
+                  🙈 Hide
+                </button>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black font-display mb-1">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}</h2>
-              <p className="text-rose-100/90 text-xs mb-4">Pending Easy Installments & scheduled collections</p>
-            </div>
-            <div className="pt-2 border-t border-rose-400/40 flex justify-between items-center text-xs text-rose-100 relative z-10">
-              <span>Cycle: <strong>1st, 11th & 21st (or Daily)</strong></span>
-              <button onClick={() => setAccountModal("debt")} className="text-xs font-bold underline hover:text-white">View Details →</button>
-            </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-2xl sm:text-3xl font-black font-display tracking-widest text-blue-200">
+                  ₹ • • • • • •
+                </span>
+                <button
+                  onClick={handleCheckBalanceClick}
+                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur rounded-xl text-xs font-bold text-white border border-white/30 flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+                >
+                  <span>👁️</span> Check Balance
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2 relative z-10">
+            <button onClick={() => setModal("scan_qr")} className="flex-1 py-2 bg-emerald-400 hover:bg-emerald-300 text-gray-950 rounded-xl font-black text-xs hover:shadow-md active:scale-95 transition-all flex items-center justify-center gap-1">
+              <span>📷</span> Scan QR
+            </button>
+            <button onClick={() => setModal("send_money")} className="flex-1 py-2 bg-white text-blue-700 rounded-xl font-bold text-xs hover:shadow-md active:scale-95 transition-all">
+              ⚡ Send
+            </button>
+            <button onClick={() => setModal("deposit")} className="flex-1 py-2 bg-white/20 backdrop-blur text-white border border-white/30 rounded-xl font-bold text-xs hover:bg-white/30 active:scale-95 transition-all">
+              + Add
+            </button>
+            <button onClick={() => setModal("withdraw")} className="flex-1 py-2 bg-white/10 backdrop-blur text-white border border-white/20 rounded-xl font-bold text-xs hover:bg-white/20 active:scale-95 transition-all">
+              ↓ Cash Out
+            </button>
           </div>
         </div>
 
@@ -1737,19 +1919,210 @@ export default function Dashboard() {
         </div>
       </Sheet>
 
-      {/* PROFILE SHEET */}
-      <Sheet open={modal === "profile"} onClose={closeModal} title="Profile" icon="👤">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-full flex items-center justify-center font-bold text-xl shrink-0">
-            {(userStored.name || "U")[0].toUpperCase()}
+      {/* ══════════════════════════════════════════════════════
+          WALLET 6-DIGIT PIN MODAL (ENTER OR SET)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "wallet_pin"} onClose={closeModal} title={pinSetupMode ? "Set 6-Digit PIN" : "Enter Security PIN"} icon="🔒">
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900">
+            {pinSetupMode ? (
+              <>🔒 <strong>First-Time Security PIN:</strong> Balance check karne ke liye 6-number ka secret PIN banayein.</>
+            ) : (
+              <>🔒 Primary Wallet Balance check karne ke liye apna 6-number ka security PIN enter karein.</>
+            )}
           </div>
+
           <div>
-            <p className="font-bold text-gray-800">{userStored.name || "User"}</p>
-            <p className="text-xs text-gray-400">{userStored.email}</p>
-            <p className="text-xs font-mono text-blue-600 font-bold mt-0.5">{userUniqueId}</p>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              {pinSetupMode ? "Enter New 6-Digit PIN" : "6-Digit Security PIN"}
+            </label>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="••••••"
+              value={pinInput}
+              onChange={e => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-center text-2xl tracking-[0.4em] font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+            />
           </div>
+
+          {pinSetupMode && (
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Confirm 6-Digit PIN</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="••••••"
+                value={confirmPinInput}
+                onChange={e => setConfirmPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-center text-2xl tracking-[0.4em] font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+          )}
+
+          {pinError && (
+            <p className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">{pinError}</p>
+          )}
+
+          <button
+            onClick={handlePinSubmit}
+            disabled={pinSubmitting || pinInput.length !== 6 || (pinSetupMode && confirmPinInput.length !== 6)}
+            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md active:scale-95 transition disabled:opacity-50"
+          >
+            {pinSubmitting ? "Verifying..." : (pinSetupMode ? "Set 6-Digit PIN & View Balance" : "Unlock & View Balance")}
+          </button>
+
+          {!pinSetupMode && (
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={handleOpenResetPin}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 underline"
+              >
+                Forgot or Reset Wallet PIN?
+              </button>
+            </div>
+          )}
         </div>
-        <button onClick={logout} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 active:bg-red-200 transition">Logout</button>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
+          RESET / CHANGE 6-DIGIT PIN MODAL (PHONE + AADHAR)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "reset_pin"} onClose={closeModal} title="Reset Wallet PIN" icon="🛡️">
+        <div className="space-y-3.5">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
+            🛡️ <strong>Identity Verification:</strong> PIN badalne ke liye apna registered mobile number aur 12-digit Aadhar number enter karein.
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Registered Mobile Number</label>
+            <input
+              type="tel"
+              inputMode="tel"
+              placeholder="e.g. 9876543210"
+              value={resetPinForm.phone}
+              onChange={e => setResetPinForm({ ...resetPinForm, phone: e.target.value })}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Aadhar Card Number (12 Digits)</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={12}
+              placeholder="1234 5678 9012"
+              value={resetPinForm.aadharNumber}
+              onChange={e => setResetPinForm({ ...resetPinForm, aadharNumber: e.target.value.replace(/\D/g, "").slice(0, 12) })}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-mono font-semibold"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">New 6-Digit PIN</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="••••••"
+                value={resetPinForm.newPin}
+                onChange={e => setResetPinForm({ ...resetPinForm, newPin: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-mono tracking-widest text-center"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Confirm New PIN</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="••••••"
+                value={resetPinForm.confirmNewPin}
+                onChange={e => setResetPinForm({ ...resetPinForm, confirmNewPin: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-mono tracking-widest text-center"
+              />
+            </div>
+          </div>
+
+          {resetError && (
+            <p className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">{resetError}</p>
+          )}
+
+          <button
+            onClick={handleResetPinSubmit}
+            disabled={resetSubmitting}
+            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition disabled:opacity-50"
+          >
+            {resetSubmitting ? "Verifying & Updating..." : "Verify Aadhar & Reset PIN →"}
+          </button>
+        </div>
+      </Sheet>
+
+      {/* PROFILE SHEET */}
+      <Sheet open={modal === "profile"} onClose={closeModal} title="My Profile & Member ID" icon="👤">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3.5 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl">
+            <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 text-white rounded-full flex items-center justify-center font-bold text-xl shrink-0 shadow-md">
+              {(userStored.name || "U")[0].toUpperCase()}
+            </div>
+            <div>
+              <p className="font-extrabold text-base text-gray-900">{userStored.name || "User"}</p>
+              <p className="text-xs text-gray-500">{userProfile.email || userStored.email}</p>
+              <span className="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-800 text-[10px] font-black rounded-full">
+                ✓ Active Account
+              </span>
+            </div>
+          </div>
+
+          {/* PERMANENT EDUCA MEMBER ID CARD */}
+          <div className="p-4 bg-slate-900 text-white rounded-2xl shadow-md space-y-2 relative overflow-hidden">
+            <div className="flex justify-between items-center text-slate-400 text-xs font-semibold">
+              <span>Permanent Member ID</span>
+              <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-blue-300 font-mono">LIFETIME</span>
+            </div>
+            <div className="text-xl sm:text-2xl font-black font-mono tracking-wider text-emerald-400">
+              {userUniqueId}
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-slate-800 text-xs">
+              <span className="text-slate-400">Mobile: {userProfile.phone || userStored.phone || "N/A"}</span>
+              <button
+                type="button"
+                onClick={() => copyText(userUniqueId)}
+                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold transition active:scale-95"
+              >
+                {copied ? "✓ Copied" : "📋 Copy ID"}
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Actions in Profile */}
+          <div className="space-y-2">
+            <button
+              onClick={() => { setModal("my_qr"); }}
+              className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
+            >
+              <span className="flex items-center gap-2"><span>📱</span> My QR Code</span>
+              <span className="text-gray-400">→</span>
+            </button>
+
+            <button
+              onClick={handleOpenResetPin}
+              className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
+            >
+              <span className="flex items-center gap-2"><span>🔒</span> Change / Reset 6-Digit Wallet PIN</span>
+              <span className="text-gray-400">→</span>
+            </button>
+          </div>
+
+          <button onClick={logout} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-100 active:bg-red-200 transition">
+            Log Out from Account
+          </button>
+        </div>
       </Sheet>
 
       <Toast msg={toast} onHide={() => setToast({ text: "", type: "" })} />

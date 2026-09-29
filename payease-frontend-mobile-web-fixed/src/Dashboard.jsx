@@ -33,6 +33,30 @@ const getUpcomingDailyDates = (count = 6) => {
   return dates;
 };
 
+// Authentic QR Viewfinder Scanner Icon
+function ScannerIcon({ className = "w-6 h-6" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M4 8V5a2 2 0 0 1 2-2h3" />
+      <path d="M15 3h3a2 2 0 0 1 2 2v3" />
+      <path d="M20 16v3a2 2 0 0 1-2 2h-3" />
+      <path d="M9 21H6a2 2 0 0 1-2-2v-3" />
+      <rect x="7" y="7" width="3" height="3" fill="currentColor" rx="0.5" stroke="none" />
+      <rect x="14" y="7" width="3" height="3" fill="currentColor" rx="0.5" stroke="none" />
+      <rect x="7" y="14" width="3" height="3" fill="currentColor" rx="0.5" stroke="none" />
+      <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="1.8" strokeDasharray="2 1" />
+    </svg>
+  );
+}
+
 // UI Localization Dictionary (Hinglish, Hindi, English)
 const UI_TEXT = {
   hinglish: {
@@ -197,6 +221,16 @@ export default function Dashboard() {
   const [claimingCard, setClaimingCard] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
 
+  // App Lock State (Biometric / 6-digit PIN on App Open)
+  const [appLocked, setAppLocked] = useState(() => Boolean(localStorage.getItem("token")));
+  const [appLockPin, setAppLockPin] = useState("");
+  const [appLockError, setAppLockError] = useState("");
+  const [appLockLoading, setAppLockLoading] = useState(false);
+
+  // Profit Wallet Statement / History State
+  const [profitHistory, setProfitHistory] = useState([]);
+  const [loadingProfitHistory, setLoadingProfitHistory] = useState(false);
+
   // Language & Voice Guide State
   const [lang, setLang] = useState(() => localStorage.getItem("educa_lang") || "hinglish");
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -300,9 +334,10 @@ export default function Dashboard() {
     }
 
     window.onBiometricSuccess = () => {
+      setAppLocked(false);
       setBalanceRevealed(true);
       setModal(null);
-      showToast("Fingerprint verified! Balance Unlocked", "success");
+      showToast("Fingerprint verified! Wallet Unlocked", "success");
     };
 
     window.onBiometricError = (err) => {
@@ -316,6 +351,82 @@ export default function Dashboard() {
       delete window.onBiometricError;
     };
   }, []);
+
+  // Auto-prompt Fingerprint on App Launch if enabled on device
+  useEffect(() => {
+    if (appLocked && token) {
+      if (window.AndroidBiometric?.isBiometricAvailable) {
+        const timer = setTimeout(() => {
+          try {
+            if (window.AndroidBiometric.isBiometricAvailable()) {
+              window.AndroidBiometric.authenticateBiometric();
+            }
+          } catch (e) {
+            console.warn(e);
+          }
+        }, 400);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [appLocked, token]);
+
+  const verifyAppLockPin = async (pinInput) => {
+    const pin = pinInput || appLockPin;
+    if (!pin || pin.length !== 6) {
+      setAppLockError("Please enter all 6 digits of your PIN");
+      return;
+    }
+    setAppLockLoading(true);
+    setAppLockError("");
+    try {
+      const res = await fetch(`${API}/user/pin/verify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ pin })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.needsSetup) {
+          setAppLocked(false);
+          showToast("Please set up your 6-digit PIN in Profile", "info");
+          return;
+        }
+        throw new Error(data.message || "Incorrect PIN");
+      }
+      setAppLocked(false);
+      setBalance(data.balance);
+      setBalanceRevealed(true);
+      showToast("Wallet unlocked successfully!", "success");
+    } catch (err) {
+      setAppLockError(err.message || "Invalid 6-digit PIN");
+      setAppLockPin("");
+    } finally {
+      setAppLockLoading(false);
+    }
+  };
+
+  const loadProfitHistory = async () => {
+    setLoadingProfitHistory(true);
+    try {
+      const res = await fetch(`${API}/user/profit-history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setProfitHistory(data.history || []);
+        if (data.profitBalance !== undefined) {
+          setUserProfile(prev => ({ ...prev, profitBalance: data.profitBalance }));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load profit history", e);
+    } finally {
+      setLoadingProfitHistory(false);
+    }
+  };
 
   const triggerBiometricAuth = () => {
     if (window.AndroidBiometric?.authenticateBiometric) {
@@ -1046,10 +1157,126 @@ export default function Dashboard() {
   const navItems = [
     { key: "home", label: "Home", icon: "🏠", onClick: () => { setShowLoans(false); window.scrollTo({ top: 0, behavior: "smooth" }); } },
     { key: "loans", label: "Loans", icon: "🏦", onClick: loadLoans },
-    { key: "scan", label: "Scan QR", icon: "📷", isCenter: true, onClick: () => setModal("scan_qr") },
-    { key: "passbook", label: "Passbook", icon: "💳", onClick: () => setModal("passbook") },
+    { key: "scan", label: "Scan QR", icon: <ScannerIcon className="w-6 h-6 text-white" />, isCenter: true, onClick: () => setModal("scan_qr") },
+    { key: "bonds", label: "Bonds", icon: "📈", onClick: () => setAccountModal("debt") },
     { key: "profile", label: "Profile", icon: "👤", onClick: () => setModal("profile") },
   ];
+
+  // ══════════════════════════════════════════════════════
+  // APP LOCK SCREEN ON OPEN (FINGERPRINT BIOMETRIC / 6-DIGIT PIN)
+  // ══════════════════════════════════════════════════════
+  if (appLocked) {
+    return (
+      <div className="min-h-[100dvh] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col justify-between items-center p-6 relative font-sans select-none overflow-hidden">
+        {/* Ambient Top Glow */}
+        <div className="absolute top-0 inset-x-0 h-72 bg-gradient-to-b from-blue-600/20 via-cyan-500/10 to-transparent pointer-events-none blur-3xl" />
+        
+        {/* Top Header */}
+        <div className="w-full max-w-sm flex items-center justify-between pt-safe relative z-10">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🎓</span>
+            <span className="font-extrabold text-sm tracking-tight bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+              Educa Fintech
+            </span>
+          </div>
+          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/20 flex items-center gap-1">
+            <span>🔒</span> Protected
+          </span>
+        </div>
+
+        {/* Center Card & Authentication */}
+        <div className="w-full max-w-sm flex flex-col items-center justify-center text-center my-auto relative z-10">
+          {/* User Avatar */}
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 p-0.5 shadow-xl shadow-blue-500/20 mb-4 flex items-center justify-center">
+            <div className="w-full h-full bg-slate-900 rounded-[22px] flex items-center justify-center">
+              <span className="text-3xl">👤</span>
+            </div>
+          </div>
+
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            Welcome Back
+          </h2>
+          <p className="text-xs text-slate-400 mt-1 mb-6">
+            {userStored.name || "Educa User"} · Unlock with fingerprint or PIN
+          </p>
+
+          {/* Fingerprint Biometric Trigger Button */}
+          <button
+            onClick={triggerBiometricAuth}
+            className="group relative flex flex-col items-center justify-center w-24 h-24 rounded-full bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700/80 shadow-2xl hover:border-cyan-400/60 active:scale-95 transition duration-300 mb-6"
+            title="Authenticate with Fingerprint"
+          >
+            <div className="absolute inset-0 rounded-full border border-cyan-500/30 animate-ping pointer-events-none" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10 text-cyan-400 group-hover:scale-110 transition-transform">
+              <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" />
+            </svg>
+            <span className="text-[10px] text-cyan-300 font-bold mt-1">Tap Sensor</span>
+          </button>
+
+          {/* 6-Digit PIN Option */}
+          <div className="w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-5 backdrop-blur-md">
+            <p className="text-xs font-bold text-slate-300 mb-3">Or enter your 6-digit Wallet PIN</p>
+            
+            <div className="flex justify-center gap-2 mb-4">
+              {[0, 1, 2, 3, 4, 5].map((idx) => (
+                <div
+                  key={idx}
+                  className={`w-9 h-11 rounded-xl border flex items-center justify-center text-lg font-black transition-all ${
+                    appLockPin.length > idx
+                      ? "border-cyan-400 bg-cyan-950/40 text-cyan-300 shadow-xs shadow-cyan-400/20"
+                      : "border-slate-700 bg-slate-800/60 text-slate-500"
+                  }`}
+                >
+                  {appLockPin.length > idx ? "•" : ""}
+                </div>
+              ))}
+            </div>
+
+            {/* Hidden / Native Input for PIN */}
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              value={appLockPin}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setAppLockPin(val);
+                setAppLockError("");
+                if (val.length === 6) {
+                  verifyAppLockPin(val);
+                }
+              }}
+              placeholder="Type 6-digit PIN"
+              className="w-full text-center tracking-widest text-sm py-2.5 px-4 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:border-cyan-400"
+            />
+
+            {appLockError && (
+              <p className="text-xs text-rose-400 font-medium mt-2">{appLockError}</p>
+            )}
+
+            <button
+              onClick={() => verifyAppLockPin(appLockPin)}
+              disabled={appLockPin.length !== 6 || appLockLoading}
+              className="w-full mt-3 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-40"
+            >
+              {appLockLoading ? "Verifying..." : "Unlock with PIN →"}
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom Switch Account / Logout */}
+        <div className="w-full max-w-sm flex items-center justify-between pb-safe pt-4 relative z-10 text-xs text-slate-500">
+          <button
+            onClick={logout}
+            className="hover:text-rose-400 transition"
+          >
+            Log Out / Switch Account
+          </button>
+          <span>Educa Fintech Security</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-[100dvh] pb-safe-nav sm:pb-0 font-sans">
@@ -1099,7 +1326,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 gap-3 mb-4">
           {/* Left: Profit Wallet Balance Card */}
           <div
-            onClick={() => setAccountModal("debt")}
+            onClick={() => { setModal("profit_history"); loadProfitHistory(); }}
             className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 rounded-3xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98] transition hover:shadow-xl"
           >
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
@@ -1111,47 +1338,47 @@ export default function Dashboard() {
               <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate">
                 ₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")}
               </h3>
-              <p className="text-emerald-100/90 text-[11px] hidden sm:block">365-Day Bond (18% profit) & yield</p>
+              <p className="text-emerald-100/90 text-[11px] hidden sm:block">1% Monthly Daily Yield & 365d Bonds</p>
             </div>
             <div className="pt-2 border-t border-emerald-500/40 flex justify-between items-center text-[11px] text-emerald-100 relative z-10 mt-2">
               <span>{userProfile.interestRate || currentRate}% APY</span>
-              <span className="font-bold underline">Bonds →</span>
+              <span className="font-bold underline">History & Bonds →</span>
             </div>
           </div>
 
-          {/* Right: Dues Wallet Balance Card (LOCKED IF NO ACTIVE DUES) */}
+          {/* Right: Dues Wallet Balance Card (LOCKED IF NO ACTIVE DUES) - VIBRANT RED */}
           <div
             onClick={() => setAccountModal("personal_loan")}
             className={`rounded-3xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98] transition hover:shadow-xl ${
               (userProfile.duesBalance || 0) > 0
-                ? "bg-gradient-to-br from-amber-600 via-rose-600 to-red-700"
-                : "bg-gradient-to-br from-slate-700 via-slate-800 to-zinc-900 border border-slate-600/40"
+                ? "bg-gradient-to-br from-red-600 via-rose-600 to-red-800 shadow-red-500/25"
+                : "bg-gradient-to-br from-red-900 via-rose-950 to-neutral-950 border border-red-700/50 shadow-red-950/30"
             }`}
           >
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-rose-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.duesWallet}</span>
+                <span className="text-red-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.duesWallet}</span>
                 <span className="text-base sm:text-lg">
                   {(userProfile.duesBalance || 0) > 0 ? "📅" : "🔒"}
                 </span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate">
+              <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate text-white">
                 {(userProfile.duesBalance || 0) > 0 ? (
                   `₹${(userProfile.duesBalance || 0).toLocaleString("en-IN")}`
                 ) : (
-                  <span className="text-slate-200 text-xl sm:text-2xl font-bold flex items-center gap-1.5">
+                  <span className="text-red-200 text-xl sm:text-2xl font-bold flex items-center gap-1.5">
                     <span>🔒</span> Locked
                   </span>
                 )}
               </h3>
-              <p className="text-rose-100/90 text-[11px] hidden sm:block">
+              <p className="text-red-100/90 text-[11px] hidden sm:block">
                 {(userProfile.duesBalance || 0) > 0
                   ? "Pending Easy Installments & collections"
                   : "Loan lene par dues wallet active hoga"}
               </p>
             </div>
-            <div className="pt-2 border-t border-white/20 flex justify-between items-center text-[11px] text-rose-100 relative z-10 mt-2">
+            <div className="pt-2 border-t border-red-400/30 flex justify-between items-center text-[11px] text-red-100 relative z-10 mt-2">
               <span>{(userProfile.duesBalance || 0) > 0 ? "1st, 11th, 21st" : "No Active Dues"}</span>
               <span className="font-bold underline">
                 {(userProfile.duesBalance || 0) > 0 ? "Details →" : "Apply Loan →"}
@@ -1173,8 +1400,8 @@ export default function Dashboard() {
               onClick={() => setModal("scan_qr")}
               className="group relative flex flex-col items-center justify-center p-5 sm:p-6 bg-white rounded-3xl shadow-2xl hover:shadow-cyan-500/25 active:scale-95 transition-all duration-300 w-full max-w-xs mx-auto border-2 border-white/60"
             >
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl text-white shadow-lg shadow-blue-500/30 mb-3 group-hover:scale-105 transition-transform">
-                📷
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 mb-3 group-hover:scale-105 transition-transform">
+                <ScannerIcon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
               </div>
               <span className="text-base sm:text-lg font-black text-gray-900 group-hover:text-blue-600 transition-colors">
                 Scan Any QR Code
@@ -1544,7 +1771,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           SCAN QR CODE SHEET (CAMERA + GALLERY)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "scan_qr"} onClose={closeModal} title="Scan QR Code" icon="📷">
+      <Sheet open={modal === "scan_qr"} onClose={closeModal} title="Scan QR Code" icon={<ScannerIcon className="w-5 h-5 text-cyan-500 inline" />}>
         <div className="space-y-4">
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900">
             📸 Phone camera se QR scan karein ya phone ki <strong>Gallery</strong> se QR image chunein.
@@ -1594,6 +1821,119 @@ export default function Dashboard() {
       </Sheet>
 
       {/* ══════════════════════════════════════════════════════
+          PROFIT WALLET & DAILY YIELD STATEMENT SHEET
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "profit_history"} onClose={closeModal} title="Profit Wallet & Returns Statement" icon="📈">
+        <div className="space-y-4">
+          {/* Total Profit Hero Banner */}
+          <div className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 pointer-events-none" />
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-100">Total Profit Balance</span>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-300/40 text-emerald-100 font-bold">
+                ⚡ Active Yield
+              </span>
+            </div>
+            <div className="text-3xl sm:text-4xl font-black font-display my-1">
+              ₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")}
+            </div>
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-500/30 text-xs text-emerald-100">
+              <span>Daily 1% Monthly ROI on 24h lowest primary balance</span>
+            </div>
+          </div>
+
+          {/* 24h Lowest Balance Rule Explanation */}
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl text-xs text-emerald-950 flex items-start gap-2.5">
+            <span className="text-lg">💡</span>
+            <div>
+              <span className="font-extrabold block">24h Minimum Balance Daily ROI Rule:</span>
+              <span className="text-emerald-900 mt-0.5 block leading-relaxed">
+                Aapke primary wallet me pichle 24 ghante me jo sabse kam (lowest) balance maintain rehta hai, uspe mahine ka 1% interest daily calculate hokar seedha aapke Profit Wallet me add hota hai!
+              </span>
+            </div>
+          </div>
+
+          {/* Transactions Statement List */}
+          <div>
+            <div className="flex justify-between items-center mb-2.5">
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Profit Credit Statement
+              </h4>
+              <button
+                onClick={loadProfitHistory}
+                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+              >
+                <span>🔄</span> Refresh
+              </button>
+            </div>
+
+            {loadingProfitHistory ? (
+              <div className="py-8 text-center text-gray-400 text-xs animate-pulse">
+                Loading profit statement...
+              </div>
+            ) : profitHistory.length === 0 ? (
+              <div className="py-8 text-center text-gray-400 text-xs bg-gray-50 rounded-2xl border border-gray-100 p-4">
+                <span className="text-2xl block mb-1">🌱</span>
+                Abhi tak koi profit entry nahi hai. Primary wallet me balance rakhein ya 365-day bond create karein roz profit paane ke liye!
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                {profitHistory.map((item) => (
+                  <div
+                    key={item._id}
+                    className="p-3.5 bg-white border border-gray-100 rounded-2xl shadow-xs flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg font-bold shrink-0">
+                        {item.type === "daily_yield" ? "⚡" : item.type === "bond_payout" ? "🏛️" : "🎁"}
+                      </div>
+                      <div>
+                        <p className="text-xs font-extrabold text-gray-900">
+                          {item.type === "daily_yield"
+                            ? "Daily Savings Yield"
+                            : item.type === "bond_payout"
+                            ? "Bond Payout / Return"
+                            : "Referral Bonus"}
+                        </p>
+                        <p className="text-[11px] text-gray-500 max-w-[200px] sm:max-w-xs truncate">
+                          {item.remarks || "Profit credited to account"}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          {new Date(item.createdAt).toLocaleString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-xs sm:text-sm font-black text-emerald-600 block">
+                        +₹{Number(item.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-500 uppercase">Credited</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Action to Explore Bonds */}
+          <div className="pt-2 border-t border-gray-100">
+            <button
+              onClick={() => { closeModal(); setAccountModal("debt"); }}
+              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition"
+            >
+              Explore 365-Day 18% Bonds →
+            </button>
+          </div>
+        </div>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
           2. SEND MONEY / P2P TRANSFER SHEET
       ══════════════════════════════════════════════════════ */}
       <Sheet open={modal === "send_money"} onClose={closeModal} title="Send Money (App-to-App)" icon="⚡">
@@ -1610,7 +1950,7 @@ export default function Dashboard() {
                 onClick={() => setModal("scan_qr")}
                 className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 transition active:scale-95"
               >
-                <span>📷</span> Scan QR / Gallery
+                <ScannerIcon className="w-3.5 h-3.5 text-emerald-600 inline mr-0.5" /> Scan QR / Gallery
               </button>
             </div>
             <input

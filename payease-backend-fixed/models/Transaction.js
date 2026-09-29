@@ -13,7 +13,9 @@ const transactionSchema = new mongoose.Schema({
       'bond_payout',
       'loan_disbursal',
       'loan_installment',
-      'loan_early_closure'
+      'loan_early_closure',
+      'daily_yield',
+      'referral_bonus'
     ],
     required: true
   },

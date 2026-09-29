@@ -6,6 +6,8 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, required: true, unique: true, sparse: true },
   password: { type: String, required: true },
   balance: { type: Number, default: 0 },
+  lowestBalance24h: { type: Number, default: 0 }, // Lowest balance in active 24h window
+  lastYieldCalculatedAt: { type: Date, default: Date.now }, // Timestamp of last 24h yield distribution
   profitBalance: { type: Number, default: 0 }, // Capitalised profits
   duesBalance: { type: Number, default: 0 }, // Total pending loan installments & card dues
   loanLimit: { type: Number, default: 10000 }, // Doubles on completion (10k -> 20k -> 40k -> 50k max)

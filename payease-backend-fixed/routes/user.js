@@ -1,13 +1,66 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const Transaction = require('../models/Transaction');
 const { protect } = require('../middleware/auth');
 const router = express.Router();
 
+// Helper to evaluate and credit daily 1% monthly yield on lowest 24h primary balance
+async function processDailyYield(user) {
+  if (!user) return user;
+  const now = new Date();
+
+  if (!user.lastYieldCalculatedAt) {
+    user.lastYieldCalculatedAt = now;
+    user.lowestBalance24h = user.balance || 0;
+    await user.save();
+    return user;
+  }
+
+  // Ensure lowestBalance24h is tracked accurately
+  if (user.lowestBalance24h === undefined || user.lowestBalance24h === null) {
+    user.lowestBalance24h = user.balance || 0;
+  } else if (user.balance < user.lowestBalance24h) {
+    user.lowestBalance24h = user.balance;
+  }
+
+  const msDiff = now.getTime() - new Date(user.lastYieldCalculatedAt).getTime();
+  const msInDay = 24 * 60 * 60 * 1000;
+  const days = Math.floor(msDiff / msInDay);
+
+  if (days >= 1) {
+    const cappedDays = Math.min(days, 30);
+    const minBal = Math.max(0, user.lowestBalance24h || 0);
+    // 1% ROI per month = 1% / 30 per day
+    const dailyRate = 0.01 / 30;
+    const dailyAmount = minBal * dailyRate;
+    const totalYield = Number((dailyAmount * cappedDays).toFixed(2));
+
+    if (totalYield > 0) {
+      user.profitBalance = Number(((user.profitBalance || 0) + totalYield).toFixed(2));
+      await Transaction.create({
+        userId: user._id,
+        type: 'daily_yield',
+        amount: totalYield,
+        method: 'internal',
+        status: 'completed',
+        remarks: `Daily Savings Yield (1% monthly ROI on ₹${minBal.toLocaleString('en-IN')} lowest 24h balance for ${cappedDays} day${cappedDays > 1 ? 's' : ''})`
+      });
+    }
+
+    user.lastYieldCalculatedAt = new Date(new Date(user.lastYieldCalculatedAt).getTime() + cappedDays * msInDay);
+    user.lowestBalance24h = user.balance || 0;
+    await user.save();
+  }
+
+  return user;
+}
+
 router.get('/me', protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-password');
+    let user = await User.findById(req.user._id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
+    user = await processDailyYield(user);
     const userObj = user.toObject();
     userObj.hasWalletPin = !!user.walletPin;
     delete userObj.walletPin;
@@ -215,4 +268,47 @@ router.post('/card/claim-platinum', protect, async (req, res) => {
   }
 });
 
+// Profit Wallet History: Daily Savings Yield, Bond Payouts, Referral Bonuses
+router.get('/profit-history', protect, async (req, res) => {
+  try {
+    let user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Process any pending yield before fetching history
+    user = await processDailyYield(user);
+
+    const history = await Transaction.find({
+      userId: req.user._id,
+      type: { $in: ['daily_yield', 'bond_payout', 'referral_bonus'] }
+    }).sort({ createdAt: -1 }).limit(100);
+
+    res.json({
+      success: true,
+      profitBalance: user.profitBalance || 0,
+      lowestBalance24h: user.lowestBalance24h || 0,
+      history
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch profit history' });
+  }
+});
+
+// Trigger yield calculation explicitly
+router.post('/yield/calculate', protect, async (req, res) => {
+  try {
+    let user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user = await processDailyYield(user);
+    res.json({
+      success: true,
+      profitBalance: user.profitBalance || 0,
+      lowestBalance24h: user.lowestBalance24h || 0,
+      lastYieldCalculatedAt: user.lastYieldCalculatedAt
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to calculate yield' });
+  }
+});
+
 module.exports = router;
+

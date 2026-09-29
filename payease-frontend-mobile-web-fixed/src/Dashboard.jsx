@@ -45,7 +45,8 @@ export default function Dashboard() {
   const [bonds, setBonds] = useState([]);
   const [showLoans, setShowLoans] = useState(false);
   const [toast, setToast] = useState({ text: "", type: "" });
-  const [modal, setModal] = useState(null); // 'deposit' | 'withdraw' | 'profile' | 'my_qr' | 'send_money'
+  const [modal, setModal] = useState(null); // 'deposit' | 'withdraw' | 'profile' | 'my_qr' | 'send_money' | 'passbook'
+  const [passbookFilter, setPassbookFilter] = useState("all"); // 'all' | 'in' | 'out'
   const [accountModal, setAccountModal] = useState(null); // 'wallet' | 'debt' | 'lending' | 'personal_loan' | 'student_loan' | 'business_loan'
   const [currentRate, setCurrentRate] = useState(12);
   const [referralCode, setReferralCode] = useState(userStored.referralCode || "");
@@ -1767,10 +1768,17 @@ export default function Dashboard() {
       ══════════════════════════════════════════════════════ */}
       <Sheet open={accountModal === "debt"} onClose={closeModal} title="Debt & Bond Account" icon="📑">
         <div className="space-y-4">
-          <div className="bg-gradient-to-r from-rose-600 to-red-700 rounded-2xl p-5 text-white">
-            <span className="text-xs text-rose-100 font-bold uppercase tracking-wider">Total Pending Dues</span>
-            <div className="text-3xl font-black font-display my-1">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}</div>
-            <p className="text-xs text-rose-100">Scheduled on 1st, 11th & 21st (or daily for micro business)</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-4 text-white shadow-sm">
+              <span className="text-[10px] text-emerald-100 font-bold uppercase tracking-wider block">Profit Wallet</span>
+              <div className="text-2xl font-black font-display my-0.5">₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")}</div>
+              <p className="text-[10px] text-emerald-100">Bonds & Capital Earnings</p>
+            </div>
+            <div className="bg-gradient-to-br from-rose-600 to-red-700 rounded-2xl p-4 text-white shadow-sm">
+              <span className="text-[10px] text-rose-100 font-bold uppercase tracking-wider block">Total Pending Dues</span>
+              <div className="text-2xl font-black font-display my-0.5">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}</div>
+              <p className="text-[10px] text-rose-100">Scheduled on 1st, 11th & 21st</p>
+            </div>
           </div>
 
           {/* 365-DAY 1 LAKH BOND CREATION */}
@@ -1792,24 +1800,68 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* ACTIVE BONDS LIST */}
-          {bonds.filter(b => b.bondType === "debit_365").length > 0 && (
-            <div className="space-y-2 border-t border-gray-100 pt-3">
-              <h5 className="text-xs font-bold text-gray-700 uppercase">My Active 365-Day Bonds</h5>
-              {bonds.filter(b => b.bondType === "debit_365").map(b => (
-                <div key={b._id} className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs space-y-1">
-                  <div className="flex justify-between font-bold">
-                    <span>Principal: ₹{b.principalAmount.toLocaleString("en-IN")}</span>
-                    <span className="text-emerald-700">Maturity: ₹{b.returnAmount.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-500 text-[11px]">
-                    <span>Matures On: {new Date(b.maturityDate).toLocaleDateString("en-IN")}</span>
-                    <span className="capitalize font-semibold text-blue-600">{b.status}</span>
-                  </div>
-                </div>
-              ))}
+          {/* PROFIT & 365-DAY BOND HISTORY */}
+          <div className="space-y-2 border-t border-gray-100 pt-3">
+            <div className="flex justify-between items-center">
+              <h5 className="text-xs font-bold text-gray-700 uppercase">Profit & Bond History</h5>
+              <span className="text-[10px] text-gray-400 font-semibold">Incoming Profit Credits</span>
             </div>
-          )}
+
+            {(() => {
+              const debitBonds = bonds.filter(b => b.bondType === "debit_365");
+              const profitTxns = txns.filter(t => t.type === "bond_payout" || t.type === "bond_created");
+
+              if (debitBonds.length === 0 && profitTxns.length === 0) {
+                return (
+                  <p className="py-6 text-center text-gray-400 text-xs bg-gray-50 rounded-xl">
+                    Koi 365-din bond ya profit payout record nahi mila
+                  </p>
+                );
+              }
+
+              return (
+                <div className="space-y-2">
+                  {debitBonds.map(b => (
+                    <div key={b._id} className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs space-y-1">
+                      <div className="flex justify-between items-center font-bold">
+                        <span className="text-emerald-950">365-Day Fixed Bond</span>
+                        <span className="text-emerald-700 font-black">+₹{b.returnAmount.toLocaleString("en-IN")} Maturity</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-gray-600">
+                        <span>Invested: ₹{b.principalAmount.toLocaleString("en-IN")}</span>
+                        <span>Locked on: {new Date(b.startDate || b.createdAt).toLocaleDateString("en-IN")}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-gray-600 pt-1 border-t border-emerald-100">
+                        <span>Maturity Date: {new Date(b.maturityDate).toLocaleDateString("en-IN")}</span>
+                        <span className="capitalize font-black text-emerald-800">
+                          {b.status === "matured" ? "✓ Credited to Profit Wallet" : "⏳ 365 Days Locked"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {profitTxns.map(t => {
+                    const d = new Date(t.createdAt);
+                    const timeStr = d.toLocaleDateString("en-IN") + " " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+                    return (
+                      <div key={t._id} className="p-3 bg-white border border-gray-100 rounded-xl text-xs flex justify-between items-center">
+                        <div>
+                          <p className="font-extrabold text-gray-900 capitalize">{t.remarks || t.type.replace(/_/g, " ")}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{timeStr} • Method: {t.method}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-black text-xs ${t.type === "bond_payout" ? "text-emerald-600" : "text-gray-700"}`}>
+                            {t.type === "bond_payout" ? "+" : ""}₹{t.amount.toLocaleString("en-IN")}
+                          </p>
+                          <span className="text-[9px] uppercase font-bold text-gray-400">{t.status}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
         </div>
       </Sheet>
 
@@ -1862,24 +1914,64 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* ACTIVE LENDING BONDS */}
-          {bonds.filter(b => b.bondType.startsWith("lending")).length > 0 && (
-            <div className="space-y-2 border-t border-gray-100 pt-3">
-              <h5 className="text-xs font-bold text-gray-700 uppercase">My Active Lending Bonds</h5>
-              {bonds.filter(b => b.bondType.startsWith("lending")).map(b => (
-                <div key={b._id} className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs space-y-1">
-                  <div className="flex justify-between font-bold">
-                    <span>Invested: ₹{b.principalAmount.toLocaleString("en-IN")}</span>
-                    <span className="text-purple-700">₹{b.monthlyPayout}/mo</span>
-                  </div>
-                  <div className="flex justify-between text-gray-500 text-[11px]">
-                    <span>Payouts: {b.payoutsCompleted || 0} / {b.tenureMonths} Months</span>
-                    <span className="text-emerald-700 font-bold">Total: ₹{b.returnAmount.toLocaleString("en-IN")}</span>
-                  </div>
-                </div>
-              ))}
+          {/* LENDING MONTHLY PAYOUTS & CREDITS HISTORY */}
+          <div className="space-y-2 border-t border-gray-100 pt-3">
+            <div className="flex justify-between items-center">
+              <h5 className="text-xs font-bold text-purple-900 uppercase">Monthly Payouts & Credits Ledger</h5>
+              <span className="text-[10px] text-gray-400 font-semibold">₹3,500 / mo credits</span>
             </div>
-          )}
+
+            {(() => {
+              const lendingBonds = bonds.filter(b => b.bondType.startsWith("lending"));
+              const lendingTxns = txns.filter(t => t.type === "bond_payout" && (t.remarks?.toLowerCase().includes("lending") || t.remarks?.toLowerCase().includes("monthly")));
+
+              if (lendingBonds.length === 0 && lendingTxns.length === 0) {
+                return (
+                  <p className="py-6 text-center text-gray-400 text-xs bg-gray-50 rounded-xl">
+                    Koi active monthly lending bond ya payout nahi hai
+                  </p>
+                );
+              }
+
+              return (
+                <div className="space-y-2">
+                  {lendingBonds.map(b => (
+                    <div key={b._id} className="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs space-y-1.5">
+                      <div className="flex justify-between items-center font-bold">
+                        <span className="text-purple-950">{b.bondType === "lending_40" ? "40 Months Bond" : "80 Months Bond"}</span>
+                        <span className="text-purple-700 font-black">+₹{b.monthlyPayout.toLocaleString("en-IN")} / Month</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-gray-600">
+                        <span>Invested: ₹{b.principalAmount.toLocaleString("en-IN")}</span>
+                        <span>Completed: {b.payoutsCompleted || 0} / {b.tenureMonths} Months</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-gray-600 pt-1 border-t border-purple-100">
+                        <span>Next Payout: {b.nextPayoutDate ? new Date(b.nextPayoutDate).toLocaleDateString("en-IN") : "Completed"}</span>
+                        <span className="text-emerald-700 font-extrabold">Total Return: ₹{b.returnAmount.toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {lendingTxns.map(t => {
+                    const d = new Date(t.createdAt);
+                    const timeStr = d.toLocaleDateString("en-IN") + " " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+                    return (
+                      <div key={t._id} className="p-3 bg-white border border-gray-100 rounded-xl text-xs flex justify-between items-center">
+                        <div>
+                          <p className="font-extrabold text-purple-950">{t.remarks || "Monthly Lending Credit"}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{timeStr} • Credited to Wallet</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-black text-xs text-emerald-600">+₹{t.amount.toLocaleString("en-IN")}</p>
+                          <span className="text-[9px] uppercase font-bold text-gray-400">{t.status}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
         </div>
       </Sheet>
 
@@ -2163,8 +2255,51 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* AGENT PARTNER BADGE IF APPLIED OR APPROVED */}
+          {(userProfile.role === "agent" || userProfile.agentProfile?.status === "approved") ? (
+            <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🤝</span>
+                  <span className="font-extrabold text-xs text-amber-950">Verified Agent Partner</span>
+                </div>
+                <span className="px-2 py-0.5 bg-amber-200 text-amber-950 rounded font-black text-[10px]">
+                  {userProfile.agentProfile?.commissionModel === "team_1" ? "1% Team Model" : "2% Solo Direct"}
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800 mt-1">
+                Shop: {userProfile.agentProfile?.businessName || "Educa Partner"} • {userProfile.agentProfile?.city || "Active"}
+              </p>
+            </div>
+          ) : userProfile.agentProfile?.status === "pending" ? (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-2xl text-xs text-yellow-900 flex items-center gap-2">
+              <span className="text-base">⏳</span>
+              <div>
+                <span className="font-bold">Agent Application Under Review</span>
+                <p className="text-[11px] text-yellow-700">Admin team is verifying your application to activate Agent ID.</p>
+              </div>
+            </div>
+          ) : null}
+
           {/* Quick Actions in Profile */}
           <div className="space-y-2">
+            {/* VIEW PRIMARY WALLET AMOUNT & PASSBOOK STATEMENT */}
+            <button
+              onClick={() => { setModal("passbook"); }}
+              className="w-full p-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-bold text-xs flex items-center justify-between shadow-md shadow-blue-500/20 transition active:scale-95"
+            >
+              <div className="flex items-center gap-3 text-left">
+                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center text-lg shrink-0">
+                  💳
+                </div>
+                <div>
+                  <span className="block font-black text-sm text-white">View Wallet Amount & Passbook History</span>
+                  <span className="block text-[11px] text-blue-100 font-normal">Check balance, incoming & outgoing transactions</span>
+                </div>
+              </div>
+              <span className="text-white/80 font-bold text-base">→</span>
+            </button>
+
             <button
               onClick={() => { setModal("my_qr"); }}
               className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
@@ -2185,6 +2320,152 @@ export default function Dashboard() {
           <button onClick={logout} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-100 active:bg-red-200 transition">
             Log Out from Account
           </button>
+        </div>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
+          PASSBOOK & PRIMARY ACCOUNT STATEMENT SHEET
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "passbook"} onClose={closeModal} title="Primary Wallet & Passbook Statement" icon="💳">
+        <div className="space-y-4">
+          {/* BALANCE CARD */}
+          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-3xl p-5 text-white shadow-lg shadow-blue-500/15 relative overflow-hidden">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Primary Account Balance</span>
+                <div className="text-3xl font-black font-display my-1">
+                  ₹{(userProfile.balance ?? balance ?? 0).toLocaleString("en-IN")}
+                </div>
+                <p className="text-[11px] text-blue-100 mt-1">
+                  ID: <span className="font-mono font-bold text-emerald-300">{userUniqueId}</span>
+                </p>
+              </div>
+              <span className="px-2.5 py-1 bg-white/20 text-white text-[10px] font-black rounded-full uppercase">
+                Primary Wallet
+              </span>
+            </div>
+          </div>
+
+          {/* FILTER TABS */}
+          <div className="flex gap-1.5 p-1 bg-gray-100 rounded-xl">
+            {[
+              { id: "all", label: `All (${txns.length})` },
+              { id: "in", label: `In / Received (${txns.filter(t => ["deposit", "transfer_received", "bond_payout", "loan_disbursal"].includes(t.type)).length})` },
+              { id: "out", label: `Out / Sent (${txns.filter(t => !["deposit", "transfer_received", "bond_payout", "loan_disbursal"].includes(t.type)).length})` },
+            ].map(f => (
+              <button
+                key={f.id}
+                onClick={() => setPassbookFilter(f.id)}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
+                  passbookFilter === f.id
+                    ? "bg-white text-blue-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-800"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* TRANSACTIONS PASSBOOK LIST */}
+          <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
+            {(() => {
+              const filtered = txns.filter(t => {
+                const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal"].includes(t.type);
+                if (passbookFilter === "in") return isCredit;
+                if (passbookFilter === "out") return !isCredit;
+                return true;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="py-12 text-center text-gray-400 text-xs">
+                    <p className="text-2xl mb-1">📜</p>
+                    Koi transaction record nahi mila
+                  </div>
+                );
+              }
+
+              return filtered.map(t => {
+                const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal"].includes(t.type);
+                
+                let title = t.type.replace(/_/g, " ");
+                let details = t.remarks || "";
+
+                if (t.type === "transfer_sent") {
+                  title = `Sent to ${t.receiverName || t.recipientIdentifier || "User"}`;
+                  details = `Sent from Primary Wallet • ${t.recipientIdentifier || ""}`;
+                } else if (t.type === "transfer_received") {
+                  title = `Received from ${t.senderName || t.recipientIdentifier || "User"}`;
+                  details = `Credited to Primary Wallet • ${t.recipientIdentifier || ""}`;
+                } else if (t.type === "deposit") {
+                  title = `Deposit via ${t.method?.toUpperCase() || "UPI"}`;
+                  details = t.utrNumber ? `UTR: ${t.utrNumber}` : "Direct account top-up";
+                } else if (t.type === "withdrawal") {
+                  title = `Withdrawal to Bank / UPI`;
+                  details = `Debited from Primary Wallet (${t.status})`;
+                } else if (t.type === "loan_disbursal") {
+                  title = `Personal Loan Disbursed`;
+                  details = `Loan funds credited to Primary Account`;
+                } else if (t.type === "loan_installment") {
+                  title = `Loan Installment Repayment`;
+                  details = `Scheduled installment repayment paid`;
+                } else if (t.type === "loan_early_closure") {
+                  title = `Loan Early Closure Payoff`;
+                  details = `Zero-interest early payoff full closure`;
+                } else if (t.type === "bond_created") {
+                  title = `Bond Investment Created`;
+                  details = `Funds locked for bond`;
+                } else if (t.type === "bond_payout") {
+                  title = `Bond Payout / Profit Credited`;
+                  details = `Maturity return / monthly payout credited`;
+                }
+
+                const d = new Date(t.createdAt);
+                const timeStr = d.toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric"
+                }) + " • " + d.toLocaleTimeString("en-IN", {
+                  hour: "2-digit",
+                  minute: "2-digit"
+                });
+
+                return (
+                  <div
+                    key={t._id}
+                    className="p-3.5 bg-white border border-gray-100 hover:border-gray-200 rounded-2xl transition shadow-xs flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-base shrink-0 ${
+                        isCredit ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                      }`}>
+                        {isCredit ? "🟢" : "🔴"}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-extrabold text-xs text-gray-900 truncate capitalize">
+                          {title}
+                        </p>
+                        <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                          {details}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          {timeStr}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <p className={`font-black text-sm ${isCredit ? "text-emerald-600" : "text-rose-600"}`}>
+                        {isCredit ? "+" : "-"}₹{t.amount.toLocaleString("en-IN")}
+                      </p>
+                      <StatusBadge status={t.status} />
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
         </div>
       </Sheet>
 

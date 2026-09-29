@@ -9,7 +9,16 @@ const userSchema = new mongoose.Schema({
   profitBalance: { type: Number, default: 0 }, // Capitalised profits
   duesBalance: { type: Number, default: 0 }, // Total pending loan installments & card dues
   loanLimit: { type: Number, default: 10000 }, // Doubles on completion (10k -> 20k -> 40k -> 50k max)
-  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  role: { type: String, enum: ['user', 'admin', 'agent'], default: 'user' },
+  agentProfile: {
+    applied: { type: Boolean, default: false },
+    status: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
+    commissionModel: { type: String, enum: ['team_1', 'solo_2'], default: 'solo_2' },
+    businessName: { type: String, default: '' },
+    city: { type: String, default: '' },
+    appliedAt: { type: Date, default: null },
+    approvedAt: { type: Date, default: null }
+  },
   upiId: { type: String },
   bankAccount: {
     accountNumber: String,
@@ -58,7 +67,7 @@ const userSchema = new mongoose.Schema({
 // Collision hone par (rare) dobara try karta hai, taaki duplicate-key error se
 // registration generic 500 error ke saath fail na ho
 userSchema.pre('save', async function (next) {
-  if (!this.referralCode && this.role === 'user') {
+  if (!this.referralCode && this.role !== 'admin') {
     const prefix = (this.name || 'USR').replace(/\s/g, '').substring(0, 3).toUpperCase();
     const Model = this.constructor;
 

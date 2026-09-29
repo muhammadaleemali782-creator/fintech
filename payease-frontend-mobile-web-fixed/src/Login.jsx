@@ -19,6 +19,10 @@ export default function Login() {
     phone: "",
     password: "",
     referralCode: "",
+    isAgent: false,
+    agentCommissionModel: "solo_2",
+    agentBusinessName: "",
+    agentCity: "",
   });
 
   const showMsg = (text, type = "error") => setMsg({ text, type });
@@ -88,8 +92,12 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Registration failed");
       localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      showMsg("Account & Educa Mail created! Redirecting...", "success");
+      showMsg(
+        regData.isAgent
+          ? "🎉 Application submitted to Admin team! Redirecting..."
+          : "Account & Educa Mail created! Redirecting...",
+        "success"
+      );
       setTimeout(() => {
         window.location.href = "/dashboard";
       }, 800);
@@ -389,12 +397,100 @@ export default function Login() {
                 />
               </div>
 
+              {/* AGENT PARTNER APPLICATION OPTION */}
+              <div className="pt-1.5 border-t border-gray-100">
+                <label className="flex items-center gap-2.5 p-3 bg-blue-50/80 border border-blue-200/80 rounded-2xl cursor-pointer hover:bg-blue-100/60 transition">
+                  <input
+                    type="checkbox"
+                    checked={regData.isAgent}
+                    onChange={(e) => setRegData({ ...regData, isAgent: e.target.checked })}
+                    className="w-4 h-4 text-[#1D6AE5] rounded focus:ring-[#1D6AE5] border-gray-300"
+                  />
+                  <div>
+                    <span className="text-xs font-extrabold text-[#0C1B3A] block">Apply as Educa Agent / Partner 🤝</span>
+                    <span className="text-[11px] text-gray-600 block">Work as partner & earn attractive monthly commissions</span>
+                  </div>
+                </label>
+              </div>
+
+              {regData.isAgent && (
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-3">
+                  <div>
+                    <label className="block text-xs font-extrabold text-amber-950 mb-1.5">Choose Commission Model</label>
+                    <div className="space-y-2">
+                      <label className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer text-xs transition ${regData.agentCommissionModel === "team_1" ? "border-amber-600 bg-white shadow-sm ring-1 ring-amber-500" : "border-gray-200 bg-white/70"}`}>
+                        <input
+                          type="radio"
+                          name="agentModel"
+                          value="team_1"
+                          checked={regData.agentCommissionModel === "team_1"}
+                          onChange={() => setRegData({ ...regData, agentCommissionModel: "team_1" })}
+                          className="mt-0.5 text-amber-600"
+                        />
+                        <div>
+                          <span className="font-extrabold text-gray-900 block">👥 Team Model (1% Commission + Team Building)</span>
+                          <span className="text-[11px] text-gray-600 block mt-0.5">
+                            Aapko 1% commission milega aur aap apne neeche team jod sakte hain (team members ko bhi 1% commission milega).
+                          </span>
+                        </div>
+                      </label>
+
+                      <label className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer text-xs transition ${regData.agentCommissionModel === "solo_2" ? "border-amber-600 bg-white shadow-sm ring-1 ring-amber-500" : "border-gray-200 bg-white/70"}`}>
+                        <input
+                          type="radio"
+                          name="agentModel"
+                          value="solo_2"
+                          checked={regData.agentCommissionModel === "solo_2"}
+                          onChange={() => setRegData({ ...regData, agentCommissionModel: "solo_2" })}
+                          className="mt-0.5 text-amber-600"
+                        />
+                        <div>
+                          <span className="font-extrabold text-gray-900 block">👤 Solo Direct Model (2% Direct Commission)</span>
+                          <span className="text-[11px] text-gray-600 block mt-0.5">
+                            Aapko direct 2% commission milega (isme team nahi bana sakte, solo work rahega).
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Business / Shop Name</label>
+                    <input
+                      type="text"
+                      required={regData.isAgent}
+                      value={regData.agentBusinessName}
+                      onChange={(e) => setRegData({ ...regData, agentBusinessName: e.target.value })}
+                      placeholder="e.g. Sharma Mobile & CSC Center"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">City / Area</label>
+                    <input
+                      type="text"
+                      required={regData.isAgent}
+                      value={regData.agentCity}
+                      onChange={(e) => setRegData({ ...regData, agentCity: e.target.value })}
+                      placeholder="e.g. Lucknow, UP"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+
+                  <div className="p-2 bg-amber-100/70 rounded-xl text-[11px] text-amber-900 flex items-start gap-1.5">
+                    <span>ℹ️</span>
+                    <span>Admin team aapki info dekhkar contact karegi aur aapka Agent Partner ID activate karegi.</span>
+                  </div>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full py-3 bg-[#1D6AE5] hover:bg-[#1558cc] text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-60"
               >
-                {loading ? "Creating Account..." : "Create Account & Educa Mail →"}
+                {loading ? "Creating Account..." : regData.isAgent ? "Submit Agent Application →" : "Create Account & Educa Mail →"}
               </button>
             </form>
           )}

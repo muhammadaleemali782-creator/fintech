@@ -1,13 +1,111 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/me', protect, async (req, res) => {
   try {
-    res.json(req.user);
+    const user = await User.findById(req.user._id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const userObj = user.toObject();
+    userObj.hasWalletPin = !!user.walletPin;
+    delete userObj.walletPin;
+    res.json(userObj);
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Set 6-Digit Wallet PIN (First Time)
+router.post('/pin/set', protect, async (req, res) => {
+  try {
+    const { pin } = req.body;
+    if (!pin || !/^\d{6}$/.test(String(pin))) {
+      return res.status(400).json({ message: '6-digit numeric PIN required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.walletPin) {
+      return res.status(400).json({ message: 'PIN already set. Use reset option to change.' });
+    }
+
+    user.walletPin = await bcrypt.hash(String(pin), 10);
+    await user.save();
+
+    res.json({ message: '6-Digit Wallet PIN set successfully!', hasWalletPin: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to set PIN' });
+  }
+});
+
+// Verify 6-Digit Wallet PIN (to reveal balance)
+router.post('/pin/verify', protect, async (req, res) => {
+  try {
+    const { pin } = req.body;
+    if (!pin || !/^\d{6}$/.test(String(pin))) {
+      return res.status(400).json({ message: '6-digit numeric PIN required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.walletPin) {
+      return res.status(400).json({ message: 'Please set your 6-digit PIN first', needsSetup: true });
+    }
+
+    const isMatch = await bcrypt.compare(String(pin), user.walletPin);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Incorrect 6-digit PIN' });
+    }
+
+    res.json({ success: true, balance: user.balance });
+  } catch (err) {
+    res.status(500).json({ message: 'Verification failed' });
+  }
+});
+
+// Reset / Change 6-Digit Wallet PIN (Requires Phone + Aadhar Card number)
+router.post('/pin/reset', protect, async (req, res) => {
+  try {
+    const { phone, aadharNumber, newPin } = req.body;
+    if (!phone || !aadharNumber || !newPin) {
+      return res.status(400).json({ message: 'Phone, Aadhar number, and new 6-digit PIN are required' });
+    }
+
+    if (!/^\d{6}$/.test(String(newPin))) {
+      return res.status(400).json({ message: 'New PIN must be 6 digits' });
+    }
+
+    const cleanAadhar = String(aadharNumber).replace(/\s+/g, '');
+    if (!/^\d{12}$/.test(cleanAadhar)) {
+      return res.status(400).json({ message: 'Valid 12-digit Aadhar number required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Validate phone matches
+    const cleanUserPhone = (user.phone || '').replace(/\D/g, '');
+    const cleanReqPhone = String(phone).replace(/\D/g, '');
+    if (!cleanUserPhone.endsWith(cleanReqPhone) && !cleanReqPhone.endsWith(cleanUserPhone)) {
+      return res.status(400).json({ message: 'Phone number does not match registered account' });
+    }
+
+    // Validate Aadhar if previously stored, or save new
+    if (user.aadharNumber && user.aadharNumber !== cleanAadhar) {
+      return res.status(400).json({ message: 'Aadhar number does not match records' });
+    }
+
+    user.aadharNumber = cleanAadhar;
+    user.walletPin = await bcrypt.hash(String(newPin), 10);
+    await user.save();
+
+    res.json({ message: 'Wallet PIN successfully updated!', hasWalletPin: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to reset PIN' });
   }
 });
 

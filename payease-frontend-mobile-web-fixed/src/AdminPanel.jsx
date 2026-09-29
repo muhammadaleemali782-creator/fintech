@@ -13,6 +13,7 @@ export default function AdminPanel() {
   const [tab, setTab] = useState("pending");
   const [stats, setStats] = useState({});
   const [pending, setPending] = useState([]);
+  const [agents, setAgents] = useState([]);
   const [users, setUsers] = useState([]);
   const [devices, setDevices] = useState([]);
   const [loans, setLoans] = useState([]);
@@ -129,9 +130,42 @@ export default function AdminPanel() {
     }
   };
 
+  const loadAgents = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/admin/agent-applications`, { headers });
+      const d = await res.json();
+      setAgents(Array.isArray(d) ? d : []);
+    } catch {}
+  }, []); // eslint-disable-line
+
+  const approveAgent = async (id) => {
+    try {
+      const res = await fetch(`${API}/admin/agent-applications/${id}/approve`, { method: "POST", headers });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message);
+      showToast(d.message || "Agent approved successfully!", "success");
+      loadAgents();
+      loadUsers();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const rejectAgent = async (id) => {
+    try {
+      const res = await fetch(`${API}/admin/agent-applications/${id}/reject`, { method: "POST", headers });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message);
+      showToast("Agent application rejected", "success");
+      loadAgents();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
   const loadAll = useCallback(() => {
-    loadStats(); loadPending(); loadUsers(); loadLoans(); loadSettings(); loadNotifications(); loadDevices();
-  }, [loadStats, loadPending, loadUsers, loadLoans, loadSettings, loadNotifications, loadDevices]);
+    loadStats(); loadPending(); loadAgents(); loadUsers(); loadLoans(); loadSettings(); loadNotifications(); loadDevices();
+  }, [loadStats, loadPending, loadAgents, loadUsers, loadLoans, loadSettings, loadNotifications, loadDevices]);
 
   useEffect(() => {
     loadAll();
@@ -267,9 +301,12 @@ export default function AdminPanel() {
 
   const loanStatusColor = { pending: "bg-yellow-100 text-yellow-700", active: "bg-blue-100 text-blue-700", closed: "bg-green-100 text-green-700", rejected: "bg-red-100 text-red-700" };
 
+  const pendingAgentsCount = agents.filter(a => a.agentProfile?.status === "pending").length;
+
   const tabs = [
     { key: "pending", label: "Pending", icon: "⏳", badge: pending.length },
     { key: "alerts", label: "Live Alerts", icon: "🔔", badge: unreadNotifs },
+    { key: "agents", label: "Agent Partners", icon: "🤝", badge: pendingAgentsCount },
     { key: "loans", label: "Loans", icon: "🏦" },
     { key: "users", label: "Users", icon: "👥" },
     { key: "devices", label: "App Lock", icon: "🔒", badge: devices.filter(d => d.adminStatus === "active").length },
@@ -424,6 +461,117 @@ export default function AdminPanel() {
                     ))}
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* AGENT PARTNERS */}
+          {tab === "agents" && (
+            <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
+              <div className="flex justify-between items-center mb-5">
+                <div>
+                  <h3 className="text-lg font-bold font-display text-gray-900">Agent Partner Applications</h3>
+                  <p className="text-xs text-gray-500">Contact applicants, verify shop & details, and approve agent status</p>
+                </div>
+                <span className="px-3 py-1 bg-amber-100 text-amber-900 text-xs font-bold rounded-full">
+                  {agents.filter(a => a.agentProfile?.status === "pending").length} Pending
+                </span>
+              </div>
+
+              {agents.length === 0 ? (
+                <p className="py-12 text-center text-gray-400 text-sm">No agent applications yet 🤝</p>
+              ) : (
+                <div className="space-y-4">
+                  {agents.map(a => {
+                    const prof = a.agentProfile || {};
+                    const isPending = prof.status === "pending";
+                    const isApproved = prof.status === "approved" || a.role === "agent";
+                    const isTeamModel = prof.commissionModel === "team_1";
+
+                    return (
+                      <div
+                        key={a._id}
+                        className={`p-4 rounded-2xl border transition ${
+                          isPending
+                            ? "bg-amber-50/40 border-amber-200"
+                            : isApproved
+                            ? "bg-emerald-50/30 border-emerald-200"
+                            : "bg-gray-50 border-gray-200 opacity-75"
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-200/60">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-extrabold text-sm text-gray-900">{a.name}</h4>
+                              <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                                EDUCA-{a.referralCode || a.phone}
+                              </span>
+                              <span
+                                className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                                  isPending
+                                    ? "bg-yellow-200 text-yellow-900"
+                                    : isApproved
+                                    ? "bg-green-200 text-green-900"
+                                    : "bg-red-200 text-red-900"
+                                }`}
+                              >
+                                {prof.status || "pending"}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                              <span>📞 <a href={`tel:${a.phone}`} className="text-blue-600 font-bold hover:underline">{a.phone}</a></span>
+                              <span>✉️ {a.email}</span>
+                              {prof.city && <span>📍 {prof.city}</span>}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <a
+                              href={`tel:${a.phone}`}
+                              className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                            >
+                              📞 Call Applicant
+                            </a>
+                            {isPending && (
+                              <>
+                                <button
+                                  onClick={() => approveAgent(a._id)}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm active:scale-95"
+                                >
+                                  ✓ Approve Agent
+                                </button>
+                                <button
+                                  onClick={() => rejectAgent(a._id)}
+                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                          <div className="p-2.5 bg-white rounded-xl border border-gray-100">
+                            <span className="text-gray-400 font-medium block text-[11px]">Business / Shop</span>
+                            <span className="font-bold text-gray-800">{prof.businessName || "Not specified"}</span>
+                          </div>
+
+                          <div className="p-2.5 bg-white rounded-xl border border-gray-100">
+                            <span className="text-gray-400 font-medium block text-[11px]">Commission Model</span>
+                            <span className="font-bold text-gray-800">
+                              {isTeamModel ? (
+                                <span className="text-amber-700 font-black">👥 Team Model: 1% Self + 1% Team Allowed</span>
+                              ) : (
+                                <span className="text-blue-700 font-black">👤 Solo Direct: 2% Direct (No Team)</span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}

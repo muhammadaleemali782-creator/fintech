@@ -122,6 +122,52 @@ router.get('/users', protect, admin, async (req, res) => {
   }
 });
 
+// Agent Applications: List, Approve, Reject
+router.get('/agent-applications', protect, admin, async (req, res) => {
+  try {
+    const applicants = await User.find({ 'agentProfile.applied': true })
+      .select('-password')
+      .sort({ 'agentProfile.appliedAt': -1, createdAt: -1 });
+    res.json(applicants);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch agent applications' });
+  }
+});
+
+router.post('/agent-applications/:id/approve', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.role = 'agent';
+    if (!user.agentProfile) user.agentProfile = {};
+    user.agentProfile.status = 'approved';
+    user.agentProfile.approvedAt = new Date();
+    await user.save();
+
+    res.json({ message: `Agent approved successfully! Permanent ID: EDUCA-${user.referralCode || user.phone}`, user });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to approve agent' });
+  }
+});
+
+router.post('/agent-applications/:id/reject', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.agentProfile) user.agentProfile = {};
+    user.agentProfile.status = 'rejected';
+    await user.save();
+
+    res.json({ message: 'Agent application rejected', user });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to reject application' });
+  }
+});
+
 // Block/Unblock user
 router.post('/user/:id/toggle-block', protect, admin, async (req, res) => {
   try {

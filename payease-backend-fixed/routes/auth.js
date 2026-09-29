@@ -48,7 +48,7 @@ router.post('/register', registerRules, async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ message: errors.array()[0].msg });
 
-    const { name, email, phone, password, referralCode } = req.body;
+    const { name, email, phone, password, referralCode, isAgent, agentCommissionModel, agentBusinessName, agentCity } = req.body;
 
     const exists = await User.findOne({
       $or: [{ email: email.toLowerCase() }, { phone: phone.trim() }]
@@ -71,13 +71,26 @@ router.post('/register', registerRules, async (req, res) => {
       }
     }
 
+    let agentProfileData = undefined;
+    if (isAgent) {
+      agentProfileData = {
+        applied: true,
+        status: 'pending',
+        commissionModel: agentCommissionModel === 'team_1' ? 'team_1' : 'solo_2',
+        businessName: (agentBusinessName || '').trim(),
+        city: (agentCity || '').trim(),
+        appliedAt: new Date()
+      };
+    }
+
     const user = await User.create({
       name,
       email: email.toLowerCase(),
       phone: phone.trim(),
       password: hashed,
       loanLimit: 10000,
-      referredBy
+      referredBy,
+      ...(agentProfileData ? { agentProfile: agentProfileData } : {})
     });
 
     if (referredBy) {
@@ -88,12 +101,22 @@ router.post('/register', registerRules, async (req, res) => {
     syncWithEducaMail(email, password);
 
     // 2. Real-time notification for Admin
-    sendNotification({
-      type: 'new_user',
-      title: 'New User Registered 🎉',
-      message: `${name} (${phone}) registered on Educa Fintech`,
-      data: { userId: user._id, name, email, phone }
-    });
+    if (isAgent && agentProfileData) {
+      const modelLabel = agentProfileData.commissionModel === 'team_1' ? '1% Team Model (Team Hierarchy)' : '2% Solo Direct Model (Solo only)';
+      sendNotification({
+        type: 'agent_application',
+        title: 'New Agent Application 🤝',
+        message: `${name} (${phone}) applied as Agent [${modelLabel}] - Shop: ${agentProfileData.businessName || 'Business'} (${agentProfileData.city || 'India'})`,
+        data: { userId: user._id, name, email, phone, agentProfile: agentProfileData }
+      });
+    } else {
+      sendNotification({
+        type: 'new_user',
+        title: 'New User Registered 🎉',
+        message: `${name} (${phone}) registered on Educa Fintech`,
+        data: { userId: user._id, name, email, phone }
+      });
+    }
 
     // Default 7 days, or 30 days token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d', algorithm: 'HS256' });
@@ -110,7 +133,8 @@ router.post('/register', registerRules, async (req, res) => {
         profitBalance: 0,
         duesBalance: 0,
         loanLimit: user.loanLimit || 10000,
-        referralCode: user.referralCode
+        referralCode: user.referralCode,
+        agentProfile: user.agentProfile
       }
     });
   } catch (err) {
@@ -158,7 +182,8 @@ router.post('/login', async (req, res) => {
         profitBalance: user.profitBalance || 0,
         duesBalance: user.duesBalance || 0,
         loanLimit: user.loanLimit || 10000,
-        referralCode: user.referralCode
+        referralCode: user.referralCode,
+        agentProfile: user.agentProfile
       }
     });
   } catch (err) {

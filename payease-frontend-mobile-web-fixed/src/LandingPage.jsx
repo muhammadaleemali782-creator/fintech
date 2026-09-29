@@ -521,7 +521,7 @@ function ServicesSection({ onLogin }) {
       id: "bike-card",
       icon: "🏍️",
       badge: "UP TO ₹1,50,000",
-      badgeColor: "bg-purple-100 text-purple-800 border border-purple-200",
+      badgeColor: "bg-indigo-100 text-indigo-800 border border-indigo-200",
       title: "Bike & Two-Wheeler Loans",
       desc: "Apni manpasand motorcycle ya scooter khareedein. Minimal documentation aur low CIBIL par bhi aasan Easy Installments par bike loan sanctioned.",
       points: [

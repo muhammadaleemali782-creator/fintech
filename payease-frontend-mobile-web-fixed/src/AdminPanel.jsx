@@ -319,7 +319,7 @@ export default function AdminPanel() {
     { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 0, g: "from-blue-500 to-blue-600" },
     { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, g: "from-yellow-500 to-orange-500" },
     { icon: "💰", label: "Total Deposits", value: `₹${(stats.totalDeposits || 0).toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
-    { icon: "🏦", label: "Pending Loans", value: stats.pendingLoans ?? 0, g: "from-purple-500 to-pink-500" },
+    { icon: "🏦", label: "Pending Loans", value: stats.pendingLoans ?? 0, g: "from-blue-600 to-indigo-600" },
   ];
 
   return (
@@ -662,7 +662,7 @@ export default function AdminPanel() {
                                 <span className={`px-1.5 py-0.5 border rounded text-[10px] font-bold ${u.wallets?.debit?.active ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-100 border-gray-200 text-gray-400"}`} title="Debit Wallet">
                                   💳 Debit
                                 </span>
-                                <span className={`px-1.5 py-0.5 border rounded text-[10px] font-bold ${u.wallets?.lending?.active ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-gray-100 border-gray-200 text-gray-400"}`} title="Lending Wallet">
+                                <span className={`px-1.5 py-0.5 border rounded text-[10px] font-bold ${u.wallets?.lending?.active ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-gray-100 border-gray-200 text-gray-400"}`} title="Lending Wallet">
                                   🤝 Loans
                                 </span>
                               </div>
@@ -892,7 +892,7 @@ export default function AdminPanel() {
                       )}
                       {l.status === "pending" && (
                         <div className="flex gap-3">
-                          <button onClick={() => approveLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-bold hover:shadow-lg transition">✅ Approve & Disburse</button>
+                          <button onClick={() => approveLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg transition">✅ Approve & Disburse</button>
                           <button onClick={() => rejectLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 transition">✗ Reject</button>
                         </div>
                       )}

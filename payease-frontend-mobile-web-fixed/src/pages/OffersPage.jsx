@@ -33,7 +33,7 @@ export default function OffersPage() {
       desc: "Platinum Card holders ke liye sabhi grocery, fuel, aur online shopping spends par flat 2.5% instant cashback.",
       code: "VIPCASH",
       cta: "Unlock Platinum",
-      color: "border-purple-200 bg-purple-50/50",
+      color: "border-indigo-200 bg-indigo-50/50",
     },
   ];
 

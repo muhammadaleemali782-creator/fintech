@@ -137,30 +137,28 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col justify-between items-center px-4 py-8 bg-[#090D16] text-white relative font-sans overflow-x-hidden selection:bg-blue-600 selection:text-white">
-      {/* AMBIENT LIGHTING BACKGROUND */}
-      <div className="absolute top-0 inset-x-0 h-96 bg-gradient-to-b from-blue-600/20 via-cyan-500/10 to-transparent pointer-events-none blur-3xl" />
-      <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-500/15 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute top-1/2 -left-32 w-80 h-80 bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none" />
+    <div className="min-h-[100dvh] flex flex-col justify-between items-center px-4 py-8 bg-[#F8FAFC] text-slate-900 relative font-sans">
+      {/* SOFT TOP ACCENTS (LIGHT THEME) */}
+      <div className="absolute top-0 inset-x-0 h-72 bg-gradient-to-b from-blue-50 to-transparent pointer-events-none -z-10" />
 
       {/* TOP BRAND BAR (NO BACK BUTTON) */}
       <div className="w-full max-w-md pt-2 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-lg font-black text-white shadow-lg shadow-blue-500/25">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-lg font-black text-white shadow-md shadow-blue-500/20">
             E
           </div>
           <div>
-            <span className="font-extrabold text-sm tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent block leading-tight">
+            <span className="font-extrabold text-sm tracking-tight text-slate-900 block leading-tight">
               Educa Fintech
             </span>
-            <span className="text-[10px] text-cyan-400 font-medium tracking-wide">
+            <span className="text-[10px] text-blue-600 font-semibold tracking-wide">
               Official Portal
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 backdrop-blur-md text-[11px] text-slate-300">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] text-slate-600 shadow-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span>RBI NBFC Gateway</span>
         </div>
       </div>
@@ -169,44 +167,44 @@ export default function Login() {
       <div className="w-full max-w-md my-auto pt-6 pb-4 relative z-10">
         {/* HERO TITLE */}
         <div className="text-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-display">
-            Welcome to <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">Educa</span>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 font-display">
+            Welcome to <span className="text-blue-600">Educa</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Micro-credit, 365-day bonds & instant P2P payments
           </p>
         </div>
 
-        {/* GLASS CARD */}
-        <div className="bg-slate-900/90 backdrop-blur-2xl rounded-3xl p-6 sm:p-7 border border-slate-800 shadow-2xl shadow-black/60 relative">
-          {/* SEGMENTED TAB SELECTOR (Apple-style) */}
-          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-950/70 border border-slate-800/80 rounded-2xl mb-6">
+        {/* CLEAN WHITE CARD */}
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xl shadow-slate-200/60 relative">
+          {/* SEGMENTED TAB SELECTOR (CLEAN LIGHT PILL) */}
+          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-2xl mb-6">
             <button
               onClick={() => { setTab("login"); setMsg({ text: "", type: "" }); }}
-              className={`py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+              className={`py-2 rounded-xl text-xs font-bold transition ${
                 tab === "login"
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/30"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               Sign In
             </button>
             <button
               onClick={() => { setTab("mail-login"); setMsg({ text: "", type: "" }); }}
-              className={`py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1 ${
+              className={`py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 ${
                 tab === "mail-login"
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/30"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <span>✉️</span> Mail SSO
             </button>
             <button
               onClick={() => { setTab("register"); setMsg({ text: "", type: "" }); }}
-              className={`py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+              className={`py-2 rounded-xl text-xs font-bold transition ${
                 tab === "register"
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/30"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               Register
@@ -217,7 +215,7 @@ export default function Login() {
           {tab === "login" && (
             <form onSubmit={handleStandardLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Mobile Number / Email Address
                 </label>
                 <div className="relative">
@@ -226,22 +224,22 @@ export default function Login() {
                     required
                     value={loginData.email}
                     onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                    placeholder="9876543210 or name@email.com"
-                    className="w-full px-4 py-3 bg-slate-950/60 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-sm focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 outline-none transition"
+                    placeholder="9876543210 ya name@email.com"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition"
                   />
-                  <span className="absolute right-3.5 top-3.5 text-slate-500 text-sm">👤</span>
+                  <span className="absolute right-3.5 top-3.5 text-slate-400 text-sm">👤</span>
                 </div>
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-semibold text-slate-300">
+                  <label className="block text-xs font-bold text-slate-700">
                     Security Password
                   </label>
                   <button
                     type="button"
                     onClick={() => { setTab("forgot"); setMsg({ text: "", type: "" }); }}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 font-medium hover:underline"
+                    className="text-xs text-blue-600 hover:text-blue-700 font-semibold hover:underline"
                   >
                     Forgot password?
                   </button>
@@ -253,25 +251,25 @@ export default function Login() {
                     value={loginData.password}
                     onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 bg-slate-950/60 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-sm focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 outline-none transition pr-11"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition pr-11"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-200 text-sm"
+                    className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 text-sm"
                   >
                     {showPassword ? "🙈" : "👁️"}
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+              <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-0"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-0 border-slate-300"
                   />
                   <span>Stay logged in (30 days active session)</span>
                 </label>
@@ -280,7 +278,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:opacity-95 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/25 active:scale-[0.98] transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 active:scale-[0.98] transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <span className="inline-flex items-center gap-2">
@@ -297,10 +295,10 @@ export default function Login() {
 
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-800" />
+                  <div className="w-full border-t border-slate-200" />
                 </div>
                 <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
-                  <span className="bg-slate-900 px-3 text-slate-500 font-semibold">Or fast access with</span>
+                  <span className="bg-white px-3 text-slate-400 font-semibold">Or instant sign in with</span>
                 </div>
               </div>
 
@@ -308,15 +306,15 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setShowMailModal(true)}
-                className="w-full py-3 px-4 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 hover:border-cyan-400/50 text-white rounded-2xl font-bold text-xs flex items-center justify-between shadow-xs transition active:scale-[0.98]"
+                className="w-full py-3 px-4 bg-white hover:bg-blue-50/40 border border-slate-200 hover:border-blue-300 text-slate-800 rounded-xl font-bold text-xs flex items-center justify-between shadow-xs transition active:scale-[0.98]"
               >
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-500 to-emerald-400 text-white flex items-center justify-center text-xs font-black">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black">
                     E
                   </div>
-                  <span className="text-slate-200">Sign in with Educa Mail</span>
+                  <span className="text-slate-800 font-semibold">Sign in with Educa Mail</span>
                 </div>
-                <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-[10px] font-bold rounded-lg border border-blue-500/30">
+                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-lg border border-blue-200">
                   1-Click SSO
                 </span>
               </button>
@@ -326,17 +324,17 @@ export default function Login() {
           {/* 2. EDUCA MAIL 30-DAY SSO */}
           {tab === "mail-login" && (
             <form onSubmit={handleMailLogin} className="space-y-4">
-              <div className="p-3.5 bg-blue-950/40 border border-blue-500/30 rounded-2xl text-xs text-blue-200 leading-relaxed">
-                <div className="flex items-center gap-1.5 font-bold text-cyan-300">
+              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 leading-relaxed">
+                <div className="flex items-center gap-1.5 font-bold text-blue-900">
                   <span>⚡</span> 30-Day Instant Educa Mail Session
                 </div>
-                <p className="text-slate-400 text-[11px] mt-1">
+                <p className="text-blue-800 text-[11px] mt-1">
                   Educa Mail se login karne par automatic 30 dino tak active session rahega, baar baar password nahi mangega.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Educa Mail Address
                 </label>
                 <input
@@ -345,19 +343,19 @@ export default function Login() {
                   value={mailLoginData.email}
                   onChange={(e) => setMailLoginData({ ...mailLoginData, email: e.target.value })}
                   placeholder="username@educa.com"
-                  className="w-full px-4 py-3 bg-slate-950/60 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-sm focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 outline-none transition"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition"
                 />
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-semibold text-slate-300">
+                  <label className="block text-xs font-bold text-slate-700">
                     Educa Password
                   </label>
                   <button
                     type="button"
                     onClick={() => { setTab("forgot"); setMsg({ text: "", type: "" }); }}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 font-medium hover:underline"
+                    className="text-xs text-blue-600 hover:text-blue-700 font-semibold hover:underline"
                   >
                     Reset password
                   </button>
@@ -368,14 +366,14 @@ export default function Login() {
                   value={mailLoginData.password}
                   onChange={(e) => setMailLoginData({ ...mailLoginData, password: e.target.value })}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-slate-950/60 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-sm focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 outline-none transition"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 hover:opacity-95 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/25 active:scale-[0.98] transition disabled:opacity-50"
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 active:scale-[0.98] transition disabled:opacity-50"
               >
                 {loading ? "Authenticating SSO..." : "Login with Educa Mail (30 Days) →"}
               </button>
@@ -384,7 +382,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setTab("login"); setMsg({ text: "", type: "" }); }}
-                  className="text-xs text-slate-400 hover:text-slate-200"
+                  className="text-xs text-slate-500 hover:text-slate-800 font-medium"
                 >
                   Use standard mobile / email instead
                 </button>
@@ -395,51 +393,51 @@ export default function Login() {
           {/* 3. REGISTER */}
           {tab === "register" && (
             <form onSubmit={handleRegister} className="space-y-3.5">
-              <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl text-xs text-emerald-200 flex items-start gap-2">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-start gap-2">
                 <span className="text-base">✨</span>
                 <div>
-                  <span className="font-bold text-emerald-300">Auto Educa Mail Provisioning:</span> Registration ke saath aapka official <strong>Educa Mail</strong> account instantly activate ho jayega.
+                  <span className="font-bold text-emerald-900">Auto Educa Mail Provisioning:</span> Registration ke saath aapka official <strong>Educa Mail</strong> account automatically activate ho jayega.
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Full Legal Name</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Full Legal Name</label>
                 <input
                   type="text"
                   required
                   value={regData.name}
                   onChange={(e) => setRegData({ ...regData, name: e.target.value })}
                   placeholder="e.g. Rahul Sharma"
-                  className="w-full px-4 py-2.5 bg-slate-950/60 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 text-sm focus:border-cyan-400 outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
                 <input
                   type="email"
                   required
                   value={regData.email}
                   onChange={(e) => setRegData({ ...regData, email: e.target.value })}
                   placeholder="rahul@email.com"
-                  className="w-full px-4 py-2.5 bg-slate-950/60 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 text-sm focus:border-cyan-400 outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Mobile Number (For Loans & OTP)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Mobile Number (For Loans & OTP)</label>
                 <input
                   type="tel"
                   required
                   value={regData.phone}
                   onChange={(e) => setRegData({ ...regData, phone: e.target.value })}
                   placeholder="+91 9876543210"
-                  className="w-full px-4 py-2.5 bg-slate-950/60 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 text-sm focus:border-cyan-400 outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Create Password</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Create Password</label>
                 <input
                   type="password"
                   required
@@ -447,73 +445,73 @@ export default function Login() {
                   value={regData.password}
                   onChange={(e) => setRegData({ ...regData, password: e.target.value })}
                   placeholder="Min 8 characters"
-                  className="w-full px-4 py-2.5 bg-slate-950/60 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 text-sm focus:border-cyan-400 outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Referral Code <span className="text-slate-500 font-normal">(Optional)</span>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Referral Code <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={regData.referralCode}
                   onChange={(e) => setRegData({ ...regData, referralCode: e.target.value.toUpperCase() })}
                   placeholder="e.g. EFEDU1234"
-                  className="w-full px-4 py-2.5 bg-slate-950/60 border border-amber-500/40 rounded-xl text-amber-300 placeholder-slate-600 text-sm font-mono focus:border-amber-400 outline-none"
+                  className="w-full px-4 py-2.5 bg-amber-50/60 border border-amber-200 rounded-xl text-amber-900 placeholder-slate-400 text-sm font-mono focus:border-amber-500 outline-none"
                 />
               </div>
 
               {/* AGENT PARTNER APPLICATION OPTION */}
-              <div className="pt-2 border-t border-slate-800">
-                <label className="flex items-center gap-3 p-3 bg-blue-950/30 border border-blue-500/30 rounded-2xl cursor-pointer hover:bg-blue-900/30 transition">
+              <div className="pt-2 border-t border-slate-100">
+                <label className="flex items-center gap-3 p-3 bg-blue-50/60 border border-blue-200 rounded-2xl cursor-pointer hover:bg-blue-100/50 transition">
                   <input
                     type="checkbox"
                     checked={regData.isAgent}
                     onChange={(e) => setRegData({ ...regData, isAgent: e.target.checked })}
-                    className="w-4 h-4 rounded text-blue-500 focus:ring-0"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-0 border-slate-300"
                   />
                   <div>
-                    <span className="text-xs font-extrabold text-white block">Apply as Educa Agent / Partner 🤝</span>
-                    <span className="text-[11px] text-slate-400 block">Earn attractive monthly loan & deposit commissions</span>
+                    <span className="text-xs font-extrabold text-slate-900 block">Apply as Educa Agent / Partner 🤝</span>
+                    <span className="text-[11px] text-slate-500 block">Earn attractive monthly loan & deposit commissions</span>
                   </div>
                 </label>
               </div>
 
               {regData.isAgent && (
-                <div className="p-3.5 bg-slate-950/80 border border-amber-500/40 rounded-2xl space-y-3">
+                <div className="p-3.5 bg-slate-50 border border-amber-300 rounded-2xl space-y-3">
                   <div>
-                    <label className="block text-xs font-extrabold text-amber-300 mb-2">Choose Commission Model</label>
+                    <label className="block text-xs font-extrabold text-slate-900 mb-2">Choose Commission Model</label>
                     <div className="space-y-2">
-                      <label className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer text-xs transition ${regData.agentCommissionModel === "team_1" ? "border-amber-500 bg-amber-950/30 ring-1 ring-amber-500/50" : "border-slate-800 bg-slate-900/60"}`}>
+                      <label className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer text-xs transition ${regData.agentCommissionModel === "team_1" ? "border-blue-600 bg-white shadow-xs ring-1 ring-blue-500" : "border-slate-200 bg-white"}`}>
                         <input
                           type="radio"
                           name="agentModel"
                           value="team_1"
                           checked={regData.agentCommissionModel === "team_1"}
                           onChange={() => setRegData({ ...regData, agentCommissionModel: "team_1" })}
-                          className="mt-0.5 text-amber-500"
+                          className="mt-0.5 text-blue-600"
                         />
                         <div>
-                          <span className="font-extrabold text-white block">👥 Team Model (1% Commission + Team Building)</span>
-                          <span className="text-[11px] text-slate-400 block mt-0.5">
+                          <span className="font-extrabold text-slate-900 block">👥 Team Model (1% Commission + Team Building)</span>
+                          <span className="text-[11px] text-slate-500 block mt-0.5">
                             Aapko 1% commission milega aur aap apne neeche team jod sakte hain (team members ko bhi 1% commission milega).
                           </span>
                         </div>
                       </label>
 
-                      <label className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer text-xs transition ${regData.agentCommissionModel === "solo_2" ? "border-amber-500 bg-amber-950/30 ring-1 ring-amber-500/50" : "border-slate-800 bg-slate-900/60"}`}>
+                      <label className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer text-xs transition ${regData.agentCommissionModel === "solo_2" ? "border-blue-600 bg-white shadow-xs ring-1 ring-blue-500" : "border-slate-200 bg-white"}`}>
                         <input
                           type="radio"
                           name="agentModel"
                           value="solo_2"
                           checked={regData.agentCommissionModel === "solo_2"}
                           onChange={() => setRegData({ ...regData, agentCommissionModel: "solo_2" })}
-                          className="mt-0.5 text-amber-500"
+                          className="mt-0.5 text-blue-600"
                         />
                         <div>
-                          <span className="font-extrabold text-white block">👤 Solo Direct Model (2% Direct Commission)</span>
-                          <span className="text-[11px] text-slate-400 block mt-0.5">
+                          <span className="font-extrabold text-slate-900 block">👤 Solo Direct Model (2% Direct Commission)</span>
+                          <span className="text-[11px] text-slate-500 block mt-0.5">
                             Aapko direct 2% commission milega (isme team nahi bana sakte, solo work rahega).
                           </span>
                         </div>
@@ -522,30 +520,30 @@ export default function Login() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Business / Shop Name</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Business / Shop Name</label>
                     <input
                       type="text"
                       required={regData.isAgent}
                       value={regData.agentBusinessName}
                       onChange={(e) => setRegData({ ...regData, agentBusinessName: e.target.value })}
                       placeholder="e.g. Sharma Mobile & CSC Center"
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:border-amber-400 outline-none"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:border-blue-600 outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">City / Area</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">City / Area</label>
                     <input
                       type="text"
                       required={regData.isAgent}
                       value={regData.agentCity}
                       onChange={(e) => setRegData({ ...regData, agentCity: e.target.value })}
                       placeholder="e.g. Lucknow, UP"
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:border-amber-400 outline-none"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:border-blue-600 outline-none"
                     />
                   </div>
 
-                  <div className="p-2 bg-amber-950/50 border border-amber-500/30 rounded-xl text-[11px] text-amber-200 flex items-start gap-1.5">
+                  <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start gap-1.5">
                     <span>ℹ️</span>
                     <span>Admin team details verify karke aapka Agent Partner ID activate karegi.</span>
                   </div>
@@ -555,7 +553,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:opacity-95 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/25 active:scale-[0.98] transition disabled:opacity-50"
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 active:scale-[0.98] transition disabled:opacity-50"
               >
                 {loading
                   ? "Creating Account..."
@@ -566,19 +564,19 @@ export default function Login() {
 
               <div className="relative my-3">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-800" />
+                  <div className="w-full border-t border-slate-200" />
                 </div>
                 <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-                  <span className="bg-slate-900 px-3 text-slate-500 font-semibold">Or instant sign up with</span>
+                  <span className="bg-white px-3 text-slate-400 font-semibold">Or fast sign up with</span>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setShowMailModal(true)}
-                className="w-full py-2.5 px-4 bg-slate-800/60 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-[0.98]"
+                className="w-full py-2.5 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-[0.98]"
               >
-                <div className="w-5 h-5 rounded-lg bg-gradient-to-tr from-blue-500 to-emerald-400 text-white flex items-center justify-center text-[10px] font-black">
+                <div className="w-5 h-5 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-[10px] font-black">
                   E
                 </div>
                 <span>Fast Sign Up with Educa Mail</span>
@@ -590,17 +588,17 @@ export default function Login() {
           {tab === "forgot" && (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="text-center mb-3">
-                <div className="w-12 h-12 rounded-2xl bg-blue-950/60 border border-blue-500/30 text-blue-300 flex items-center justify-center text-xl mx-auto mb-2">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center text-xl mx-auto mb-2">
                   🔐
                 </div>
-                <h3 className="font-extrabold text-white text-base">Reset Password</h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <h3 className="font-extrabold text-slate-900 text-base">Reset Password</h3>
+                <p className="text-xs text-slate-500 mt-1">
                   Registered email daalein, reset link aapke inbox/Educa Mail par send ho jayegi.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Registered Email Address
                 </label>
                 <input
@@ -609,14 +607,14 @@ export default function Login() {
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="w-full px-4 py-3 bg-slate-950/60 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-sm focus:border-cyan-400 outline-none"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 outline-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-95 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/25 active:scale-[0.98] transition disabled:opacity-50"
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 active:scale-[0.98] transition disabled:opacity-50"
               >
                 {loading ? "Sending..." : "Send Reset Link →"}
               </button>
@@ -625,7 +623,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setTab("login"); setMsg({ text: "", type: "" }); }}
-                  className="text-xs text-cyan-400 hover:text-cyan-300 font-medium"
+                  className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
                 >
                   ← Back to Sign In
                 </button>
@@ -636,10 +634,10 @@ export default function Login() {
           {/* MESSAGES */}
           {msg.text && (
             <div
-              className={`mt-4 p-3.5 rounded-2xl text-xs text-center font-medium ${
+              className={`mt-4 p-3.5 rounded-xl text-xs text-center font-medium ${
                 msg.type === "success"
-                  ? "bg-emerald-950/70 text-emerald-300 border border-emerald-500/40"
-                  : "bg-rose-950/70 text-rose-300 border border-rose-500/40"
+                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  : "bg-rose-50 text-rose-700 border border-rose-200"
               }`}
             >
               {msg.text}
@@ -651,34 +649,34 @@ export default function Login() {
       {/* FOOTER TRUST BADGES */}
       <div className="w-full max-w-md pt-2 pb-2 text-center relative z-10">
         <div className="flex items-center justify-center gap-3 text-[11px] text-slate-500 mb-1">
-          <span className="flex items-center gap-1">🔒 256-bit Encrypted</span>
+          <span>🔒 256-bit Encrypted</span>
           <span>·</span>
           <span>🏛️ RBI Registered NBFC</span>
           <span>·</span>
           <span>⚡ Instant UPI</span>
         </div>
-        <p className="text-[10px] text-slate-600">
+        <p className="text-[10px] text-slate-400">
           © 2026 Educa Fintech Private Limited · All Rights Reserved
         </p>
       </div>
 
-      {/* EDUCA MAIL SINGLE SIGN-ON POPUP MODAL (APPLE / GOOGLE STYLE) */}
+      {/* EDUCA MAIL SINGLE SIGN-ON POPUP MODAL (CLEAN WHITE) */}
       {showMailModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 w-full max-w-sm shadow-2xl relative text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 w-full max-w-sm shadow-2xl relative text-slate-900">
             <button
               onClick={() => setShowMailModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white text-sm w-8 h-8 rounded-full flex items-center justify-center bg-slate-800 hover:bg-slate-700 transition"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-sm w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 transition"
             >
               ✕
             </button>
 
             <div className="text-center mb-5">
-              <div className="w-12 h-12 bg-gradient-to-tr from-blue-500 to-emerald-400 text-white font-black text-xl rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-blue-500/25 mb-2">
+              <div className="w-12 h-12 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xl rounded-2xl flex items-center justify-center mx-auto shadow-md shadow-blue-500/20 mb-2">
                 E
               </div>
-              <h3 className="font-extrabold text-base text-white">Sign in with Educa Mail</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h3 className="font-extrabold text-base text-slate-900">Sign in with Educa Mail</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
                 Instant Single Sign-On across all Educa services
               </p>
             </div>
@@ -691,41 +689,41 @@ export default function Login() {
               className="space-y-3.5"
             >
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Educa Mail ID</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Educa Mail ID</label>
                 <input
                   type="email"
                   required
                   value={mailLoginData.email}
                   onChange={(e) => setMailLoginData({ ...mailLoginData, email: e.target.value })}
                   placeholder="name@educa.com"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-cyan-400 outline-none"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:border-blue-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Password</label>
                 <input
                   type="password"
                   required
                   value={mailLoginData.password}
                   onChange={(e) => setMailLoginData({ ...mailLoginData, password: e.target.value })}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-cyan-400 outline-none"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:border-blue-600 outline-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:opacity-95 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/25 transition active:scale-[0.98]"
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 transition active:scale-[0.98]"
               >
                 {loading ? "Connecting..." : "Continue with Educa Mail →"}
               </button>
 
-              <div className="p-2.5 bg-blue-950/40 border border-blue-500/20 rounded-xl text-[11px] text-blue-200 flex items-start gap-2">
+              <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-[11px] text-blue-900 flex items-start gap-2">
                 <span className="text-sm">✨</span>
                 <span>
-                  Educa Mail id daalne par bina alag registration ke Fintech account auto-connect ho jayega.
+                  Educa Mail id se bina alag registration ke Fintech account auto-connect ho jayega.
                 </span>
               </div>
             </form>

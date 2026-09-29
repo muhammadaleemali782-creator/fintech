@@ -144,9 +144,11 @@ export default function Login() {
       {/* TOP BRAND BAR (NO BACK BUTTON) */}
       <div className="w-full max-w-md pt-2 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-lg font-black text-white shadow-md shadow-blue-500/20">
-            E
-          </div>
+          <img
+            src="/icon-192.png"
+            alt="Educa Fintech Logo"
+            className="w-10 h-10 rounded-2xl object-contain shadow-xs border border-slate-200 bg-white p-0.5"
+          />
           <div>
             <span className="font-extrabold text-sm tracking-tight text-slate-900 block leading-tight">
               Educa Fintech

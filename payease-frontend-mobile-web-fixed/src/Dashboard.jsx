@@ -1323,7 +1323,7 @@ export default function Dashboard() {
         {/* Top Header */}
         <div className="w-full max-w-sm flex items-center justify-between pt-safe relative z-10">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🎓</span>
+            <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain border border-slate-200 bg-white shadow-xs" />
             <span className="font-extrabold text-sm tracking-tight text-slate-900">
               Educa <span className="text-blue-600">Fintech</span>
             </span>
@@ -1433,7 +1433,7 @@ export default function Dashboard() {
       <nav className="bg-white shadow-sm sticky top-0 z-30 border-b border-gray-100 safe-top">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
           <div className="flex items-center gap-2.5">
-            <span className="text-2xl">🎓</span>
+            <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain border border-gray-200 bg-white shadow-xs" />
             <div>
               <h1 className="text-lg sm:text-xl font-black font-display bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent leading-none">
                 {txt.appTitle}

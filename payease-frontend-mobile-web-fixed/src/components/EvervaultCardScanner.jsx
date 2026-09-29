@@ -200,10 +200,10 @@ export default function EvervaultCardScanner() {
       ctx.fillStyle = coreGrad;
       ctx.fillRect(lightBarX - lightBarWidth / 2, 0, lightBarWidth, h);
 
-      // 2. Violet / Cyan Glow beam
+      // 2. Cyan / Blue Glow beam
       const glowGrad = ctx.createLinearGradient(lightBarX - 25, 0, lightBarX + 25, 0);
       glowGrad.addColorStop(0, "rgba(0, 229, 255, 0)");
-      glowGrad.addColorStop(0.5, isScanning ? "rgba(139, 92, 246, 0.6)" : "rgba(0, 229, 255, 0.35)");
+      glowGrad.addColorStop(0.5, isScanning ? "rgba(37, 99, 235, 0.6)" : "rgba(0, 229, 255, 0.35)");
       glowGrad.addColorStop(1, "rgba(0, 229, 255, 0)");
 
       ctx.fillStyle = glowGrad;
@@ -445,7 +445,7 @@ export default function EvervaultCardScanner() {
                   textShadow: "0 0 5px rgba(0, 229, 255, 0.6)",
                 }}
               >
-                <div className="text-[7px] text-purple-300 font-bold mb-1 opacity-70">
+                <div className="text-[7px] text-cyan-300 font-bold mb-1 opacity-70">
                   // DECRYPTED SCAN: {c.type}
                 </div>
                 <pre className="font-mono whitespace-pre-wrap opacity-90 leading-tight">

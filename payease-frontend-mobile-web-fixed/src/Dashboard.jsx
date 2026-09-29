@@ -181,7 +181,7 @@ const tourSteps = [
     descEn: "Scan merchant or peer QR codes directly through your device camera or upload a QR image from your photo gallery.",
     icon: "📷",
     badge: "Step 4 of 5",
-    color: "from-purple-600 to-violet-700"
+    color: "from-blue-600 to-indigo-700"
   },
   {
     title: "Single Member ID & Smart Cards",
@@ -1184,7 +1184,7 @@ export default function Dashboard() {
   const quickActions = [
     { icon: "📱", label: "My QR Code", sub: "Scan to receive", color: "bg-blue-100", action: () => setModal("my_qr") },
     { icon: "⚡", label: "Send Money", sub: "Instant P2P", color: "bg-emerald-100", action: () => setModal("send_money") },
-    { icon: "🏦", label: "Personal Loan", sub: "10-day cycle", color: "bg-purple-100", action: () => setAccountModal("personal_loan") },
+    { icon: "🏦", label: "Personal Loan", sub: "10-day cycle", color: "bg-indigo-100", action: () => setAccountModal("personal_loan") },
     { icon: "🏬", label: "Business Loan", sub: "Daily collection", color: "bg-amber-100", action: () => setAccountModal("business_loan") },
   ];
 
@@ -1197,23 +1197,23 @@ export default function Dashboard() {
   ];
 
   // ══════════════════════════════════════════════════════
-  // APP LOCK SCREEN ON OPEN (FINGERPRINT BIOMETRIC / 6-DIGIT PIN)
+  // APP LOCK SCREEN ON OPEN (FINGERPRINT BIOMETRIC / 6-DIGIT PIN) - CLEAN LIGHT THEME
   // ══════════════════════════════════════════════════════
   if (appLocked) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col justify-between items-center p-6 relative font-sans select-none overflow-hidden">
-        {/* Ambient Top Glow */}
-        <div className="absolute top-0 inset-x-0 h-72 bg-gradient-to-b from-blue-600/20 via-cyan-500/10 to-transparent pointer-events-none blur-3xl" />
+      <div className="min-h-[100dvh] bg-[#F8FAFC] text-slate-900 flex flex-col justify-between items-center p-6 relative font-sans select-none overflow-hidden">
+        {/* Subtle Top Ambient Accent */}
+        <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-blue-500/10 via-indigo-500/5 to-transparent pointer-events-none blur-3xl" />
         
         {/* Top Header */}
         <div className="w-full max-w-sm flex items-center justify-between pt-safe relative z-10">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🎓</span>
-            <span className="font-extrabold text-sm tracking-tight bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-              Educa Fintech
+            <span className="font-extrabold text-sm tracking-tight text-slate-900">
+              Educa <span className="text-blue-600">Fintech</span>
             </span>
           </div>
-          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/20 flex items-center gap-1">
+          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80 flex items-center gap-1 shadow-xs">
             <span>🔒</span> Protected
           </span>
         </div>
@@ -1221,35 +1221,35 @@ export default function Dashboard() {
         {/* Center Card & Authentication */}
         <div className="w-full max-w-sm flex flex-col items-center justify-center text-center my-auto relative z-10">
           {/* User Avatar */}
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 p-0.5 shadow-xl shadow-blue-500/20 mb-4 flex items-center justify-center">
-            <div className="w-full h-full bg-slate-900 rounded-[22px] flex items-center justify-center">
+          <div className="w-20 h-20 rounded-3xl bg-blue-50 border-2 border-blue-200/70 p-1 shadow-md mb-4 flex items-center justify-center">
+            <div className="w-full h-full bg-white rounded-[20px] flex items-center justify-center shadow-xs">
               <span className="text-3xl">👤</span>
             </div>
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
             Welcome Back
           </h2>
-          <p className="text-xs text-slate-400 mt-1 mb-6">
+          <p className="text-xs text-slate-500 mt-1 mb-6 font-medium">
             {userStored.name || "Educa User"} · Unlock with fingerprint or PIN
           </p>
 
           {/* Fingerprint Biometric Trigger Button */}
           <button
             onClick={triggerBiometricAuth}
-            className="group relative flex flex-col items-center justify-center w-24 h-24 rounded-full bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700/80 shadow-2xl hover:border-cyan-400/60 active:scale-95 transition duration-300 mb-6"
+            className="group relative flex flex-col items-center justify-center w-24 h-24 rounded-full bg-white border-2 border-blue-500/80 shadow-xl shadow-blue-500/10 hover:border-blue-600 hover:shadow-blue-500/20 active:scale-95 transition duration-300 mb-6"
             title="Authenticate with Fingerprint"
           >
-            <div className="absolute inset-0 rounded-full border border-cyan-500/30 animate-ping pointer-events-none" />
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10 text-cyan-400 group-hover:scale-110 transition-transform">
+            <div className="absolute inset-0 rounded-full border border-blue-400/40 animate-ping pointer-events-none" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10 text-blue-600 group-hover:scale-110 transition-transform">
               <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" />
             </svg>
-            <span className="text-[10px] text-cyan-300 font-bold mt-1">Tap Sensor</span>
+            <span className="text-[10px] text-blue-700 font-bold mt-1">Tap Sensor</span>
           </button>
 
           {/* 6-Digit PIN Option */}
-          <div className="w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-5 backdrop-blur-md">
-            <p className="text-xs font-bold text-slate-300 mb-3">Or enter your 6-digit Wallet PIN</p>
+          <div className="w-full bg-white border border-slate-200/90 shadow-xl shadow-slate-200/50 rounded-3xl p-5">
+            <p className="text-xs font-bold text-slate-700 mb-3">Or enter your 6-digit Wallet PIN</p>
             
             <div className="flex justify-center gap-2 mb-4">
               {[0, 1, 2, 3, 4, 5].map((idx) => (
@@ -1257,8 +1257,8 @@ export default function Dashboard() {
                   key={idx}
                   className={`w-9 h-11 rounded-xl border flex items-center justify-center text-lg font-black transition-all ${
                     appLockPin.length > idx
-                      ? "border-cyan-400 bg-cyan-950/40 text-cyan-300 shadow-xs shadow-cyan-400/20"
-                      : "border-slate-700 bg-slate-800/60 text-slate-500"
+                      ? "border-blue-600 bg-blue-50 text-blue-700 shadow-xs"
+                      : "border-slate-200 bg-slate-50 text-slate-400"
                   }`}
                 >
                   {appLockPin.length > idx ? "•" : ""}
@@ -1281,17 +1281,17 @@ export default function Dashboard() {
                 }
               }}
               placeholder="Type 6-digit PIN"
-              className="w-full text-center tracking-widest text-sm py-2.5 px-4 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:border-cyan-400"
+              className="w-full text-center tracking-widest text-sm py-2.5 px-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 outline-none focus:border-blue-600 focus:bg-white transition"
             />
 
             {appLockError && (
-              <p className="text-xs text-rose-400 font-medium mt-2">{appLockError}</p>
+              <p className="text-xs text-rose-600 font-semibold mt-2">{appLockError}</p>
             )}
 
             <button
               onClick={() => verifyAppLockPin(appLockPin)}
               disabled={appLockPin.length !== 6 || appLockLoading}
-              className="w-full mt-3 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-40"
+              className="w-full mt-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-40"
             >
               {appLockLoading ? "Verifying..." : "Unlock with PIN →"}
             </button>
@@ -1302,11 +1302,11 @@ export default function Dashboard() {
         <div className="w-full max-w-sm flex items-center justify-between pb-safe pt-4 relative z-10 text-xs text-slate-500">
           <button
             onClick={logout}
-            className="hover:text-rose-400 transition"
+            className="hover:text-rose-600 font-semibold transition"
           >
             Log Out / Switch Account
           </button>
-          <span>Educa Fintech Security</span>
+          <span className="font-medium text-slate-400">Educa Fintech Security</span>
         </div>
       </div>
     );
@@ -1559,14 +1559,14 @@ export default function Dashboard() {
             {/* 3. Lending Account (40 & 80 Months Monthly Return Bonds) */}
             <div
               onClick={() => setAccountModal("lending")}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-purple-500 bg-white hover:bg-purple-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-indigo-500 bg-white hover:bg-indigo-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
             >
               <div>
                 <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-xl">
+                  <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xl">
                     🤝
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-purple-100 text-purple-800">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-100 text-indigo-800">
                     Monthly Payouts
                   </span>
                 </div>
@@ -1576,8 +1576,8 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-purple-700">₹3,500/mo Returns</span>
-                <span className="text-purple-600 font-bold">Open Lending →</span>
+                <span className="font-bold text-indigo-700">₹3,500/mo Returns</span>
+                <span className="text-indigo-600 font-bold">Open Lending →</span>
               </div>
             </div>
 
@@ -1809,8 +1809,7 @@ export default function Dashboard() {
         open={modal === "scan_qr"}
         onClose={closeModal}
         title="Scan Any QR Code"
-        icon={<ScannerIcon className="w-5 h-5 text-cyan-400 inline" />}
-        dark={true}
+        icon={<ScannerIcon className="w-5 h-5 text-blue-600 inline" />}
         extraHeader={
           hasTorch ? (
             <button
@@ -1819,7 +1818,7 @@ export default function Dashboard() {
               className={`px-2.5 py-1 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
                 torchOn
                   ? "bg-amber-400 text-slate-950 border-amber-300 shadow-md shadow-amber-400/30"
-                  : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 active:scale-95"
+                  : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 active:scale-95"
               }`}
               title="Toggle Flashlight"
             >
@@ -1830,18 +1829,18 @@ export default function Dashboard() {
       >
         <div className="space-y-4">
           {/* Top Info Banner / Status Pill */}
-          <div className="flex items-center justify-between px-3.5 py-2 rounded-2xl bg-slate-950/80 border border-slate-800/80 text-xs">
+          <div className="flex items-center justify-between px-3.5 py-2 rounded-2xl bg-blue-50/70 border border-blue-200/60 text-xs">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              <span className="text-slate-200 font-semibold text-[11px]">UPI & BharatQR Auto-Detect</span>
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <span className="text-slate-800 font-semibold text-[11px]">UPI & BharatQR Auto-Detect</span>
             </div>
-            <span className="text-[10px] text-cyan-300 font-bold bg-cyan-950/70 px-2 py-0.5 rounded-lg border border-cyan-500/30">
+            <span className="text-[10px] text-blue-700 font-bold bg-white px-2 py-0.5 rounded-lg border border-blue-200 shadow-xs">
               ⚡ Instant Pay
             </span>
           </div>
 
           {/* Scanner Viewport with Custom High-Tech Viewfinder Reticle */}
-          <div className="relative rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 h-[340px] sm:h-[380px] flex items-center justify-center shadow-2xl">
+          <div className="relative rounded-3xl overflow-hidden bg-slate-900 border border-slate-200 h-[340px] sm:h-[380px] flex items-center justify-center shadow-lg">
             {/* The html5-qrcode video viewport */}
             <div id="educa-qr-reader" className="w-full h-full" />
 
@@ -1870,8 +1869,8 @@ export default function Dashboard() {
                 </div>
 
                 {/* Floating Micro-Instruction Badge */}
-                <div className="mt-4 px-3.5 py-1.5 rounded-full bg-slate-900/90 backdrop-blur-md border border-slate-700/80 text-[11px] font-semibold text-cyan-200 flex items-center gap-2 shadow-lg">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <div className="mt-4 px-3.5 py-1.5 rounded-full bg-white/95 backdrop-blur-md border border-slate-200 text-[11px] font-semibold text-slate-800 flex items-center gap-2 shadow-lg">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                   <span>QR code ko frame ke andar rakhein</span>
                 </div>
               </div>
@@ -1879,25 +1878,25 @@ export default function Dashboard() {
 
             {/* Camera Initializing State */}
             {!cameraActive && !cameraError && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 gap-3 bg-slate-950 p-6 text-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 gap-3 bg-slate-900 p-6 text-center">
                 <div className="w-10 h-10 border-3 border-cyan-400 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(34,211,238,0.3)]" />
                 <span className="text-xs font-semibold text-slate-200">Camera shuru ho raha hai...</span>
-                <span className="text-[11px] text-slate-500">Fast QR Scanner sensor loading</span>
+                <span className="text-[11px] text-slate-400">Fast QR Scanner sensor loading</span>
               </div>
             )}
 
             {/* Camera Error State */}
             {cameraError && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-200 gap-3 bg-slate-950/95 p-6 text-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-200 gap-3 bg-slate-900/95 p-6 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center text-2xl">
                   ⚠️
                 </div>
                 <h4 className="text-sm font-bold text-white">Camera Access Required</h4>
-                <p className="text-xs text-slate-400 max-w-xs">{cameraError}</p>
+                <p className="text-xs text-slate-300 max-w-xs">{cameraError}</p>
                 <button
                   type="button"
                   onClick={() => document.getElementById("gallery-qr-upload")?.click()}
-                  className="mt-2 py-2.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition active:scale-95"
+                  className="mt-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition active:scale-95 shadow-md"
                 >
                   Choose from Gallery Instead →
                 </button>
@@ -1917,7 +1916,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => document.getElementById("gallery-qr-upload")?.click()}
-              className="w-full py-3.5 px-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:opacity-95 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 transition"
+              className="w-full py-3.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 transition"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -1930,7 +1929,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => { closeModal(); setTimeout(() => setModal("my_qr"), 150); }}
-              className="w-full py-3.5 px-3 bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
+              className="w-full py-3.5 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
             >
               <span className="text-base">📱</span>
               <span>Mera QR Code</span>
@@ -1938,7 +1937,7 @@ export default function Dashboard() {
           </div>
 
           {/* Footer Trust Badges */}
-          <div className="text-center pt-1 text-[11px] text-slate-500 flex items-center justify-center gap-2">
+          <div className="text-center pt-1 text-[11px] text-slate-400 font-medium flex items-center justify-center gap-2">
             <span>Google Pay</span>
             <span>·</span>
             <span>PhonePe</span>
@@ -2195,13 +2194,13 @@ export default function Dashboard() {
 
             {/* Cheque Facility Toggle for 1st-Time Borrowers */}
             {isFirstTime && (
-              <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-purple-900">
+              <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-indigo-900">
                   <input
                     type="checkbox"
                     checked={loanForm.hasChequeFacility}
                     onChange={e => setLoanForm({ ...loanForm, hasChequeFacility: e.target.checked, amount: e.target.checked ? 10000 : 5000 })}
-                    className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+                    className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
                   />
                   <span>Use Cheque Facility (Unlock up to ₹10,000 limit)</span>
                 </label>
@@ -2211,7 +2210,7 @@ export default function Dashboard() {
                     placeholder="Cheque Number (e.g. CHQ123456)"
                     value={loanForm.chequeNumber}
                     onChange={e => setLoanForm({ ...loanForm, chequeNumber: e.target.value })}
-                    className="w-full px-3 py-2 bg-white border border-purple-300 rounded-lg text-xs outline-none"
+                    className="w-full px-3 py-2 bg-white border border-indigo-300 rounded-lg text-xs outline-none"
                   />
                 )}
               </div>
@@ -2596,22 +2595,22 @@ export default function Dashboard() {
       ══════════════════════════════════════════════════════ */}
       <Sheet open={accountModal === "lending"} onClose={closeModal} title="Lending Account (Monthly Return)" icon="🤝">
         <div className="space-y-4">
-          <div className="bg-gradient-to-r from-purple-700 to-indigo-800 rounded-2xl p-5 text-white">
-            <span className="text-xs text-purple-100 font-bold uppercase tracking-wider">Lending Monthly Bonds</span>
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
+            <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Lending Monthly Bonds</span>
             <div className="text-3xl font-black font-display my-1">₹3,500 / Month</div>
-            <p className="text-xs text-purple-100">₹1 Lakh par ₹1,40,000 (40 mo) ya ₹1,80,000 (80 mo) payouts</p>
+            <p className="text-xs text-blue-100">₹1 Lakh par ₹1,40,000 (40 mo) ya ₹1,80,000 (80 mo) payouts</p>
           </div>
 
-          <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-2xl space-y-3">
-            <div className="text-xs font-bold text-purple-900">Select Monthly Bond Option (₹1,00,000 Investment):</div>
+          <div className="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl space-y-3">
+            <div className="text-xs font-bold text-indigo-900">Select Monthly Bond Option (₹1,00,000 Investment):</div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setLendingBondType("lending_40")}
                 className={`p-3 rounded-xl border text-center transition ${
                   lendingBondType === "lending_40"
-                    ? "bg-purple-600 text-white border-purple-600 shadow-md font-bold"
-                    : "bg-white text-gray-700 border-gray-200 hover:bg-purple-100"
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-md font-bold"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-indigo-100"
                 }`}
               >
                 <div className="text-xs font-bold">40 Months</div>
@@ -2623,8 +2622,8 @@ export default function Dashboard() {
                 onClick={() => setLendingBondType("lending_80")}
                 className={`p-3 rounded-xl border text-center transition ${
                   lendingBondType === "lending_80"
-                    ? "bg-purple-600 text-white border-purple-600 shadow-md font-bold"
-                    : "bg-white text-gray-700 border-gray-200 hover:bg-purple-100"
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-md font-bold"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-indigo-100"
                 }`}
               >
                 <div className="text-xs font-bold">80 Months</div>
@@ -2634,7 +2633,7 @@ export default function Dashboard() {
             </div>
             <button
               onClick={() => createLendingBond(lendingBondType)}
-              className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95"
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95"
             >
               Invest ₹1,00,000 in {lendingBondType === "lending_40" ? "40M" : "80M"} Lending Bond →
             </button>
@@ -2643,7 +2642,7 @@ export default function Dashboard() {
           {/* LENDING MONTHLY PAYOUTS & CREDITS HISTORY */}
           <div className="space-y-2 border-t border-gray-100 pt-3">
             <div className="flex justify-between items-center">
-              <h5 className="text-xs font-bold text-purple-900 uppercase">Monthly Payouts & Credits Ledger</h5>
+              <h5 className="text-xs font-bold text-indigo-900 uppercase">Monthly Payouts & Credits Ledger</h5>
               <span className="text-[10px] text-gray-400 font-semibold">₹3,500 / mo credits</span>
             </div>
 
@@ -2662,16 +2661,16 @@ export default function Dashboard() {
               return (
                 <div className="space-y-2">
                   {lendingBonds.map(b => (
-                    <div key={b._id} className="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs space-y-1.5">
+                    <div key={b._id} className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs space-y-1.5">
                       <div className="flex justify-between items-center font-bold">
-                        <span className="text-purple-950">{b.bondType === "lending_40" ? "40 Months Bond" : "80 Months Bond"}</span>
-                        <span className="text-purple-700 font-black">+₹{b.monthlyPayout.toLocaleString("en-IN")} / Month</span>
+                        <span className="text-indigo-950">{b.bondType === "lending_40" ? "40 Months Bond" : "80 Months Bond"}</span>
+                        <span className="text-indigo-700 font-black">+₹{b.monthlyPayout.toLocaleString("en-IN")} / Month</span>
                       </div>
                       <div className="flex justify-between text-[11px] text-gray-600">
                         <span>Invested: ₹{b.principalAmount.toLocaleString("en-IN")}</span>
                         <span>Completed: {b.payoutsCompleted || 0} / {b.tenureMonths} Months</span>
                       </div>
-                      <div className="flex justify-between text-[11px] text-gray-600 pt-1 border-t border-purple-100">
+                      <div className="flex justify-between text-[11px] text-gray-600 pt-1 border-t border-indigo-100">
                         <span>Next Payout: {b.nextPayoutDate ? new Date(b.nextPayoutDate).toLocaleDateString("en-IN") : "Completed"}</span>
                         <span className="text-emerald-700 font-extrabold">Total Return: ₹{b.returnAmount.toLocaleString("en-IN")}</span>
                       </div>
@@ -2684,7 +2683,7 @@ export default function Dashboard() {
                     return (
                       <div key={t._id} className="p-3 bg-white border border-gray-100 rounded-xl text-xs flex justify-between items-center">
                         <div>
-                          <p className="font-extrabold text-purple-950">{t.remarks || "Monthly Lending Credit"}</p>
+                          <p className="font-extrabold text-indigo-950">{t.remarks || "Monthly Lending Credit"}</p>
                           <p className="text-[10px] text-gray-400 mt-0.5">{timeStr} • Credited to Wallet</p>
                         </div>
                         <div className="text-right">
@@ -2961,20 +2960,20 @@ export default function Dashboard() {
           </div>
 
           {/* PERMANENT EDUCA MEMBER ID CARD */}
-          <div className="p-4 bg-slate-900 text-white rounded-2xl shadow-md space-y-2 relative overflow-hidden">
-            <div className="flex justify-between items-center text-slate-400 text-xs font-semibold">
+          <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50/50 border border-blue-200/80 rounded-2xl shadow-xs space-y-2 relative overflow-hidden">
+            <div className="flex justify-between items-center text-slate-500 text-xs font-semibold">
               <span>Permanent Member ID</span>
-              <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-blue-300 font-mono">LIFETIME</span>
+              <span className="text-[10px] bg-blue-100 px-2 py-0.5 rounded text-blue-700 font-mono font-bold">LIFETIME</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black font-mono tracking-wider text-emerald-400">
+            <div className="text-xl sm:text-2xl font-black font-mono tracking-wider text-blue-900">
               {userUniqueId}
             </div>
-            <div className="flex justify-between items-center pt-2 border-t border-slate-800 text-xs">
-              <span className="text-slate-400">Mobile: {userProfile.phone || userStored.phone || "N/A"}</span>
+            <div className="flex justify-between items-center pt-2 border-t border-blue-100 text-xs">
+              <span className="text-slate-600 font-medium">Mobile: {userProfile.phone || userStored.phone || "N/A"}</span>
               <button
                 type="button"
                 onClick={() => copyText(userUniqueId)}
-                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold transition active:scale-95"
+                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold transition active:scale-95 shadow-xs"
               >
                 {copied ? "✓ Copied" : "📋 Copy ID"}
               </button>
@@ -3179,31 +3178,31 @@ export default function Dashboard() {
                   </div>
 
                   {/* Silver Card Perks & Status */}
-                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-white space-y-3">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="font-bold text-xs text-blue-300">🎯 Silver Unlock Criteria:</span>
-                      <span className="text-xs font-mono font-bold text-emerald-400">
+                      <span className="font-bold text-xs text-blue-700">🎯 Silver Unlock Criteria:</span>
+                      <span className="text-xs font-mono font-bold text-emerald-700">
                         {isSilverUnlocked ? "100% Unlocked" : (userProfile.kycStatus === "verified" ? "50% Completed" : "25% Completed")}
                       </span>
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden border border-slate-300/60">
                       <div
-                        className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                        className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-500"
                         style={{ width: isSilverUnlocked ? "100%" : (userProfile.kycStatus === "verified" ? "50%" : "25%") }}
                       />
                     </div>
 
-                    <div className="space-y-2 text-xs text-slate-300 pt-1">
+                    <div className="space-y-2 text-xs text-slate-600 pt-1">
                       <div className="flex items-center gap-2">
-                        <span className={userProfile.kycStatus === "verified" ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                        <span className={userProfile.kycStatus === "verified" ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
                           {userProfile.kycStatus === "verified" ? "✓" : "○"}
                         </span>
                         <span>Complete KYC / Profile Verification</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={(userProfile.depositsCount || 0) > 0 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                        <span className={(userProfile.depositsCount || 0) > 0 ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
                           {(userProfile.depositsCount || 0) > 0 ? "✓" : "○"}
                         </span>
                         <span>First wallet deposit (min ₹500) ya 1 transaction</span>
@@ -3211,7 +3210,7 @@ export default function Dashboard() {
                     </div>
 
                     {isSilverUnlocked ? (
-                      <div className="p-2.5 bg-emerald-950/60 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs">
+                      <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 font-bold text-xs">
                         ✓ Silver Card Active: ₹1,00,000 / day online limits & 0 fees.
                       </div>
                     ) : (
@@ -3277,38 +3276,38 @@ export default function Dashboard() {
                   </div>
 
                   {/* Platinum Unlock Criteria & Progress */}
-                  <div className="p-4 bg-slate-900 border border-amber-500/30 rounded-2xl text-white space-y-3">
+                  <div className="p-4 bg-amber-50/50 border border-amber-200 rounded-2xl text-slate-900 space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="font-bold text-xs text-amber-300">🎯 VIP Unlock Criteria:</span>
-                      <span className="text-xs font-mono font-bold text-emerald-400">
+                      <span className="font-bold text-xs text-amber-900">🎯 VIP Unlock Criteria:</span>
+                      <span className="text-xs font-mono font-bold text-emerald-700">
                         {Math.min(100, Math.round(((userProfile.loansCount || 0) / 4) * 100))}% Completed
                       </span>
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+                    <div className="w-full bg-amber-100 h-2.5 rounded-full overflow-hidden border border-amber-200">
                       <div
-                        className="bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full transition-all duration-500"
+                        className="bg-gradient-to-r from-amber-500 to-yellow-500 h-full rounded-full transition-all duration-500"
                         style={{ width: `${Math.min(100, Math.round(((userProfile.loansCount || 0) / 4) * 100))}%` }}
                       />
                     </div>
 
-                    <div className="space-y-2 text-xs text-slate-300 pt-1">
+                    <div className="space-y-2 text-xs text-slate-700 pt-1">
                       <div className="flex items-center gap-2">
-                        <span className={(userProfile.loansCount || 0) >= 4 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                        <span className={(userProfile.loansCount || 0) >= 4 ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
                           {(userProfile.loansCount || 0) >= 4 ? "✓" : "○"}
                         </span>
                         <span>
                           Complete <strong>4 loan installments</strong> on time:{" "}
-                          <span className="font-mono text-amber-300">{Math.min(userProfile.loansCount || 0, 4)} / 4</span>
+                          <span className="font-mono font-bold text-amber-900">{Math.min(userProfile.loansCount || 0, 4)} / 4</span>
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-amber-400 font-bold">○</span>
+                        <span className="text-amber-600 font-bold">○</span>
                         <span>OR total transaction volume of ₹50,000+ across all wallets</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-amber-400 font-bold">○</span>
+                        <span className="text-amber-600 font-bold">○</span>
                         <span>OR direct invite approval by Educa Admin</span>
                       </div>
                     </div>
@@ -3323,7 +3322,7 @@ export default function Dashboard() {
                     ) : (
                       <button
                         onClick={() => { closeModal(); setAccountModal("personal_loan"); }}
-                        className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 font-bold text-xs rounded-xl transition active:scale-95 text-center block"
+                        className="w-full py-2.5 bg-white hover:bg-amber-100/60 border border-amber-300 text-amber-900 font-bold text-xs rounded-xl transition active:scale-95 text-center block shadow-xs"
                       >
                         View Personal Loan to Build Score →
                       </button>

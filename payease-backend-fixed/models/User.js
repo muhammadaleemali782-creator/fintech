@@ -56,6 +56,17 @@ const userSchema = new mongoose.Schema({
   walletPin: { type: String, default: null },
   aadharNumber: { type: String, default: null },
 
+  // KYC System (Aadhaar, PAN, Google Drive Link & Uploads)
+  kycStatus: { type: String, enum: ['none', 'pending', 'verified', 'rejected'], default: 'none' },
+  kycDocuments: {
+    aadharNumber: { type: String, default: '' },
+    panNumber: { type: String, default: '' },
+    googleDriveLink: { type: String, default: '' },
+    docUrl: { type: String, default: '' },
+    submittedAt: { type: Date, default: null }
+  },
+  kycVerifiedAt: { type: Date, default: null },
+
   // Referral System
   referralCode: { type: String, unique: true, sparse: true },
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },

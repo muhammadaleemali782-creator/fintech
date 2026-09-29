@@ -177,11 +177,12 @@ export default function Login() {
 
         {/* CLEAN WHITE CARD */}
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xl shadow-slate-200/60 relative">
-          {/* SEGMENTED TAB SELECTOR (CLEAN LIGHT PILL) */}
-          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-2xl mb-6">
+          {/* SEGMENTED TAB SELECTOR (CLEAN LIGHT PILL: SIGN IN & REGISTER ONLY) */}
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl mb-6">
             <button
+              type="button"
               onClick={() => { setTab("login"); setMsg({ text: "", type: "" }); }}
-              className={`py-2 rounded-xl text-xs font-bold transition ${
+              className={`py-2.5 rounded-xl text-xs font-bold transition ${
                 tab === "login"
                   ? "bg-white text-blue-600 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
@@ -190,18 +191,9 @@ export default function Login() {
               Sign In
             </button>
             <button
-              onClick={() => { setTab("mail-login"); setMsg({ text: "", type: "" }); }}
-              className={`py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 ${
-                tab === "mail-login"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <span>✉️</span> Mail SSO
-            </button>
-            <button
+              type="button"
               onClick={() => { setTab("register"); setMsg({ text: "", type: "" }); }}
-              className={`py-2 rounded-xl text-xs font-bold transition ${
+              className={`py-2.5 rounded-xl text-xs font-bold transition ${
                 tab === "register"
                   ? "bg-white text-blue-600 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
@@ -321,74 +313,7 @@ export default function Login() {
             </form>
           )}
 
-          {/* 2. EDUCA MAIL 30-DAY SSO */}
-          {tab === "mail-login" && (
-            <form onSubmit={handleMailLogin} className="space-y-4">
-              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 leading-relaxed">
-                <div className="flex items-center gap-1.5 font-bold text-blue-900">
-                  <span>⚡</span> 30-Day Instant Educa Mail Session
-                </div>
-                <p className="text-blue-800 text-[11px] mt-1">
-                  Educa Mail se login karne par automatic 30 dino tak active session rahega, baar baar password nahi mangega.
-                </p>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Educa Mail Address
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={mailLoginData.email}
-                  onChange={(e) => setMailLoginData({ ...mailLoginData, email: e.target.value })}
-                  placeholder="username@educa.com"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Educa Password
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => { setTab("forgot"); setMsg({ text: "", type: "" }); }}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-semibold hover:underline"
-                  >
-                    Reset password
-                  </button>
-                </div>
-                <input
-                  type="password"
-                  required
-                  value={mailLoginData.password}
-                  onChange={(e) => setMailLoginData({ ...mailLoginData, password: e.target.value })}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 active:scale-[0.98] transition disabled:opacity-50"
-              >
-                {loading ? "Authenticating SSO..." : "Login with Educa Mail (30 Days) →"}
-              </button>
-
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => { setTab("login"); setMsg({ text: "", type: "" }); }}
-                  className="text-xs text-slate-500 hover:text-slate-800 font-medium"
-                >
-                  Use standard mobile / email instead
-                </button>
-              </div>
-            </form>
-          )}
 
           {/* 3. REGISTER */}
           {tab === "register" && (

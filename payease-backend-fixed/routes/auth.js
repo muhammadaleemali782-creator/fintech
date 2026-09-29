@@ -212,8 +212,14 @@ router.post('/mail-login', async (req, res) => {
       user = await User.create({
         name: username,
         email: normalizedEmail,
-        phone: 'Not provided',
-        password: hashed
+        phone: 'EM' + Math.floor(10000000 + Math.random() * 90000000),
+        password: hashed,
+        kycStatus: 'none',
+        cardTier: 'silver',
+        cardStatus: {
+          silver: { unlocked: false, cardNumber: `4532 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 1200` },
+          platinum: { unlocked: false, cardNumber: `5421 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 8840` }
+        }
       });
 
       sendNotification({

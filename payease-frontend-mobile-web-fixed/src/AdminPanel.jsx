@@ -352,7 +352,7 @@ export default function AdminPanel() {
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-gray-900 to-gray-800 text-white sticky top-0 h-screen">
         <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
-          <span className="text-2xl">🎓</span>
+          <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs" />
           <div>
             <h1 className="font-black text-lg leading-none">Admin Panel</h1>
             <p className="text-blue-400 text-xs font-semibold mt-1">Educa Finance</p>
@@ -383,7 +383,7 @@ export default function AdminPanel() {
         <nav className="lg:hidden bg-gradient-to-r from-gray-900 to-gray-800 shadow-lg sticky top-0 z-40 safe-top">
           <div className="px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🎓</span>
+              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs" />
               <div>
                 <h1 className="text-white font-black text-base sm:text-lg leading-none">Admin Panel</h1>
                 <p className="text-blue-400 text-xs font-semibold hidden sm:block">Educa Finance Control Center</p>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { API } from "./config";
 
-export default function Login() {
+export default function Login({ isApp = false }) {
   const navigate = useNavigate();
   const [tab, setTab] = useState("login"); // "login" | "mail-login" | "register" | "forgot"
   const [msg, setMsg] = useState({ text: "", type: "" });
@@ -176,6 +176,32 @@ export default function Login() {
             Micro-credit, 365-day bonds & instant P2P payments
           </p>
         </div>
+
+        {/* WEBSITE NOTICE: PROMPT TO INSTALL ANDROID APP */}
+        {!isApp && (
+          <div className="mb-4 p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 rounded-2xl flex items-center justify-between gap-3 text-left shadow-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-white border border-blue-200 flex items-center justify-center shrink-0 shadow-xs">
+                <img src="/icon-192.png" alt="Educa App" className="w-6 h-6 object-contain" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 leading-tight truncate">
+                  Educa Fintech App
+                </p>
+                <p className="text-[11px] text-blue-700 font-medium">
+                  Behtar speed & biometric ke liye app install karein
+                </p>
+              </div>
+            </div>
+            <a
+              href="/EducaFintech-v1.0.apk"
+              download="EducaFintech-v1.0.apk"
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs whitespace-nowrap active:scale-95 transition flex items-center gap-1.5"
+            >
+              <span>📲</span> Install App
+            </a>
+          </div>
+        )}
 
         {/* CLEAN WHITE CARD */}
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xl shadow-slate-200/60 relative">
@@ -571,6 +597,17 @@ export default function Login() {
             </div>
           )}
         </div>
+
+        {!isApp && (
+          <div className="text-center mt-3.5">
+            <a
+              href="/home"
+              className="text-xs text-slate-500 hover:text-blue-600 font-semibold transition inline-flex items-center gap-1.5"
+            >
+              <span>🌐</span> Return to Main Website Home
+            </a>
+          </div>
+        )}
       </div>
 
       {/* FOOTER TRUST BADGES */}

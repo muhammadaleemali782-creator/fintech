@@ -47,6 +47,15 @@ router.get('/lookup/:identifier', protect, async (req, res) => {
 router.post('/transfer', protect, async (req, res) => {
   const { recipient: rawRecipient, amount: rawAmount, notes } = req.body;
 
+  const senderUser = await User.findById(req.user._id);
+  if (!senderUser) return res.status(404).json({ message: 'User not found' });
+  if (senderUser.kycStatus !== 'verified') {
+    return res.status(403).json({
+      message: 'KYC Verification zaroori hai! Paise transfer karne ke liye kripya pehle apna KYC document submit aur verify karwayein.',
+      requireKyc: true
+    });
+  }
+
   const amount = Number(rawAmount);
   // Strict Positive Finite Integer Validation
   if (!Number.isFinite(amount) || amount < 1 || amount > 200000 || !Number.isInteger(amount)) {
@@ -180,6 +189,15 @@ router.post('/deposit', protect, async (req, res) => {
 // Withdrawal Request
 router.post('/withdraw', protect, async (req, res) => {
   const { amount, method, paymentDetails } = req.body;
+
+  const user = await User.findById(req.user._id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  if (user.kycStatus !== 'verified') {
+    return res.status(403).json({
+      message: 'Withdrawal karne ke liye KYC Verification zaroori hai. Kripya pehle apna KYC document submit aur verify karwayein.',
+      requireKyc: true
+    });
+  }
 
   if (!isValidAmount(amount, 100, 500000))
     return res.status(400).json({ message: 'Amount must be between ₹100 and ₹5,00,000' });

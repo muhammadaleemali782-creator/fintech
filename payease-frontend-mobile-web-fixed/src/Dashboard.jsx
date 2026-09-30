@@ -321,11 +321,10 @@ export default function Dashboard() {
   const [resetError, setResetError] = useState("");
   const [resetSubmitting, setResetSubmitting] = useState(false);
 
-  // KYC Form State (Aadhaar, PAN, Google Drive Link & Document Upload)
   const [kycForm, setKycForm] = useState({
     aadharNumber: "",
     panNumber: "",
-    googleDriveLink: "",
+    address: "",
     docName: "",
     docUrl: ""
   });
@@ -1030,15 +1029,15 @@ export default function Dashboard() {
     reader.readAsDataURL(file);
   };
 
-  // Submit KYC (Aadhaar, PAN, Google Drive link, and document)
+  // Submit KYC (Aadhaar, PAN, Address, and Document Upload)
   const submitKyc = async () => {
-    if (!kycForm.aadharNumber && !kycForm.googleDriveLink && !kycForm.docUrl) {
-      setKycError("Kripya Aadhaar Number, Document ya Google Drive link enter karein.");
+    if (!kycForm.aadharNumber && !kycForm.docUrl) {
+      setKycError("Kripya Aadhaar Number aur Identity document upload karein.");
       return;
     }
     if (kycForm.aadharNumber) {
-      const clean = kycForm.aadharNumber.replace(/\s+/g, "");
-      if (!/^\d{12}$/.test(clean)) {
+      const clean = kycForm.aadharNumber.replace(/\D/g, "");
+      if (clean.length !== 12) {
         setKycError("Kripya 12-digit valid Aadhaar number darj karein.");
         return;
       }
@@ -1050,9 +1049,9 @@ export default function Dashboard() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          aadharNumber: kycForm.aadharNumber.replace(/\s+/g, ""),
+          aadharNumber: kycForm.aadharNumber.replace(/\D/g, ""),
           panNumber: kycForm.panNumber.trim().toUpperCase(),
-          googleDriveLink: kycForm.googleDriveLink.trim(),
+          address: kycForm.address.trim(),
           docUrl: kycForm.docUrl
         })
       });
@@ -1062,12 +1061,15 @@ export default function Dashboard() {
         setUserProfile(prev => ({
           ...prev,
           kycStatus: "pending",
-          aadharNumber: kycForm.aadharNumber.replace(/\s+/g, ""),
-          kycDocuments: data.kycDocuments || {
+          aadharNumber: kycForm.aadharNumber.replace(/\D/g, ""),
+          address: kycForm.address,
+          kycDocuments: {
+            ...prev.kycDocuments,
             aadharNumber: kycForm.aadharNumber,
             panNumber: kycForm.panNumber,
-            googleDriveLink: kycForm.googleDriveLink,
-            docUrl: kycForm.docUrl
+            address: kycForm.address,
+            docUrl: kycForm.docUrl,
+            submittedAt: new Date()
           }
         }));
         closeModal();
@@ -3637,9 +3639,19 @@ export default function Dashboard() {
                 />
                 <div className="text-xs space-y-1">
                   <p className="font-semibold text-slate-800">In-App Stored Document</p>
-                  <p className="text-[11px] text-slate-500">Google Drive & Server sync active.</p>
+                  <p className="text-[11px] text-slate-500">Secure end-to-end encrypted verification.</p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Admin Review Note if available */}
+          {userProfile.kycDocuments?.adminRemarks && (
+            <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-2xl text-xs space-y-1">
+              <span className="font-bold text-blue-900 block flex items-center gap-1.5">
+                <span>💬</span> Admin Review Remarks:
+              </span>
+              <p className="text-blue-800 font-medium">{userProfile.kycDocuments.adminRemarks}</p>
             </div>
           )}
 
@@ -3678,37 +3690,29 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Google Drive Link Input */}
-          <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/80 rounded-2xl space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-emerald-950">
-                📁 Google Drive Document Link (Recommended)
-              </label>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                Zero Storage Load
-              </span>
-            </div>
-            <input
-              type="url"
-              placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
-              value={kycForm.googleDriveLink}
-              onChange={e => setKycForm({ ...kycForm, googleDriveLink: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-white border border-emerald-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
-            <p className="text-[10px] text-emerald-800">
-              💡 Google Drive me Aadhaar / ID upload karein, "Anyone with link can view" par set karein aur link yaha paste karein.
-            </p>
-          </div>
-
-          {/* Or Upload Photo from Device */}
+          {/* Residential Address / City */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">
-              Or Upload Photo / Document
+              Residential Address / City (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="Enter your street address & city"
+              value={kycForm.address}
+              onChange={e => setKycForm({ ...kycForm, address: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          {/* Simple Direct Document Upload */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Identity Document (Aadhaar / PAN / ID Photo) <span className="text-rose-500">*</span>
             </label>
             <div className="flex items-center gap-2">
-              <label className="flex-1 cursor-pointer py-2.5 px-3 bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-300 rounded-xl text-xs text-gray-600 font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                <span>📎</span>
-                <span className="truncate">{kycForm.docName || "Choose Image / File"}</span>
+              <label className="flex-1 cursor-pointer py-3 px-4 bg-blue-50/60 hover:bg-blue-50 border border-dashed border-blue-300 rounded-xl text-xs text-blue-700 font-bold flex items-center justify-center gap-2 transition active:scale-95">
+                <span className="text-base">📄</span>
+                <span className="truncate">{kycForm.docName || "Choose Document / Photo"}</span>
                 <input
                   type="file"
                   accept="image/*,application/pdf"
@@ -3720,7 +3724,7 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setKycForm({ ...kycForm, docName: "", docUrl: "" })}
-                  className="px-3 py-2.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition"
+                  className="px-3.5 py-3 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition"
                   title="Remove upload"
                 >
                   ✕
@@ -3728,10 +3732,10 @@ export default function Dashboard() {
               )}
             </div>
             {kycForm.docUrl && (
-              <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-3">
-                <img src={kycForm.docUrl} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-gray-200" />
+              <div className="mt-2.5 p-2.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-3">
+                <img src={kycForm.docUrl} alt="Preview" className="w-14 h-14 object-cover rounded-lg border border-gray-200 shrink-0" />
                 <div className="text-[11px] text-gray-600 truncate flex-1">
-                  <span className="font-bold text-gray-800 block truncate">{kycForm.docName}</span>
+                  <span className="font-bold text-gray-800 block truncate">{kycForm.docName || "Selected File"}</span>
                   <span className="text-emerald-600 font-bold">✓ Ready for upload</span>
                 </div>
               </div>

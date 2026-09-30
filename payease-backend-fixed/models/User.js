@@ -55,14 +55,17 @@ const userSchema = new mongoose.Schema({
   isBlocked: { type: Boolean, default: false },
   walletPin: { type: String, default: null },
   aadharNumber: { type: String, default: null },
+  address: { type: String, default: '' },
 
-  // KYC System (Aadhaar, PAN, Google Drive Link & Uploads)
+  // KYC System (Aadhaar, PAN, Address, Document Upload & Admin Remarks)
   kycStatus: { type: String, enum: ['none', 'pending', 'verified', 'rejected'], default: 'none' },
   kycDocuments: {
     aadharNumber: { type: String, default: '' },
     panNumber: { type: String, default: '' },
+    address: { type: String, default: '' },
     googleDriveLink: { type: String, default: '' },
     docUrl: { type: String, default: '' },
+    adminRemarks: { type: String, default: '' },
     submittedAt: { type: Date, default: null }
   },
   kycVerifiedAt: { type: Date, default: null },

@@ -351,6 +351,55 @@ export default function AdminPanel() {
     }
   };
 
+  const exportKycToCsv = () => {
+    const kycUsers = users.filter(u => u.kycStatus && u.kycStatus !== "none");
+    if (!kycUsers.length) return showToast("No KYC records to export", "error");
+
+    const headers = [
+      "User ID",
+      "Full Name",
+      "Email",
+      "Phone",
+      "Address",
+      "Document Type",
+      "Aadhaar Number",
+      "PAN Number",
+      "Cheque/Account Number",
+      "KYC Status",
+      "Submitted Date",
+      "Admin Remarks",
+      "Document Link"
+    ];
+
+    const rows = kycUsers.map(u => [
+      `"${u._id || ""}"`,
+      `"${(u.name || "").replace(/"/g, '""')}"`,
+      `"${(u.email || "").replace(/"/g, '""')}"`,
+      `"${(u.phone || "").replace(/"/g, '""')}"`,
+      `"${(u.address || u.kycDocuments?.address || "").replace(/"/g, '""')}"`,
+      `"${(u.kycDocuments?.docType || (u.kycDocuments?.panNumber ? "pan" : u.kycDocuments?.chequeNumber ? "cheque" : "aadhaar")).toUpperCase()}"`,
+      `"${(u.kycDocuments?.aadharNumber || u.aadharNumber || "").replace(/"/g, '""')}"`,
+      `"${(u.kycDocuments?.panNumber || u.panNumber || "").replace(/"/g, '""')}"`,
+      `"${(u.kycDocuments?.chequeNumber || u.chequeNumber || "").replace(/"/g, '""')}"`,
+      `"${(u.kycStatus || "").toUpperCase()}"`,
+      `"${u.kycDocuments?.submittedAt ? new Date(u.kycDocuments.submittedAt).toLocaleString("en-IN") : ""}"`,
+      `"${(u.kycDocuments?.adminRemarks || "").replace(/"/g, '""')}"`,
+      `"${(u.kycDocuments?.googleDriveLink || u.kycDocuments?.docUrl || "").replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Educa_KYC_Records_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast("KYC Excel/CSV exported successfully!", "success");
+  };
+
   const loanStatusColor = { pending: "bg-yellow-100 text-yellow-700", active: "bg-blue-100 text-blue-700", closed: "bg-green-100 text-green-700", rejected: "bg-red-100 text-red-700" };
 
   const pendingAgentsCount = agents.filter(a => a.agentProfile?.status === "pending").length;
@@ -532,26 +581,35 @@ export default function AdminPanel() {
                   </p>
                 </div>
 
-                {/* Filter Pills */}
-                <div className="flex gap-1.5 bg-gray-100 p-1 rounded-xl text-xs font-bold">
-                  {[
-                    { key: "all", label: "All Submissions" },
-                    { key: "pending", label: `Pending (${pendingKycCount})` },
-                    { key: "verified", label: "Verified" },
-                    { key: "rejected", label: "Rejected" },
-                  ].map(f => (
-                    <button
-                      key={f.key}
-                      onClick={() => setKycFilter(f.key)}
-                      className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                        kycFilter === f.key
-                          ? "bg-white text-indigo-700 shadow-xs"
-                          : "text-gray-500 hover:text-gray-800"
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
+                {/* Action & Filter Pills */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={exportKycToCsv}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>📥</span> Export to Excel
+                  </button>
+
+                  <div className="flex gap-1.5 bg-gray-100 p-1 rounded-xl text-xs font-bold">
+                    {[
+                      { key: "all", label: "All Submissions" },
+                      { key: "pending", label: `Pending (${pendingKycCount})` },
+                      { key: "verified", label: "Verified" },
+                      { key: "rejected", label: "Rejected" },
+                    ].map(f => (
+                      <button
+                        key={f.key}
+                        onClick={() => setKycFilter(f.key)}
+                        className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                          kycFilter === f.key
+                            ? "bg-white text-indigo-700 shadow-xs"
+                            : "text-gray-500 hover:text-gray-800"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -616,7 +674,10 @@ export default function AdminPanel() {
                               {u.email} · {u.phone}
                             </p>
 
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+                              <span className="font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase text-[10px]">
+                                {u.kycDocuments?.docType === "pan" ? "PAN Card" : u.kycDocuments?.docType === "cheque" ? "Bank Cheque" : "Aadhaar Card"}
+                              </span>
                               {u.kycDocuments?.aadharNumber && (
                                 <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">
                                   UID: {u.kycDocuments.aadharNumber}
@@ -625,6 +686,11 @@ export default function AdminPanel() {
                               {u.kycDocuments?.panNumber && (
                                 <span className="font-mono uppercase bg-white px-2 py-0.5 rounded border border-gray-200">
                                   PAN: {u.kycDocuments.panNumber}
+                                </span>
+                              )}
+                              {u.kycDocuments?.chequeNumber && (
+                                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">
+                                  CHQ: {u.kycDocuments.chequeNumber}
                                 </span>
                               )}
                               {(u.address || u.kycDocuments?.address) && (
@@ -1468,17 +1534,35 @@ export default function AdminPanel() {
             {/* Content Scrollable */}
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               {/* Details Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs bg-gray-50 p-3 rounded-2xl border border-gray-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs bg-gray-50 p-3 rounded-2xl border border-gray-200">
+                <div>
+                  <span className="text-gray-400 font-semibold block text-[10px]">DOCUMENT TYPE</span>
+                  <span className="font-bold text-indigo-700 uppercase">
+                    {previewKycUser.kycDocuments?.docType === "pan" ? "PAN Card" : previewKycUser.kycDocuments?.docType === "cheque" ? "Bank Cheque" : "Aadhaar Card"}
+                  </span>
+                </div>
                 <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">AADHAAR NUMBER</span>
                   <span className="font-mono font-bold text-gray-900">
-                    {previewKycUser.kycDocuments?.aadharNumber || previewKycUser.aadharNumber || "Not Provided"}
+                    {previewKycUser.kycDocuments?.aadharNumber || previewKycUser.aadharNumber || "—"}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">PAN NUMBER</span>
                   <span className="font-mono font-bold text-gray-900 uppercase">
-                    {previewKycUser.kycDocuments?.panNumber || "Not Provided"}
+                    {previewKycUser.kycDocuments?.panNumber || "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 font-semibold block text-[10px]">CHEQUE / ACC NO.</span>
+                  <span className="font-mono font-bold text-gray-900">
+                    {previewKycUser.kycDocuments?.chequeNumber || "—"}
+                  </span>
+                </div>
+                <div className="col-span-2 sm:col-span-3">
+                  <span className="text-gray-400 font-semibold block text-[10px]">ADDRESS / RESIDENTIAL LOCATION</span>
+                  <span className="font-semibold text-gray-800 text-xs">
+                    {previewKycUser.address || previewKycUser.kycDocuments?.address || "Not Provided"}
                   </span>
                 </div>
                 <div>
@@ -1491,12 +1575,6 @@ export default function AdminPanel() {
                       : "bg-rose-100 text-rose-800"
                   }`}>
                     {previewKycUser.kycStatus}
-                  </span>
-                </div>
-                <div className="col-span-2 sm:col-span-3">
-                  <span className="text-gray-400 font-semibold block text-[10px]">ADDRESS / RESIDENTIAL LOCATION</span>
-                  <span className="font-semibold text-gray-800 text-xs">
-                    {previewKycUser.address || previewKycUser.kycDocuments?.address || "Not Provided"}
                   </span>
                 </div>
               </div>

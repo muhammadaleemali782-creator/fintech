@@ -312,39 +312,57 @@ router.post('/yield/calculate', protect, async (req, res) => {
   }
 });
 
-// Submit KYC Verification with Aadhaar, PAN, Google Drive Link & Document
+// Submit KYC Verification (Aadhaar, PAN, Address & Document Upload)
 router.post('/kyc/submit', protect, async (req, res) => {
   try {
-    const { aadharNumber, panNumber, googleDriveLink, docUrl } = req.body;
-    if (!aadharNumber && !googleDriveLink && !docUrl) {
-      return res.status(400).json({ message: 'Aadhaar Number, Document ya Google Drive Link zaroori hai.' });
+    const { aadharNumber, panNumber, address, docUrl } = req.body;
+    if (!aadharNumber && !docUrl) {
+      return res.status(400).json({ message: 'Aadhaar number aur Identity document upload zaroori hai.' });
+    }
+
+    const cleanAadhaar = aadharNumber ? aadharNumber.replace(/\D/g, '').trim() : '';
+    if (cleanAadhaar && cleanAadhaar.length !== 12) {
+      return res.status(400).json({ message: 'Aadhaar number must be a valid 12-digit number.' });
+    }
+
+    const cleanPan = panNumber ? panNumber.toUpperCase().trim() : '';
+    if (cleanPan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      return res.status(400).json({ message: 'Valid PAN format required (e.g. ABCDE1234F).' });
+    }
+
+    // Validate uploaded file (data URL only, max 7MB base64)
+    if (docUrl) {
+      if (!docUrl.startsWith('data:image/') && !docUrl.startsWith('data:application/pdf')) {
+        return res.status(400).json({ message: 'Invalid file format. Please upload JPG, PNG or PDF.' });
+      }
+      if (docUrl.length > 7 * 1024 * 1024) {
+        return res.status(400).json({ message: 'Document size too large. Maximum 5MB allowed.' });
+      }
     }
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Fetch Admin's Google Drive Setting if available
-    let adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
-    const adminDriveUrl = adminDriveSetting?.value;
-
-    let effectiveDriveLink = googleDriveLink || '';
-    if (!effectiveDriveLink && adminDriveUrl && !adminDriveUrl.startsWith('https://script.google.com/')) {
-      effectiveDriveLink = adminDriveUrl;
-    }
-
     user.kycStatus = 'pending';
-    if (aadharNumber) user.aadharNumber = aadharNumber;
+    if (cleanAadhaar) user.aadharNumber = cleanAadhaar;
+    if (address) user.address = address.trim();
+
     user.kycDocuments = {
-      aadharNumber: aadharNumber || user.aadharNumber || '',
-      panNumber: panNumber ? panNumber.toUpperCase() : '',
-      googleDriveLink: effectiveDriveLink,
+      aadharNumber: cleanAadhaar || user.aadharNumber || '',
+      panNumber: cleanPan || '',
+      address: address ? address.trim() : (user.address || ''),
+      googleDriveLink: '',
       docUrl: docUrl || '',
+      adminRemarks: '',
       submittedAt: new Date()
     };
-
+    user.markModified('kycDocuments');
     await user.save();
 
-    // If Admin configured an Apps Script Webhook, sync automatically to create folder/tab in Drive
+    // Background Drive Webhook sync — 100% server-side (Zero exposure to client/Burp Suite)
+    const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+    const adminDriveUrl = adminDriveSetting?.value;
+
     if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
       fetch(adminDriveUrl, {
         method: 'POST',
@@ -355,6 +373,7 @@ router.post('/kyc/submit', protect, async (req, res) => {
           name: user.name,
           email: user.email,
           phone: user.phone,
+          address: user.address || '',
           aadharNumber: user.aadharNumber,
           panNumber: user.kycDocuments.panNumber,
           docUrl: docUrl || '',
@@ -377,13 +396,12 @@ router.post('/kyc/submit', protect, async (req, res) => {
       type: 'kyc_submitted',
       title: 'New KYC Document Submission 📄',
       message: `${user.name} (${user.email || user.phone}) ne KYC documents submit kiye hain.`,
-      data: { userId: user._id, name: user.name, googleDriveLink: effectiveDriveLink }
+      data: { userId: user._id, name: user.name }
     });
 
     res.json({
-      message: 'KYC documents successfully submit ho gaye hain! Admin team jald verify karegi.',
-      kycStatus: user.kycStatus,
-      kycDocuments: user.kycDocuments
+      message: 'KYC documents successfully submit ho gaye hain! Verification in progress.',
+      kycStatus: user.kycStatus
     });
   } catch (err) {
     console.error('KYC submit error:', err);
@@ -391,15 +409,18 @@ router.post('/kyc/submit', protect, async (req, res) => {
   }
 });
 
-// Get user's KYC status
+// Get user's KYC status (Safe & Masked - zero leakage)
 router.get('/kyc', protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('kycStatus kycDocuments kycVerifiedAt aadharNumber');
+    const user = await User.findById(req.user._id).select('kycStatus kycDocuments kycVerifiedAt aadharNumber address');
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json({
       kycStatus: user.kycStatus || 'none',
-      kycDocuments: user.kycDocuments || {},
-      kycVerifiedAt: user.kycVerifiedAt
+      aadharMasked: user.aadharNumber ? `•••• •••• ${user.aadharNumber.slice(-4)}` : '',
+      address: user.address || user.kycDocuments?.address || '',
+      submittedAt: user.kycDocuments?.submittedAt || null,
+      adminRemarks: user.kycDocuments?.adminRemarks || '',
+      docUploaded: !!(user.kycDocuments?.docUrl)
     });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch KYC status' });

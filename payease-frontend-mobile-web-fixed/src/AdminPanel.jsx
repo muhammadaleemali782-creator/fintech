@@ -27,6 +27,8 @@ export default function AdminPanel() {
   const [googleDriveUrl, setGoogleDriveUrl] = useState("");
   const [newGoogleDriveUrl, setNewGoogleDriveUrl] = useState("");
   const [previewKycUser, setPreviewKycUser] = useState(null);
+  const [kycReviewRemarks, setKycReviewRemarks] = useState("");
+  const [kycFilter, setKycFilter] = useState("all");
 
   const showToast = (text, type = "success") => setToast({ text, type });
 
@@ -271,10 +273,13 @@ export default function AdminPanel() {
     }
   };
 
-  const approveKyc = async (userId) => {
-    if (!window.confirm("Approve KYC documents for this user? This will also unlock their Silver Card.")) return;
+  const approveKyc = async (userId, remarks = "") => {
     try {
-      const res = await fetch(`${API}/admin/kyc/${userId}/approve`, { method: "POST", headers });
+      const res = await fetch(`${API}/admin/kyc/${userId}/approve`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ remarks })
+      });
       const data = await res.json();
       showToast(data.message, res.ok ? "success" : "error");
       if (res.ok) loadUsers();
@@ -283,10 +288,13 @@ export default function AdminPanel() {
     }
   };
 
-  const rejectKyc = async (userId) => {
-    if (!window.confirm("Reject KYC documents for this user?")) return;
+  const rejectKyc = async (userId, remarks = "") => {
     try {
-      const res = await fetch(`${API}/admin/kyc/${userId}/reject`, { method: "POST", headers });
+      const res = await fetch(`${API}/admin/kyc/${userId}/reject`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ remarks })
+      });
       const data = await res.json();
       showToast(data.message, res.ok ? "success" : "error");
       if (res.ok) loadUsers();
@@ -350,10 +358,11 @@ export default function AdminPanel() {
 
   const tabs = [
     { key: "pending", label: "Pending", icon: "⏳", badge: pending.length },
+    { key: "kyc", label: "KYC Requests", icon: "📄", badge: pendingKycCount },
     { key: "alerts", label: "Live Alerts", icon: "🔔", badge: unreadNotifs },
     { key: "agents", label: "Agent Partners", icon: "🤝", badge: pendingAgentsCount },
     { key: "loans", label: "Loans", icon: "🏦" },
-    { key: "users", label: "Users & KYC", icon: "👥", badge: pendingKycCount },
+    { key: "users", label: "Users & Accounts", icon: "👥" },
     { key: "devices", label: "App Lock", icon: "🔒", badge: devices.filter(d => d.adminStatus === "active").length },
     { key: "settings", label: "Settings", icon: "⚙️" },
   ];
@@ -507,6 +516,149 @@ export default function AdminPanel() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* KYC VERIFICATION REQUESTS */}
+          {tab === "kyc" && (
+            <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-lg font-bold font-display text-gray-900 flex items-center gap-2">
+                    <span>📄</span> User KYC Verification Requests
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Review submitted Aadhaar, PAN, Address & documents. Write admin notes and approve or reject.
+                  </p>
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex gap-1.5 bg-gray-100 p-1 rounded-xl text-xs font-bold">
+                  {[
+                    { key: "all", label: "All Submissions" },
+                    { key: "pending", label: `Pending (${pendingKycCount})` },
+                    { key: "verified", label: "Verified" },
+                    { key: "rejected", label: "Rejected" },
+                  ].map(f => (
+                    <button
+                      key={f.key}
+                      onClick={() => setKycFilter(f.key)}
+                      className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                        kycFilter === f.key
+                          ? "bg-white text-indigo-700 shadow-xs"
+                          : "text-gray-500 hover:text-gray-800"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(() => {
+                const kycUsers = users.filter(u => {
+                  const hasKyc = u.kycStatus && u.kycStatus !== "none";
+                  if (!hasKyc) return false;
+                  if (kycFilter === "all") return true;
+                  return u.kycStatus === kycFilter;
+                });
+
+                if (kycUsers.length === 0) {
+                  return (
+                    <div className="py-16 text-center text-gray-400">
+                      <span className="text-4xl block mb-2">📄</span>
+                      <p className="text-sm font-semibold">No KYC submissions found in this category.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {kycUsers.map(u => (
+                      <div
+                        key={u._id}
+                        className="p-4 bg-gray-50 hover:bg-gray-100/80 border border-gray-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition"
+                      >
+                        <div className="flex items-start gap-3.5 min-w-0">
+                          {u.kycDocuments?.docUrl ? (
+                            <img
+                              src={u.kycDocuments.docUrl}
+                              alt="Document Thumbnail"
+                              className="w-14 h-14 object-cover rounded-xl border border-gray-300 bg-white shrink-0 cursor-pointer shadow-2xs hover:scale-105 transition"
+                              onClick={() => {
+                                setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
+                                setPreviewKycUser(u);
+                              }}
+                            />
+                          ) : (
+                            <div className="w-14 h-14 rounded-xl bg-gray-200 text-gray-500 flex items-center justify-center text-xl shrink-0 font-bold">
+                              📄
+                            </div>
+                          )}
+
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-gray-900 text-sm">{u.name}</span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                  u.kycStatus === "verified"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : u.kycStatus === "pending"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-rose-100 text-rose-800"
+                                }`}
+                              >
+                                {u.kycStatus}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-gray-500">
+                              {u.email} · {u.phone}
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
+                              {u.kycDocuments?.aadharNumber && (
+                                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">
+                                  UID: {u.kycDocuments.aadharNumber}
+                                </span>
+                              )}
+                              {u.kycDocuments?.panNumber && (
+                                <span className="font-mono uppercase bg-white px-2 py-0.5 rounded border border-gray-200">
+                                  PAN: {u.kycDocuments.panNumber}
+                                </span>
+                              )}
+                              {(u.address || u.kycDocuments?.address) && (
+                                <span className="truncate max-w-[220px] text-gray-500">
+                                  📍 {u.address || u.kycDocuments?.address}
+                                </span>
+                              )}
+                            </div>
+
+                            {u.kycDocuments?.adminRemarks && (
+                              <p className="text-[11px] text-blue-700 font-medium bg-blue-50/80 px-2 py-0.5 rounded border border-blue-100">
+                                💬 Note: {u.kycDocuments.adminRemarks}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action */}
+                        <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                          <button
+                            onClick={() => {
+                              setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
+                              setPreviewKycUser(u);
+                            }}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span>🔍</span> Review & Verify
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1320,7 +1472,7 @@ export default function AdminPanel() {
                 <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">AADHAAR NUMBER</span>
                   <span className="font-mono font-bold text-gray-900">
-                    {previewKycUser.kycDocuments?.aadharNumber || "Not Provided"}
+                    {previewKycUser.kycDocuments?.aadharNumber || previewKycUser.aadharNumber || "Not Provided"}
                   </span>
                 </div>
                 <div>
@@ -1339,6 +1491,12 @@ export default function AdminPanel() {
                       : "bg-rose-100 text-rose-800"
                   }`}>
                     {previewKycUser.kycStatus}
+                  </span>
+                </div>
+                <div className="col-span-2 sm:col-span-3">
+                  <span className="text-gray-400 font-semibold block text-[10px]">ADDRESS / RESIDENTIAL LOCATION</span>
+                  <span className="font-semibold text-gray-800 text-xs">
+                    {previewKycUser.address || previewKycUser.kycDocuments?.address || "Not Provided"}
                   </span>
                 </div>
               </div>
@@ -1366,18 +1524,41 @@ export default function AdminPanel() {
               <div className="space-y-1.5">
                 <span className="text-xs font-bold text-gray-700 block">Uploaded Document In-App Preview:</span>
                 {previewKycUser.kycDocuments?.docUrl ? (
-                  <div className="bg-gray-900/5 rounded-2xl p-2 border border-gray-200 flex items-center justify-center min-h-[260px] max-h-[400px] overflow-hidden">
-                    <img
-                      src={previewKycUser.kycDocuments.docUrl}
-                      alt="KYC Document Preview"
-                      className="max-h-[380px] max-w-full object-contain rounded-xl shadow-xs"
-                    />
+                  <div className="bg-gray-900/5 rounded-2xl p-2 border border-gray-200 flex items-center justify-center min-h-[260px] max-h-[420px] overflow-hidden">
+                    {previewKycUser.kycDocuments.docUrl.startsWith("data:application/pdf") ? (
+                      <iframe
+                        src={previewKycUser.kycDocuments.docUrl}
+                        title="PDF Document Preview"
+                        className="w-full h-[380px] rounded-xl border border-gray-200"
+                      />
+                    ) : (
+                      <img
+                        src={previewKycUser.kycDocuments.docUrl}
+                        alt="KYC Document Preview"
+                        className="max-h-[380px] max-w-full object-contain rounded-xl shadow-xs"
+                      />
+                    )}
                   </div>
                 ) : (
                   <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-xs text-gray-400">
-                    No image file uploaded directly (User shared Google Drive Link)
+                    No document photo uploaded directly
                   </div>
                 )}
+              </div>
+
+              {/* Admin Review Remarks Input Box */}
+              <div className="space-y-1.5 pt-2 border-t border-gray-100">
+                <label className="text-xs font-bold text-gray-800 flex items-center justify-between">
+                  <span>Admin Review Remarks / Verification Note:</span>
+                  <span className="text-[10px] text-gray-400">Written to user record</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={kycReviewRemarks}
+                  onChange={(e) => setKycReviewRemarks(e.target.value)}
+                  placeholder="Enter remarks (e.g. Aadhaar details verified & matched with photo / Reason if rejected)..."
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
               </div>
             </div>
 
@@ -1385,31 +1566,41 @@ export default function AdminPanel() {
             <div className="flex items-center justify-end gap-2.5 border-t border-gray-100 pt-3 mt-4 shrink-0">
               <button
                 onClick={() => setPreviewKycUser(null)}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition"
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer"
               >
                 Close
               </button>
-              {previewKycUser.kycStatus === "pending" && (
+              {previewKycUser.kycStatus === "pending" ? (
                 <>
                   <button
                     onClick={async () => {
-                      await rejectKyc(previewKycUser._id);
+                      await rejectKyc(previewKycUser._id, kycReviewRemarks);
                       setPreviewKycUser(null);
                     }}
-                    className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 text-xs font-bold transition"
+                    className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 text-xs font-bold transition cursor-pointer active:scale-95"
                   >
-                    ✕ Reject KYC
+                    ✕ Reject with Note
                   </button>
                   <button
                     onClick={async () => {
-                      await approveKyc(previewKycUser._id);
+                      await approveKyc(previewKycUser._id, kycReviewRemarks);
                       setPreviewKycUser(null);
                     }}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition cursor-pointer active:scale-95"
                   >
-                    ✓ Approve KYC
+                    ✓ Approve with Note
                   </button>
                 </>
+              ) : (
+                <button
+                  onClick={async () => {
+                    await approveKyc(previewKycUser._id, kycReviewRemarks);
+                    setPreviewKycUser(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 text-xs font-bold transition cursor-pointer"
+                >
+                  Update Review Note
+                </button>
               )}
             </div>
           </div>

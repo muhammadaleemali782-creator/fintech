@@ -105,6 +105,11 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth', authLimiter);
 
+// Root redirect to live frontend
+app.get('/', (req, res) => {
+  res.redirect('https://educafintech.vercel.app');
+});
+
 // ------------------ HEALTH CHECK (hosting platform isse check karta hai ki server zinda hai) ------------------
 app.get('/api/health', (req, res) => {
   res.json({

@@ -221,8 +221,8 @@ export default function Dashboard() {
   const [claimingCard, setClaimingCard] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
 
-  // App Lock State (Biometric / 6-digit PIN on App Open)
-  const [appLocked, setAppLocked] = useState(() => Boolean(localStorage.getItem("token")));
+  // App Lock State (Biometric / 6-digit PIN on App Open) - Only active if PIN is configured
+  const [appLocked, setAppLocked] = useState(() => Boolean(localStorage.getItem("token") && localStorage.getItem("hasWalletPin") === "true"));
   const [appLockPin, setAppLockPin] = useState("");
   const [appLockError, setAppLockError] = useState("");
   const [appLockLoading, setAppLockLoading] = useState(false);
@@ -835,6 +835,12 @@ export default function Dashboard() {
       const res = await fetch(`${API}/user/me`, { headers });
       const data = await res.json();
       setUserProfile(data);
+      if (data.hasWalletPin) {
+        localStorage.setItem("hasWalletPin", "true");
+      } else {
+        localStorage.setItem("hasWalletPin", "false");
+        setAppLocked(false);
+      }
       setBalance(data.balance || 0);
       if (data.interestRate) setCurrentRate(data.interestRate);
       setReferralCode(data.referralCode || "");
@@ -1293,14 +1299,24 @@ export default function Dashboard() {
 
   const logout = () => { localStorage.clear(); window.location.href = "/"; };
 
+  const requireKyc = (callback) => {
+    if (userProfile.kycStatus !== "verified") {
+      showToast("KYC Verification zaroori hai! Kripya pehle document verify karwayein.", "warning");
+      setModal("kyc");
+      return false;
+    }
+    if (callback) callback();
+    return true;
+  };
+
   const activePersonalLoan = loans.find(l => (l.status === "active" || l.status === "pending" || l.status === "approved") && l.loanType === "personal");
   const activeBusinessLoan = loans.find(l => (l.status === "active" || l.status === "pending" || l.status === "approved") && l.loanType === "micro_business");
 
   const quickActions = [
     { icon: "📱", label: "My QR Code", sub: "Scan to receive", color: "bg-blue-100", action: () => setModal("my_qr") },
-    { icon: "⚡", label: "Send Money", sub: "Instant P2P", color: "bg-emerald-100", action: () => setModal("send_money") },
-    { icon: "🏦", label: "Personal Loan", sub: "10-day cycle", color: "bg-indigo-100", action: () => setAccountModal("personal_loan") },
-    { icon: "🏬", label: "Business Loan", sub: "Daily collection", color: "bg-amber-100", action: () => setAccountModal("business_loan") },
+    { icon: "⚡", label: "Send Money", sub: "Instant P2P", color: "bg-emerald-100", action: () => requireKyc(() => setModal("send_money")) },
+    { icon: "🏦", label: "Personal Loan", sub: "10-day cycle", color: "bg-indigo-100", action: () => requireKyc(() => setAccountModal("personal_loan")) },
+    { icon: "🏬", label: "Business Loan", sub: "Daily collection", color: "bg-amber-100", action: () => requireKyc(() => setAccountModal("business_loan")) },
   ];
 
   const navItems = [
@@ -1362,54 +1378,63 @@ export default function Dashboard() {
             <span className="text-[10px] text-blue-700 font-bold mt-1">Tap Sensor</span>
           </button>
 
-          {/* 6-Digit PIN Option */}
-          <div className="w-full bg-white border border-slate-200/90 shadow-xl shadow-slate-200/50 rounded-3xl p-5">
-            <p className="text-xs font-bold text-slate-700 mb-3">Or enter your 6-digit Wallet PIN</p>
+          {/* Single Interactive 6-Digit PIN Box Input */}
+          <div className="w-full bg-white border border-slate-200/90 shadow-xl shadow-slate-200/50 rounded-3xl p-6">
+            <p className="text-xs font-bold text-slate-700 mb-4">Enter 6-digit Wallet Security PIN</p>
             
-            <div className="flex justify-center gap-2 mb-4">
-              {[0, 1, 2, 3, 4, 5].map((idx) => (
-                <div
-                  key={idx}
-                  className={`w-9 h-11 rounded-xl border flex items-center justify-center text-lg font-black transition-all ${
-                    appLockPin.length > idx
-                      ? "border-blue-600 bg-blue-50 text-blue-700 shadow-xs"
-                      : "border-slate-200 bg-slate-50 text-slate-400"
-                  }`}
-                >
-                  {appLockPin.length > idx ? "•" : ""}
-                </div>
-              ))}
+            {/* Clickable 6-digit boxes with transparent overlay input */}
+            <div className="relative flex justify-center gap-2.5 mb-2 cursor-pointer">
+              {[0, 1, 2, 3, 4, 5].map((idx) => {
+                const hasDigit = appLockPin.length > idx;
+                const isCurrent = appLockPin.length === idx;
+                return (
+                  <div
+                    key={idx}
+                    className={`w-11 h-14 rounded-2xl border-2 flex items-center justify-center text-xl font-black transition-all ${
+                      hasDigit
+                        ? "border-blue-600 bg-blue-50/60 text-blue-700 shadow-sm scale-105"
+                        : isCurrent
+                        ? "border-blue-400 bg-white ring-4 ring-blue-100"
+                        : "border-slate-200 bg-slate-50 text-slate-400"
+                    }`}
+                  >
+                    {hasDigit ? "●" : ""}
+                  </div>
+                );
+              })}
+
+              {/* Native transparent input directly on the 6 boxes */}
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                autoFocus
+                value={appLockPin}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  setAppLockPin(val);
+                  setAppLockError("");
+                  if (val.length === 6) {
+                    verifyAppLockPin(val);
+                  }
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                aria-label="Enter 6-digit PIN"
+              />
             </div>
 
-            {/* Hidden / Native Input for PIN */}
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={6}
-              value={appLockPin}
-              onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, "").slice(0, 6);
-                setAppLockPin(val);
-                setAppLockError("");
-                if (val.length === 6) {
-                  verifyAppLockPin(val);
-                }
-              }}
-              placeholder="Type 6-digit PIN"
-              className="w-full text-center tracking-widest text-sm py-2.5 px-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 outline-none focus:border-blue-600 focus:bg-white transition"
-            />
+            <p className="text-[11px] text-slate-400 font-medium mt-2">
+              Tap boxes to type PIN · Auto-unlocks on 6 digits
+            </p>
 
             {appLockError && (
-              <p className="text-xs text-rose-600 font-semibold mt-2">{appLockError}</p>
+              <p className="text-xs text-rose-600 font-semibold mt-2.5">{appLockError}</p>
             )}
 
-            <button
-              onClick={() => verifyAppLockPin(appLockPin)}
-              disabled={appLockPin.length !== 6 || appLockLoading}
-              className="w-full mt-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-40"
-            >
-              {appLockLoading ? "Verifying..." : "Unlock with PIN →"}
-            </button>
+            {appLockLoading && (
+              <p className="text-xs text-blue-600 font-bold mt-2.5 animate-pulse">Verifying PIN...</p>
+            )}
           </div>
         </div>
 
@@ -1557,7 +1582,7 @@ export default function Dashboard() {
             {/* Quick Action Pill Buttons */}
             <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-5 w-full">
               <button
-                onClick={() => setModal("send_money")}
+                onClick={() => requireKyc(() => setModal("send_money"))}
                 className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5"
               >
                 <span>⚡</span> Send Money
@@ -1575,7 +1600,7 @@ export default function Dashboard() {
                 <span>➕</span> Add Money
               </button>
               <button
-                onClick={() => setModal("withdraw")}
+                onClick={() => requireKyc(() => setModal("withdraw"))}
                 className="py-2 px-4 bg-white/10 hover:bg-white/20 backdrop-blur text-white/90 rounded-xl font-bold text-xs border border-white/20 active:scale-95 transition flex items-center gap-1.5"
               >
                 <span>↓</span> Cash Out
@@ -3592,6 +3617,31 @@ export default function Dashboard() {
               {userProfile.kycStatus || "Not Submitted"}
             </span>
           </div>
+
+          {/* User's Previously Uploaded Document (In-App View) */}
+          {userProfile.kycDocuments?.docUrl && (
+            <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-indigo-950 flex items-center gap-1.5">
+                  <span>🖼</span> Saved KYC Document
+                </span>
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full">
+                  Saved on File
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <img
+                  src={userProfile.kycDocuments.docUrl}
+                  alt="Saved KYC Document"
+                  className="w-16 h-16 object-cover rounded-xl border border-indigo-200 shadow-xs bg-white"
+                />
+                <div className="text-xs space-y-1">
+                  <p className="font-semibold text-slate-800">In-App Stored Document</p>
+                  <p className="text-[11px] text-slate-500">Google Drive & Server sync active.</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 12-Digit Aadhaar Input */}
           <div>

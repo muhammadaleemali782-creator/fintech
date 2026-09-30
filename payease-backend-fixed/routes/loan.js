@@ -144,6 +144,13 @@ router.post('/apply', protect, async (req, res) => {
     const userDoc = await User.findById(req.user._id);
     if (!userDoc) return res.status(404).json({ message: 'User not found' });
 
+    if (userDoc.kycStatus !== 'verified') {
+      return res.status(403).json({
+        message: 'Loan lene ke liye KYC verification zaroori hai. Kripya pehle KYC documents submit aur verify karwayein.',
+        requireKyc: true
+      });
+    }
+
     // 1. One Active Loan Rule
     const existingActive = await Loan.findOne({
       userId: req.user._id,

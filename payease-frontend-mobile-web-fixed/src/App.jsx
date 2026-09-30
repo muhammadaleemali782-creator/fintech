@@ -42,13 +42,43 @@ function LoadingScreen() {
   );
 }
 
+export function checkIsAppClient() {
+  if (typeof window === "undefined") return false;
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("app") === "true") {
+    localStorage.setItem("educa_app_mode", "true");
+    return true;
+  }
+  if (localStorage.getItem("educa_app_mode") === "true") return true;
+  const ua = (window.navigator.userAgent || "").toLowerCase();
+  if (ua.includes("wv") || ua.includes("educafintech") || window.AndroidBiometric) {
+    return true;
+  }
+  return isStandalone;
+}
+
+function RootRoute() {
+  const isApp = checkIsAppClient();
+  const token = localStorage.getItem("token");
+
+  // In App Mode: Direct login / dashboard, zero landing page
+  if (isApp) {
+    if (token) return <Navigate to="/dashboard" replace />;
+    return <Login isApp={true} />;
+  }
+
+  // In Website Mode: Beautiful Landing Home Page
+  return <LandingPage />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
-          {/* 1. Direct App Login on root */}
-          <Route path="/" element={<Login />} />
+          {/* 1. Smart Root: Landing page for Website, Direct Login for App */}
+          <Route path="/" element={<RootRoute />} />
           <Route path="/home" element={<LandingPage />} />
 
           {/* 2. About Us */}
@@ -86,7 +116,7 @@ export default function App() {
           <Route path="/contact" element={<ContactPage />} />
 
           {/* 13. Login / Register */}
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<Login isApp={checkIsAppClient()} />} />
 
           {/* 14. Customer Dashboard */}
           <Route

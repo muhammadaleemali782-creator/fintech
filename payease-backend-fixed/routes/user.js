@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const Settings = require('../models/Settings');
 const { protect } = require('../middleware/auth');
 const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
@@ -322,23 +323,51 @@ router.post('/kyc/submit', protect, async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // Fetch Admin's Google Drive Setting if available
+    let adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+    const adminDriveUrl = adminDriveSetting?.value;
+
+    let effectiveDriveLink = googleDriveLink || '';
+    if (!effectiveDriveLink && adminDriveUrl && !adminDriveUrl.startsWith('https://script.google.com/')) {
+      effectiveDriveLink = adminDriveUrl;
+    }
+
     user.kycStatus = 'pending';
     if (aadharNumber) user.aadharNumber = aadharNumber;
     user.kycDocuments = {
       aadharNumber: aadharNumber || user.aadharNumber || '',
       panNumber: panNumber ? panNumber.toUpperCase() : '',
-      googleDriveLink: googleDriveLink || '',
+      googleDriveLink: effectiveDriveLink,
       docUrl: docUrl || '',
       submittedAt: new Date()
     };
 
     await user.save();
 
+    // If Admin configured an Apps Script Webhook, sync automatically to create folder/tab in Drive
+    if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
+      fetch(adminDriveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upload_kyc',
+          userId: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          aadharNumber: user.aadharNumber,
+          panNumber: user.kycDocuments.panNumber,
+          docUrl: docUrl || '',
+          submittedAt: user.kycDocuments.submittedAt
+        })
+      }).catch(e => console.warn('Drive webhook sync warning:', e.message));
+    }
+
     sendNotification({
       type: 'kyc_submitted',
       title: 'New KYC Document Submission 📄',
       message: `${user.name} (${user.email || user.phone}) ne KYC documents submit kiye hain.`,
-      data: { userId: user._id, name: user.name, googleDriveLink }
+      data: { userId: user._id, name: user.name, googleDriveLink: effectiveDriveLink }
     });
 
     res.json({

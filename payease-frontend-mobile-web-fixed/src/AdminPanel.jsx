@@ -24,6 +24,9 @@ export default function AdminPanel() {
   const [newInterestRate, setNewInterestRate] = useState("");
   const [commissionRate, setCommissionRate] = useState(2);
   const [newCommissionRate, setNewCommissionRate] = useState("");
+  const [googleDriveUrl, setGoogleDriveUrl] = useState("");
+  const [newGoogleDriveUrl, setNewGoogleDriveUrl] = useState("");
+  const [previewKycUser, setPreviewKycUser] = useState(null);
 
   const showToast = (text, type = "success") => setToast({ text, type });
 
@@ -85,6 +88,8 @@ export default function AdminPanel() {
       const data = await res.json();
       setInterestRate(data.loanInterestRate || 12);
       setCommissionRate(data.referralCommissionRate || 2);
+      setGoogleDriveUrl(data.googleDriveUrl || "");
+      setNewGoogleDriveUrl(data.googleDriveUrl || "");
     } catch {}
   }, []); // eslint-disable-line
 
@@ -321,6 +326,21 @@ export default function AdminPanel() {
     const data = await res.json();
     showToast(data.message, res.ok ? "success" : "error");
     if (res.ok) { setCommissionRate(rate); setNewCommissionRate(""); }
+  };
+
+  const updateGoogleDriveUrl = async () => {
+    try {
+      const res = await fetch(`${API}/settings/google-drive`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ url: newGoogleDriveUrl })
+      });
+      const data = await res.json();
+      showToast(data.message || "Google Drive settings updated", res.ok ? "success" : "error");
+      if (res.ok) setGoogleDriveUrl(data.url || newGoogleDriveUrl);
+    } catch {
+      showToast("Network error updating Google Drive link", "error");
+    }
   };
 
   const loanStatusColor = { pending: "bg-yellow-100 text-yellow-700", active: "bg-blue-100 text-blue-700", closed: "bg-green-100 text-green-700", rejected: "bg-red-100 text-red-700" };
@@ -678,14 +698,22 @@ export default function AdminPanel() {
                                 )}
 
                                 {u.kycDocuments?.docUrl && (
-                                  <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewKycUser(u)}
+                                      className="inline-flex items-center gap-1 text-[11px] text-indigo-700 font-bold bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded cursor-pointer transition active:scale-95"
+                                    >
+                                      🖼 In-App View
+                                    </button>
                                     <a
                                       href={u.kycDocuments.docUrl}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 text-[11px] text-indigo-600 font-bold hover:underline bg-indigo-50 px-2 py-0.5 rounded"
+                                      className="text-[10px] text-gray-400 hover:text-gray-600"
+                                      title="Open direct file"
                                     >
-                                      🖼 Preview Doc
+                                      ↗
                                     </a>
                                   </div>
                                 )}
@@ -839,6 +867,15 @@ export default function AdminPanel() {
                               >
                                 📁 Drive Link ↗
                               </a>
+                            )}
+                            {u.kycDocuments?.docUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewKycUser(u)}
+                                className="px-2 py-0.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded text-[10px] font-bold transition active:scale-95"
+                              >
+                                🖼 View In-App
+                              </button>
                             )}
                           </div>
                           {u.kycStatus === "pending" && (
@@ -1199,10 +1236,185 @@ export default function AdminPanel() {
                   <button onClick={updateCommissionRate} className="px-5 py-3 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition">Update</button>
                 </div>
               </div>
+
+              {/* Google Drive Integration */}
+              <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-lg font-bold font-display flex items-center gap-2 text-gray-900">
+                    <span>📁</span> Google Drive KYC Integration
+                  </h3>
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    Cloud Auto-Sync
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">
+                  Apne Google Drive folder ka link ya Apps Script Webhook URL enter karein. Sabhi user KYC documents yahan auto-link rahenge.
+                </p>
+
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">
+                  <p className="font-bold">Active Drive Link / Webhook:</p>
+                  <p className="font-mono text-[11px] truncate">
+                    {googleDriveUrl || "Koi link set nahi hai (Currently using In-App Direct Storage)"}
+                  </p>
+                </div>
+
+                <div className="space-y-3 max-w-lg">
+                  <input
+                    type="url"
+                    value={newGoogleDriveUrl}
+                    onChange={e => setNewGoogleDriveUrl(e.target.value)}
+                    placeholder="https://drive.google.com/drive/folders/... ya Apps Script URL"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={updateGoogleDriveUrl}
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition"
+                    >
+                      Save Drive Link
+                    </button>
+                    {googleDriveUrl && (
+                      <a
+                        href={googleDriveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition"
+                      >
+                        Open Drive ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* IN-APP KYC DOCUMENT VIEWER MODAL */}
+      {previewKycUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-gray-200 flex flex-col max-h-[92vh] overflow-hidden text-gray-900">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 shrink-0">
+              <div>
+                <h3 className="font-black text-lg text-gray-900 flex items-center gap-2">
+                  <span>📄</span> KYC Verification: {previewKycUser.name}
+                </h3>
+                <p className="text-xs text-gray-500">
+                  {previewKycUser.email} · {previewKycUser.phone}
+                </p>
+              </div>
+              <button
+                onClick={() => setPreviewKycUser(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content Scrollable */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs bg-gray-50 p-3 rounded-2xl border border-gray-200">
+                <div>
+                  <span className="text-gray-400 font-semibold block text-[10px]">AADHAAR NUMBER</span>
+                  <span className="font-mono font-bold text-gray-900">
+                    {previewKycUser.kycDocuments?.aadharNumber || "Not Provided"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 font-semibold block text-[10px]">PAN NUMBER</span>
+                  <span className="font-mono font-bold text-gray-900 uppercase">
+                    {previewKycUser.kycDocuments?.panNumber || "Not Provided"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 font-semibold block text-[10px]">STATUS</span>
+                  <span className={`inline-block px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${
+                    previewKycUser.kycStatus === "verified"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : previewKycUser.kycStatus === "pending"
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-rose-100 text-rose-800"
+                  }`}>
+                    {previewKycUser.kycStatus}
+                  </span>
+                </div>
+              </div>
+
+              {/* Google Drive Link if exists */}
+              {previewKycUser.kycDocuments?.googleDriveLink && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 truncate mr-2">
+                    <span>📁</span>
+                    <span className="font-bold text-blue-900">Google Drive:</span>
+                    <span className="text-blue-700 truncate font-mono text-[11px]">{previewKycUser.kycDocuments.googleDriveLink}</span>
+                  </div>
+                  <a
+                    href={previewKycUser.kycDocuments.googleDriveLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shrink-0"
+                  >
+                    Open Drive ↗
+                  </a>
+                </div>
+              )}
+
+              {/* In-App Document Image / PDF Preview */}
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-gray-700 block">Uploaded Document In-App Preview:</span>
+                {previewKycUser.kycDocuments?.docUrl ? (
+                  <div className="bg-gray-900/5 rounded-2xl p-2 border border-gray-200 flex items-center justify-center min-h-[260px] max-h-[400px] overflow-hidden">
+                    <img
+                      src={previewKycUser.kycDocuments.docUrl}
+                      alt="KYC Document Preview"
+                      className="max-h-[380px] max-w-full object-contain rounded-xl shadow-xs"
+                    />
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-xs text-gray-400">
+                    No image file uploaded directly (User shared Google Drive Link)
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Action Footer */}
+            <div className="flex items-center justify-end gap-2.5 border-t border-gray-100 pt-3 mt-4 shrink-0">
+              <button
+                onClick={() => setPreviewKycUser(null)}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition"
+              >
+                Close
+              </button>
+              {previewKycUser.kycStatus === "pending" && (
+                <>
+                  <button
+                    onClick={async () => {
+                      await rejectKyc(previewKycUser._id);
+                      setPreviewKycUser(null);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 text-xs font-bold transition"
+                  >
+                    ✕ Reject KYC
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await approveKyc(previewKycUser._id);
+                      setPreviewKycUser(null);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition"
+                  >
+                    ✓ Approve KYC
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toast msg={toast} onHide={() => setToast({ text: "", type: "" })} />
     </div>

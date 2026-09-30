@@ -92,4 +92,22 @@ router.get('/referral-stats/:userId', protect, admin, async (req, res) => {
   }
 });
 
+// Update Google Drive Integration URL (Folder or Apps Script Webhook)
+router.post('/google-drive', protect, admin, async (req, res) => {
+  try {
+    const { url } = req.body;
+    await Settings.findOneAndUpdate(
+      { key: 'googleDriveUrl' },
+      { key: 'googleDriveUrl', value: (url || '').trim(), updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    res.json({
+      message: '✅ Google Drive integration link saved successfully!',
+      url: (url || '').trim()
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update Google Drive link.' });
+  }
+});
+
 module.exports = router;

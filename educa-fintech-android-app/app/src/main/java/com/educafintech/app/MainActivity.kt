@@ -146,7 +146,7 @@ class MainActivity : AppCompatActivity() {
         })
 
         // Load live app with ?app=true query
-        webView.loadUrl("https://educafintech.onrender.com/?app=true")
+        webView.loadUrl("https://educafintech.vercel.app/?app=true")
     }
 
     @SuppressLint("SetJavaScriptEnabled")

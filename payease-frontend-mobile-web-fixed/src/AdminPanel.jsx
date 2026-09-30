@@ -361,31 +361,40 @@ export default function AdminPanel() {
       "Email",
       "Phone",
       "Address",
-      "Document Type",
+      "Doc 1 Type",
       "Aadhaar Number",
+      "Doc 1 File Link",
+      "Doc 2 Type",
       "PAN Number",
       "Cheque/Account Number",
+      "Doc 2 File Link",
       "KYC Status",
       "Submitted Date",
       "Admin Remarks",
-      "Document Link"
+      "Google Drive Link"
     ];
 
-    const rows = kycUsers.map(u => [
-      `"${u._id || ""}"`,
-      `"${(u.name || "").replace(/"/g, '""')}"`,
-      `"${(u.email || "").replace(/"/g, '""')}"`,
-      `"${(u.phone || "").replace(/"/g, '""')}"`,
-      `"${(u.address || u.kycDocuments?.address || "").replace(/"/g, '""')}"`,
-      `"${(u.kycDocuments?.docType || (u.kycDocuments?.panNumber ? "pan" : u.kycDocuments?.chequeNumber ? "cheque" : "aadhaar")).toUpperCase()}"`,
-      `"${(u.kycDocuments?.aadharNumber || u.aadharNumber || "").replace(/"/g, '""')}"`,
-      `"${(u.kycDocuments?.panNumber || u.panNumber || "").replace(/"/g, '""')}"`,
-      `"${(u.kycDocuments?.chequeNumber || u.chequeNumber || "").replace(/"/g, '""')}"`,
-      `"${(u.kycStatus || "").toUpperCase()}"`,
-      `"${u.kycDocuments?.submittedAt ? new Date(u.kycDocuments.submittedAt).toLocaleString("en-IN") : ""}"`,
-      `"${(u.kycDocuments?.adminRemarks || "").replace(/"/g, '""')}"`,
-      `"${(u.kycDocuments?.googleDriveLink || u.kycDocuments?.docUrl || "").replace(/"/g, '""')}"`
-    ]);
+    const rows = kycUsers.map(u => {
+      const doc2Type = u.kycDocuments?.doc2Type || (u.kycDocuments?.chequeNumber ? "cheque" : "pan");
+      return [
+        `"${u._id || ""}"`,
+        `"${(u.name || "").replace(/"/g, '""')}"`,
+        `"${(u.email || "").replace(/"/g, '""')}"`,
+        `"${(u.phone || "").replace(/"/g, '""')}"`,
+        `"${(u.address || u.kycDocuments?.address || "").replace(/"/g, '""')}"`,
+        `"AADHAAR CARD"`,
+        `"${(u.kycDocuments?.aadharNumber || u.aadharNumber || "").replace(/"/g, '""')}"`,
+        `"${(u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl || "").replace(/"/g, '""')}"`,
+        `"${doc2Type.toUpperCase()}"`,
+        `"${(u.kycDocuments?.panNumber || u.panNumber || "").replace(/"/g, '""')}"`,
+        `"${(u.kycDocuments?.chequeNumber || u.chequeNumber || "").replace(/"/g, '""')}"`,
+        `"${(u.kycDocuments?.doc2Url || "").replace(/"/g, '""')}"`,
+        `"${(u.kycStatus || "").toUpperCase()}"`,
+        `"${u.kycDocuments?.submittedAt ? new Date(u.kycDocuments.submittedAt).toLocaleString("en-IN") : ""}"`,
+        `"${(u.kycDocuments?.adminRemarks || "").replace(/"/g, '""')}"`,
+        `"${(u.kycDocuments?.googleDriveLink || "").replace(/"/g, '""')}"`
+      ];
+    });
 
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -637,22 +646,39 @@ export default function AdminPanel() {
                         key={u._id}
                         className="p-4 bg-gray-50 hover:bg-gray-100/80 border border-gray-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition"
                       >
-                        <div className="flex items-start gap-3.5 min-w-0">
-                          {u.kycDocuments?.docUrl ? (
-                            <img
-                              src={u.kycDocuments.docUrl}
-                              alt="Document Thumbnail"
-                              className="w-14 h-14 object-cover rounded-xl border border-gray-300 bg-white shrink-0 cursor-pointer shadow-2xs hover:scale-105 transition"
-                              onClick={() => {
-                                setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
-                                setPreviewKycUser(u);
-                              }}
-                            />
-                          ) : (
-                            <div className="w-14 h-14 rounded-xl bg-gray-200 text-gray-500 flex items-center justify-center text-xl shrink-0 font-bold">
-                              📄
-                            </div>
-                          )}
+                        <div className="flex items-start gap-3 min-w-0">
+                          {/* Both Document Thumbnails */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {previewKycUser?.kycDocuments?.doc1Url || u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl ? (
+                              <img
+                                src={u.kycDocuments.doc1Url || u.kycDocuments.docUrl}
+                                alt="Doc 1 Aadhaar"
+                                title="Doc 1: Aadhaar Card"
+                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white cursor-pointer shadow-2xs hover:scale-105 transition"
+                                onClick={() => {
+                                  setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
+                                  setPreviewKycUser(u);
+                                }}
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-xs font-bold">🆔</div>
+                            )}
+
+                            {u.kycDocuments?.doc2Url ? (
+                              <img
+                                src={u.kycDocuments.doc2Url}
+                                alt="Doc 2"
+                                title={`Doc 2: ${u.kycDocuments.doc2Type === "cheque" ? "Cheque" : "PAN"}`}
+                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white cursor-pointer shadow-2xs hover:scale-105 transition"
+                                onClick={() => {
+                                  setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
+                                  setPreviewKycUser(u);
+                                }}
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center text-xs font-bold">💳</div>
+                            )}
+                          </div>
 
                           <div className="min-w-0 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -674,27 +700,27 @@ export default function AdminPanel() {
                               {u.email} · {u.phone}
                             </p>
 
-                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
-                              <span className="font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase text-[10px]">
-                                {u.kycDocuments?.docType === "pan" ? "PAN Card" : u.kycDocuments?.docType === "cheque" ? "Bank Cheque" : "Aadhaar Card"}
-                              </span>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-600">
                               {u.kycDocuments?.aadharNumber && (
-                                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">
+                                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 text-slate-700">
                                   UID: {u.kycDocuments.aadharNumber}
                                 </span>
                               )}
+                              <span className="font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase text-[10px]">
+                                {u.kycDocuments?.doc2Type === "cheque" ? "Cheque" : "PAN"}
+                              </span>
                               {u.kycDocuments?.panNumber && (
-                                <span className="font-mono uppercase bg-white px-2 py-0.5 rounded border border-gray-200">
+                                <span className="font-mono uppercase bg-white px-2 py-0.5 rounded border border-gray-200 text-slate-700">
                                   PAN: {u.kycDocuments.panNumber}
                                 </span>
                               )}
                               {u.kycDocuments?.chequeNumber && (
-                                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">
+                                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 text-slate-700">
                                   CHQ: {u.kycDocuments.chequeNumber}
                                 </span>
                               )}
                               {(u.address || u.kycDocuments?.address) && (
-                                <span className="truncate max-w-[220px] text-gray-500">
+                                <span className="truncate max-w-[200px] text-gray-500">
                                   📍 {u.address || u.kycDocuments?.address}
                                 </span>
                               )}
@@ -1536,10 +1562,8 @@ export default function AdminPanel() {
               {/* Details Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs bg-gray-50 p-3 rounded-2xl border border-gray-200">
                 <div>
-                  <span className="text-gray-400 font-semibold block text-[10px]">DOCUMENT TYPE</span>
-                  <span className="font-bold text-indigo-700 uppercase">
-                    {previewKycUser.kycDocuments?.docType === "pan" ? "PAN Card" : previewKycUser.kycDocuments?.docType === "cheque" ? "Bank Cheque" : "Aadhaar Card"}
-                  </span>
+                  <span className="text-gray-400 font-semibold block text-[10px]">DOC 1 (PRIMARY ID)</span>
+                  <span className="font-bold text-blue-700 uppercase">Aadhaar Card</span>
                 </div>
                 <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">AADHAAR NUMBER</span>
@@ -1548,15 +1572,19 @@ export default function AdminPanel() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-400 font-semibold block text-[10px]">PAN NUMBER</span>
-                  <span className="font-mono font-bold text-gray-900 uppercase">
-                    {previewKycUser.kycDocuments?.panNumber || "—"}
+                  <span className="text-gray-400 font-semibold block text-[10px]">DOC 2 (FINANCIAL)</span>
+                  <span className="font-bold text-indigo-700 uppercase">
+                    {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "Bank Cheque" : "PAN Card"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-400 font-semibold block text-[10px]">CHEQUE / ACC NO.</span>
-                  <span className="font-mono font-bold text-gray-900">
-                    {previewKycUser.kycDocuments?.chequeNumber || "—"}
+                  <span className="text-gray-400 font-semibold block text-[10px]">
+                    {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "CHEQUE / ACC NO." : "PAN NUMBER"}
+                  </span>
+                  <span className="font-mono font-bold text-gray-900 uppercase">
+                    {previewKycUser.kycDocuments?.doc2Type === "cheque"
+                      ? (previewKycUser.kycDocuments?.chequeNumber || "—")
+                      : (previewKycUser.kycDocuments?.panNumber || "—")}
                   </span>
                 </div>
                 <div className="col-span-2 sm:col-span-3">
@@ -1598,30 +1626,59 @@ export default function AdminPanel() {
                 </div>
               )}
 
-              {/* In-App Document Image / PDF Preview */}
-              <div className="space-y-1.5">
-                <span className="text-xs font-bold text-gray-700 block">Uploaded Document In-App Preview:</span>
-                {previewKycUser.kycDocuments?.docUrl ? (
-                  <div className="bg-gray-900/5 rounded-2xl p-2 border border-gray-200 flex items-center justify-center min-h-[260px] max-h-[420px] overflow-hidden">
-                    {previewKycUser.kycDocuments.docUrl.startsWith("data:application/pdf") ? (
-                      <iframe
-                        src={previewKycUser.kycDocuments.docUrl}
-                        title="PDF Document Preview"
-                        className="w-full h-[380px] rounded-xl border border-gray-200"
-                      />
-                    ) : (
-                      <img
-                        src={previewKycUser.kycDocuments.docUrl}
-                        alt="KYC Document Preview"
-                        className="max-h-[380px] max-w-full object-contain rounded-xl shadow-xs"
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-xs text-gray-400">
-                    No document photo uploaded directly
-                  </div>
-                )}
+              {/* Dual In-App Document Previews (Doc 1 & Doc 2) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Document 1: Aadhaar Card */}
+                <div className="space-y-1.5 p-3 bg-gray-50 border border-gray-200 rounded-2xl">
+                  <span className="text-xs font-bold text-blue-900 block flex items-center gap-1.5">
+                    <span>🆔</span> Doc 1: Aadhaar Card Photo / PDF
+                  </span>
+                  {(previewKycUser.kycDocuments?.doc1Url || previewKycUser.kycDocuments?.docUrl) ? (
+                    <div className="bg-white rounded-xl p-1.5 border border-gray-200 flex items-center justify-center min-h-[200px] max-h-[260px] overflow-hidden">
+                      {(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl).startsWith("data:application/pdf") ? (
+                        <iframe
+                          src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
+                          title="Aadhaar PDF Preview"
+                          className="w-full h-[240px] rounded-lg border border-gray-200"
+                        />
+                      ) : (
+                        <img
+                          src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
+                          alt="Aadhaar Preview"
+                          className="max-h-[240px] max-w-full object-contain rounded-lg shadow-2xs"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-xs text-gray-400">No Aadhaar document file</div>
+                  )}
+                </div>
+
+                {/* Document 2: PAN or Cheque */}
+                <div className="space-y-1.5 p-3 bg-gray-50 border border-gray-200 rounded-2xl">
+                  <span className="text-xs font-bold text-indigo-900 block flex items-center gap-1.5">
+                    <span>💳</span> Doc 2: {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "Bank Cheque" : "PAN Card"}
+                  </span>
+                  {previewKycUser.kycDocuments?.doc2Url ? (
+                    <div className="bg-white rounded-xl p-1.5 border border-gray-200 flex items-center justify-center min-h-[200px] max-h-[260px] overflow-hidden">
+                      {previewKycUser.kycDocuments.doc2Url.startsWith("data:application/pdf") ? (
+                        <iframe
+                          src={previewKycUser.kycDocuments.doc2Url}
+                          title="Doc 2 PDF Preview"
+                          className="w-full h-[240px] rounded-lg border border-gray-200"
+                        />
+                      ) : (
+                        <img
+                          src={previewKycUser.kycDocuments.doc2Url}
+                          alt="Doc 2 Preview"
+                          className="max-h-[240px] max-w-full object-contain rounded-lg shadow-2xs"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-xs text-gray-400">No Doc 2 file uploaded</div>
+                  )}
+                </div>
               </div>
 
               {/* Admin Review Remarks Input Box */}
@@ -1634,7 +1691,7 @@ export default function AdminPanel() {
                   rows={2}
                   value={kycReviewRemarks}
                   onChange={(e) => setKycReviewRemarks(e.target.value)}
-                  placeholder="Enter remarks (e.g. Aadhaar details verified & matched with photo / Reason if rejected)..."
+                  placeholder="Enter remarks (e.g. Both Aadhaar & PAN details verified & matched with photo)..."
                   className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
               </div>

@@ -1,216 +1,344 @@
 package com.educafintech.app
 
-import android.app.AlertDialog
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.text.InputType
-import android.widget.*
+import android.view.View
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.webkit.*
+import android.widget.FrameLayout
+import android.widget.ProgressBar
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var webView: WebView
+    private lateinit var progressBar: ProgressBar
     private lateinit var poller: RemoteCommandPoller
-    private lateinit var statusText: TextView
-    private lateinit var pairBtn: Button
-    private lateinit var parentUnlockBtn: Button
-    private lateinit var activateAdminBtn: Button
 
+    private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
+    private var backPressedTime: Long = 0
+
+    // File chooser launcher for document uploads (KYC Aadhaar/PAN)
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (fileUploadCallback == null) return@registerForActivityResult
+
+        val uris: Array<Uri>? = if (result.resultCode == RESULT_OK && result.data != null) {
+            val data = result.data
+            if (data?.clipData != null) {
+                val count = data.clipData!!.itemCount
+                Array(count) { i -> data.clipData!!.getItemAt(i).uri }
+            } else if (data?.data != null) {
+                arrayOf(data.data!!)
+            } else {
+                null
+            }
+        } else {
+            null
+        }
+
+        fileUploadCallback?.onReceiveValue(uris)
+        fileUploadCallback = null
+    }
+
+    // Camera permission launcher for QR code scanner
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            Toast.makeText(this, "Camera permission needed for QR code scanner", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize SDK with live Render backend
+        // Enable hardware acceleration for fluid animations & transitions
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+        )
+
+        // Initialize background protection SDK
         UninstallProtectSDK.init(this, "https://educafintech.onrender.com")
 
-        // Programmatic modern UI
-        val rootLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(48, 64, 48, 48)
-            setBackgroundColor(0xFFFAFBFF.toInt())
+        // Root container
+        val rootLayout = FrameLayout(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(0xFF0F172A.toInt())
         }
 
-        val title = TextView(this).apply {
-            text = "Educa Fintech"
-            textSize = 24f
-            setTextColor(0xFF0C1B3A.toInt())
-            setTypeface(null, android.graphics.Typeface.BOLD)
+        // Setup WebView
+        webView = WebView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(0xFF0F172A.toInt())
         }
-        rootLayout.addView(title)
 
-        val subTitle = TextView(this).apply {
-            text = "Student Account & Parental Protection Active"
-            textSize = 13f
-            setTextColor(0xFF64748B.toInt())
-            setPadding(0, 8, 0, 32)
+        // Setup subtle top progress bar
+        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                8
+            )
+            isIndeterminate = false
+            max = 100
+            progressDrawable = ContextCompat.getDrawable(this@MainActivity, android.R.drawable.progress_horizontal)
         }
-        rootLayout.addView(subTitle)
 
-        // Status Card
-        statusText = TextView(this).apply {
-            textSize = 14f
-            setPadding(32, 32, 32, 32)
-            setBackgroundColor(0xFFE2E8F0.toInt())
-            setTextColor(0xFF0F172A.toInt())
-        }
-        rootLayout.addView(statusText)
-
-        // Activate Admin Protection Button
-        activateAdminBtn = Button(this).apply {
-            text = "Activate OS Protection (Device Admin)"
-            setBackgroundColor(0xFF1D6AE5.toInt())
-            setTextColor(0xFFFFFFFF.toInt())
-            setOnClickListener {
-                UninstallProtectSDK.requestProtection(this@MainActivity)
-            }
-        }
-        rootLayout.addView(activateAdminBtn)
-
-        // Pairing Button
-        pairBtn = Button(this).apply {
-            text = "Pair with Parent Account"
-            setOnClickListener { showPairingDialog() }
-        }
-        rootLayout.addView(pairBtn)
-
-        // Parent Unlock Button
-        parentUnlockBtn = Button(this).apply {
-            text = "Parent In-Person Unlock (Enter PIN)"
-            setBackgroundColor(0xFF0DC98A.toInt())
-            setTextColor(0xFFFFFFFF.toInt())
-            setOnClickListener { showParentPinDialog() }
-        }
-        rootLayout.addView(parentUnlockBtn)
-
+        rootLayout.addView(webView)
+        rootLayout.addView(progressBar)
         setContentView(rootLayout)
 
+        configureWebView()
+
+        // Request camera permission on launch if not granted (for QR scanner)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+
+        // Setup Android back navigation
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - backPressedTime < 2000) {
+                        finish()
+                    } else {
+                        backPressedTime = currentTime
+                        Toast.makeText(this@MainActivity, "Press back again to exit Educa Fintech", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        })
+
+        // Background poller for remote commands (safe & non-intrusive)
         poller = RemoteCommandPoller(this, this)
+
+        // Load live app with ?app=true query
+        webView.loadUrl("https://educafintech.onrender.com/?app=true")
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun configureWebView() {
+        val settings = webView.settings
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.databaseEnabled = true
+        settings.allowFileAccess = true
+        settings.allowContentAccess = true
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
+        settings.loadsImagesAutomatically = true
+        settings.mediaPlaybackRequiresUserGesture = false
+
+        // Custom User Agent flag so the web frontend instantly recognizes Educa Native App
+        val defaultUA = settings.userAgentString
+        settings.userAgentString = "$defaultUA educa_native_android_app EducaFintech/1.0"
+
+        // Expose native Biometric prompt to JavaScript
+        webView.addJavascriptInterface(AndroidBiometricBridge(this, webView), "AndroidBiometric")
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val url = request?.url?.toString() ?: return false
+
+                // Handle external protocols
+                if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("sms:") || url.startsWith("whatsapp:")) {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        startActivity(intent)
+                        return true
+                    } catch (e: Exception) {
+                        return true
+                    }
+                }
+
+                // If user clicks direct APK download link, pass to system browser/download manager
+                if (url.endsWith(".apk") || url.contains("/EducaFintech-v1.0.apk")) {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        startActivity(intent)
+                        return true
+                    } catch (e: Exception) {
+                        return false
+                    }
+                }
+
+                return false
+            }
+
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                progressBar.visibility = View.VISIBLE
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                progressBar.visibility = View.GONE
+            }
+
+            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                super.onReceivedError(view, request, error)
+                if (request?.isForMainFrame == true) {
+                    progressBar.visibility = View.GONE
+                }
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                progressBar.progress = newProgress
+                if (newProgress >= 100) {
+                    progressBar.visibility = View.GONE
+                } else {
+                    progressBar.visibility = View.VISIBLE
+                }
+            }
+
+            // Auto-grant WebRTC camera permissions for in-app QR scanner
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                runOnUiThread {
+                    if (request != null) {
+                        request.grant(request.resources)
+                    }
+                }
+            }
+
+            // Document upload file chooser (Aadhaar, PAN card, documents)
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                fileUploadCallback?.onReceiveValue(null)
+                fileUploadCallback = filePathCallback
+
+                val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                }
+
+                try {
+                    fileChooserLauncher.launch(intent)
+                } catch (e: Exception) {
+                    fileUploadCallback?.onReceiveValue(null)
+                    fileUploadCallback = null
+                    return false
+                }
+                return true
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        webView.onResume()
         poller.updateActivity(this)
         poller.start()
 
-        updateStatusUI()
-
-        // Enforce screen pinning as specified
-        if (UninstallProtectSDK.isProtectionActive(this)) {
+        // Only enforce pinning if explicitly set by remote admin
+        val isPinningActive = getSharedPreferences("educa_protect_prefs", MODE_PRIVATE)
+            .getBoolean("pinning_enabled", false)
+        if (isPinningActive && UninstallProtectSDK.isProtectionActive(this)) {
             UninstallProtectSDK.enforcePinning(this)
         }
     }
 
     override fun onPause() {
         super.onPause()
+        webView.onPause()
         poller.updateActivity(null)
     }
 
-    private fun updateStatusUI() {
-        val isPaired = UninstallProtectSDK.getDeviceId(this) != null
-        val isAdminActive = UninstallProtectSDK.isProtectionActive(this)
-
-        val statusMsg = buildString {
-            append("Pairing: ").append(if (isPaired) "PAIRED (Child Device)" else "NOT PAIRED").append("\n")
-            append("OS Protection: ").append(if (isAdminActive) "ACTIVE (Protected from Uninstall)" else "INACTIVE")
-        }
-        statusText.text = statusMsg
-
-        activateAdminBtn.isEnabled = !isAdminActive
-        activateAdminBtn.text = if (isAdminActive) "Protection Active" else "Activate Protection"
+    override fun onDestroy() {
+        poller.stop()
+        webView.destroy()
+        super.onDestroy()
     }
 
-    private fun showPairingDialog() {
-        val input = EditText(this).apply {
-            hint = "Enter 6-digit Code from Parent"
-            inputType = InputType.TYPE_CLASS_NUMBER
+    // Biometric Bridge connecting AndroidX BiometricPrompt with JavaScript
+    class AndroidBiometricBridge(
+        private val activity: AppCompatActivity,
+        private val webView: WebView
+    ) {
+        @JavascriptInterface
+        fun isBiometricAvailable(): Boolean {
+            val biometricManager = BiometricManager.from(activity)
+            val canAuth = biometricManager.canAuthenticate(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+            )
+            return canAuth == BiometricManager.BIOMETRIC_SUCCESS
         }
 
-        AlertDialog.Builder(this)
-            .setTitle("Pair Child Phone")
-            .setMessage("Ask parent for the 6-digit pairing code:")
-            .setView(input)
-            .setPositiveButton("Pair") { _, _ ->
-                val code = input.text.toString().trim()
-                if (code.isNotEmpty()) redeemPairing(code)
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
+        @JavascriptInterface
+        fun authenticateBiometric() {
+            activity.runOnUiThread {
+                val executor = ContextCompat.getMainExecutor(activity)
+                val biometricPrompt = BiometricPrompt(
+                    activity,
+                    executor,
+                    object : BiometricPrompt.AuthenticationCallback() {
+                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                            super.onAuthenticationSucceeded(result)
+                            webView.evaluateJavascript(
+                                "window.onBiometricSuccess && window.onBiometricSuccess();",
+                                null
+                            )
+                        }
 
-    private fun redeemPairing(code: String) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val baseUrl = UninstallProtectSDK.getBaseUrl(this@MainActivity)
-            val json = JSONObject().apply {
-                put("pairingCode", code)
-                put("deviceModel", "${Build.MANUFACTURER} ${Build.MODEL}")
-            }
-            val request = Request.Builder()
-                .url("$baseUrl/v1/pairing/redeem")
-                .post(json.toString().toRequestBody("application/json".toMediaType()))
-                .build()
+                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                            super.onAuthenticationError(errorCode, errString)
+                            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                                val escaped = errString.toString().replace("'", "\\'")
+                                webView.evaluateJavascript(
+                                    "window.onBiometricError && window.onBiometricError('$escaped');",
+                                    null
+                                )
+                            }
+                        }
 
-            try {
-                val client = OkHttpClient()
-                val response = client.newCall(request).execute()
-                val body = response.body?.string() ?: ""
-                if (response.isSuccessful) {
-                    val obj = JSONObject(body)
-                    val deviceId = obj.getString("deviceId")
-                    val deviceToken = obj.getString("deviceToken")
-                    UninstallProtectSDK.savePairing(this@MainActivity, deviceId, deviceToken)
-
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "Paired successfully!", Toast.LENGTH_LONG).show()
-                        updateStatusUI()
-                        UninstallProtectSDK.requestProtection(this@MainActivity)
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "Invalid code or expired", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Network error: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
-    private fun showParentPinDialog() {
-        val input = EditText(this).apply {
-            hint = "Enter Parent Secret PIN"
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle("Parent Authorization")
-            .setMessage("Enter the parent PIN to temporarily disable pinning/protection:")
-            .setView(input)
-            .setPositiveButton("Verify & Unlock") { _, _ ->
-                val pin = input.text.toString().trim()
-                if (pin.isNotEmpty()) {
-                    lifecycleScope.launch {
-                        val verified = UninstallProtectSDK.verifyParentPin(this@MainActivity, pin)
-                        if (verified) {
-                            Toast.makeText(this@MainActivity, "PIN Verified! Unlocking...", Toast.LENGTH_SHORT).show()
-                            UninstallProtectSDK.stopPinning(this@MainActivity)
-                            UninstallProtectSDK.disableProtection(this@MainActivity)
-                            updateStatusUI()
-                        } else {
-                            Toast.makeText(this@MainActivity, "Invalid PIN or Device Locked", Toast.LENGTH_LONG).show()
+                        override fun onAuthenticationFailed() {
+                            super.onAuthenticationFailed()
+                            webView.evaluateJavascript(
+                                "window.onBiometricError && window.onBiometricError('Fingerprint not recognized');",
+                                null
+                            )
                         }
                     }
-                }
+                )
+
+                val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                    .setTitle("Educa Fintech Security")
+                    .setSubtitle("Touch the fingerprint sensor to unlock wallet")
+                    .setNegativeButtonText("Use PIN")
+                    .build()
+
+                biometricPrompt.authenticate(promptInfo)
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        }
     }
 }

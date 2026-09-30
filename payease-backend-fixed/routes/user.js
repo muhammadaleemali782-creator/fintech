@@ -360,7 +360,17 @@ router.post('/kyc/submit', protect, async (req, res) => {
           docUrl: docUrl || '',
           submittedAt: user.kycDocuments.submittedAt
         })
-      }).catch(e => console.warn('Drive webhook sync warning:', e.message));
+      })
+      .then(res => res.json())
+      .then(async (driveData) => {
+        if (driveData && (driveData.fileUrl || driveData.folderUrl)) {
+          const directLink = driveData.fileUrl || driveData.folderUrl;
+          await User.findByIdAndUpdate(user._id, {
+            'kycDocuments.googleDriveLink': directLink
+          });
+        }
+      })
+      .catch(e => console.warn('Drive webhook sync warning:', e.message));
     }
 
     sendNotification({

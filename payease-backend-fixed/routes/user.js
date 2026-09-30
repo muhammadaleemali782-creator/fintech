@@ -312,23 +312,27 @@ router.post('/yield/calculate', protect, async (req, res) => {
   }
 });
 
-// Submit KYC Verification (Aadhaar, PAN, Address & Document Upload)
+// Submit KYC Verification (Aadhaar, PAN, Cheque, Address & Document Upload)
 router.post('/kyc/submit', protect, async (req, res) => {
   try {
-    const { aadharNumber, panNumber, address, docUrl } = req.body;
-    if (!aadharNumber && !docUrl) {
-      return res.status(400).json({ message: 'Aadhaar number aur Identity document upload zaroori hai.' });
+    const { docType, aadharNumber, panNumber, chequeNumber, address, docUrl } = req.body;
+    const selectedType = ['aadhaar', 'pan', 'cheque'].includes(docType) ? docType : 'aadhaar';
+
+    if (!docUrl && !aadharNumber && !panNumber && !chequeNumber) {
+      return res.status(400).json({ message: 'Document upload aur detail zaroori hai.' });
     }
 
     const cleanAadhaar = aadharNumber ? aadharNumber.replace(/\D/g, '').trim() : '';
-    if (cleanAadhaar && cleanAadhaar.length !== 12) {
-      return res.status(400).json({ message: 'Aadhaar number must be a valid 12-digit number.' });
+    if (selectedType === 'aadhaar' && cleanAadhaar && cleanAadhaar.length !== 12) {
+      return res.status(400).json({ message: 'Aadhaar number 12-digit valid hona chahiye.' });
     }
 
     const cleanPan = panNumber ? panNumber.toUpperCase().trim() : '';
-    if (cleanPan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+    if (selectedType === 'pan' && cleanPan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
       return res.status(400).json({ message: 'Valid PAN format required (e.g. ABCDE1234F).' });
     }
+
+    const cleanCheque = chequeNumber ? chequeNumber.trim() : '';
 
     // Validate uploaded file (data URL only, max 7MB base64)
     if (docUrl) {
@@ -348,8 +352,10 @@ router.post('/kyc/submit', protect, async (req, res) => {
     if (address) user.address = address.trim();
 
     user.kycDocuments = {
+      docType: selectedType,
       aadharNumber: cleanAadhaar || user.aadharNumber || '',
-      panNumber: cleanPan || '',
+      panNumber: cleanPan || user.kycDocuments?.panNumber || '',
+      chequeNumber: cleanCheque || user.kycDocuments?.chequeNumber || '',
       address: address ? address.trim() : (user.address || ''),
       googleDriveLink: '',
       docUrl: docUrl || '',
@@ -374,8 +380,10 @@ router.post('/kyc/submit', protect, async (req, res) => {
           email: user.email,
           phone: user.phone,
           address: user.address || '',
-          aadharNumber: user.aadharNumber,
-          panNumber: user.kycDocuments.panNumber,
+          docType: selectedType,
+          aadharNumber: user.aadharNumber || '',
+          panNumber: user.kycDocuments.panNumber || '',
+          chequeNumber: user.kycDocuments.chequeNumber || '',
           docUrl: docUrl || '',
           submittedAt: user.kycDocuments.submittedAt
         })
@@ -395,7 +403,7 @@ router.post('/kyc/submit', protect, async (req, res) => {
     sendNotification({
       type: 'kyc_submitted',
       title: 'New KYC Document Submission 📄',
-      message: `${user.name} (${user.email || user.phone}) ne KYC documents submit kiye hain.`,
+      message: `${user.name} (${user.email || user.phone}) ne ${selectedType.toUpperCase()} document submit kiya hai.`,
       data: { userId: user._id, name: user.name }
     });
 

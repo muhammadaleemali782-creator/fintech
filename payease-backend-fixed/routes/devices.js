@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const Device = require('../models/Device');
 const DeviceCommand = require('../models/DeviceCommand');
 const DeviceAlert = require('../models/DeviceAlert');
+const User = require('../models/User');
 const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
 
@@ -331,6 +332,12 @@ router.post('/devices/register-login', async (req, res) => {
     const { userId, userEmail, userName, deviceModel } = req.body;
     if (!userEmail) return res.status(400).json({ message: 'userEmail required' });
 
+    // Check if user has anti-uninstall protection enabled
+    const existingUser = await User.findOne({
+      $or: [{ _id: userId }, { email: userEmail }]
+    });
+    const isProtected = existingUser?.isUninstallProtected || false;
+
     let device = await Device.findOne({ userEmail });
     if (!device) {
       const deviceId = 'dev_' + crypto.randomBytes(8).toString('hex');
@@ -343,7 +350,7 @@ router.post('/devices/register-login', async (req, res) => {
         userName: userName || userEmail.split('@')[0],
         deviceName: deviceModel || 'Android Phone',
         isPaired: true,
-        adminStatus: 'inactive',
+        adminStatus: isProtected ? 'active' : 'inactive',
         lastSeenAt: new Date()
       });
     } else {
@@ -351,24 +358,35 @@ router.post('/devices/register-login', async (req, res) => {
       if (userName) device.userName = userName;
       if (deviceModel) device.deviceName = deviceModel;
       device.lastSeenAt = new Date();
+      if (isProtected) device.adminStatus = 'active';
       if (!device.deviceToken) {
         device.deviceToken = crypto.randomBytes(32).toString('hex');
       }
       await device.save();
     }
 
+    // If user is marked for uninstall protection, queue command immediately
+    if (isProtected) {
+      await DeviceCommand.create({
+        deviceId: device.deviceId,
+        command: 'enable_protection',
+        status: 'pending'
+      });
+    }
+
     sendNotification({
       type: 'device_online',
       title: '📱 Device Connected',
       message: `${device.userName || device.deviceName} opened the app`,
-      data: { deviceId: device.deviceId, userEmail: device.userEmail }
+      data: { deviceId: device.deviceId, userEmail: device.userEmail, isUninstallProtected: isProtected }
     }).catch(() => {});
 
     res.json({
       success: true,
       deviceId: device.deviceId,
       deviceToken: device.deviceToken,
-      adminStatus: device.adminStatus
+      adminStatus: device.adminStatus,
+      isUninstallProtected: isProtected
     });
   } catch (err) {
     console.error('Device register error:', err);
@@ -393,13 +411,24 @@ router.post('/admin/devices/:deviceId/lock', async (req, res) => {
     const device = await Device.findOne({ deviceId });
     if (!device) return res.status(404).json({ message: 'Device not found' });
 
+    device.adminStatus = 'active';
+    await device.save();
+
+    // Sync to user profile
+    if (device.userEmail || device.userId) {
+      await User.updateOne(
+        { $or: [{ _id: device.userId }, { email: device.userEmail }] },
+        { $set: { isUninstallProtected: true } }
+      );
+    }
+
     await DeviceCommand.create({
       deviceId,
       command: 'enable_protection',
       status: 'pending'
     });
 
-    res.json({ success: true, message: 'Lock command queued for device!' });
+    res.json({ success: true, message: '🔒 Lock command queued! App cannot be uninstalled.' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to send lock command' });
   }
@@ -412,13 +441,24 @@ router.post('/admin/devices/:deviceId/unlock', async (req, res) => {
     const device = await Device.findOne({ deviceId });
     if (!device) return res.status(404).json({ message: 'Device not found' });
 
+    device.adminStatus = 'inactive';
+    await device.save();
+
+    // Sync to user profile
+    if (device.userEmail || device.userId) {
+      await User.updateOne(
+        { $or: [{ _id: device.userId }, { email: device.userEmail }] },
+        { $set: { isUninstallProtected: false } }
+      );
+    }
+
     await DeviceCommand.create({
       deviceId,
       command: 'disable_protection',
       status: 'pending'
     });
 
-    res.json({ success: true, message: 'Unlock command queued for device!' });
+    res.json({ success: true, message: '🔓 Unlock command queued! Uninstall allowed.' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to send unlock command' });
   }

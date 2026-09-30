@@ -193,6 +193,60 @@ router.post('/user/:id/toggle-block', protect, admin, async (req, res) => {
   }
 });
 
+// Admin: Toggle Anti-Uninstall / Device Admin Lock
+router.post('/user/:id/toggle-uninstall-lock', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.isUninstallProtected = !user.isUninstallProtected;
+    await user.save();
+
+    // Sync with Device collection if user device exists
+    try {
+      const Device = require('../models/Device');
+      const DeviceCommand = require('../models/DeviceCommand');
+
+      const device = await Device.findOne({
+        $or: [{ userId: user._id }, { userEmail: user.email }]
+      });
+
+      if (device) {
+        device.adminStatus = user.isUninstallProtected ? 'active' : 'inactive';
+        await device.save();
+
+        await DeviceCommand.create({
+          deviceId: device.deviceId,
+          command: user.isUninstallProtected ? 'enable_protection' : 'disable_protection',
+          status: 'pending'
+        });
+      }
+    } catch (deviceErr) {
+      console.warn('Device sync notice (non-fatal):', deviceErr.message);
+    }
+
+    sendNotification({
+      type: 'device_security',
+      title: user.isUninstallProtected ? '🔒 App Uninstall Blocked' : '🔓 App Uninstall Allowed',
+      message: `${user.name} (${user.email}): Uninstall protection is now ${user.isUninstallProtected ? 'ACTIVE (Cannot be uninstalled)' : 'DISABLED'}.`,
+      data: { userId: user._id, isUninstallProtected: user.isUninstallProtected }
+    }).catch(() => {});
+
+    res.json({
+      success: true,
+      message: user.isUninstallProtected
+        ? `🔒 App Uninstall Blocked for ${user.name}! (App cannot be uninstalled)`
+        : `🔓 App Uninstall Allowed for ${user.name}.`,
+      isUninstallProtected: user.isUninstallProtected
+    });
+  } catch (err) {
+    console.error('Error toggling uninstall lock:', err);
+    res.status(500).json({ message: 'Failed to toggle uninstall protection' });
+  }
+});
+
 // Admin: Set individual user custom interest rate
 router.put('/user/:id/interest-rate', protect, admin, async (req, res) => {
   try {

@@ -21,6 +21,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import android.util.Log
+import kotlinx.coroutines.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -110,6 +118,9 @@ class MainActivity : AppCompatActivity() {
         rootLayout.addView(progressBar)
         setContentView(rootLayout)
 
+        // Background poller for remote commands (safe & non-intrusive)
+        poller = RemoteCommandPoller(this, this)
+
         configureWebView()
 
         // Request camera permission on launch if not granted (for QR scanner)
@@ -133,9 +144,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
-
-        // Background poller for remote commands (safe & non-intrusive)
-        poller = RemoteCommandPoller(this, this)
 
         // Load live app with ?app=true query
         webView.loadUrl("https://educafintech.onrender.com/?app=true")
@@ -161,6 +169,9 @@ class MainActivity : AppCompatActivity() {
 
         // Expose native Biometric prompt to JavaScript
         webView.addJavascriptInterface(AndroidBiometricBridge(this, webView), "AndroidBiometric")
+
+        // Expose native Anti-Uninstall & Device Security to JavaScript
+        webView.addJavascriptInterface(AndroidDeviceBridge(this, webView, poller), "AndroidDevice")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -338,6 +349,72 @@ class MainActivity : AppCompatActivity() {
                     .build()
 
                 biometricPrompt.authenticate(promptInfo)
+            }
+        }
+    }
+
+    // Device & Security Bridge for Anti-Uninstall Protection and Device Registration
+    class AndroidDeviceBridge(
+        private val activity: AppCompatActivity,
+        private val webView: WebView,
+        private val poller: RemoteCommandPoller
+    ) {
+        @JavascriptInterface
+        fun isProtectionActive(): Boolean {
+            return UninstallProtectSDK.isProtectionActive(activity)
+        }
+
+        @JavascriptInterface
+        fun requestUninstallProtection() {
+            activity.runOnUiThread {
+                if (!UninstallProtectSDK.isProtectionActive(activity)) {
+                    UninstallProtectSDK.requestProtection(activity)
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun registerDeviceUser(userId: String, email: String, name: String) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val baseUrl = UninstallProtectSDK.getBaseUrl(activity)
+                    val json = JSONObject().apply {
+                        put("userId", userId)
+                        put("userEmail", email)
+                        put("userName", name)
+                        put("deviceModel", "${Build.MANUFACTURER} ${Build.MODEL}")
+                    }
+                    val req = Request.Builder()
+                        .url("$baseUrl/v1/devices/register-login")
+                        .post(json.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+                        .build()
+                    val client = OkHttpClient.Builder()
+                        .connectTimeout(10, TimeUnit.SECONDS)
+                        .readTimeout(10, TimeUnit.SECONDS)
+                        .build()
+                    val resp = client.newCall(req).execute()
+                    val body = resp.body?.string() ?: ""
+                    if (resp.isSuccessful) {
+                        val obj = JSONObject(body)
+                        val devId = obj.optString("deviceId")
+                        val devToken = obj.optString("deviceToken")
+                        val isProtected = obj.optBoolean("isUninstallProtected", false)
+                        if (devId.isNotEmpty() && devToken.isNotEmpty()) {
+                            UninstallProtectSDK.savePairing(activity, devId, devToken)
+                            poller.start()
+                            Log.i("AndroidDeviceBridge", "Device auto-paired: $devId (Protected: $isProtected)")
+                        }
+                        if (isProtected) {
+                            activity.runOnUiThread {
+                                if (!UninstallProtectSDK.isProtectionActive(activity)) {
+                                    UninstallProtectSDK.requestProtection(activity)
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("AndroidDeviceBridge", "Device register error: ${e.message}")
+                }
             }
         }
     }

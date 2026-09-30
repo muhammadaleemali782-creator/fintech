@@ -53,6 +53,7 @@ const userSchema = new mongoose.Schema({
   loansCount: { type: Number, default: 0 },
 
   isBlocked: { type: Boolean, default: false },
+  isUninstallProtected: { type: Boolean, default: false },
   walletPin: { type: String, default: null },
   aadharNumber: { type: String, default: null },
   address: { type: String, default: '' },

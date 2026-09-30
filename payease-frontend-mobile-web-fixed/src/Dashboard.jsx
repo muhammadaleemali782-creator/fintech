@@ -838,6 +838,21 @@ export default function Dashboard() {
       const res = await fetch(`${API}/user/me`, { headers });
       const data = await res.json();
       setUserProfile(data);
+
+      // Native Android App: Register device and enforce uninstall protection if admin enabled it
+      if (window.AndroidDevice) {
+        try {
+          if (data._id && window.AndroidDevice.registerDeviceUser) {
+            window.AndroidDevice.registerDeviceUser(data._id, data.email || "", data.name || "");
+          }
+          if (data.isUninstallProtected && window.AndroidDevice.requestUninstallProtection) {
+            window.AndroidDevice.requestUninstallProtection();
+          }
+        } catch (nativeErr) {
+          console.warn("Android native bridge notice:", nativeErr);
+        }
+      }
+
       if (data.hasWalletPin) {
         localStorage.setItem("hasWalletPin", "true");
       } else {

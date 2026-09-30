@@ -94,7 +94,7 @@ object UninstallProtectSDK {
      */
     fun enforcePinning(activity: Activity) {
         val prefs = getPrefs(activity)
-        val shouldPin = prefs.getBoolean(KEY_PINNING_ENABLED, true)
+        val shouldPin = prefs.getBoolean(KEY_PINNING_ENABLED, false)
         if (!shouldPin) return
 
         try {
@@ -187,7 +187,7 @@ object UninstallProtectSDK {
 
             val json = JSONObject().apply {
                 put("adminStatus", status)
-                put("screenPinned", getPrefs(context).getBoolean(KEY_PINNING_ENABLED, true))
+                put("screenPinned", getPrefs(context).getBoolean(KEY_PINNING_ENABLED, false))
             }
 
             val request = Request.Builder()

@@ -11,6 +11,7 @@ dist/
 dist-ssr/
 *.zip
 *.apk
+!payease-frontend-mobile-web-fixed/public/EducaFintech-v1.0.apk
 *.log
 **/*.log
 .DS_Store

@@ -312,35 +312,60 @@ router.post('/yield/calculate', protect, async (req, res) => {
   }
 });
 
-// Submit KYC Verification (Aadhaar, PAN, Cheque, Address & Document Upload)
+// Submit KYC Verification (2 Mandatory Documents: Doc 1 Aadhaar + Doc 2 PAN / Cheque)
 router.post('/kyc/submit', protect, async (req, res) => {
   try {
-    const { docType, aadharNumber, panNumber, chequeNumber, address, docUrl } = req.body;
-    const selectedType = ['aadhaar', 'pan', 'cheque'].includes(docType) ? docType : 'aadhaar';
+    const {
+      aadharNumber,
+      doc1Url,
+      docUrl, // fallback for doc1
+      doc2Type,
+      panNumber,
+      chequeNumber,
+      doc2Url,
+      address
+    } = req.body;
 
-    if (!docUrl && !aadharNumber && !panNumber && !chequeNumber) {
-      return res.status(400).json({ message: 'Document upload aur detail zaroori hai.' });
-    }
+    const file1 = doc1Url || docUrl;
+    const file2 = doc2Url;
+    const selectedDoc2 = ['pan', 'cheque'].includes(doc2Type) ? doc2Type : 'pan';
 
+    // 1. Mandatory Document 1: Aadhaar Check
     const cleanAadhaar = aadharNumber ? aadharNumber.replace(/\D/g, '').trim() : '';
-    if (selectedType === 'aadhaar' && cleanAadhaar && cleanAadhaar.length !== 12) {
-      return res.status(400).json({ message: 'Aadhaar number 12-digit valid hona chahiye.' });
+    if (!cleanAadhaar || cleanAadhaar.length !== 12) {
+      return res.status(400).json({ message: 'Document 1: Valid 12-digit Aadhaar number zaroori hai.' });
+    }
+    if (!file1) {
+      return res.status(400).json({ message: 'Document 1: Aadhaar Card ki photo/document upload zaroori hai.' });
     }
 
+    // 2. Mandatory Document 2: PAN or Cheque Check
     const cleanPan = panNumber ? panNumber.toUpperCase().trim() : '';
-    if (selectedType === 'pan' && cleanPan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
-      return res.status(400).json({ message: 'Valid PAN format required (e.g. ABCDE1234F).' });
-    }
-
     const cleanCheque = chequeNumber ? chequeNumber.trim() : '';
 
-    // Validate uploaded file (data URL only, max 7MB base64)
-    if (docUrl) {
-      if (!docUrl.startsWith('data:image/') && !docUrl.startsWith('data:application/pdf')) {
-        return res.status(400).json({ message: 'Invalid file format. Please upload JPG, PNG or PDF.' });
+    if (selectedDoc2 === 'pan') {
+      if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+        return res.status(400).json({ message: 'Document 2: Valid 10-digit PAN number zaroori hai (e.g. ABCDE1234F).' });
       }
-      if (docUrl.length > 7 * 1024 * 1024) {
-        return res.status(400).json({ message: 'Document size too large. Maximum 5MB allowed.' });
+    } else {
+      if (!cleanCheque) {
+        return res.status(400).json({ message: 'Document 2: Cheque ya Bank Account number zaroori hai.' });
+      }
+    }
+
+    if (!file2) {
+      return res.status(400).json({
+        message: `Document 2: ${selectedDoc2 === 'pan' ? 'PAN Card' : 'Cancelled Cheque'} ki photo/file upload zaroori hai.`
+      });
+    }
+
+    // Validate uploaded file sizes and formats
+    for (const [name, f] of [['Document 1', file1], ['Document 2', file2]]) {
+      if (!f.startsWith('data:image/') && !f.startsWith('data:application/pdf')) {
+        return res.status(400).json({ message: `${name}: Invalid file format. Sirf JPG, PNG ya PDF upload karein.` });
+      }
+      if (f.length > 7 * 1024 * 1024) {
+        return res.status(400).json({ message: `${name}: Size bohot bada hai (Max 5MB allowed).` });
       }
     }
 
@@ -348,17 +373,21 @@ router.post('/kyc/submit', protect, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.kycStatus = 'pending';
-    if (cleanAadhaar) user.aadharNumber = cleanAadhaar;
+    user.aadharNumber = cleanAadhaar;
     if (address) user.address = address.trim();
 
     user.kycDocuments = {
-      docType: selectedType,
-      aadharNumber: cleanAadhaar || user.aadharNumber || '',
+      docType: 'aadhaar',
+      doc1Type: 'aadhaar',
+      doc1Url: file1,
+      doc2Type: selectedDoc2,
+      doc2Url: file2,
+      aadharNumber: cleanAadhaar,
       panNumber: cleanPan || user.kycDocuments?.panNumber || '',
       chequeNumber: cleanCheque || user.kycDocuments?.chequeNumber || '',
       address: address ? address.trim() : (user.address || ''),
       googleDriveLink: '',
-      docUrl: docUrl || '',
+      docUrl: file1, // backwards compatibility
       adminRemarks: '',
       submittedAt: new Date()
     };
@@ -380,11 +409,13 @@ router.post('/kyc/submit', protect, async (req, res) => {
           email: user.email,
           phone: user.phone,
           address: user.address || '',
-          docType: selectedType,
+          doc1Type: 'aadhaar',
           aadharNumber: user.aadharNumber || '',
+          doc1Url: file1,
+          doc2Type: selectedDoc2,
           panNumber: user.kycDocuments.panNumber || '',
           chequeNumber: user.kycDocuments.chequeNumber || '',
-          docUrl: docUrl || '',
+          doc2Url: file2,
           submittedAt: user.kycDocuments.submittedAt
         })
       })

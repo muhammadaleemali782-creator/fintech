@@ -322,13 +322,15 @@ export default function Dashboard() {
   const [resetSubmitting, setResetSubmitting] = useState(false);
 
   const [kycForm, setKycForm] = useState({
-    docType: "aadhaar",
     aadharNumber: "",
+    doc1Name: "",
+    doc1Url: "",
+    doc2Type: "pan", // 'pan' or 'cheque'
     panNumber: "",
     chequeNumber: "",
-    address: "",
-    docName: "",
-    docUrl: ""
+    doc2Name: "",
+    doc2Url: "",
+    address: ""
   });
   const [kycSubmitting, setKycSubmitting] = useState(false);
   const [kycError, setKycError] = useState("");
@@ -992,7 +994,7 @@ export default function Dashboard() {
   };
 
   // Client-side image compression for KYC (zero server bloat)
-  const handleKycFileChange = (e) => {
+  const handleKycFileChange = (e, slot = 1) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 15 * 1024 * 1024) {
@@ -1001,6 +1003,11 @@ export default function Dashboard() {
     }
     const reader = new FileReader();
     reader.onload = (event) => {
+      if (file.type === "application/pdf") {
+        if (slot === 1) setKycForm(prev => ({ ...prev, doc1Name: file.name, doc1Url: event.target.result }));
+        else setKycForm(prev => ({ ...prev, doc2Name: file.name, doc2Url: event.target.result }));
+        return;
+      }
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
@@ -1021,36 +1028,50 @@ export default function Dashboard() {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, w, h);
         const compressed = canvas.toDataURL("image/jpeg", 0.75);
-        setKycForm(prev => ({ ...prev, docName: file.name, docUrl: compressed }));
+        if (slot === 1) setKycForm(prev => ({ ...prev, doc1Name: file.name, doc1Url: compressed }));
+        else setKycForm(prev => ({ ...prev, doc2Name: file.name, doc2Url: compressed }));
       };
       img.onerror = () => {
-        setKycForm(prev => ({ ...prev, docName: file.name, docUrl: event.target.result }));
+        if (slot === 1) setKycForm(prev => ({ ...prev, doc1Name: file.name, doc1Url: event.target.result }));
+        else setKycForm(prev => ({ ...prev, doc2Name: file.name, doc2Url: event.target.result }));
       };
       img.src = event.target.result;
     };
     reader.readAsDataURL(file);
   };
 
-  // Submit KYC (Aadhaar, PAN, Cheque, Address, and Document Upload)
+  // Submit KYC (2 Mandatory Documents: Doc 1 Aadhaar + Doc 2 PAN / Cheque)
   const submitKyc = async () => {
-    if (!kycForm.docUrl && !kycForm.aadharNumber && !kycForm.panNumber && !kycForm.chequeNumber) {
-      setKycError("Kripya document upload karein aur detail bharein.");
+    // 1. Mandatory Document 1: Aadhaar
+    const cleanAadhaar = kycForm.aadharNumber.replace(/\D/g, "");
+    if (!cleanAadhaar || cleanAadhaar.length !== 12) {
+      setKycError("Document 1: Kripya 12-digit valid Aadhaar number darj karein.");
       return;
     }
-    if (kycForm.docType === "aadhaar" && kycForm.aadharNumber) {
-      const clean = kycForm.aadharNumber.replace(/\D/g, "");
-      if (clean.length !== 12) {
-        setKycError("Kripya 12-digit valid Aadhaar number darj karein.");
+    if (!kycForm.doc1Url) {
+      setKycError("Document 1: Aadhaar Card ki photo/document upload zaroori hai.");
+      return;
+    }
+
+    // 2. Mandatory Document 2: PAN or Cheque
+    if (kycForm.doc2Type === "pan") {
+      const cleanPan = kycForm.panNumber.trim().toUpperCase();
+      if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+        setKycError("Document 2: Valid 10-digit PAN format (e.g. ABCDE1234F) darj karein.");
+        return;
+      }
+    } else {
+      if (!kycForm.chequeNumber.trim()) {
+        setKycError("Document 2: Cheque number ya Bank account number darj karein.");
         return;
       }
     }
-    if (kycForm.docType === "pan" && kycForm.panNumber) {
-      const clean = kycForm.panNumber.trim().toUpperCase();
-      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(clean)) {
-        setKycError("Kripya valid PAN format (e.g. ABCDE1234F) darj karein.");
-        return;
-      }
+
+    if (!kycForm.doc2Url) {
+      setKycError(`Document 2: ${kycForm.doc2Type === "pan" ? "PAN Card" : "Bank Cheque"} ki photo/document upload zaroori hai.`);
+      return;
     }
+
     setKycSubmitting(true);
     setKycError("");
     try {
@@ -1058,30 +1079,34 @@ export default function Dashboard() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          docType: kycForm.docType,
-          aadharNumber: kycForm.aadharNumber.replace(/\D/g, ""),
+          aadharNumber: cleanAadhaar,
+          doc1Url: kycForm.doc1Url,
+          doc2Type: kycForm.doc2Type,
           panNumber: kycForm.panNumber.trim().toUpperCase(),
           chequeNumber: kycForm.chequeNumber.trim(),
-          address: kycForm.address.trim(),
-          docUrl: kycForm.docUrl
+          doc2Url: kycForm.doc2Url,
+          address: kycForm.address.trim()
         })
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(data.message || "KYC document successfully submitted!", "success");
+        showToast(data.message || "Dono KYC documents successfully submit ho gaye!", "success");
         setUserProfile(prev => ({
           ...prev,
           kycStatus: "pending",
-          aadharNumber: kycForm.aadharNumber.replace(/\D/g, ""),
+          aadharNumber: cleanAadhaar,
           address: kycForm.address,
           kycDocuments: {
             ...prev.kycDocuments,
-            docType: kycForm.docType,
-            aadharNumber: kycForm.aadharNumber,
+            docType: "aadhaar",
+            doc1Type: "aadhaar",
+            doc1Url: kycForm.doc1Url,
+            doc2Type: kycForm.doc2Type,
+            doc2Url: kycForm.doc2Url,
+            aadharNumber: cleanAadhaar,
             panNumber: kycForm.panNumber,
             chequeNumber: kycForm.chequeNumber,
             address: kycForm.address,
-            docUrl: kycForm.docUrl,
             submittedAt: new Date()
           }
         }));
@@ -3666,38 +3691,18 @@ export default function Dashboard() {
           ) : (
             /* 3. Not submitted yet (or rejected): Clean professional form with 3 document options */
             <div className="space-y-4">
-              {/* Document Type Selector (Aadhaar / PAN / Cheque) */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                  Select Document to Verify:
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: "aadhaar", label: "Aadhaar Card", icon: "🆔" },
-                    { id: "pan", label: "PAN Card", icon: "💳" },
-                    { id: "cheque", label: "Bank Cheque", icon: "🏦" },
-                  ].map(tab => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setKycForm({ ...kycForm, docType: tab.id })}
-                      className={`py-2.5 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center gap-1 cursor-pointer border ${
-                        kycForm.docType === tab.id
-                          ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20"
-                          : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
-                      }`}
-                    >
-                      <span className="text-base">{tab.icon}</span>
-                      <span className="truncate">{tab.label}</span>
-                    </button>
-                  ))}
+              {/* Step 1: Mandatory Document 1 - Aadhaar Card */}
+              <div className="p-3.5 bg-blue-50/50 border border-blue-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-bold text-[11px] flex items-center justify-center">1</span>
+                    <span className="text-xs font-bold text-blue-950">Aadhaar Card (Mandatory)</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Primary ID</span>
                 </div>
-              </div>
 
-              {/* Dynamic Number Input according to selected document */}
-              {kycForm.docType === "aadhaar" && (
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
                     Aadhaar Number (12 Digits) <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -3711,41 +3716,151 @@ export default function Dashboard() {
                       const formatted = val.replace(/(\d{4})(?=\d)/g, "$1 ");
                       setKycForm({ ...kycForm, aadharNumber: formatted });
                     }}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl font-mono text-sm tracking-widest focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs tracking-widest focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
-              )}
 
-              {kycForm.docType === "pan" && (
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    PAN Card Number <span className="text-rose-500">*</span>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Upload Aadhaar Photo / PDF <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    maxLength={10}
-                    placeholder="ABCDE1234F"
-                    value={kycForm.panNumber}
-                    onChange={e => setKycForm({ ...kycForm, panNumber: e.target.value.toUpperCase() })}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl font-mono text-sm uppercase focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-blue-300 rounded-xl text-xs text-blue-700 font-bold flex items-center justify-center gap-2 transition active:scale-95">
+                      <span>📄</span>
+                      <span className="truncate">{kycForm.doc1Name || "Upload Aadhaar File"}</span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={e => handleKycFileChange(e, 1)}
+                        className="hidden"
+                      />
+                    </label>
+                    {kycForm.doc1Url && (
+                      <button
+                        type="button"
+                        onClick={() => setKycForm({ ...kycForm, doc1Name: "", doc1Url: "" })}
+                        className="px-3 py-2.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
+                        title="Remove upload"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  {kycForm.doc1Url && (
+                    <div className="mt-2 p-2 bg-white border border-gray-200 rounded-xl flex items-center gap-2.5">
+                      <img src={kycForm.doc1Url} alt="Aadhaar Preview" className="w-10 h-10 object-cover rounded-lg border border-gray-200 shrink-0" />
+                      <div className="text-[11px] text-gray-600 truncate flex-1">
+                        <span className="font-bold text-gray-800 block truncate">{kycForm.doc1Name || "Aadhaar Card"}</span>
+                        <span className="text-emerald-600 font-bold">✓ Uploaded</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
 
-              {kycForm.docType === "cheque" && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Cheque / Bank Account Number <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Enter Cheque No. or Bank Account No."
-                    value={kycForm.chequeNumber}
-                    onChange={e => setKycForm({ ...kycForm, chequeNumber: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
+              {/* Step 2: Mandatory Document 2 - PAN Card OR Bank Cheque */}
+              <div className="p-3.5 bg-indigo-50/50 border border-indigo-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[11px] flex items-center justify-center">2</span>
+                    <span className="text-xs font-bold text-indigo-950">PAN Card ya Bank Cheque (Mandatory)</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Financial Proof</span>
                 </div>
-              )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setKycForm({ ...kycForm, doc2Type: "pan" })}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border ${
+                      kycForm.doc2Type === "pan"
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span>💳</span>
+                    <span>PAN Card</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKycForm({ ...kycForm, doc2Type: "cheque" })}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border ${
+                      kycForm.doc2Type === "cheque"
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span>🏦</span>
+                    <span>Cancelled Cheque</span>
+                  </button>
+                </div>
+
+                {kycForm.doc2Type === "pan" ? (
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      PAN Card Number <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      placeholder="ABCDE1234F"
+                      value={kycForm.panNumber}
+                      onChange={e => setKycForm({ ...kycForm, panNumber: e.target.value.toUpperCase() })}
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs uppercase focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Cheque / Account Number <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter Cheque No. or Bank Account No."
+                      value={kycForm.chequeNumber}
+                      onChange={e => setKycForm({ ...kycForm, chequeNumber: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Upload {kycForm.doc2Type === "pan" ? "PAN Card" : "Bank Cheque / Passbook"} <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-2 transition active:scale-95">
+                      <span>📄</span>
+                      <span className="truncate">{kycForm.doc2Name || `Upload ${kycForm.doc2Type === "pan" ? "PAN" : "Cheque"} File`}</span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={e => handleKycFileChange(e, 2)}
+                        className="hidden"
+                      />
+                    </label>
+                    {kycForm.doc2Url && (
+                      <button
+                        type="button"
+                        onClick={() => setKycForm({ ...kycForm, doc2Name: "", doc2Url: "" })}
+                        className="px-3 py-2.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
+                        title="Remove upload"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  {kycForm.doc2Url && (
+                    <div className="mt-2 p-2 bg-white border border-gray-200 rounded-xl flex items-center gap-2.5">
+                      <img src={kycForm.doc2Url} alt="Doc 2 Preview" className="w-10 h-10 object-cover rounded-lg border border-gray-200 shrink-0" />
+                      <div className="text-[11px] text-gray-600 truncate flex-1">
+                        <span className="font-bold text-gray-800 block truncate">{kycForm.doc2Name || "Document 2"}</span>
+                        <span className="text-emerald-600 font-bold">✓ Uploaded</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Residential Address / City */}
               <div>
@@ -3757,46 +3872,8 @@ export default function Dashboard() {
                   placeholder="Enter your street address & city"
                   value={kycForm.address}
                   onChange={e => setKycForm({ ...kycForm, address: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none"
                 />
-              </div>
-
-              {/* Document Photo / PDF Upload */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Upload Photo / File ({kycForm.docType === "aadhaar" ? "Aadhaar Card" : kycForm.docType === "pan" ? "PAN Card" : "Cancelled Cheque"}) <span className="text-rose-500">*</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer py-3 px-4 bg-blue-50/60 hover:bg-blue-50 border border-dashed border-blue-300 rounded-xl text-xs text-blue-700 font-bold flex items-center justify-center gap-2 transition active:scale-95">
-                    <span className="text-base">📄</span>
-                    <span className="truncate">{kycForm.docName || "Choose Document / Photo"}</span>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={handleKycFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                  {kycForm.docUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setKycForm({ ...kycForm, docName: "", docUrl: "" })}
-                      className="px-3.5 py-3 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
-                      title="Remove upload"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                {kycForm.docUrl && (
-                  <div className="mt-2.5 p-2.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-3">
-                    <img src={kycForm.docUrl} alt="Preview" className="w-14 h-14 object-cover rounded-lg border border-gray-200 shrink-0" />
-                    <div className="text-[11px] text-gray-600 truncate flex-1">
-                      <span className="font-bold text-gray-800 block truncate">{kycForm.docName || "Selected File"}</span>
-                      <span className="text-emerald-600 font-bold">✓ Ready for verification</span>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {kycError && (

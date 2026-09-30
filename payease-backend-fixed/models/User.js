@@ -57,10 +57,14 @@ const userSchema = new mongoose.Schema({
   aadharNumber: { type: String, default: null },
   address: { type: String, default: '' },
 
-  // KYC System (Aadhaar, PAN, Cheque, Address, Document Upload & Admin Remarks)
+  // KYC System (2 Mandatory Documents: Doc 1 Aadhaar + Doc 2 PAN / Cheque)
   kycStatus: { type: String, enum: ['none', 'pending', 'verified', 'rejected'], default: 'none' },
   kycDocuments: {
-    docType: { type: String, default: 'aadhaar' }, // 'aadhaar', 'pan', 'cheque'
+    docType: { type: String, default: 'aadhaar' }, // Primary doc 1
+    doc1Type: { type: String, default: 'aadhaar' },
+    doc1Url: { type: String, default: '' },
+    doc2Type: { type: String, default: 'pan' }, // 'pan', 'cheque'
+    doc2Url: { type: String, default: '' },
     aadharNumber: { type: String, default: '' },
     panNumber: { type: String, default: '' },
     chequeNumber: { type: String, default: '' },

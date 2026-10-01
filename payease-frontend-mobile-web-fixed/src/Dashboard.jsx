@@ -229,6 +229,7 @@ export default function Dashboard() {
   const [installmentProofName, setInstallmentProofName] = useState("");
   const [installmentSubmitting, setInstallmentSubmitting] = useState(false);
   const [installmentPayMethod, setInstallmentPayMethod] = useState("wallet");
+  const [expandedLoanId, setExpandedLoanId] = useState(null);
 
   // Document Fullscreen & Zoom Lightbox State
   const [lightboxImg, setLightboxImg] = useState(null);
@@ -994,9 +995,15 @@ export default function Dashboard() {
       const data = await res.json();
       setLoans(Array.isArray(data) ? data : []);
       setShowLoans(true);
-      setNavTab("loans");
     } catch {}
     loadActiveLoanDetails();
+  };
+
+  const openLoansHub = () => {
+    loadLoans();
+    setModal("all_loans");
+    setNavTab("loans");
+    setShowLoans(true);
   };
 
   const loadActiveLoanDetails = async () => {
@@ -1683,8 +1690,8 @@ export default function Dashboard() {
   ];
 
   const navItems = [
-    { key: "home", label: "Home", icon: "🏠", onClick: () => { setShowLoans(false); window.scrollTo({ top: 0, behavior: "smooth" }); } },
-    { key: "loans", label: "Loans", icon: "🏦", onClick: loadLoans },
+    { key: "home", label: "Home", icon: "🏠", onClick: () => { setModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); } },
+    { key: "loans", label: "Loans", icon: "🏦", onClick: openLoansHub },
     { key: "scan", label: "Scan QR", icon: <ScannerIcon className="w-6 h-6 text-white" />, isCenter: true, onClick: () => setModal("scan_qr") },
     { key: "bonds", label: "Bonds", icon: "📈", onClick: () => setAccountModal("debt") },
     { key: "profile", label: "Profile", icon: "👤", onClick: () => setModal("profile") },
@@ -1876,7 +1883,7 @@ export default function Dashboard() {
 
           {/* Right: Dues Wallet Balance Card - CLEAN & UNLOCKED */}
           <div
-            onClick={() => setAccountModal("personal_loan")}
+            onClick={openLoansHub}
             className={`rounded-3xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98] transition hover:shadow-xl ${
               (userProfile.duesBalance || 0) > 0
                 ? "bg-gradient-to-br from-red-600 via-rose-600 to-red-800 shadow-red-500/25"
@@ -3795,6 +3802,305 @@ export default function Dashboard() {
             </button>
           </div>
         )}
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
+          ALL LOANS & DUES HUB SHEET (ACTIVATED ON 'LOANS' CLICK)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "all_loans"} onClose={closeModal} title="My Loans & Dues Hub" icon="🏦">
+        <div className="space-y-4">
+          {/* Top Dues & Limit Summary Hero */}
+          <div className={`p-4 sm:p-5 rounded-2xl text-white shadow-md relative overflow-hidden ${
+            (userProfile.duesBalance || 0) > 0
+              ? "bg-gradient-to-br from-red-600 via-rose-600 to-red-800"
+              : "bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-900 border border-blue-500/30"
+          }`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-[11px] uppercase tracking-wider font-bold text-white/80 block">Total Pending Dues</span>
+                <div className="text-3xl font-black font-display my-1">
+                  ₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}
+                </div>
+                <p className="text-[11px] text-white/80">
+                  {(userProfile.duesBalance || 0) > 0
+                    ? "Easy Installments due on 1st, 11th & 21st / Daily Collections"
+                    : "All Clear • Zero Pending Dues"}
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-xs font-black bg-white/20 text-white">
+                Eligible Limit: ₹{maxLimit.toLocaleString("en-IN")}
+              </span>
+            </div>
+          </div>
+
+          {/* 5-DAY UPCOMING DUE ALERT BANNER */}
+          {activeLoanDetails?.isUpcomingSoon && activeLoanDetails?.nextInstallment && (
+            <div className="p-3.5 bg-amber-50 border-2 border-amber-400 rounded-2xl space-y-2 text-amber-950 shadow-xs animate-pulse">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔔</span>
+                <span className="font-black text-xs uppercase tracking-wide text-amber-900">
+                  Upcoming Due Alert (#{activeLoanDetails.nextInstallment.installmentNo})
+                </span>
+              </div>
+              <p className="text-xs font-medium text-amber-900">
+                Aapki agli kist <strong>₹{activeLoanDetails.nextInstallment.amount}</strong> {
+                  activeLoanDetails.daysUntilDue === 0 ? "aaj hi due hai!" :
+                  activeLoanDetails.daysUntilDue < 0 ? `${Math.abs(activeLoanDetails.daysUntilDue)} din pehle overdue ho chuki hai!` :
+                  `${activeLoanDetails.daysUntilDue} din me due hone wali hai (${activeLoanDetails.nextInstallment.dueDate ? new Date(activeLoanDetails.nextInstallment.dueDate).toLocaleDateString("en-IN") : "Upcoming"})`
+                }
+              </p>
+              <button
+                type="button"
+                onClick={() => setSubmitInstallmentModal({
+                  loanId: activeLoanDetails.loan?._id || loans[0]?._id,
+                  installmentNo: activeLoanDetails.nextInstallment.installmentNo,
+                  amount: activeLoanDetails.nextInstallment.amount
+                })}
+                className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition cursor-pointer"
+              >
+                Pay Now (₹{activeLoanDetails.nextInstallment.amount}) →
+              </button>
+            </div>
+          )}
+
+          {/* ACTIVE & APPLIED LOANS LIST */}
+          <div>
+            <div className="flex justify-between items-center mb-2.5">
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                My Loans ({loans.length})
+              </h4>
+              <button
+                type="button"
+                onClick={loadLoans}
+                className="text-[11px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+
+            {loans.length === 0 ? (
+              <div className="py-6 text-center bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-2">
+                <span className="text-3xl block">🏦</span>
+                <h5 className="font-bold text-sm text-gray-800">Abhi Koi Active Loan Nahi Hai</h5>
+                <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                  Aap bina kisi delay ke instant loan le sakte hain. Neeche diye gaye loan options se apply karein:
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {loans.map(l => {
+                  const schedule = (l.installmentSchedule && l.installmentSchedule.length > 0) ? l.installmentSchedule : (l.emiSchedule || []);
+                  const paidCount = schedule.filter(s => s.status === "paid").length;
+                  const totalCount = schedule.length || l.installmentsCount || l.dailyTenureDays || l.tenure || 0;
+                  const progress = totalCount > 0 ? (paidCount / totalCount) * 100 : (l.totalPayable ? (l.paidAmount / l.totalPayable) * 100 : 0);
+                  const instAmt = l.installmentAmount || l.emiAmount || 0;
+                  const payoffAmt = l.remainingAmount ?? (l.totalPayable ? Math.max(0, l.totalPayable - (l.paidAmount || 0)) : l.amount);
+                  const isDaily = l.collectionFrequency === "daily" || l.loanType === "micro_business";
+                  const isStudent = l.loanType === "student";
+                  const isExpanded = expandedLoanId === l._id;
+
+                  return (
+                    <div key={l._id} className="p-4 bg-white border border-gray-200 rounded-2xl shadow-xs space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded-lg border border-slate-200">
+                              {l.accountNumber || "EDUCA-LOAN"}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              isStudent ? "bg-cyan-100 text-cyan-800" :
+                              isDaily ? "bg-amber-100 text-amber-800" :
+                              "bg-emerald-100 text-emerald-800"
+                            }`}>
+                              {isStudent ? "🎓 Student Loan" : isDaily ? "🏬 Business Daily" : "🏦 Personal 10-Day"}
+                            </span>
+                          </div>
+                          <h5 className="text-lg font-black font-display text-gray-900 mt-1">
+                            ₹{l.amount.toLocaleString("en-IN")}
+                          </h5>
+                          <p className="text-[11px] text-gray-500">
+                            {isDaily ? `${totalCount} Days @ ${l.interestRate}%` : isStudent ? `${totalCount} Easy Installments @ 8% p.a.` : `${totalCount} Easy Installments @ 1.34%/kist`}
+                          </p>
+                        </div>
+                        <StatusBadge status={l.status} />
+                      </div>
+
+                      {/* Amounts Grid */}
+                      <div className="grid grid-cols-3 gap-2 p-2.5 bg-gray-50 rounded-xl text-xs">
+                        <div>
+                          <span className="text-[10px] text-gray-400 block">{isDaily ? "Daily Kist" : "Per Kist"}</span>
+                          <span className="font-bold text-gray-800">₹{instAmt}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400 block">Paid Kists</span>
+                          <span className="font-bold text-emerald-700">{paidCount} / {totalCount}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400 block">Remaining</span>
+                          <span className="font-bold text-rose-600">₹{payoffAmt.toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-blue-600 to-emerald-500 h-2 rounded-full transition-all"
+                          style={{ width: `${Math.min(100, progress)}%` }}
+                        />
+                      </div>
+
+                      {/* Active Actions */}
+                      {l.status === "active" && (
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextInst = schedule.find(s => s.status === "pending" || s.status === "overdue") || { installmentNo: paidCount + 1, amount: instAmt };
+                              setSubmitInstallmentModal({
+                                loanId: l._id,
+                                installmentNo: nextInst.installmentNo,
+                                amount: nextInst.amount || instAmt
+                              });
+                            }}
+                            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-xs active:scale-95 transition cursor-pointer"
+                          >
+                            Pay Kist ₹{instAmt} →
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => closeLoanEarly(l._id, payoffAmt)}
+                            className="px-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs active:scale-95 transition cursor-pointer"
+                            title="Close loan early with bonus"
+                          >
+                            ⚡ Settle & Close
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Installment Schedule Toggle */}
+                      {schedule.length > 0 && (
+                        <div className="pt-1 border-t border-gray-100">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedLoanId(isExpanded ? null : l._id)}
+                            className="w-full py-1.5 text-center text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <span>📅</span>
+                            <span>{isExpanded ? "Hide Installments Schedule ▲" : `View Full Schedule (${paidCount}/${schedule.length} Paid) ▼`}</span>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="mt-2 space-y-1.5 max-h-60 overflow-y-auto pr-1 pt-1 border-t border-gray-100">
+                              {schedule.map(inst => {
+                                const isPaid = inst.status === "paid";
+                                const isSubmitted = inst.status === "submitted";
+                                const isOverdue = inst.status === "overdue";
+                                return (
+                                  <div key={inst.installmentNo} className="p-2.5 rounded-xl border border-gray-100 bg-gray-50/70 flex items-center justify-between text-xs">
+                                    <div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-bold text-gray-900">Kist #{inst.installmentNo}:</span>
+                                        <span className="font-mono font-bold text-gray-800">₹{inst.amount}</span>
+                                      </div>
+                                      <p className="text-[10px] text-gray-500">
+                                        Due: {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "Scheduled"}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                        isPaid ? "bg-emerald-100 text-emerald-800" :
+                                        isSubmitted ? "bg-amber-100 text-amber-800" :
+                                        isOverdue ? "bg-rose-100 text-rose-800" : "bg-gray-200 text-gray-700"
+                                      }`}>
+                                        {inst.status}
+                                      </span>
+                                      {!isPaid && !isSubmitted && l.status === "active" && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setSubmitInstallmentModal({
+                                            loanId: l._id,
+                                            installmentNo: inst.installmentNo,
+                                            amount: inst.amount
+                                          })}
+                                          className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold active:scale-95 cursor-pointer"
+                                        >
+                                          Pay
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* APPLY FOR NEW LOAN OPTIONS */}
+          <div className="pt-2 border-t border-gray-200 space-y-2">
+            <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+              Apply For A New Loan
+            </h4>
+            <div className="grid grid-cols-1 gap-2.5">
+              {/* Personal Loan */}
+              <div
+                onClick={() => { closeModal(); openLoanSheet("personal_loan"); }}
+                className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-emerald-100/60 transition active:scale-95"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shrink-0">
+                    🏦
+                  </div>
+                  <div>
+                    <h5 className="font-extrabold text-xs text-gray-900">Personal Loan Account</h5>
+                    <p className="text-[11px] text-gray-500">10-Day Cycle • 15-30 Easy Installments • Up to ₹{maxLimit.toLocaleString("en-IN")}</p>
+                  </div>
+                </div>
+                <span className="text-emerald-700 font-bold text-xs">Apply →</span>
+              </div>
+
+              {/* Student Loan */}
+              <div
+                onClick={() => { closeModal(); openLoanSheet("student_loan"); }}
+                className="p-3 bg-cyan-50/70 border border-cyan-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-cyan-100/60 transition active:scale-95"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center text-xl shrink-0">
+                    🎓
+                  </div>
+                  <div>
+                    <h5 className="font-extrabold text-xs text-gray-900">Student Loan Account</h5>
+                    <p className="text-[11px] text-gray-500">Subsidized 8% p.a. • Fee Support • Up to ₹{maxLimit.toLocaleString("en-IN")}</p>
+                  </div>
+                </div>
+                <span className="text-cyan-700 font-bold text-xs">Apply →</span>
+              </div>
+
+              {/* Micro Business Loan */}
+              <div
+                onClick={() => { closeModal(); openLoanSheet("business_loan"); }}
+                className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-amber-100/60 transition active:scale-95"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl shrink-0">
+                    🏬
+                  </div>
+                  <div>
+                    <h5 className="font-extrabold text-xs text-gray-900">Micro Business Loan</h5>
+                    <p className="text-[11px] text-gray-500">Daily Collection • 60-120 Days • Up to ₹{maxLimit.toLocaleString("en-IN")}</p>
+                  </div>
+                </div>
+                <span className="text-amber-700 font-bold text-xs">Apply →</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </Sheet>
 
       {/* DEPOSIT SHEET */}

@@ -33,7 +33,10 @@ const loanSchema = new mongoose.Schema({
     bankAccountNumber: String,
     bankIfsc: String,
     upiQrUrl: String,
-    chequeNumber: String
+    chequeNumber: String,
+    doc1Url: String,
+    doc2Url: String,
+    studentProofUrl: String
   },
   status: { 
     type: String, 

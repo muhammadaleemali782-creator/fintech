@@ -18,8 +18,7 @@ export default function LoansPage() {
 
   const processingFee = Math.round(loanAmount * 0.05); // 5%
   const upiCharges = Math.round(loanAmount * 0.01); // 1%
-  const advanceDeduction = installmentAmount;
-  const netDisbursal = Math.max(0, loanAmount - (processingFee + upiCharges + advanceDeduction));
+  const netDisbursal = Math.max(0, loanAmount - (processingFee + upiCharges));
 
   // Micro Business Loan Calculator State
   const [mblAmount, setMblAmount] = useState(10000);
@@ -209,10 +208,6 @@ export default function LoansPage() {
                   <div className="flex justify-between text-gray-300">
                     <span>- 1% UPI/Cash Charge:</span>
                     <span className="font-bold text-white">₹{upiCharges}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-300">
-                    <span>- 1st Advance Installment:</span>
-                    <span className="font-bold text-white">₹{advanceDeduction}</span>
                   </div>
                   <div className="pt-2 border-t border-white/20 flex justify-between items-center text-sm">
                     <span className="font-black text-cyan-300">Net Disbursal:</span>

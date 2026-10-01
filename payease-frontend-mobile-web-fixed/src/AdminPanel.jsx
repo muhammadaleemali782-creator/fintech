@@ -34,6 +34,9 @@ export default function AdminPanel() {
   const [expandedLoanId, setExpandedLoanId] = useState(null);
   const [adminPayModal, setAdminPayModal] = useState(null);
   const [adminPayLoading, setAdminPayLoading] = useState(false);
+  const [loanApproveModal, setLoanApproveModal] = useState(null);
+  const [advanceOption, setAdvanceOption] = useState("none"); // "none" | "deduct" | "waive"
+  const [loanApproveLoading, setLoanApproveLoading] = useState(false);
 
   const showToast = (text, type = "success") => setToast({ text, type });
 
@@ -322,12 +325,26 @@ export default function AdminPanel() {
     }
   };
 
-  const approveLoan = async (id) => {
-    if (!window.confirm("Approve and disburse this loan?")) return;
-    const res = await fetch(`${API}/loan/${id}/approve`, { method: "POST", headers });
-    const data = await res.json();
-    showToast(data.message, res.ok ? "success" : "error");
-    if (res.ok) loadAll();
+  const submitApproveLoan = async () => {
+    if (!loanApproveModal) return;
+    setLoanApproveLoading(true);
+    try {
+      const res = await fetch(`${API}/loan/${loanApproveModal._id}/approve`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ advanceOption })
+      });
+      const data = await res.json();
+      showToast(data.message, res.ok ? "success" : "error");
+      if (res.ok) {
+        setLoanApproveModal(null);
+        loadAll();
+      }
+    } catch {
+      showToast("Network error approving loan", "error");
+    } finally {
+      setLoanApproveLoading(false);
+    }
   };
 
   const rejectLoan = async (id) => {
@@ -1523,10 +1540,60 @@ export default function AdminPanel() {
                             🎯 Referral commission ₹{l.referralCommissionAmount} paid on this loan
                           </div>
                         )}
+                        {/* SUBMITTED LOAN DOCUMENTS */}
+                        {(l.documents?.doc1Url || l.documents?.doc2Url || l.documents?.studentProofUrl || l.hasChequeFacility) && (
+                          <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-1.5 mb-3">
+                            <div className="flex items-center justify-between text-xs font-bold text-indigo-900">
+                              <span>📄 Submitted Loan Documents</span>
+                              {l.hasChequeFacility && (
+                                <span className="text-[10px] bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded-full font-bold">
+                                  Cheque: {l.chequeNumber || 'Yes'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {l.documents?.doc1Url && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setLightboxImg(l.documents.doc1Url); setZoomLevel(1); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-semibold text-indigo-800 hover:bg-indigo-50 transition cursor-pointer"
+                                >
+                                  <span>🆔</span> Aadhaar Card 🔍
+                                </button>
+                              )}
+                              {l.documents?.doc2Url && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setLightboxImg(l.documents.doc2Url); setZoomLevel(1); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-semibold text-indigo-800 hover:bg-indigo-50 transition cursor-pointer"
+                                >
+                                  <span>💳</span> {l.hasChequeFacility ? "Cancelled Cheque" : "PAN Card"} 🔍
+                                </button>
+                              )}
+                              {l.documents?.studentProofUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setLightboxImg(l.documents.studentProofUrl); setZoomLevel(1); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-cyan-200 rounded-lg text-[11px] font-semibold text-cyan-800 hover:bg-cyan-50 transition cursor-pointer"
+                                >
+                                  <span>🎓</span> Student Proof 🔍
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         {l.status === "pending" && (
                           <div className="flex gap-3">
-                            <button onClick={() => approveLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg transition">✅ Approve & Disburse</button>
-                            <button onClick={() => rejectLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 transition">✗ Reject</button>
+                            <button
+                              onClick={() => { setLoanApproveModal(l); setAdvanceOption("none"); }}
+                              className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg transition cursor-pointer"
+                            >
+                              ✅ Approve & Disburse
+                            </button>
+                            <button onClick={() => rejectLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 transition cursor-pointer">
+                              ✗ Reject
+                            </button>
                           </div>
                         )}
 
@@ -2157,6 +2224,153 @@ export default function AdminPanel() {
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition cursor-pointer disabled:opacity-50"
               >
                 {adminPayLoading ? "Saving..." : "Confirm & Mark Paid →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LOAN APPROVAL & DISBURSAL MODAL WITH 1ST INSTALLMENT OPTIONS */}
+      {loanApproveModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🏦</span>
+                <div>
+                  <h3 className="font-extrabold text-base text-gray-900 leading-tight">
+                    Approve & Disburse Loan
+                  </h3>
+                  <p className="text-[11px] text-gray-500 font-medium">
+                    Account: <span className="font-bold font-mono text-indigo-700">{loanApproveModal.accountNumber || "Loan"}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLoanApproveModal(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 bg-gray-50 rounded-xl">
+                <span className="text-gray-400 block text-[10px]">Sanctioned Amount</span>
+                <span className="font-black text-gray-900 text-sm">₹{loanApproveModal.amount?.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="p-2.5 bg-gray-50 rounded-xl">
+                <span className="text-gray-400 block text-[10px]">Installments</span>
+                <span className="font-black text-blue-700 text-sm">{loanApproveModal.installmentsCount || loanApproveModal.dailyTenureDays} Kist</span>
+              </div>
+              <div className="p-2.5 bg-gray-50 rounded-xl">
+                <span className="text-gray-400 block text-[10px]">Processing + UPI Fee</span>
+                <span className="font-black text-amber-700 text-xs">₹{(loanApproveModal.processingFee || 0) + (loanApproveModal.upiCharges || 0)}</span>
+              </div>
+              <div className="p-2.5 bg-gray-50 rounded-xl">
+                <span className="text-gray-400 block text-[10px]">Per Installment</span>
+                <span className="font-black text-emerald-700 text-xs">₹{loanApproveModal.installmentAmount || loanApproveModal.emiAmount || 0}</span>
+              </div>
+            </div>
+
+            {/* 1st Installment Option (Admin Discretion) */}
+            <div className="space-y-2 pt-1 border-t border-gray-100">
+              <label className="block text-xs font-bold text-gray-800">
+                1st Installment Decision (Admin Option)
+              </label>
+
+              <div className="space-y-2 text-xs">
+                {/* Option 1: Skip upfront deduction (Default) */}
+                <label className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition ${
+                  advanceOption === "none"
+                    ? "bg-blue-50/70 border-blue-400 ring-2 ring-blue-300"
+                    : "bg-white border-gray-200 hover:bg-gray-50"
+                }`}>
+                  <input
+                    type="radio"
+                    name="advanceOption"
+                    value="none"
+                    checked={advanceOption === "none"}
+                    onChange={() => setAdvanceOption("none")}
+                    className="mt-0.5 text-blue-600 cursor-pointer"
+                  />
+                  <div>
+                    <div className="font-extrabold text-blue-950 flex items-center gap-1.5">
+                      <span>Standard Payout (Pehli installment advance nahi kaatna)</span>
+                      <span className="text-[10px] bg-blue-200 text-blue-900 px-1.5 py-0.2 rounded font-bold">Default</span>
+                    </div>
+                    <p className="text-[11px] text-gray-600 mt-0.5">
+                      Net Disburse: <strong className="text-emerald-700 font-bold">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>. Pehli installment schedule me regular pending rahegi.
+                    </p>
+                  </div>
+                </label>
+
+                {/* Option 2: Deduct advance */}
+                <label className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition ${
+                  advanceOption === "deduct"
+                    ? "bg-amber-50/70 border-amber-400 ring-2 ring-amber-300"
+                    : "bg-white border-gray-200 hover:bg-gray-50"
+                }`}>
+                  <input
+                    type="radio"
+                    name="advanceOption"
+                    value="deduct"
+                    checked={advanceOption === "deduct"}
+                    onChange={() => setAdvanceOption("deduct")}
+                    className="mt-0.5 text-amber-600 cursor-pointer"
+                  />
+                  <div>
+                    <div className="font-extrabold text-amber-950">
+                      Pehli Installment Advance Kaatein
+                    </div>
+                    <p className="text-[11px] text-gray-600 mt-0.5">
+                      Net Disburse: <strong className="text-emerald-700 font-bold">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0) - (loanApproveModal.installmentAmount || loanApproveModal.emiAmount || 0)).toLocaleString("en-IN")}</strong>. Installment #1 turant 'Paid' mark ho jayegi.
+                    </p>
+                  </div>
+                </label>
+
+                {/* Option 3: Waive 1st installment */}
+                <label className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition ${
+                  advanceOption === "waive"
+                    ? "bg-purple-50/70 border-purple-400 ring-2 ring-purple-300"
+                    : "bg-white border-gray-200 hover:bg-gray-50"
+                }`}>
+                  <input
+                    type="radio"
+                    name="advanceOption"
+                    value="waive"
+                    checked={advanceOption === "waive"}
+                    onChange={() => setAdvanceOption("waive")}
+                    className="mt-0.5 text-purple-600 cursor-pointer"
+                  />
+                  <div>
+                    <div className="font-extrabold text-purple-950">
+                      Pehli Installment Waive / Maaf Karein
+                    </div>
+                    <p className="text-[11px] text-gray-600 mt-0.5">
+                      Net Disburse: <strong className="text-emerald-700 font-bold">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>. Installment #1 free me 'Paid' ho jayegi.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setLoanApproveModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={loanApproveLoading}
+                onClick={submitApproveLoan}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition cursor-pointer disabled:opacity-50"
+              >
+                {loanApproveLoading ? "Disbursing..." : "Confirm & Disburse Funds →"}
               </button>
             </div>
           </div>

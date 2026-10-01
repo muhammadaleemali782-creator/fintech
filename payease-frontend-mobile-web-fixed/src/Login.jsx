@@ -55,6 +55,12 @@ export default function Login({ isApp = false }) {
       if (!res.ok) throw new Error(data.message || "Invalid credentials");
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      if (data.user) {
+        localStorage.setItem("educa_cached_profile", JSON.stringify(data.user));
+        if (data.user.balance !== undefined) {
+          localStorage.setItem("educa_cached_balance", String(data.user.balance));
+        }
+      }
       showMsg("Login successful! Redirecting...", "success");
       setTimeout(() => {
         window.location.href = data.user.role === "admin" ? "/admin" : "/dashboard";
@@ -79,6 +85,12 @@ export default function Login({ isApp = false }) {
       if (!res.ok) throw new Error(data.message || "Educa Mail login failed");
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      if (data.user) {
+        localStorage.setItem("educa_cached_profile", JSON.stringify(data.user));
+        if (data.user.balance !== undefined) {
+          localStorage.setItem("educa_cached_balance", String(data.user.balance));
+        }
+      }
       showMsg("Logged in with Educa Mail (30 Days Active)! Redirecting...", "success");
       setTimeout(() => {
         window.location.href = data.user.role === "admin" ? "/admin" : "/dashboard";
@@ -102,6 +114,11 @@ export default function Login({ isApp = false }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Registration failed");
       localStorage.setItem("token", data.token);
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("educa_cached_profile", JSON.stringify(data.user));
+        localStorage.setItem("educa_cached_balance", "0");
+      }
       showMsg(
         regData.isAgent
           ? "🎉 Partner application submitted! Redirecting..."

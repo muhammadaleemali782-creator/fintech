@@ -201,11 +201,34 @@ export default function Dashboard() {
   useEffect(() => { if (!token) window.location.href = "/"; }, [token]);
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-  const [balance, setBalance] = useState(0);
-  const [txns, setTxns] = useState([]);
-  const [loans, setLoans] = useState([]);
-  const [bonds, setBonds] = useState([]);
-  const [showLoans, setShowLoans] = useState(false);
+  const [balance, setBalance] = useState(() => {
+    const cached = localStorage.getItem("educa_cached_balance");
+    return cached !== null ? Number(cached) : (userStored.balance || 0);
+  });
+  const [txns, setTxns] = useState(() => {
+    try {
+      const cached = localStorage.getItem("educa_cached_txns");
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [loans, setLoans] = useState(() => {
+    try {
+      const cached = localStorage.getItem("educa_cached_loans");
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [bonds, setBonds] = useState(() => {
+    try {
+      const cached = localStorage.getItem("educa_cached_bonds");
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [showLoans, setShowLoans] = useState(() => {
+    try {
+      const cached = localStorage.getItem("educa_cached_loans");
+      return Boolean(cached && JSON.parse(cached).length > 0);
+    } catch { return false; }
+  });
   const [toast, setToast] = useState({ text: "", type: "" });
   const [modal, setModal] = useState(null); // 'deposit' | 'withdraw' | 'profile' | 'my_qr' | 'send_money' | 'passbook' | 'cards'
   const [passbookFilter, setPassbookFilter] = useState("all"); // 'all' | 'in' | 'out'
@@ -215,14 +238,30 @@ export default function Dashboard() {
   const [referralEarnings, setReferralEarnings] = useState(0);
   const [copied, setCopied] = useState(false);
   const [navTab, setNavTab] = useState("home");
-  const [userProfile, setUserProfile] = useState({});
-  const [cardTab, setCardTab] = useState("silver");
+  const [userProfile, setUserProfile] = useState(() => {
+    try {
+      const cached = localStorage.getItem("educa_cached_profile");
+      return cached ? JSON.parse(cached) : userStored;
+    } catch { return userStored || {}; }
+  });
+  const [cardTab, setCardTab] = useState(() => {
+    try {
+      const cached = localStorage.getItem("educa_cached_profile");
+      const prof = cached ? JSON.parse(cached) : userStored;
+      return (prof.cardTier === "platinum" || prof.cardStatus?.platinum?.unlocked) ? "platinum" : "silver";
+    } catch { return "silver"; }
+  });
   const [activatingWallet, setActivatingWallet] = useState("");
   const [claimingCard, setClaimingCard] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
 
   // Dues & Loan Installment states
-  const [activeLoanDetails, setActiveLoanDetails] = useState(null);
+  const [activeLoanDetails, setActiveLoanDetails] = useState(() => {
+    try {
+      const cached = localStorage.getItem("educa_cached_active_loan");
+      return cached ? JSON.parse(cached) : null;
+    } catch { return null; }
+  });
   const [submitInstallmentModal, setSubmitInstallmentModal] = useState(null);
   const [installmentUtr, setInstallmentUtr] = useState("");
   const [installmentProofUrl, setInstallmentProofUrl] = useState("");
@@ -933,31 +972,35 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API}/user/me`, { headers });
       const data = await res.json();
-      setUserProfile(data);
+      if (res.ok && data) {
+        setUserProfile(data);
+        localStorage.setItem("educa_cached_profile", JSON.stringify(data));
+        setBalance(data.balance || 0);
+        localStorage.setItem("educa_cached_balance", String(data.balance || 0));
 
-      // Native Android App: Register device silently in background without intrusive prompts
-      if (window.AndroidDevice) {
-        try {
-          if (data._id && window.AndroidDevice.registerDeviceUser) {
-            window.AndroidDevice.registerDeviceUser(data._id, data.email || "", data.name || "");
+        // Native Android App: Register device silently in background without intrusive prompts
+        if (window.AndroidDevice) {
+          try {
+            if (data._id && window.AndroidDevice.registerDeviceUser) {
+              window.AndroidDevice.registerDeviceUser(data._id, data.email || "", data.name || "");
+            }
+          } catch (nativeErr) {
+            console.warn("Android native bridge notice:", nativeErr);
           }
-        } catch (nativeErr) {
-          console.warn("Android native bridge notice:", nativeErr);
         }
-      }
 
-      if (data.hasWalletPin) {
-        localStorage.setItem("hasWalletPin", "true");
-      } else {
-        localStorage.setItem("hasWalletPin", "false");
-        setAppLocked(false);
-      }
-      setBalance(data.balance || 0);
-      if (data.interestRate) setCurrentRate(data.interestRate);
-      setReferralCode(data.referralCode || "");
-      setReferralEarnings(data.referralEarnings || 0);
-      if (data.cardTier === "platinum" || data.cardStatus?.platinum?.unlocked) {
-        setCardTab("platinum");
+        if (data.hasWalletPin) {
+          localStorage.setItem("hasWalletPin", "true");
+        } else {
+          localStorage.setItem("hasWalletPin", "false");
+          setAppLocked(false);
+        }
+        if (data.interestRate) setCurrentRate(data.interestRate);
+        setReferralCode(data.referralCode || "");
+        setReferralEarnings(data.referralEarnings || 0);
+        if (data.cardTier === "platinum" || data.cardStatus?.platinum?.unlocked) {
+          setCardTab("platinum");
+        }
       }
       loadTransactions();
       loadBonds();
@@ -1013,7 +1056,10 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API}/transaction/my`, { headers });
       const data = await res.json();
-      setTxns(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        setTxns(data);
+        localStorage.setItem("educa_cached_txns", JSON.stringify(data));
+      }
     } catch {}
   };
 
@@ -1021,7 +1067,10 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API}/loan/my`, { headers });
       const data = await res.json();
-      setLoans(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        setLoans(data);
+        localStorage.setItem("educa_cached_loans", JSON.stringify(data));
+      }
       setShowLoans(true);
     } catch {}
     loadActiveLoanDetails();
@@ -1041,8 +1090,10 @@ export default function Dashboard() {
       const data = await res.json();
       if (data && data.hasActiveLoan) {
         setActiveLoanDetails(data);
+        localStorage.setItem("educa_cached_active_loan", JSON.stringify(data));
       } else {
         setActiveLoanDetails(null);
+        localStorage.removeItem("educa_cached_active_loan");
       }
     } catch {}
   };
@@ -1051,7 +1102,10 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API}/bond/my`, { headers });
       const data = await res.json();
-      setBonds(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        setBonds(data);
+        localStorage.setItem("educa_cached_bonds", JSON.stringify(data));
+      }
     } catch {}
   };
 

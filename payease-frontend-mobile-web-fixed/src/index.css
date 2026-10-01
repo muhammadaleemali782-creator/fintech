@@ -86,3 +86,46 @@ h1, h2, h3, .font-display {
   animation: laserBeam 2.2s ease-in-out infinite;
 }
 
+/* ══════════════════════════════════════════════════════
+   HERO FLIGHT TAKEOFF ANIMATION (EXCLUSIVE TO LOAN ACTIONS)
+   "Hero button se hero ude"
+   ══════════════════════════════════════════════════════ */
+@keyframes heroFlightTakeoff {
+  0% {
+    transform: translate(-50%, 0) scale(0.6) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    transform: translate(-50%, -15px) scale(1.2) rotate(-8deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 16px rgba(16, 185, 129, 0.95));
+  }
+  50% {
+    transform: translate(-30%, -85px) scale(1.6) rotate(-22deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 24px rgba(59, 130, 246, 0.95));
+  }
+  80% {
+    transform: translate(-10%, -155px) scale(1.95) rotate(-30deg);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(25%, -235px) scale(2.4) rotate(-38deg);
+    opacity: 0;
+    filter: drop-shadow(0 0 38px rgba(236, 72, 153, 0.8));
+  }
+}
+
+.animate-hero-flight {
+  animation: heroFlightTakeoff 1.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  pointer-events: none;
+}
+
+/* Instant tactile click feedback - eliminate reaction-less buttons */
+button:active:not(:disabled),
+[role="button"]:active {
+  transform: scale(0.96);
+  transition: transform 0.08s ease-out;
+}
+
+

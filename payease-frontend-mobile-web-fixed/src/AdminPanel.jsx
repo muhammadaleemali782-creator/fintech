@@ -36,7 +36,34 @@ export default function AdminPanel() {
   const [adminPayLoading, setAdminPayLoading] = useState(false);
   const [loanApproveModal, setLoanApproveModal] = useState(null);
   const [advanceOption, setAdvanceOption] = useState("none"); // "none" | "deduct" | "waive"
+  const [cardAdvanceOptions, setCardAdvanceOptions] = useState({}); // Per-loan card 1st installment option
   const [loanApproveLoading, setLoanApproveLoading] = useState(false);
+  const [rejectLoadingId, setRejectLoadingId] = useState(null);
+  const [adminHeroFlyId, setAdminHeroFlyId] = useState(null);
+
+  const triggerAdminHeroFly = (id = "generic") => {
+    setAdminHeroFlyId(id);
+    setTimeout(() => {
+      setAdminHeroFlyId(prev => (prev === id ? null : prev));
+    }, 1250);
+  };
+
+  const AdminLoanHeroFlyBadge = () => (
+    <div className="absolute pointer-events-none -top-2 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center animate-hero-flight select-none">
+      <div className="relative">
+        <span className="text-4xl filter drop-shadow-[0_0_15px_rgba(16,185,129,0.9)] inline-block animate-bounce">
+          🦸‍♂️
+        </span>
+        <span className="absolute -top-1 -right-2 text-base animate-ping">✨</span>
+      </div>
+      <span className="text-[10px] font-black tracking-wider text-emerald-200 bg-emerald-950/90 border border-emerald-400 px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap mt-0.5">
+        ⚡ HERO FLIGHT! 🚀
+      </span>
+      <span className="text-xs tracking-widest text-amber-300 font-bold opacity-80">
+        💨 ✨ 💫
+      </span>
+    </div>
+  );
 
   const showToast = (text, type = "success") => setToast({ text, type });
 
@@ -349,9 +376,17 @@ export default function AdminPanel() {
 
   const rejectLoan = async (id) => {
     if (!window.confirm("Reject this loan?")) return;
-    const res = await fetch(`${API}/loan/${id}/reject`, { method: "POST", headers });
-    showToast((await res.json()).message, res.ok ? "success" : "error");
-    if (res.ok) loadLoans();
+    setRejectLoadingId(id);
+    try {
+      const res = await fetch(`${API}/loan/${id}/reject`, { method: "POST", headers });
+      const data = await res.json();
+      showToast(data.message, res.ok ? "success" : "error");
+      if (res.ok) loadLoans();
+    } catch {
+      showToast("Network error rejecting loan", "error");
+    } finally {
+      setRejectLoadingId(null);
+    }
   };
 
   const approveInstallment = async (loanId, installmentNo) => {
@@ -1583,19 +1618,135 @@ export default function AdminPanel() {
                           </div>
                         )}
 
-                        {l.status === "pending" && (
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() => { setLoanApproveModal(l); setAdvanceOption("none"); }}
-                              className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg transition cursor-pointer"
-                            >
-                              ✅ Approve & Disburse
-                            </button>
-                            <button onClick={() => rejectLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 transition cursor-pointer">
-                              ✗ Reject
-                            </button>
-                          </div>
-                        )}
+                        {l.status === "pending" && (() => {
+                          const chosenOpt = cardAdvanceOptions[l._id] || "none";
+                          const feeDeduction = (l.processingFee || 0) + (l.upiCharges || 0);
+                          const basePayout = Math.max(0, l.amount - feeDeduction);
+                          const instAmt = l.installmentAmount || l.emiAmount || 0;
+                          const advancePayout = Math.max(0, basePayout - instAmt);
+                          const currentDisburseAmount = chosenOpt === "none" ? basePayout : chosenOpt === "deduct" ? advancePayout : basePayout;
+
+                          return (
+                            <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+                              {/* 1st Installment Decision Card for Admin */}
+                              <div className="p-3.5 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 border-2 border-indigo-200/80 rounded-2xl space-y-2.5 shadow-xs">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg">⚙️</span>
+                                    <div>
+                                      <h5 className="text-xs font-black text-gray-900 leading-tight">
+                                        Pehli Installment Setting (Admin Choice)
+                                      </h5>
+                                      <p className="text-[10px] text-gray-500 font-medium">
+                                        Admin chun sakta hai ki pehli kist abhi advance leni hai ya baad me:
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border shadow-xs ${
+                                    chosenOpt === "none"
+                                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                      : chosenOpt === "deduct"
+                                      ? "bg-amber-100 text-amber-800 border-amber-300"
+                                      : "bg-purple-100 text-purple-800 border-purple-300"
+                                  }`}>
+                                    {chosenOpt === "none" ? "🟢 NA LEIN (Pura Paisa)" : chosenOpt === "deduct" ? "🟡 Advance Kaatein" : "🟣 Waive/Maaf"}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                  {/* Option 1: Pehli Installment NA lein (Standard / Full Disbursal) */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "none" }));
+                                      setAdvanceOption("none");
+                                    }}
+                                    className={`p-3 rounded-xl border text-left transition active:scale-95 cursor-pointer relative ${
+                                      chosenOpt === "none"
+                                        ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-400 text-emerald-950 font-bold shadow-xs"
+                                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-black text-xs text-emerald-950 flex items-center gap-1">
+                                        <span>🟢 Pehli Kist NA lein</span>
+                                      </span>
+                                      <span className="text-[9px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-black">
+                                        RECOMMENDED
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-gray-800 font-semibold mt-1">
+                                      Borrower ko milega: <strong className="text-emerald-700 font-extrabold text-xs">₹{basePayout.toLocaleString("en-IN")}</strong>
+                                    </p>
+                                    <p className="text-[10px] text-emerald-700 font-medium mt-0.5">
+                                      ✓ Kist #1 regular schedule me pending rahegi (user baad me bharega).
+                                    </p>
+                                  </button>
+
+                                  {/* Option 2: Pehli Installment Advance Kaatein */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "deduct" }));
+                                      setAdvanceOption("deduct");
+                                    }}
+                                    className={`p-3 rounded-xl border text-left transition active:scale-95 cursor-pointer relative ${
+                                      chosenOpt === "deduct"
+                                        ? "bg-amber-50 border-amber-500 ring-2 ring-amber-400 text-amber-950 font-bold shadow-xs"
+                                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-black text-xs text-amber-950 flex items-center gap-1">
+                                        <span>🟡 Pehli Kist Advance Kaatein</span>
+                                      </span>
+                                      <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-black">
+                                        ADVANCE
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-gray-800 font-semibold mt-1">
+                                      Borrower ko milega: <strong className="text-amber-700 font-extrabold text-xs">₹{advancePayout.toLocaleString("en-IN")}</strong>
+                                    </p>
+                                    <p className="text-[10px] text-amber-700 font-medium mt-0.5">
+                                      ✓ Kist #1 (₹{instAmt}) abhi turant 'Paid' mark ho jayegi.
+                                    </p>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex gap-3 relative">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAdvanceOption(chosenOpt);
+                                    setLoanApproveModal(l);
+                                    triggerAdminHeroFly(l._id);
+                                  }}
+                                  className="relative overflow-visible flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                                >
+                                  {adminHeroFlyId === l._id && <AdminLoanHeroFlyBadge />}
+                                  <span>✅ Approve & Disburse (₹{currentDisburseAmount.toLocaleString("en-IN")})</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={rejectLoadingId === l._id}
+                                  onClick={() => rejectLoan(l._id)}
+                                  className="px-5 py-3 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  {rejectLoadingId === l._id ? (
+                                    <>
+                                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                      <span>Rejecting...</span>
+                                    </>
+                                  ) : (
+                                    <span>✗ Reject</span>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {/* INSTALLMENT SCHEDULE EXPANDER */}
                         {schedule.length > 0 && l.status !== "pending" && (
@@ -2281,10 +2432,10 @@ export default function AdminPanel() {
               </label>
 
               <div className="space-y-2 text-xs">
-                {/* Option 1: Skip upfront deduction (Default) */}
-                <label className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition ${
+                {/* Option 1: Skip upfront deduction (Default - Pehli Installment NA lein) */}
+                <label className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
                   advanceOption === "none"
-                    ? "bg-blue-50/70 border-blue-400 ring-2 ring-blue-300"
+                    ? "bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-300 shadow-xs"
                     : "bg-white border-gray-200 hover:bg-gray-50"
                 }`}>
                   <input
@@ -2293,23 +2444,26 @@ export default function AdminPanel() {
                     value="none"
                     checked={advanceOption === "none"}
                     onChange={() => setAdvanceOption("none")}
-                    className="mt-0.5 text-blue-600 cursor-pointer"
+                    className="mt-1 text-emerald-600 cursor-pointer accent-emerald-600"
                   />
-                  <div>
-                    <div className="font-extrabold text-blue-950 flex items-center gap-1.5">
-                      <span>Standard Payout (Pehli installment advance nahi kaatna)</span>
-                      <span className="text-[10px] bg-blue-200 text-blue-900 px-1.5 py-0.2 rounded font-bold">Default</span>
+                  <div className="flex-1">
+                    <div className="font-extrabold text-emerald-950 flex items-center justify-between">
+                      <span className="text-xs">🟢 Pehli Installment NA lein (Pura Paisa Disburse)</span>
+                      <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-black">RECOMMENDED</span>
                     </div>
-                    <p className="text-[11px] text-gray-600 mt-0.5">
-                      Net Disburse: <strong className="text-emerald-700 font-bold">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>. Pehli installment schedule me regular pending rahegi.
+                    <p className="text-[11px] text-gray-700 mt-1 font-medium">
+                      Borrower ko seedha milega: <strong className="text-emerald-700 font-extrabold text-xs">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>
+                    </p>
+                    <p className="text-[10px] text-emerald-700 mt-0.5">
+                      ✓ Kist #1 baad me regular date par pending rahegi. Borrower baad me bharega.
                     </p>
                   </div>
                 </label>
 
                 {/* Option 2: Deduct advance */}
-                <label className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition ${
+                <label className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
                   advanceOption === "deduct"
-                    ? "bg-amber-50/70 border-amber-400 ring-2 ring-amber-300"
+                    ? "bg-amber-50/90 border-amber-500 ring-2 ring-amber-300 shadow-xs"
                     : "bg-white border-gray-200 hover:bg-gray-50"
                 }`}>
                   <input
@@ -2318,22 +2472,26 @@ export default function AdminPanel() {
                     value="deduct"
                     checked={advanceOption === "deduct"}
                     onChange={() => setAdvanceOption("deduct")}
-                    className="mt-0.5 text-amber-600 cursor-pointer"
+                    className="mt-1 text-amber-600 cursor-pointer accent-amber-600"
                   />
-                  <div>
-                    <div className="font-extrabold text-amber-950">
-                      Pehli Installment Advance Kaatein
+                  <div className="flex-1">
+                    <div className="font-extrabold text-amber-950 flex items-center justify-between">
+                      <span className="text-xs">🟡 Pehli Installment Advance Kaatein</span>
+                      <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-black">ADVANCE CUT</span>
                     </div>
-                    <p className="text-[11px] text-gray-600 mt-0.5">
-                      Net Disburse: <strong className="text-emerald-700 font-bold">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0) - (loanApproveModal.installmentAmount || loanApproveModal.emiAmount || 0)).toLocaleString("en-IN")}</strong>. Installment #1 turant 'Paid' mark ho jayegi.
+                    <p className="text-[11px] text-gray-700 mt-1 font-medium">
+                      Net Disburse: <strong className="text-amber-800 font-extrabold text-xs">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0) - (loanApproveModal.installmentAmount || loanApproveModal.emiAmount || 0)).toLocaleString("en-IN")}</strong>
+                    </p>
+                    <p className="text-[10px] text-amber-700 mt-0.5">
+                      ✓ Kist #1 (₹{loanApproveModal.installmentAmount || loanApproveModal.emiAmount || 0}) abhi turant 'Paid' mark ho jayegi.
                     </p>
                   </div>
                 </label>
 
                 {/* Option 3: Waive 1st installment */}
-                <label className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition ${
+                <label className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
                   advanceOption === "waive"
-                    ? "bg-purple-50/70 border-purple-400 ring-2 ring-purple-300"
+                    ? "bg-purple-50/90 border-purple-500 ring-2 ring-purple-300 shadow-xs"
                     : "bg-white border-gray-200 hover:bg-gray-50"
                 }`}>
                   <input
@@ -2342,14 +2500,18 @@ export default function AdminPanel() {
                     value="waive"
                     checked={advanceOption === "waive"}
                     onChange={() => setAdvanceOption("waive")}
-                    className="mt-0.5 text-purple-600 cursor-pointer"
+                    className="mt-1 text-purple-600 cursor-pointer accent-purple-600"
                   />
-                  <div>
-                    <div className="font-extrabold text-purple-950">
-                      Pehli Installment Waive / Maaf Karein
+                  <div className="flex-1">
+                    <div className="font-extrabold text-purple-950 flex items-center justify-between">
+                      <span className="text-xs">🟣 Pehli Installment Waive / Maaf Karein</span>
+                      <span className="text-[10px] bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full font-black">WAIVER</span>
                     </div>
-                    <p className="text-[11px] text-gray-600 mt-0.5">
-                      Net Disburse: <strong className="text-emerald-700 font-bold">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>. Installment #1 free me 'Paid' ho jayegi.
+                    <p className="text-[11px] text-gray-700 mt-1 font-medium">
+                      Net Disburse: <strong className="text-purple-700 font-extrabold text-xs">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>
+                    </p>
+                    <p className="text-[10px] text-purple-700 mt-0.5">
+                      ✓ Kist #1 free me 'Paid' ho jayegi.
                     </p>
                   </div>
                 </label>
@@ -2360,17 +2522,28 @@ export default function AdminPanel() {
               <button
                 type="button"
                 onClick={() => setLoanApproveModal(null)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer"
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition active:scale-95 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 disabled={loanApproveLoading}
-                onClick={submitApproveLoan}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition cursor-pointer disabled:opacity-50"
+                onClick={() => {
+                  triggerAdminHeroFly("modal_confirm");
+                  submitApproveLoan();
+                }}
+                className="relative overflow-visible flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white text-xs font-black shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loanApproveLoading ? "Disbursing..." : "Confirm & Disburse Funds →"}
+                {adminHeroFlyId === "modal_confirm" && <AdminLoanHeroFlyBadge />}
+                {loanApproveLoading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Disbursing Funds...</span>
+                  </>
+                ) : (
+                  <span>Confirm & Disburse Funds →</span>
+                )}
               </button>
             </div>
           </div>

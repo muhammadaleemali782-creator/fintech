@@ -146,12 +146,17 @@ router.post('/register', registerRules, async (req, res) => {
 // Regular Login (Supports Email OR Mobile Number)
 router.post('/login', async (req, res) => {
   try {
-    const rawId = (req.body.identifier || req.body.email || req.body.phone || '').trim();
-    const { password, rememberMe } = req.body;
+    // Guard against NoSQL injection — email/identifier might be object after sanitize
+    const rawId = (typeof (req.body.identifier || req.body.email || req.body.phone) === 'string'
+      ? (req.body.identifier || req.body.email || req.body.phone)
+      : '').trim();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
+    const { rememberMe } = req.body;
 
     if (!rawId || !password) {
       return res.status(400).json({ message: 'Email/Mobile number and password required' });
     }
+
 
     const isEmail = rawId.includes('@');
     const query = isEmail ? { email: rawId.toLowerCase() } : { phone: rawId };

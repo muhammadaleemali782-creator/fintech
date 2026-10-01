@@ -64,8 +64,10 @@ const userSchema = new mongoose.Schema({
     docType: { type: String, default: 'aadhaar' }, // Primary doc 1
     doc1Type: { type: String, default: 'aadhaar' },
     doc1Url: { type: String, default: '' },
+    doc1BackUrl: { type: String, default: '' },
     doc2Type: { type: String, default: 'pan' }, // 'pan', 'cheque'
     doc2Url: { type: String, default: '' },
+    doc2BackUrl: { type: String, default: '' },
     aadharNumber: { type: String, default: '' },
     panNumber: { type: String, default: '' },
     chequeNumber: { type: String, default: '' },

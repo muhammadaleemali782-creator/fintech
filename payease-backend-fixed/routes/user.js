@@ -345,11 +345,13 @@ router.post('/kyc/submit', protect, async (req, res) => {
       aadhaarPhone,
       aadhaarAddress,
       doc1Url,
+      doc1BackUrl,
       docUrl, // fallback for doc1
       doc2Type,
       panNumber,
       chequeNumber,
       doc2Url,
+      doc2BackUrl,
       address
     } = req.body;
 
@@ -363,7 +365,7 @@ router.post('/kyc/submit', protect, async (req, res) => {
       return res.status(400).json({ message: 'Document 1: Valid 12-digit Aadhaar number zaroori hai.' });
     }
     if (!file1) {
-      return res.status(400).json({ message: 'Document 1: Aadhaar Card ki photo/document upload zaroori hai.' });
+      return res.status(400).json({ message: 'Document 1: Aadhaar Card (Front) ki photo/document upload zaroori hai.' });
     }
 
     // 2. Mandatory Document 2: PAN or Cheque Check
@@ -382,12 +384,19 @@ router.post('/kyc/submit', protect, async (req, res) => {
 
     if (!file2) {
       return res.status(400).json({
-        message: `Document 2: ${selectedDoc2 === 'pan' ? 'PAN Card' : 'Cancelled Cheque'} ki photo/file upload zaroori hai.`
+        message: `Document 2: ${selectedDoc2 === 'pan' ? 'PAN Card' : 'Cancelled Cheque'} (Front) ki photo/file upload zaroori hai.`
       });
     }
 
     // Validate uploaded file sizes and formats
-    for (const [name, f] of [['Document 1', file1], ['Document 2', file2]]) {
+    const filesToValidate = [
+      ['Aadhaar Front', file1],
+      ['Doc 2 Front', file2]
+    ];
+    if (doc1BackUrl) filesToValidate.push(['Aadhaar Back', doc1BackUrl]);
+    if (doc2BackUrl) filesToValidate.push(['Doc 2 Back', doc2BackUrl]);
+
+    for (const [name, f] of filesToValidate) {
       if (!f.startsWith('data:image/') && !f.startsWith('data:application/pdf')) {
         return res.status(400).json({ message: `${name}: Invalid file format. Sirf JPG, PNG ya PDF upload karein.` });
       }
@@ -419,8 +428,10 @@ router.post('/kyc/submit', protect, async (req, res) => {
       docType: 'aadhaar',
       doc1Type: 'aadhaar',
       doc1Url: file1,
+      doc1BackUrl: doc1BackUrl || '',
       doc2Type: selectedDoc2,
       doc2Url: file2,
+      doc2BackUrl: doc2BackUrl || '',
       aadharNumber: cleanAadhaar,
       aadhaarName: cleanAadhaarName,
       aadhaarPhone: cleanAadhaarPhone,

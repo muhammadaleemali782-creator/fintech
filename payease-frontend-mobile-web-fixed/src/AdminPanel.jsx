@@ -1647,7 +1647,16 @@ export default function AdminPanel() {
                                   onClick={() => { setLightboxImg(l.documents.doc1Url); setZoomLevel(1); }}
                                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-semibold text-indigo-800 hover:bg-indigo-50 transition cursor-pointer"
                                 >
-                                  <span>🆔</span> Aadhaar Card 🔍
+                                  <span>🆔</span> Aadhaar (Front) 🔍
+                                </button>
+                              )}
+                              {l.documents?.doc1BackUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setLightboxImg(l.documents.doc1BackUrl); setZoomLevel(1); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-semibold text-indigo-800 hover:bg-indigo-50 transition cursor-pointer"
+                                >
+                                  <span>🆔</span> Aadhaar (Back) 🔍
                                 </button>
                               )}
                               {l.documents?.doc2Url && (
@@ -1656,7 +1665,16 @@ export default function AdminPanel() {
                                   onClick={() => { setLightboxImg(l.documents.doc2Url); setZoomLevel(1); }}
                                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-semibold text-indigo-800 hover:bg-indigo-50 transition cursor-pointer"
                                 >
-                                  <span>💳</span> {l.hasChequeFacility ? "Cancelled Cheque" : "PAN Card"} 🔍
+                                  <span>💳</span> {l.hasChequeFacility ? "Cheque (Front)" : "PAN (Front)"} 🔍
+                                </button>
+                              )}
+                              {l.documents?.doc2BackUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setLightboxImg(l.documents.doc2BackUrl); setZoomLevel(1); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-semibold text-indigo-800 hover:bg-indigo-50 transition cursor-pointer"
+                                >
+                                  <span>💳</span> {l.hasChequeFacility ? "Cheque (Back)" : "PAN (Back)"} 🔍
                                 </button>
                               )}
                               {l.documents?.studentProofUrl && (
@@ -1665,7 +1683,16 @@ export default function AdminPanel() {
                                   onClick={() => { setLightboxImg(l.documents.studentProofUrl); setZoomLevel(1); }}
                                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-cyan-200 rounded-lg text-[11px] font-semibold text-cyan-800 hover:bg-cyan-50 transition cursor-pointer"
                                 >
-                                  <span>🎓</span> Student Proof 🔍
+                                  <span>🎓</span> Student ID (Front) 🔍
+                                </button>
+                              )}
+                              {l.documents?.studentProofBackUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setLightboxImg(l.documents.studentProofBackUrl); setZoomLevel(1); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-cyan-200 rounded-lg text-[11px] font-semibold text-cyan-800 hover:bg-cyan-50 transition cursor-pointer"
+                                >
+                                  <span>🎓</span> Student ID (Back) 🔍
                                 </button>
                               )}
                             </div>
@@ -1893,7 +1920,16 @@ export default function AdminPanel() {
                                                   onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
                                                   className="w-full py-1 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold border border-indigo-200 flex items-center justify-center gap-1 cursor-pointer"
                                                 >
-                                                  <span>🖼</span> View Screenshot Proof
+                                                  <span>🖼</span> View Proof (Front)
+                                                </button>
+                                              )}
+                                              {inst.proofBackUrl && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => { setLightboxImg(inst.proofBackUrl); setZoomLevel(1); }}
+                                                  className="w-full py-1 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold border border-indigo-200 flex items-center justify-center gap-1 cursor-pointer"
+                                                >
+                                                  <span>🖼</span> View Proof (Back)
                                                 </button>
                                               )}
                                               <button
@@ -2242,61 +2278,125 @@ export default function AdminPanel() {
                 </span>
               </div>
 
-              {/* Dual In-App Document Previews (Doc 1 & Doc 2) */}
+              {/* Dual In-App Document Previews (Doc 1 & Doc 2 - Front & Back) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Document 1: Aadhaar Card */}
-                <div className="space-y-1.5 p-3 bg-gray-50 border border-gray-200 rounded-2xl">
-                  <span className="text-xs font-bold text-blue-900 block flex items-center gap-1.5">
-                    <span>🆔</span> Doc 1: Aadhaar Card Photo / PDF
+                {/* Document 1: Aadhaar Card (Front & Back) */}
+                <div className="space-y-2 p-3 bg-gray-50 border border-gray-200 rounded-2xl">
+                  <span className="text-xs font-bold text-blue-900 block flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <span>🆔</span> Doc 1: Aadhaar Card
+                    </span>
+                    <span className="text-[10px] text-blue-600 font-semibold">Front & Back</span>
                   </span>
+
+                  {/* Front */}
                   {(previewKycUser.kycDocuments?.doc1Url || previewKycUser.kycDocuments?.docUrl) ? (
-                    <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
-                      {(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl).startsWith("data:application/pdf") ? (
-                        <iframe
-                          src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
-                          title="Aadhaar PDF Preview"
-                          className="w-full h-[200px] rounded-lg border border-gray-200"
-                        />
-                      ) : (
-                        <img
-                          src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
-                          alt="Aadhaar Preview"
-                          className="max-h-[200px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
-                          onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl); setZoomLevel(1); }}
-                        />
-                      )}
-                      <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Click to zoom</div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Front Side</span>
+                      <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
+                        {(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl).startsWith("data:application/pdf") ? (
+                          <iframe
+                            src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
+                            title="Aadhaar Front PDF Preview"
+                            className="w-full h-[160px] rounded-lg border border-gray-200"
+                          />
+                        ) : (
+                          <img
+                            src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
+                            alt="Aadhaar Front Preview"
+                            className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
+                            onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl); setZoomLevel(1); }}
+                          />
+                        )}
+                        <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Front</div>
+                      </div>
                     </div>
                   ) : (
-                    <div className="p-8 text-center text-xs text-gray-400">No Aadhaar document file</div>
+                    <div className="p-4 text-center text-xs text-gray-400">No Aadhaar Front file</div>
+                  )}
+
+                  {/* Back */}
+                  {previewKycUser.kycDocuments?.doc1BackUrl && (
+                    <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Back Side</span>
+                      <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
+                        {previewKycUser.kycDocuments.doc1BackUrl.startsWith("data:application/pdf") ? (
+                          <iframe
+                            src={previewKycUser.kycDocuments.doc1BackUrl}
+                            title="Aadhaar Back PDF Preview"
+                            className="w-full h-[160px] rounded-lg border border-gray-200"
+                          />
+                        ) : (
+                          <img
+                            src={previewKycUser.kycDocuments.doc1BackUrl}
+                            alt="Aadhaar Back Preview"
+                            className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
+                            onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc1BackUrl); setZoomLevel(1); }}
+                          />
+                        )}
+                        <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Back</div>
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                {/* Document 2: PAN or Cheque */}
-                <div className="space-y-1.5 p-3 bg-gray-50 border border-gray-200 rounded-2xl">
-                  <span className="text-xs font-bold text-indigo-900 block flex items-center gap-1.5">
-                    <span>💳</span> Doc 2: {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "Bank Cheque" : "PAN Card"}
+                {/* Document 2: PAN or Cheque (Front & Back) */}
+                <div className="space-y-2 p-3 bg-gray-50 border border-gray-200 rounded-2xl">
+                  <span className="text-xs font-bold text-indigo-900 block flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <span>💳</span> Doc 2: {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "Bank Cheque" : "PAN Card"}
+                    </span>
+                    <span className="text-[10px] text-indigo-600 font-semibold">Front & Back</span>
                   </span>
+
+                  {/* Front */}
                   {previewKycUser.kycDocuments?.doc2Url ? (
-                    <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
-                      {previewKycUser.kycDocuments.doc2Url.startsWith("data:application/pdf") ? (
-                        <iframe
-                          src={previewKycUser.kycDocuments.doc2Url}
-                          title="Doc 2 PDF Preview"
-                          className="w-full h-[200px] rounded-lg border border-gray-200"
-                        />
-                      ) : (
-                        <img
-                          src={previewKycUser.kycDocuments.doc2Url}
-                          alt="Doc 2 Preview"
-                          className="max-h-[200px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
-                          onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc2Url); setZoomLevel(1); }}
-                        />
-                      )}
-                      <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Click to zoom</div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Front Side</span>
+                      <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
+                        {previewKycUser.kycDocuments.doc2Url.startsWith("data:application/pdf") ? (
+                          <iframe
+                            src={previewKycUser.kycDocuments.doc2Url}
+                            title="Doc 2 Front PDF Preview"
+                            className="w-full h-[160px] rounded-lg border border-gray-200"
+                          />
+                        ) : (
+                          <img
+                            src={previewKycUser.kycDocuments.doc2Url}
+                            alt="Doc 2 Front Preview"
+                            className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
+                            onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc2Url); setZoomLevel(1); }}
+                          />
+                        )}
+                        <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Front</div>
+                      </div>
                     </div>
                   ) : (
-                    <div className="p-8 text-center text-xs text-gray-400">No Doc 2 file uploaded</div>
+                    <div className="p-4 text-center text-xs text-gray-400">No Doc 2 Front file uploaded</div>
+                  )}
+
+                  {/* Back */}
+                  {previewKycUser.kycDocuments?.doc2BackUrl && (
+                    <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Back Side</span>
+                      <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
+                        {previewKycUser.kycDocuments.doc2BackUrl.startsWith("data:application/pdf") ? (
+                          <iframe
+                            src={previewKycUser.kycDocuments.doc2BackUrl}
+                            title="Doc 2 Back PDF Preview"
+                            className="w-full h-[160px] rounded-lg border border-gray-200"
+                          />
+                        ) : (
+                          <img
+                            src={previewKycUser.kycDocuments.doc2BackUrl}
+                            alt="Doc 2 Back Preview"
+                            className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
+                            onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc2BackUrl); setZoomLevel(1); }}
+                          />
+                        )}
+                        <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Back</div>
+                      </div>
+                    </div>
                   )}
                 </div>
 

@@ -45,16 +45,28 @@ const loanSchema = new mongoose.Schema({
     month: Number,
     dueDate: Date,
     amount: Number,
-    status: { type: String, enum: ['pending', 'paid', 'overdue'], default: 'pending' },
-    paidOn: Date
+    status: { type: String, enum: ['pending', 'submitted', 'paid', 'overdue'], default: 'pending' },
+    paidOn: Date,
+    utrNumber: String,
+    proofUrl: String,
+    submittedAt: Date,
+    paymentMethod: { type: String, default: 'wallet' },
+    approvedBy: String,
+    adminEvidenceNote: String
   }],
   emiSchedule: [{
     installmentNo: Number,
     month: Number,
     dueDate: Date,
     amount: Number,
-    status: { type: String, enum: ['pending', 'paid', 'overdue'], default: 'pending' },
-    paidOn: Date
+    status: { type: String, enum: ['pending', 'submitted', 'paid', 'overdue'], default: 'pending' },
+    paidOn: Date,
+    utrNumber: String,
+    proofUrl: String,
+    submittedAt: Date,
+    paymentMethod: { type: String, default: 'wallet' },
+    approvedBy: String,
+    adminEvidenceNote: String
   }],
   purpose: { type: String, default: 'Personal Loan' },
   referralCommissionPaid: { type: Boolean, default: false },

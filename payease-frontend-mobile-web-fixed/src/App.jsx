@@ -1,6 +1,5 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import SplashTapGame from "./components/SplashTapGame";
 
 // Core Pages (Lazy loaded for blazing performance)
 const LandingPage = lazy(() => import("./LandingPage"));
@@ -33,7 +32,7 @@ function PrivateRoute({ children, adminOnly = false }) {
 }
 
 function LoadingScreen() {
-  return <SplashTapGame />;
+  return null;
 }
 
 export function checkIsAppClient() {
@@ -67,21 +66,10 @@ function RootRoute() {
 }
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(() => {
-    return !sessionStorage.getItem("educa_splash_played");
-  });
-
-  const handleFinishSplash = () => {
-    sessionStorage.setItem("educa_splash_played", "true");
-    setShowSplash(false);
-  };
-
   return (
-    <>
-      {showSplash && <SplashTapGame onFinish={handleFinishSplash} />}
-      <BrowserRouter>
-        <Suspense fallback={<LoadingScreen />}>
-          <Routes>
+    <BrowserRouter>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
           {/* 1. Smart Root: Landing page for Website, Direct Login for App */}
           <Route path="/" element={<RootRoute />} />
           <Route path="/home" element={<LandingPage />} />
@@ -163,6 +151,5 @@ export default function App() {
         </Routes>
       </Suspense>
     </BrowserRouter>
-  </>
-);
+  );
 }

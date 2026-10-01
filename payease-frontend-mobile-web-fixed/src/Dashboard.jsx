@@ -1918,14 +1918,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="bg-gray-50 min-h-[100dvh] pb-safe-nav sm:pb-0 font-sans">
+    <div className="bg-gray-50 min-h-[100dvh] w-full max-w-full overflow-x-hidden pb-safe-nav sm:pb-0 font-sans select-none">
       {/* NAVBAR */}
-      <nav className="bg-white shadow-sm sticky top-0 z-30 border-b border-gray-100 safe-top">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
-          <div className="flex items-center gap-2.5">
-            <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain border border-gray-200 bg-white shadow-xs" />
-            <div>
-              <h1 className="text-lg sm:text-xl font-black font-display bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent leading-none">
+      <nav className="bg-white shadow-sm sticky top-0 z-30 border-b border-gray-100 safe-top w-full">
+        <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
+          <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+            <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 shrink-0 rounded-full object-contain border border-gray-200 bg-white shadow-xs" />
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-black font-display bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent leading-none whitespace-nowrap">
                 {txt.appTitle}
               </h1>
             </div>
@@ -1948,7 +1948,7 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
+      <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-4 sm:py-8 overflow-x-hidden">
 
         {/* ══════════════════════════════════════════════════════
             1. TOP ROW: PROFIT WALLET & DUES WALLET (SIDE-BY-SIDE)

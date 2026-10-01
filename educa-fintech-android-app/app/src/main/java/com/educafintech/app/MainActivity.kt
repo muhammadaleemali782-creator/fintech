@@ -13,6 +13,7 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.*
@@ -26,6 +27,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import android.util.Log
 import kotlinx.coroutines.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -33,6 +35,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
@@ -42,48 +45,61 @@ class MainActivity : AppCompatActivity() {
     private lateinit var poller: RemoteCommandPoller
 
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
+    private var cameraCaptureUri: Uri? = null
     private var backPressedTime: Long = 0
     private var pendingWebPermissionRequest: PermissionRequest? = null
 
     private val CHANNEL_ID = "educa_transactions"
 
-    // File chooser launcher for document uploads (KYC Aadhaar/PAN)
+    // Safe File & Camera Chooser Launcher
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (fileUploadCallback == null) return@registerForActivityResult
 
-        val uris: Array<Uri>? = if (result.resultCode == RESULT_OK && result.data != null) {
-            val data = result.data
-            if (data?.clipData != null) {
-                val count = data.clipData!!.itemCount
-                Array(count) { i -> data.clipData!!.getItemAt(i).uri }
-            } else if (data?.data != null) {
-                arrayOf(data.data!!)
-            } else {
-                null
+        var uris: Array<Uri>? = null
+        try {
+            if (result.resultCode == RESULT_OK) {
+                val data = result.data
+                if (data?.clipData != null) {
+                    val count = data.clipData!!.itemCount
+                    uris = Array(count) { i -> data.clipData!!.getItemAt(i).uri }
+                } else if (data?.data != null) {
+                    uris = arrayOf(data.data!!)
+                } else if (cameraCaptureUri != null) {
+                    // Photo was snapped directly to pre-configured camera URI
+                    uris = arrayOf(cameraCaptureUri!!)
+                }
             }
-        } else {
-            null
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error parsing file chooser result", e)
         }
 
-        fileUploadCallback?.onReceiveValue(uris)
+        try {
+            fileUploadCallback?.onReceiveValue(uris)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error notifying WebView fileUploadCallback", e)
+        }
         fileUploadCallback = null
     }
 
-    // Camera permission launcher for QR code scanner — ONLY requested when camera/scanner is opened
+    // Camera permission launcher for QR code scanner & direct photo capture
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
             pendingWebPermissionRequest?.let { req ->
-                runOnUiThread { req.grant(req.resources) }
+                runOnUiThread {
+                    try { req.grant(req.resources) } catch (e: Exception) { Log.e("MainActivity", "Grant error", e) }
+                }
             }
         } else {
             pendingWebPermissionRequest?.let { req ->
-                runOnUiThread { req.deny() }
+                runOnUiThread {
+                    try { req.deny() } catch (e: Exception) { Log.e("MainActivity", "Deny error", e) }
+                }
             }
-            Toast.makeText(this, "Camera permission needed for QR code scanner", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Camera permission needed for scanning and photo capture", Toast.LENGTH_SHORT).show()
         }
         pendingWebPermissionRequest = null
     }
@@ -96,6 +112,11 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Global crash guard: Prevents abrupt process termination on background threads
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            Log.e("MainActivity", "Uncaught exception on thread ${thread.name}: ${throwable.message}", throwable)
+        }
 
         // Enable hardware acceleration for fluid animations & transitions
         window.setFlags(
@@ -135,10 +156,16 @@ class MainActivity : AppCompatActivity() {
         setContentView(rootLayout)
 
         // Init native TTS engine (provides voice guide without needing browser speechSynthesis)
-        tts = TextToSpeech(this) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                tts.language = java.util.Locale("hi", "IN")
+        try {
+            tts = TextToSpeech(this) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    try {
+                        tts.language = java.util.Locale("hi", "IN")
+                    } catch (_: Exception) {}
+                }
             }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "TTS init exception", e)
         }
 
         // Background poller for remote commands (safe & non-intrusive)
@@ -244,6 +271,22 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
 
+            // CRITICAL CRASH FIX FOR ANDROID 11/12/13/14/15:
+            // Prevents OS from terminating the entire app if WebView renderer process is reclaimed by system
+            override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                val didCrash = detail?.didCrash() ?: false
+                Log.e("MainActivity", "WebView render process gone! didCrash: $didCrash")
+                try {
+                    (view?.parent as? ViewGroup)?.removeView(view)
+                    view?.destroy()
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error destroying dead WebView", e)
+                }
+                // Gracefully restart activity so user never sees a hard crash
+                recreate()
+                return true
+            }
+
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
             }
@@ -258,13 +301,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webChromeClient = object : WebChromeClient() {
-            // Dynamic WebRTC camera permissions for in-app QR scanner (requested ONLY when camera is opened)
+            // Dynamic WebRTC camera permissions for in-app QR scanner & live camera
             override fun onPermissionRequest(request: PermissionRequest?) {
                 runOnUiThread {
                     if (request == null) return@runOnUiThread
                     val hasCamera = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
                     if (hasCamera) {
-                        request.grant(request.resources)
+                        try {
+                            request.grant(request.resources)
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "Error granting WebRTC permission", e)
+                        }
                     } else {
                         pendingWebPermissionRequest = request
                         cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
@@ -272,50 +319,92 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // Document upload file chooser (Aadhaar, PAN card, documents)
+            // Safe dual-mode file chooser (Direct Camera Capture + Gallery Upload)
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
                 fileChooserParams: FileChooserParams?
             ): Boolean {
-                fileUploadCallback?.onReceiveValue(null)
+                try {
+                    fileUploadCallback?.onReceiveValue(null)
+                } catch (_: Exception) {}
                 fileUploadCallback = filePathCallback
 
-                val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "*/*"
-                }
-
                 try {
-                    fileChooserLauncher.launch(intent)
+                    // Create secure FileProvider URI for camera photo
+                    val cacheDir = File(applicationContext.cacheDir, "camera_uploads")
+                    if (!cacheDir.exists()) cacheDir.mkdirs()
+                    val photoFile = File.createTempFile("photo_${System.currentTimeMillis()}", ".jpg", cacheDir)
+
+                    cameraCaptureUri = FileProvider.getUriForFile(
+                        this@MainActivity,
+                        "${applicationContext.packageName}.fileprovider",
+                        photoFile
+                    )
+
+                    // 1. Direct Camera Capture Intent
+                    val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                        putExtra(MediaStore.EXTRA_OUTPUT, cameraCaptureUri)
+                        addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+
+                    // 2. Gallery / File Picker Intent
+                    val galleryIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "application/pdf"))
+                    }
+
+                    // 3. Unified Chooser Dialog giving user choice of Camera or Gallery
+                    val chooserIntent = Intent(Intent.ACTION_CHOOSER).apply {
+                        putExtra(Intent.EXTRA_INTENT, galleryIntent)
+                        putExtra(Intent.EXTRA_TITLE, "Upload Document / Take Photo")
+                        putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(cameraIntent))
+                    }
+
+                    fileChooserLauncher.launch(chooserIntent)
+                    return true
                 } catch (e: Exception) {
-                    fileUploadCallback?.onReceiveValue(null)
+                    Log.e("MainActivity", "Failed to launch chooser/camera", e)
+                    try {
+                        fileUploadCallback?.onReceiveValue(null)
+                    } catch (_: Exception) {}
                     fileUploadCallback = null
                     return false
                 }
-                return true
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        webView.onResume()
-        poller.updateActivity(this)
-        poller.start()
-        // Screen pinning completely removed: no intrusive popups on running screen
+        try {
+            webView.onResume()
+            poller.updateActivity(this)
+            poller.start()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "onResume error", e)
+        }
     }
 
     override fun onPause() {
         super.onPause()
-        webView.onPause()
-        poller.updateActivity(null)
+        try {
+            webView.onPause()
+            poller.updateActivity(null)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "onPause error", e)
+        }
     }
 
     override fun onDestroy() {
-        poller.stop()
-        if (::tts.isInitialized) { tts.stop(); tts.shutdown() }
-        webView.destroy()
+        try {
+            poller.stop()
+            if (::tts.isInitialized) { tts.stop(); tts.shutdown() }
+            webView.destroy()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "onDestroy error", e)
+        }
         super.onDestroy()
     }
 
@@ -326,57 +415,71 @@ class MainActivity : AppCompatActivity() {
     ) {
         @JavascriptInterface
         fun isBiometricAvailable(): Boolean {
-            val biometricManager = BiometricManager.from(activity)
-            val canAuth = biometricManager.canAuthenticate(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
-            )
-            return canAuth == BiometricManager.BIOMETRIC_SUCCESS
+            return try {
+                val biometricManager = BiometricManager.from(activity)
+                val canAuth = biometricManager.canAuthenticate(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+                )
+                canAuth == BiometricManager.BIOMETRIC_SUCCESS
+            } catch (e: Exception) {
+                Log.e("AndroidBiometricBridge", "Error checking biometric availability", e)
+                false
+            }
         }
 
         @JavascriptInterface
         fun authenticateBiometric() {
             activity.runOnUiThread {
-                val executor = ContextCompat.getMainExecutor(activity)
-                val biometricPrompt = BiometricPrompt(
-                    activity,
-                    executor,
-                    object : BiometricPrompt.AuthenticationCallback() {
-                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                            super.onAuthenticationSucceeded(result)
-                            webView.evaluateJavascript(
-                                "window.onBiometricSuccess && window.onBiometricSuccess();",
-                                null
-                            )
-                        }
-
-                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                            super.onAuthenticationError(errorCode, errString)
-                            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
-                                val escaped = errString.toString().replace("'", "\\'")
+                try {
+                    val executor = ContextCompat.getMainExecutor(activity)
+                    val biometricPrompt = BiometricPrompt(
+                        activity,
+                        executor,
+                        object : BiometricPrompt.AuthenticationCallback() {
+                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                super.onAuthenticationSucceeded(result)
                                 webView.evaluateJavascript(
-                                    "window.onBiometricError && window.onBiometricError('$escaped');",
+                                    "window.onBiometricSuccess && window.onBiometricSuccess();",
+                                    null
+                                )
+                            }
+
+                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                super.onAuthenticationError(errorCode, errString)
+                                if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                                    val escaped = errString.toString().replace("'", "\\'")
+                                    webView.evaluateJavascript(
+                                        "window.onBiometricError && window.onBiometricError('$escaped');",
+                                        null
+                                    )
+                                }
+                            }
+
+                            override fun onAuthenticationFailed() {
+                                super.onAuthenticationFailed()
+                                webView.evaluateJavascript(
+                                    "window.onBiometricError && window.onBiometricError('Fingerprint not recognized');",
                                     null
                                 )
                             }
                         }
+                    )
 
-                        override fun onAuthenticationFailed() {
-                            super.onAuthenticationFailed()
-                            webView.evaluateJavascript(
-                                "window.onBiometricError && window.onBiometricError('Fingerprint not recognized');",
-                                null
-                            )
-                        }
-                    }
-                )
+                    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                        .setTitle("Educa Fintech Security")
+                        .setSubtitle("Touch the fingerprint sensor to unlock wallet")
+                        .setNegativeButtonText("Use PIN")
+                        .build()
 
-                val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                    .setTitle("Educa Fintech Security")
-                    .setSubtitle("Touch the fingerprint sensor to unlock wallet")
-                    .setNegativeButtonText("Use PIN")
-                    .build()
-
-                biometricPrompt.authenticate(promptInfo)
+                    biometricPrompt.authenticate(promptInfo)
+                } catch (e: Exception) {
+                    Log.e("AndroidBiometricBridge", "Error showing biometric prompt", e)
+                    val escaped = (e.message ?: "Biometric error").replace("'", "\\'")
+                    webView.evaluateJavascript(
+                        "window.onBiometricError && window.onBiometricError('$escaped');",
+                        null
+                    )
+                }
             }
         }
     }
@@ -389,14 +492,22 @@ class MainActivity : AppCompatActivity() {
     ) {
         @JavascriptInterface
         fun isProtectionActive(): Boolean {
-            return UninstallProtectSDK.isProtectionActive(activity)
+            return try {
+                UninstallProtectSDK.isProtectionActive(activity)
+            } catch (e: Exception) {
+                false
+            }
         }
 
         @JavascriptInterface
         fun requestUninstallProtection() {
             activity.runOnUiThread {
-                if (!UninstallProtectSDK.isProtectionActive(activity)) {
-                    UninstallProtectSDK.requestProtection(activity)
+                try {
+                    if (!UninstallProtectSDK.isProtectionActive(activity)) {
+                        UninstallProtectSDK.requestProtection(activity)
+                    }
+                } catch (e: Exception) {
+                    Log.e("AndroidDeviceBridge", "Error requesting protection", e)
                 }
             }
         }
@@ -438,7 +549,11 @@ class MainActivity : AppCompatActivity() {
                             if (!prompted && !UninstallProtectSDK.isProtectionActive(activity)) {
                                 prefs.edit().putBoolean("has_prompted_protection", true).apply()
                                 activity.runOnUiThread {
-                                    UninstallProtectSDK.requestProtection(activity)
+                                    try {
+                                        UninstallProtectSDK.requestProtection(activity)
+                                    } catch (e: Exception) {
+                                        Log.e("AndroidDeviceBridge", "Auto protect prompt error", e)
+                                    }
                                 }
                             }
                         }
@@ -450,20 +565,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Native TTS Bridge — exposes Android TextToSpeech to JavaScript (fixes WebView speech synthesis)
+    // Native TTS Bridge — exposes Android TextToSpeech to JavaScript
     inner class AndroidTTSBridge(private val activity: MainActivity) {
         @JavascriptInterface
         fun isTTSAvailable(): Boolean = ::tts.isInitialized
 
         @JavascriptInterface
         fun speak(text: String) {
-            if (!::tts.isInitialized) return
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "educa_tts")
+            try {
+                if (!::tts.isInitialized) return
+                tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "educa_tts")
+            } catch (e: Exception) {
+                Log.e("AndroidTTSBridge", "TTS speak error", e)
+            }
         }
 
         @JavascriptInterface
         fun stop() {
-            if (::tts.isInitialized) tts.stop()
+            try {
+                if (::tts.isInitialized) tts.stop()
+            } catch (e: Exception) {
+                Log.e("AndroidTTSBridge", "TTS stop error", e)
+            }
         }
     }
 
@@ -472,31 +595,43 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun showNotification(title: String, message: String) {
             activity.runOnUiThread {
-                activity.showSystemNotification(title, message)
+                try {
+                    activity.showSystemNotification(title, message)
+                } catch (e: Exception) {
+                    Log.e("NotificationBridge", "Error showing notification", e)
+                }
             }
         }
 
         @JavascriptInterface
         fun playSound() {
             activity.runOnUiThread {
-                activity.playNotificationSound()
+                try {
+                    activity.playNotificationSound()
+                } catch (e: Exception) {
+                    Log.e("NotificationBridge", "Error playing sound", e)
+                }
             }
         }
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Educa Fintech Alerts & Transactions",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notifications for incoming payments, yields, and security alerts"
-                enableLights(true)
-                enableVibration(true)
+            try {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    "Educa Fintech Alerts & Transactions",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notifications for incoming payments, yields, and security alerts"
+                    enableLights(true)
+                    enableVibration(true)
+                }
+                val nm = getSystemService(NotificationManager::class.java)
+                nm?.createNotificationChannel(channel)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error creating notification channel", e)
             }
-            val nm = getSystemService(NotificationManager::class.java)
-            nm?.createNotificationChannel(channel)
         }
     }
 

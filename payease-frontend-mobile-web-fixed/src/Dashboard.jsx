@@ -323,6 +323,9 @@ export default function Dashboard() {
 
   const [kycForm, setKycForm] = useState({
     aadharNumber: "",
+    aadhaarName: "",       // Name as per Aadhaar (mandatory)
+    aadhaarPhone: "",      // Phone number linked to Aadhaar (mandatory)
+    aadhaarAddress: "",    // Address as per Aadhaar (mandatory)
     doc1Name: "",
     doc1Url: "",
     doc2Type: "pan", // 'pan' or 'cheque'
@@ -1066,6 +1069,21 @@ export default function Dashboard() {
 
   // Submit KYC (2 Mandatory Documents: Doc 1 Aadhaar + Doc 2 PAN / Cheque)
   const submitKyc = async () => {
+    // 0. Aadhaar-matching personal details (mandatory)
+    if (!kycForm.aadhaarName.trim() || kycForm.aadhaarName.trim().length < 3) {
+      setKycError("Aadhaar par jo naam likha hai woh darj karein (minimum 3 characters).");
+      return;
+    }
+    const cleanPhone = kycForm.aadhaarPhone.replace(/\D/g, "");
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      setKycError("Aadhaar se linked 10-digit mobile number darj karein.");
+      return;
+    }
+    if (!kycForm.aadhaarAddress.trim() || kycForm.aadhaarAddress.trim().length < 10) {
+      setKycError("Aadhaar par likha hua address darj karein (minimum 10 characters).");
+      return;
+    }
+
     // 1. Mandatory Document 1: Aadhaar
     const cleanAadhaar = kycForm.aadharNumber.replace(/\D/g, "");
     if (!cleanAadhaar || cleanAadhaar.length !== 12) {
@@ -1076,6 +1094,7 @@ export default function Dashboard() {
       setKycError("Document 1: Aadhaar Card ki photo/document upload zaroori hai.");
       return;
     }
+
 
     // 2. Mandatory Document 2: PAN or Cheque
     if (kycForm.doc2Type === "pan") {
@@ -1104,12 +1123,15 @@ export default function Dashboard() {
         headers,
         body: JSON.stringify({
           aadharNumber: cleanAadhaar,
+          aadhaarName: kycForm.aadhaarName.trim(),
+          aadhaarPhone: cleanPhone,
+          aadhaarAddress: kycForm.aadhaarAddress.trim(),
           doc1Url: kycForm.doc1Url,
           doc2Type: kycForm.doc2Type,
           panNumber: kycForm.panNumber.trim().toUpperCase(),
           chequeNumber: kycForm.chequeNumber.trim(),
           doc2Url: kycForm.doc2Url,
-          address: kycForm.address.trim()
+          address: kycForm.aadhaarAddress.trim()
         })
       });
       const data = await res.json();
@@ -3741,6 +3763,50 @@ export default function Dashboard() {
                       setKycForm({ ...kycForm, aadharNumber: formatted });
                     }}
                     className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs tracking-widest focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                {/* Aadhaar-linked Name */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Naam (Aadhaar ke hisaab se) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Jaise Aadhaar card par likha hai"
+                    value={kycForm.aadhaarName}
+                    onChange={e => setKycForm({ ...kycForm, aadhaarName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                {/* Aadhaar-linked Phone */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Mobile Number (Aadhaar se linked) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="10 digit mobile number"
+                    value={kycForm.aadhaarPhone}
+                    onChange={e => setKycForm({ ...kycForm, aadhaarPhone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                {/* Aadhaar-linked Address */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Pata (Aadhaar card par likha hua) <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Ghar no., Gali, Mohalla, Shahar, Pin Code"
+                    value={kycForm.aadhaarAddress}
+                    onChange={e => setKycForm({ ...kycForm, aadhaarAddress: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                   />
                 </div>
 

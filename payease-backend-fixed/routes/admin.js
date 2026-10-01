@@ -316,6 +316,15 @@ router.post('/kyc/:id/approve', protect, admin, async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // ✅ SECURITY FIX: Only pending KYC can be approved
+    // Rejected KYC = user must submit fresh request first
+    if (user.kycStatus === 'rejected') {
+      return res.status(400).json({ message: 'Rejected KYC ko directly verify nahi kar sakte. User ko fresh KYC submit karni hogi.' });
+    }
+    if (user.kycStatus === 'verified') {
+      return res.status(400).json({ message: 'KYC already verified hai.' });
+    }
+
     const { remarks } = req.body;
     user.kycStatus = 'verified';
     user.kycVerifiedAt = new Date();
@@ -338,6 +347,7 @@ router.post('/kyc/:id/approve', protect, admin, async (req, res) => {
     res.status(500).json({ message: 'Failed to verify KYC' });
   }
 });
+
 
 router.post('/kyc/:id/reject', protect, admin, async (req, res) => {
   try {

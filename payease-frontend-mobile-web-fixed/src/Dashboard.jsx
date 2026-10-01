@@ -1918,7 +1918,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="bg-gray-50 min-h-[100dvh] w-full max-w-full overflow-x-hidden pb-safe-nav sm:pb-0 font-sans select-none">
+    <div className="bg-gray-50 min-h-[100dvh] w-full max-w-full overflow-x-hidden pb-safe-nav sm:pb-0 font-sans">
       {/* NAVBAR */}
       <nav className="bg-white shadow-sm sticky top-0 z-30 border-b border-gray-100 safe-top w-full">
         <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">

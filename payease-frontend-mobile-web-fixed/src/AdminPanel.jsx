@@ -30,6 +30,9 @@ export default function AdminPanel() {
   const [kycReviewRemarks, setKycReviewRemarks] = useState("");
   const [kycFilter, setKycFilter] = useState("all");
   const [lightboxImg, setLightboxImg] = useState(null); // fullscreen doc viewer
+  const [expandedLoanId, setExpandedLoanId] = useState(null);
+  const [adminPayModal, setAdminPayModal] = useState(null);
+  const [adminPayLoading, setAdminPayLoading] = useState(false);
 
   const showToast = (text, type = "success") => setToast({ text, type });
 
@@ -331,6 +334,47 @@ export default function AdminPanel() {
     const res = await fetch(`${API}/loan/${id}/reject`, { method: "POST", headers });
     showToast((await res.json()).message, res.ok ? "success" : "error");
     if (res.ok) loadLoans();
+  };
+
+  const approveInstallment = async (loanId, installmentNo) => {
+    if (!window.confirm(`Installment #${installmentNo} approve karein? Balance update ho jayega.`)) return;
+    try {
+      const res = await fetch(`${API}/loan/admin/${loanId}/installment/${installmentNo}/approve`, {
+        method: "POST",
+        headers
+      });
+      const data = await res.json();
+      showToast(data.message, res.ok ? "success" : "error");
+      if (res.ok) loadLoans();
+    } catch {
+      showToast("Network error approving installment", "error");
+    }
+  };
+
+  const submitAdminPay = async () => {
+    if (!adminPayModal) return;
+    setAdminPayLoading(true);
+    try {
+      const res = await fetch(`${API}/loan/admin/${adminPayModal.loanId}/installment/${adminPayModal.installmentNo}/admin-pay`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          evidenceNote: adminPayModal.evidenceNote,
+          utrNumber: adminPayModal.utrNumber,
+          proofUrl: adminPayModal.proofUrl || ""
+        })
+      });
+      const data = await res.json();
+      showToast(data.message, res.ok ? "success" : "error");
+      if (res.ok) {
+        setAdminPayModal(null);
+        loadLoans();
+      }
+    } catch {
+      showToast("Network error saving offline payment", "error");
+    } finally {
+      setAdminPayLoading(false);
+    }
   };
 
   const updateInterestRate = async () => {
@@ -984,24 +1028,13 @@ export default function AdminPanel() {
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-1">
-                                  {u.kycDocuments?.googleDriveLink && (
-                                    <a
-                                      href={u.kycDocuments.googleDriveLink}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-bold hover:underline bg-blue-50 px-2 py-0.5 rounded"
-                                    >
-                                      📁 View Drive ↗
-                                    </a>
-                                  )}
-
-                                  {u.kycDocuments?.docUrl && (
+                                  {(u.kycDocuments?.docUrl || u.kycDocuments?.doc1Url || u.aadharNumber) && (
                                     <button
                                       type="button"
                                       onClick={() => setPreviewKycUser(u)}
                                       className="inline-flex items-center gap-1 text-[11px] text-indigo-700 font-bold bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded cursor-pointer transition active:scale-95"
                                     >
-                                      🖼 In-App View
+                                      📄 View Submitted Docs
                                     </button>
                                   )}
                                 </div>
@@ -1189,23 +1222,13 @@ export default function AdminPanel() {
                                 {u.kycStatus || "none"}
                               </span>
                             </div>
-                            {u.kycDocuments?.googleDriveLink && (
-                              <a
-                                href={u.kycDocuments.googleDriveLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold"
-                              >
-                                📁 Drive Link ↗
-                              </a>
-                            )}
-                            {u.kycDocuments?.docUrl && (
+                            {(u.kycDocuments?.docUrl || u.kycDocuments?.doc1Url || u.aadharNumber) && (
                               <button
                                 type="button"
                                 onClick={() => setPreviewKycUser(u)}
-                                className="px-2 py-0.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded text-[10px] font-bold transition active:scale-95"
+                                className="px-2.5 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold transition active:scale-95"
                               >
-                                🖼 View In-App
+                                📄 View Submitted Docs
                               </button>
                             )}
                           </div>
@@ -1387,39 +1410,181 @@ export default function AdminPanel() {
               <h3 className="text-lg font-bold font-display mb-5">Loan Applications</h3>
               {loans.length === 0 ? <p className="text-gray-300 text-center py-10 text-sm">No loans yet</p> : (
                 <div className="space-y-4">
-                  {loans.map(l => (
-                    <div key={l._id} className="border border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-md transition">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className="text-base sm:text-lg font-bold">{l.userId?.name}</h4>
-                          <p className="text-xs text-gray-400">{l.userId?.email}</p>
+                  {loans.map(l => {
+                    const schedule = (l.installmentSchedule && l.installmentSchedule.length > 0) ? l.installmentSchedule : (l.emiSchedule || []);
+                    const paidCount = schedule.filter(s => s.status === "paid").length;
+                    const submittedCount = schedule.filter(s => s.status === "submitted").length;
+                    const totalCount = schedule.length || l.installmentsCount || l.tenure || 0;
+                    const isExpanded = expandedLoanId === l._id;
+
+                    return (
+                      <div key={l._id} className="border border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-md transition">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-base sm:text-lg font-bold">{l.userId?.name}</h4>
+                              {l.accountNumber && (
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                  {l.accountNumber}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400">{l.userId?.email} • Phone: {l.userId?.phone || "N/A"}</p>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${loanStatusColor[l.status] || "bg-gray-100"}`}>{l.status.toUpperCase()}</span>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${loanStatusColor[l.status] || "bg-gray-100"}`}>{l.status.toUpperCase()}</span>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-sm mb-4">
+                          {[
+                            { label: "Amount", value: `₹${l.amount.toLocaleString("en-IN")}` },
+                            { label: "Rate (locked)", value: `${l.interestRate}% p.a.` },
+                            { label: "Per Installment", value: `₹${l.installmentAmount || l.emiAmount}` },
+                            { label: "Paid / Total", value: `${paidCount} / ${totalCount} Paid` },
+                            { label: "Remaining Dues", value: `₹${(l.remainingAmount ?? l.amount).toLocaleString("en-IN")}` },
+                          ].map(({ label, value }) => (
+                            <div key={label}><p className="text-gray-400 text-xs">{label}</p><p className="font-bold">{value}</p></div>
+                          ))}
+                        </div>
+                        {l.referralCommissionPaid && (
+                          <div className="mb-3 text-xs bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-orange-700 font-semibold">
+                            🎯 Referral commission ₹{l.referralCommissionAmount} paid on this loan
+                          </div>
+                        )}
+                        {l.status === "pending" && (
+                          <div className="flex gap-3">
+                            <button onClick={() => approveLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg transition">✅ Approve & Disburse</button>
+                            <button onClick={() => rejectLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 transition">✗ Reject</button>
+                          </div>
+                        )}
+
+                        {/* INSTALLMENT SCHEDULE EXPANDER */}
+                        {schedule.length > 0 && l.status !== "pending" && (
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedLoanId(isExpanded ? null : l._id)}
+                              className="w-full py-2 px-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 flex items-center justify-between transition cursor-pointer"
+                            >
+                              <span className="flex items-center gap-2">
+                                <span>📅</span>
+                                <span>Installment Schedule ({paidCount}/{totalCount} Paid)</span>
+                                {submittedCount > 0 && (
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold animate-pulse">
+                                    ⚠️ {submittedCount} Submitted for Review
+                                  </span>
+                                )}
+                              </span>
+                              <span className="text-blue-600">{isExpanded ? "▲ Hide Schedule" : "▼ View All Installments"}</span>
+                            </button>
+
+                            {isExpanded && (
+                              <div className="mt-3 space-y-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto p-1">
+                                  {schedule.map((inst) => {
+                                    const isPaid = inst.status === "paid";
+                                    const isSubmitted = inst.status === "submitted";
+                                    const isOverdue = inst.status === "overdue";
+
+                                    return (
+                                      <div
+                                        key={inst.installmentNo}
+                                        className={`p-3 rounded-xl border text-xs flex flex-col justify-between gap-2 ${
+                                          isPaid
+                                            ? "bg-emerald-50/60 border-emerald-200 text-emerald-950"
+                                            : isSubmitted
+                                            ? "bg-amber-50 border-amber-300 text-amber-950"
+                                            : isOverdue
+                                            ? "bg-rose-50 border-rose-200 text-rose-950"
+                                            : "bg-white border-gray-200 text-gray-900"
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-extrabold">Installment #{inst.installmentNo}</span>
+                                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                            isPaid ? "bg-emerald-200 text-emerald-900" :
+                                            isSubmitted ? "bg-amber-200 text-amber-900" :
+                                            isOverdue ? "bg-rose-200 text-rose-900" : "bg-gray-100 text-gray-700"
+                                          }`}>
+                                            {inst.status}
+                                          </span>
+                                        </div>
+
+                                        <div className="space-y-0.5 text-[11px] text-gray-600">
+                                          <div className="flex justify-between">
+                                            <span>Amount:</span>
+                                            <span className="font-bold text-gray-900">₹{inst.amount}</span>
+                                          </div>
+                                          <div className="flex justify-between">
+                                            <span>Due Date:</span>
+                                            <span>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "N/A"}</span>
+                                          </div>
+                                          {isPaid && (
+                                            <div className="flex justify-between text-emerald-700 font-semibold">
+                                              <span>Paid on:</span>
+                                              <span>{inst.paidOn ? new Date(inst.paidOn).toLocaleDateString("en-IN") : "Verified"}</span>
+                                            </div>
+                                          )}
+                                          {inst.utrNumber && (
+                                            <div className="text-[10px] font-mono text-indigo-700 truncate">
+                                              UTR: {inst.utrNumber}
+                                            </div>
+                                          )}
+                                          {inst.adminEvidenceNote && (
+                                            <div className="text-[10px] italic text-gray-500 truncate">
+                                              Note: {inst.adminEvidenceNote}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex flex-col gap-1.5 pt-1 border-t border-gray-200/50">
+                                          {isSubmitted && (
+                                            <>
+                                              {inst.proofUrl && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setLightboxImg(inst.proofUrl)}
+                                                  className="w-full py-1 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold border border-indigo-200 flex items-center justify-center gap-1 cursor-pointer"
+                                                >
+                                                  <span>🖼</span> View Screenshot Proof
+                                                </button>
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={() => approveInstallment(l._id, inst.installmentNo)}
+                                                className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-xs active:scale-95 transition cursor-pointer"
+                                              >
+                                                ✅ Approve Installment
+                                              </button>
+                                            </>
+                                          )}
+
+                                          {!isPaid && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setAdminPayModal({
+                                                loanId: l._id,
+                                                installmentNo: inst.installmentNo,
+                                                amount: inst.amount,
+                                                evidenceNote: "",
+                                                utrNumber: ""
+                                              })}
+                                              className="w-full py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-[10px] font-bold border border-slate-300 transition cursor-pointer"
+                                            >
+                                              ⚡ Mark Paid (Admin Override)
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-sm mb-4">
-                        {[
-                          { label: "Amount", value: `₹${l.amount.toLocaleString("en-IN")}` },
-                          { label: "Rate (locked)", value: `${l.interestRate}% p.a.` },
-                          { label: "EMI", value: `₹${l.emiAmount}` },
-                          { label: "Tenure", value: `${l.tenure}m` },
-                          { label: "Purpose", value: l.purpose || "N/A" },
-                        ].map(({ label, value }) => (
-                          <div key={label}><p className="text-gray-400 text-xs">{label}</p><p className="font-bold">{value}</p></div>
-                        ))}
-                      </div>
-                      {l.referralCommissionPaid && (
-                        <div className="mb-3 text-xs bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-orange-700 font-semibold">
-                          🎯 Referral commission ₹{l.referralCommissionAmount} paid on this loan
-                        </div>
-                      )}
-                      {l.status === "pending" && (
-                        <div className="flex gap-3">
-                          <button onClick={() => approveLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg transition">✅ Approve & Disburse</button>
-                          <button onClick={() => rejectLoan(l._id)} className="flex-1 sm:flex-none px-5 py-2.5 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 transition">✗ Reject</button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1717,24 +1882,17 @@ export default function AdminPanel() {
               </div>
 
 
-              {/* Google Drive Link if exists */}
-              {previewKycUser.kycDocuments?.googleDriveLink && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 truncate mr-2">
-                    <span>📁</span>
-                    <span className="font-bold text-blue-900">Google Drive:</span>
-                    <span className="text-blue-700 truncate font-mono text-[11px]">{previewKycUser.kycDocuments.googleDriveLink}</span>
-                  </div>
-                  <a
-                    href={previewKycUser.kycDocuments.googleDriveLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shrink-0"
-                  >
-                    Open Drive ↗
-                  </a>
+              {/* Secure Document Vault Status */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🔒</span>
+                  <span className="font-bold text-slate-800">Submitted Documents Vault:</span>
+                  <span className="text-slate-600 text-[11px]">Directly stored & permanently locked (tamper-proof)</span>
                 </div>
-              )}
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 uppercase tracking-wide">
+                  Encrypted
+                </span>
+              </div>
 
               {/* Dual In-App Document Previews (Doc 1 & Doc 2) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1855,6 +2013,81 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {/* ADMIN OFFLINE INSTALLMENT PAYMENT MODAL */}
+      {adminPayModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚡</span>
+                <h3 className="font-extrabold text-base text-gray-900">
+                  Mark Installment #{adminPayModal.installmentNo} as Paid
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdminPayModal(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-900 space-y-1">
+              <p className="font-bold">Installment Amount: ₹{adminPayModal.amount}</p>
+              <p className="text-[11px] text-blue-700">
+                Admin override: Use this if user has paid offline, in cash, or directly via bank transfer. This will mark the installment PAID, deduct dues from user's account, and create an auditable transaction record.
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Offline Evidence / Verification Note <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Received in cash at branch / Verified via bank statement"
+                  value={adminPayModal.evidenceNote || ""}
+                  onChange={(e) => setAdminPayModal({ ...adminPayModal, evidenceNote: e.target.value })}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Offline UTR / Transaction Ref (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. CASH_OFFLINE or UPI / IMPS Ref ID"
+                  value={adminPayModal.utrNumber || ""}
+                  onChange={(e) => setAdminPayModal({ ...adminPayModal, utrNumber: e.target.value })}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setAdminPayModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={adminPayLoading}
+                onClick={submitAdminPay}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition cursor-pointer disabled:opacity-50"
+              >
+                {adminPayLoading ? "Saving..." : "Confirm & Mark Paid →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toast msg={toast} onHide={() => setToast({ text: "", type: "" })} />
     </div>

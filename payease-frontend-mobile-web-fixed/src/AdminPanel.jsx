@@ -779,11 +779,19 @@ export default function AdminPanel() {
                               setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
                               setPreviewKycUser(u);
                             }}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                            className={`px-4 py-2 rounded-xl text-xs font-bold shadow-md active:scale-95 transition flex items-center gap-1.5 cursor-pointer ${
+                              u.kycStatus === "rejected"
+                                ? "bg-rose-100 text-rose-700 border border-rose-200 shadow-none"
+                                : u.kycStatus === "verified"
+                                ? "bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-none"
+                                : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20"
+                            }`}
                           >
-                            <span>🔍</span> Review & Verify
+                            <span>{u.kycStatus === "rejected" ? "🚫" : u.kycStatus === "verified" ? "✓" : "🔍"}</span>
+                            {u.kycStatus === "rejected" ? "Rejected — View" : u.kycStatus === "verified" ? "Verified — View" : "Review & Verify"}
                           </button>
                         </div>
+
                       </div>
                     ))}
                   </div>
@@ -1826,21 +1834,20 @@ export default function AdminPanel() {
                     ✓ Approve with Note
                   </button>
                 </>
-              ) : (
-                <button
-                  onClick={async () => {
-                    await approveKyc(previewKycUser._id, kycReviewRemarks);
-                    setPreviewKycUser(null);
-                  }}
-                  className="px-4 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 text-xs font-bold transition cursor-pointer"
-                >
-                  Update Review Note
-                </button>
-              )}
+              ) : previewKycUser.kycStatus === "rejected" ? (
+                <span className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold select-none">
+                  ✕ KYC Rejected — User must re-submit
+                </span>
+              ) : previewKycUser.kycStatus === "verified" ? (
+                <span className="px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold select-none">
+                  ✓ Already Verified
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
       )}
+
 
       <Toast msg={toast} onHide={() => setToast({ text: "", type: "" })} />
     </div>

@@ -126,6 +126,142 @@ class MainActivity : AppCompatActivity() {
 
 
         rootLayout.addView(webView)
+
+        // 1-Second native fintech splash animation with app icon and chamak (shine) gleam
+        val splashLayout = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(0xFF0F172A.toInt())
+        }
+
+        val splashContent = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.Gravity.CENTER
+            )
+        }
+
+        val iconSize = (96 * resources.displayMetrics.density).toInt()
+        val iconContainer = FrameLayout(this).apply {
+            layoutParams = android.widget.LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+            }
+            clipChildren = true
+        }
+
+        // Glowing cyan/gold pulse halo behind the icon
+        val haloView = android.view.View(this).apply {
+            layoutParams = FrameLayout.LayoutParams(iconSize, iconSize)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                colors = intArrayOf(0x5506B6D4.toInt(), 0x221D4ED8.toInt(), 0x00000000)
+                gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
+                gradientRadius = iconSize * 0.7f
+            }
+            scaleX = 0.7f
+            scaleY = 0.7f
+            alpha = 0f
+        }
+
+        val splashIcon = android.widget.ImageView(this).apply {
+            setImageResource(R.mipmap.ic_launcher)
+            layoutParams = FrameLayout.LayoutParams(iconSize, iconSize)
+            scaleX = 0.5f
+            scaleY = 0.5f
+            alpha = 0f
+        }
+
+        // Chamak (Shine / Gleam) light beam that sweeps across the icon
+        val shineBeam = android.view.View(this).apply {
+            val beamWidth = (iconSize * 0.4f).toInt()
+            layoutParams = FrameLayout.LayoutParams(beamWidth, (iconSize * 1.6f).toInt())
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(0x00FFFFFF, 0x66FFFFFF, 0xDDFFFFFF.toInt(), 0x66FFFFFF, 0x00FFFFFF)
+            )
+            rotation = 25f
+            translationX = -iconSize * 1.5f
+            alpha = 0f
+        }
+
+        iconContainer.addView(haloView)
+        iconContainer.addView(splashIcon)
+        iconContainer.addView(shineBeam)
+
+        val splashText = android.widget.TextView(this).apply {
+            text = "Educa Fintech"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 19f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = (16 * resources.displayMetrics.density).toInt()
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+            }
+            alpha = 0f
+        }
+
+        splashContent.addView(iconContainer)
+        splashContent.addView(splashText)
+        splashLayout.addView(splashContent)
+        rootLayout.addView(splashLayout)
+
+        // 1-Second Icon Spring Bounce
+        splashIcon.animate()
+            .scaleX(1.0f)
+            .scaleY(1.0f)
+            .alpha(1.0f)
+            .setDuration(600)
+            .setInterpolator(android.view.animation.OvershootInterpolator(1.35f))
+            .start()
+
+        // Glowing Pulse Animation
+        haloView.animate()
+            .scaleX(1.4f)
+            .scaleY(1.4f)
+            .alpha(0.85f)
+            .setDuration(450)
+            .withEndAction {
+                haloView.animate().alpha(0f).setDuration(300).start()
+            }
+            .start()
+
+        // Chamak (Shine Sweep) Across the Icon
+        shineBeam.postDelayed({
+            shineBeam.alpha = 1f
+            shineBeam.animate()
+                .translationX(iconSize * 1.5f)
+                .setDuration(450)
+                .setInterpolator(android.view.animation.AccelerateDecelerateInterpolator())
+                .withEndAction {
+                    shineBeam.alpha = 0f
+                }
+                .start()
+        }, 220)
+
+        splashText.animate()
+            .alpha(1.0f)
+            .setDuration(550)
+            .start()
+
+        // After exactly 1.0s (650ms hold + 350ms dissolve), smoothly reveal dashboard
+        splashLayout.postDelayed({
+            splashLayout.animate()
+                .alpha(0f)
+                .setDuration(350)
+                .withEndAction {
+                    rootLayout.removeView(splashLayout)
+                }
+                .start()
+        }, 650)
+
         setContentView(rootLayout)
 
         // Init native TTS engine (provides voice guide without needing browser speechSynthesis)

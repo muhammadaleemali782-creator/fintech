@@ -221,6 +221,15 @@ export default function Dashboard() {
   const [claimingCard, setClaimingCard] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
 
+  // Dues & Loan Installment states
+  const [activeLoanDetails, setActiveLoanDetails] = useState(null);
+  const [submitInstallmentModal, setSubmitInstallmentModal] = useState(null);
+  const [installmentUtr, setInstallmentUtr] = useState("");
+  const [installmentProofUrl, setInstallmentProofUrl] = useState("");
+  const [installmentProofName, setInstallmentProofName] = useState("");
+  const [installmentSubmitting, setInstallmentSubmitting] = useState(false);
+  const [installmentPayMethod, setInstallmentPayMethod] = useState("wallet");
+
   // App Lock State (Biometric / 6-digit PIN on App Open) - Only active if PIN is configured
   const [appLocked, setAppLocked] = useState(() => Boolean(localStorage.getItem("token") && localStorage.getItem("hasWalletPin") === "true"));
   const [appLockPin, setAppLockPin] = useState("");
@@ -960,6 +969,19 @@ export default function Dashboard() {
       setShowLoans(true);
       setNavTab("loans");
     } catch {}
+    loadActiveLoanDetails();
+  };
+
+  const loadActiveLoanDetails = async () => {
+    try {
+      const res = await fetch(`${API}/loan/active-details`, { headers });
+      const data = await res.json();
+      if (data && data.hasActiveLoan) {
+        setActiveLoanDetails(data);
+      } else {
+        setActiveLoanDetails(null);
+      }
+    } catch {}
   };
 
   const loadBonds = async () => {
@@ -1378,7 +1400,84 @@ export default function Dashboard() {
     const res = await fetch(`${API}/loan/${id}/pay-installment`, { method: "POST", headers });
     const data = await res.json();
     showToast(data.message, res.ok ? "success" : "error");
-    if (res.ok) { loadLoans(); loadDashboard(); }
+    if (res.ok) { loadLoans(); loadActiveLoanDetails(); loadDashboard(); }
+  };
+
+  const handleInstallmentProofUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("File size 5MB se kam honi chahiye", "error");
+      return;
+    }
+    setInstallmentProofName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxW = 1200;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxW) {
+          h = Math.round((h * maxW) / w);
+          w = maxW;
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        setInstallmentProofUrl(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const submitInstallmentProof = async (e) => {
+    e?.preventDefault();
+    if (!submitInstallmentModal) return;
+
+    if (installmentPayMethod === "wallet") {
+      await payInstallment(submitInstallmentModal.loanId, submitInstallmentModal.amount);
+      setSubmitInstallmentModal(null);
+      return;
+    }
+
+    if (!installmentUtr || installmentUtr.trim().length < 6) {
+      return showToast("Valid UTR / Ref number zaroori hai (min 6 digits)", "error");
+    }
+    if (!installmentProofUrl) {
+      return showToast("Payment screenshot upload zaroori hai", "error");
+    }
+
+    setInstallmentSubmitting(true);
+    try {
+      const res = await fetch(`${API}/loan/${submitInstallmentModal.loanId}/submit-installment`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          installmentNo: submitInstallmentModal.installmentNo,
+          utrNumber: installmentUtr.trim(),
+          proofUrl: installmentProofUrl
+        })
+      });
+      const data = await res.json();
+      showToast(data.message, res.ok ? "success" : "error");
+      if (res.ok) {
+        setSubmitInstallmentModal(null);
+        setInstallmentUtr("");
+        setInstallmentProofUrl("");
+        setInstallmentProofName("");
+        loadLoans();
+        loadActiveLoanDetails();
+        loadDashboard();
+      }
+    } catch {
+      showToast("Network error submitting installment", "error");
+    } finally {
+      setInstallmentSubmitting(false);
+    }
   };
 
   // Settle & Close Loan Early in Full
@@ -1613,13 +1712,13 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right: Dues Wallet Balance Card (LOCKED IF NO ACTIVE DUES) - VIBRANT RED */}
+          {/* Right: Dues Wallet Balance Card - CLEAN & UNLOCKED */}
           <div
             onClick={() => setAccountModal("personal_loan")}
             className={`rounded-3xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98] transition hover:shadow-xl ${
               (userProfile.duesBalance || 0) > 0
                 ? "bg-gradient-to-br from-red-600 via-rose-600 to-red-800 shadow-red-500/25"
-                : "bg-gradient-to-br from-red-900 via-rose-950 to-neutral-950 border border-red-700/50 shadow-red-950/30"
+                : "bg-gradient-to-br from-slate-900 via-rose-950 to-neutral-900 border border-red-900/40 shadow-red-950/20"
             }`}
           >
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
@@ -1627,28 +1726,22 @@ export default function Dashboard() {
               <div className="flex justify-between items-center mb-1">
                 <span className="text-red-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.duesWallet}</span>
                 <span className="text-base sm:text-lg">
-                  {(userProfile.duesBalance || 0) > 0 ? "📅" : "🔒"}
+                  {(userProfile.duesBalance || 0) > 0 ? "📅" : "✅"}
                 </span>
               </div>
               <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate text-white">
-                {(userProfile.duesBalance || 0) > 0 ? (
-                  `₹${(userProfile.duesBalance || 0).toLocaleString("en-IN")}`
-                ) : (
-                  <span className="text-red-200 text-xl sm:text-2xl font-bold flex items-center gap-1.5">
-                    <span>🔒</span> Locked
-                  </span>
-                )}
+                ₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}
               </h3>
               <p className="text-red-100/90 text-[11px] hidden sm:block">
                 {(userProfile.duesBalance || 0) > 0
-                  ? "Pending Easy Installments & collections"
-                  : "Loan lene par dues wallet active hoga"}
+                  ? "Pending Easy Installments & upcoming collections"
+                  : "No Active Dues • All Clear (₹0)"}
               </p>
             </div>
             <div className="pt-2 border-t border-red-400/30 flex justify-between items-center text-[11px] text-red-100 relative z-10 mt-2">
-              <span>{(userProfile.duesBalance || 0) > 0 ? "1st, 11th, 21st" : "No Active Dues"}</span>
+              <span>{(userProfile.duesBalance || 0) > 0 ? "10-Day Cycle (1st, 11th, 21st)" : "All Clear"}</span>
               <span className="font-bold underline">
-                {(userProfile.duesBalance || 0) > 0 ? "Details →" : "Apply Loan →"}
+                {(userProfile.duesBalance || 0) > 0 ? "Pay Installment →" : "View Details →"}
               </span>
             </div>
           </div>
@@ -2387,43 +2480,172 @@ export default function Dashboard() {
       <Sheet open={accountModal === "personal_loan"} onClose={closeModal} title="Personal Loan Account" icon="🏦">
         {activePersonalLoan ? (
           <div className="space-y-4">
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-2xl p-5 text-white">
+            {/* Account Card */}
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-2xl p-5 text-white shadow-md">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-100">Account Number</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white">
-                  {activePersonalLoan.status.toUpperCase()}
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-100">Loan Account</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white uppercase">
+                  {activePersonalLoan.status}
                 </span>
               </div>
               <div className="text-2xl sm:text-3xl font-black font-mono my-1 tracking-wider">
                 {activePersonalLoan.accountNumber || "EFSPL0001"}
               </div>
-              <p className="text-xs text-emerald-100">Sanctioned: ₹{activePersonalLoan.amount.toLocaleString("en-IN")}</p>
+              <div className="flex justify-between text-xs text-emerald-100 pt-1">
+                <span>Sanctioned: ₹{activePersonalLoan.amount.toLocaleString("en-IN")}</span>
+                <span>Total: ₹{(activePersonalLoan.totalPayable || (activePersonalLoan.amount + (activePersonalLoan.amount * 0.2))).toLocaleString("en-IN")}</span>
+              </div>
             </div>
 
+            {/* 5-DAY UPCOMING DUE ALERT BANNER */}
+            {activeLoanDetails?.isUpcomingSoon && activeLoanDetails?.nextInstallment && (
+              <div className="p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 rounded-2xl space-y-2 text-amber-950 shadow-sm animate-pulse">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔔</span>
+                  <span className="font-black text-xs uppercase tracking-wide text-amber-900">
+                    Upcoming Due Alert (Installment #{activeLoanDetails.nextInstallment.installmentNo})
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-amber-900">
+                  Aapki agli installment <strong>₹{activeLoanDetails.nextInstallment.amount}</strong> {
+                    activeLoanDetails.daysUntilDue === 0 ? "aaj hi due hai!" :
+                    activeLoanDetails.daysUntilDue < 0 ? `${Math.abs(activeLoanDetails.daysUntilDue)} din pehle overdue ho chuki hai!` :
+                    `${activeLoanDetails.daysUntilDue} din me due hone wali hai (${activeLoanDetails.nextInstallment.dueDate ? new Date(activeLoanDetails.nextInstallment.dueDate).toLocaleDateString("en-IN") : "Upcoming"})`
+                  }
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSubmitInstallmentModal({
+                    loanId: activePersonalLoan._id,
+                    installmentNo: activeLoanDetails.nextInstallment.installmentNo,
+                    amount: activeLoanDetails.nextInstallment.amount
+                  })}
+                  className="w-full py-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-bold text-xs shadow-xs hover:from-amber-700 hover:to-orange-700 active:scale-95 transition cursor-pointer"
+                >
+                  Pay Installment #{activeLoanDetails.nextInstallment.installmentNo} (₹{activeLoanDetails.nextInstallment.amount}) →
+                </button>
+              </div>
+            )}
+
+            {/* Loan Metrics */}
             <div className="border border-gray-100 rounded-2xl p-4 bg-gray-50 space-y-2 text-xs">
               <div className="flex justify-between"><span className="text-gray-500">Tenure:</span><span className="font-bold">{activePersonalLoan.installmentsCount || activePersonalLoan.tenure} Easy Installments</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Cycle:</span><span className="font-bold">10 Days (1st, 11th, 21st)</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Repayment Cycle:</span><span className="font-bold">10 Days (1st, 11th, 21st of month)</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Per Installment:</span><span className="font-bold text-emerald-700">₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Remaining Balance:</span><span className="font-bold text-rose-600">₹{activePersonalLoan.remainingAmount || activePersonalLoan.amount}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Total Paid Amount:</span><span className="font-bold text-emerald-600">₹{(activePersonalLoan.paidAmount || 0).toLocaleString("en-IN")}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Remaining Dues Balance:</span><span className="font-bold text-rose-600">₹{(activePersonalLoan.remainingAmount ?? activePersonalLoan.amount).toLocaleString("en-IN")}</span></div>
             </div>
 
+            {/* Primary Action Buttons */}
             {activePersonalLoan.status === "active" && (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <button
-                  onClick={() => payInstallment(activePersonalLoan._id, activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount)}
-                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
+                  type="button"
+                  onClick={() => {
+                    const list = (activeLoanDetails?.installments || activePersonalLoan.installmentSchedule || []);
+                    const pendingInst = list.find(x => x.status === "pending" || x.status === "overdue") || list[0];
+                    setSubmitInstallmentModal({
+                      loanId: activePersonalLoan._id,
+                      installmentNo: pendingInst ? pendingInst.installmentNo : 1,
+                      amount: pendingInst ? pendingInst.amount : (activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount)
+                    });
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer"
                 >
-                  Pay Next Easy Installment (₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount})
+                  Pay Next Easy Installment (₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount}) →
                 </button>
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
-                  ⚡ <strong>Loan Early Closure:</strong> 9th installment se pehle pura loan close karne par agent ko 1:1 profit bonus milta hai aur limit turant double ho jaati hai!
+                  ⚡ <strong>Early Closure Bonus:</strong> 9th installment se pehle pura loan close karne par agent ko 1:1 profit bonus milta hai aur limit turant double hoti hai!
                 </div>
                 <button
+                  type="button"
                   onClick={() => closeLoanEarly(activePersonalLoan._id, activePersonalLoan.remainingAmount || activePersonalLoan.amount)}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm active:scale-95 transition"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm active:scale-95 transition cursor-pointer"
                 >
-                  Close Loan Early (Payoff ₹{activePersonalLoan.remainingAmount || activePersonalLoan.amount}) →
+                  Close Loan Early (Payoff ₹{(activePersonalLoan.remainingAmount || activePersonalLoan.amount).toLocaleString("en-IN")}) →
                 </button>
+              </div>
+            )}
+
+            {/* FULL 10-DAY INSTALLMENT SCHEDULE & HISTORY BREAKDOWN */}
+            {((activeLoanDetails?.installments && activeLoanDetails.installments.length > 0) || (activePersonalLoan.installmentSchedule && activePersonalLoan.installmentSchedule.length > 0)) && (
+              <div className="space-y-2.5 pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
+                    <span>📅</span> 10-Day Installment Schedule & Payment History
+                  </h4>
+                  <span className="text-[10px] text-gray-500 font-bold">
+                    {(activeLoanDetails?.installments || activePersonalLoan.installmentSchedule).filter(x => x.status === "paid").length} / {(activeLoanDetails?.installments || activePersonalLoan.installmentSchedule).length} Paid
+                  </span>
+                </div>
+
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {(activeLoanDetails?.installments || activePersonalLoan.installmentSchedule).map((inst) => {
+                    const isPaid = inst.status === "paid";
+                    const isSubmitted = inst.status === "submitted";
+                    const isOverdue = inst.status === "overdue";
+
+                    return (
+                      <div
+                        key={inst.installmentNo}
+                        className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
+                          isPaid
+                            ? "bg-emerald-50/70 border-emerald-200"
+                            : isSubmitted
+                            ? "bg-amber-50 border-amber-300"
+                            : isOverdue
+                            ? "bg-rose-50 border-rose-200"
+                            : "bg-white border-gray-200"
+                        }`}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-gray-900">Installment #{inst.installmentNo}</span>
+                            <span className="font-mono font-bold text-emerald-700">₹{inst.amount}</span>
+                          </div>
+                          <p className="text-[11px] text-gray-500">
+                            Due Date: {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "10-day cycle"}
+                          </p>
+                          {isPaid && (
+                            <p className="text-[10px] text-emerald-700 font-bold">
+                              ✓ Paid on {inst.paidOn ? new Date(inst.paidOn).toLocaleDateString("en-IN") : "Recorded"}
+                              {inst.adminEvidenceNote ? ` (${inst.adminEvidenceNote})` : ""}
+                            </p>
+                          )}
+                          {isSubmitted && (
+                            <p className="text-[10px] text-amber-700 font-bold">
+                              ⏳ UTR: {inst.utrNumber} (Awaiting Admin Approval)
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="shrink-0 flex flex-col items-end gap-1">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                            isPaid ? "bg-emerald-200 text-emerald-900" :
+                            isSubmitted ? "bg-amber-200 text-amber-900" :
+                            isOverdue ? "bg-rose-200 text-rose-900" : "bg-gray-100 text-gray-700"
+                          }`}>
+                            {inst.status}
+                          </span>
+
+                          {!isPaid && !isSubmitted && activePersonalLoan.status === "active" && (
+                            <button
+                              type="button"
+                              onClick={() => setSubmitInstallmentModal({
+                                loanId: activePersonalLoan._id,
+                                installmentNo: inst.installmentNo,
+                                amount: inst.amount
+                              })}
+                              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold shadow-2xs active:scale-95 transition cursor-pointer"
+                            >
+                              Pay Now →
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -3247,8 +3469,8 @@ export default function Dashboard() {
                       : userProfile.kycStatus === "pending"
                       ? "Documents submitted • Review in progress by Admin"
                       : userProfile.kycStatus === "rejected"
-                      ? "Please re-upload clear Aadhaar / Google Drive link"
-                      : "Upload Aadhaar / Drive link to activate debit cards"}
+                      ? "Please re-upload clear Aadhaar & PAN / Cheque documents"
+                      : "Upload Aadhaar & Verification documents to activate debit cards"}
                   </p>
                 </div>
               </div>
@@ -3263,22 +3485,9 @@ export default function Dashboard() {
                     : "bg-blue-600 hover:bg-blue-700 text-white"
                 }`}
               >
-                {userProfile.kycStatus === "verified" ? "View KYC" : userProfile.kycStatus === "pending" ? "Update" : "Verify →"}
+                {userProfile.kycStatus === "verified" ? "View KYC" : userProfile.kycStatus === "pending" ? "View Docs" : "Verify →"}
               </button>
             </div>
-            {userProfile.kycDocuments?.googleDriveLink && (
-              <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px]">
-                <span className="text-gray-500 font-medium">Google Drive Document:</span>
-                <a
-                  href={userProfile.kycDocuments.googleDriveLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 font-bold hover:underline flex items-center gap-1"
-                >
-                  📁 Open Link ↗
-                </a>
-              </div>
-            )}
           </div>
 
           {/* AGENT PARTNER BADGE IF APPLIED OR APPROVED */}
@@ -3692,28 +3901,92 @@ export default function Dashboard() {
       })()}
 
       {/* ══════════════════════════════════════════════════════
-          E-KYC DOCUMENT VERIFICATION SHEET (GOOGLE DRIVE & FILE UPLOAD)
+          E-KYC DOCUMENT VERIFICATION SHEET (SECURE & LOCKED)
       ══════════════════════════════════════════════════════ */}
       <Sheet open={modal === "kyc"} onClose={closeModal} title="Identity KYC Verification" icon="🛡️">
         <div className="space-y-4">
-          {/* 1. Already Verified: Never ask again */}
+          {/* 1. Already Verified: Full Locked Documents View */}
           {userProfile.kycStatus === "verified" ? (
-            <div className="py-6 px-4 bg-emerald-50/80 border border-emerald-200 rounded-3xl text-center space-y-3">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center text-2xl mx-auto shadow-md shadow-emerald-500/20 font-black">
-                ✓
-              </div>
-              <div>
-                <h4 className="font-extrabold text-base text-emerald-950">KYC Verified & Active</h4>
-                <p className="text-xs text-emerald-800 mt-1 max-w-xs mx-auto">
-                  Aapka account fully verified hai. Sabhi features jaise money transfer, cashout aur loans bina kisi rukawat ke active hain.
-                </p>
+            <div className="space-y-3.5">
+              <div className="py-4 px-4 bg-emerald-50 border border-emerald-200 rounded-3xl text-center space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center text-xl mx-auto shadow-md shadow-emerald-500/20 font-black">
+                  ✓
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-base text-emerald-950">KYC Verified & Active</h4>
+                  <p className="text-xs text-emerald-800 mt-0.5 max-w-xs mx-auto">
+                    Aapka account fully verified hai. Sabhi features jaise money transfer, cards aur loans active hain.
+                  </p>
+                </div>
+                {userProfile.aadharNumber && (
+                  <div className="inline-block px-3 py-1 bg-white border border-emerald-200 rounded-xl text-xs font-mono text-emerald-900 font-bold">
+                    UID: •••• •••• {userProfile.aadharNumber.slice(-4)}
+                  </div>
+                )}
               </div>
 
-              {userProfile.aadharNumber && (
-                <div className="inline-block px-3 py-1 bg-white border border-emerald-200 rounded-xl text-xs font-mono text-emerald-900 font-bold">
-                  UID: •••• •••• {userProfile.aadharNumber.slice(-4)}
+              {/* Locked Submitted Documents Viewer */}
+              <div className="space-y-3 p-3.5 bg-gray-50 border border-gray-200 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
+                    <span>🔒</span> Submitted Documents (Locked & Verified)
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase">
+                    Tamper Proof
+                  </span>
                 </div>
-              )}
+
+                {/* Doc 1: Aadhaar Card */}
+                <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-gray-800">1. Aadhaar Card (Primary ID)</span>
+                    <span className="text-[10px] font-mono text-gray-500">
+                      •••• {userProfile.aadharNumber ? userProfile.aadharNumber.slice(-4) : ""}
+                    </span>
+                  </div>
+                  {userProfile.kycDocuments?.aadhaarName && (
+                    <p className="text-[11px] text-gray-600">
+                      Naam: <strong>{userProfile.kycDocuments.aadhaarName}</strong>
+                    </p>
+                  )}
+                  {(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl) && (
+                    <div className="mt-1 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 p-1 flex justify-center">
+                      <img
+                        src={userProfile.kycDocuments.doc1Url || userProfile.kycDocuments.docUrl}
+                        alt="Aadhaar Card"
+                        className="max-h-36 object-contain rounded"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Doc 2: PAN Card / Bank Cheque */}
+                {(userProfile.kycDocuments?.doc2Url || userProfile.kycDocuments?.panNumber || userProfile.kycDocuments?.chequeNumber) && (
+                  <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-gray-800">
+                        2. {userProfile.kycDocuments?.doc2Type === "cheque" ? "Cancelled Cheque" : "PAN Card"}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-indigo-700">
+                        {userProfile.kycDocuments?.panNumber || userProfile.kycDocuments?.chequeNumber || "Verified"}
+                      </span>
+                    </div>
+                    {userProfile.kycDocuments?.doc2Url && (
+                      <div className="mt-1 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 p-1 flex justify-center">
+                        <img
+                          src={userProfile.kycDocuments.doc2Url}
+                          alt="Financial Proof"
+                          className="max-h-36 object-contain rounded"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <p className="text-[10px] text-gray-500 italic text-center pt-1">
+                  🛡️ As per security guidelines, verified KYC documents are permanently locked on server and cannot be deleted or modified.
+                </p>
+              </div>
 
               <button
                 type="button"
@@ -3724,24 +3997,84 @@ export default function Dashboard() {
               </button>
             </div>
           ) : userProfile.kycStatus === "pending" ? (
-            /* 2. Under Review: Clean status without re-asking */
-            <div className="py-6 px-4 bg-amber-50/80 border border-amber-200 rounded-3xl text-center space-y-3">
-              <div className="w-14 h-14 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-2xl mx-auto shadow-md shadow-amber-500/20 font-black">
-                ⏳
-              </div>
-              <div>
-                <h4 className="font-extrabold text-base text-amber-950">KYC Under Review</h4>
-                <p className="text-xs text-amber-800 mt-1 max-w-xs mx-auto">
-                  Aapka KYC document submit ho chuka hai. Verification team documents verify kar rahi hai (samanya samay: 2-4 ghante).
-                </p>
+            /* 2. Under Review: Clean Locked View of Submitted Documents */
+            <div className="space-y-3.5">
+              <div className="py-4 px-4 bg-amber-50 border border-amber-200 rounded-3xl text-center space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl mx-auto shadow-md shadow-amber-500/20 font-black">
+                  ⏳
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-base text-amber-950">KYC Under Review</h4>
+                  <p className="text-xs text-amber-800 mt-0.5 max-w-xs mx-auto">
+                    Aapke KYC documents submit ho chuke hain. Verification team review kar rahi hai (samanya samay: 2-4 ghante).
+                  </p>
+                </div>
               </div>
 
-              {userProfile.kycDocuments?.docUrl && (
-                <div className="inline-flex items-center gap-2 p-2 bg-white border border-amber-200 rounded-xl text-xs text-amber-900">
-                  <img src={userProfile.kycDocuments.docUrl} alt="Submitted Doc" className="w-8 h-8 rounded-lg object-cover" />
-                  <span className="font-medium">Document submitted successfully</span>
+              {/* Locked Submitted Documents Viewer */}
+              <div className="space-y-3 p-3.5 bg-gray-50 border border-gray-200 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
+                    <span>🔒</span> Submitted Documents (Locked)
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 uppercase">
+                    Under Review
+                  </span>
                 </div>
-              )}
+
+                {/* Doc 1: Aadhaar Card */}
+                <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-gray-800">1. Aadhaar Card (Primary ID)</span>
+                    {userProfile.aadharNumber && (
+                      <span className="text-[10px] font-mono text-gray-500">
+                        UID: •••• {userProfile.aadharNumber.slice(-4)}
+                      </span>
+                    )}
+                  </div>
+                  {userProfile.kycDocuments?.aadhaarName && (
+                    <p className="text-[11px] text-gray-600">
+                      Naam: <strong>{userProfile.kycDocuments.aadhaarName}</strong>
+                    </p>
+                  )}
+                  {(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl) && (
+                    <div className="mt-1 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 p-1 flex justify-center">
+                      <img
+                        src={userProfile.kycDocuments.doc1Url || userProfile.kycDocuments.docUrl}
+                        alt="Submitted Aadhaar"
+                        className="max-h-36 object-contain rounded"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Doc 2: PAN Card / Bank Cheque */}
+                {(userProfile.kycDocuments?.doc2Url || userProfile.kycDocuments?.panNumber || userProfile.kycDocuments?.chequeNumber) && (
+                  <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-gray-800">
+                        2. {userProfile.kycDocuments?.doc2Type === "cheque" ? "Cancelled Cheque" : "PAN Card"}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-indigo-700">
+                        {userProfile.kycDocuments?.panNumber || userProfile.kycDocuments?.chequeNumber || "Submitted"}
+                      </span>
+                    </div>
+                    {userProfile.kycDocuments?.doc2Url && (
+                      <div className="mt-1 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 p-1 flex justify-center">
+                        <img
+                          src={userProfile.kycDocuments.doc2Url}
+                          alt="Submitted Financial Proof"
+                          className="max-h-36 object-contain rounded"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <p className="text-[10px] text-gray-500 italic text-center pt-1">
+                  🛡️ Documents are securely stored and locked against unauthorized edits.
+                </p>
+              </div>
 
               <button
                 type="button"
@@ -4335,6 +4668,156 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          INSTALLMENT PAYMENT & PROOF SUBMISSION SHEET
+      ══════════════════════════════════════════════════════ */}
+      {submitInstallmentModal && (
+        <Sheet
+          open={Boolean(submitInstallmentModal)}
+          onClose={() => setSubmitInstallmentModal(null)}
+          title={`Pay Installment #${submitInstallmentModal.installmentNo} (₹${submitInstallmentModal.amount})`}
+          icon="💳"
+        >
+          <div className="space-y-4">
+            <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Installment Due</span>
+                <h4 className="text-xl font-black font-display text-blue-950">₹{submitInstallmentModal.amount}</h4>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Installment No.</span>
+                <p className="font-mono font-bold text-sm text-indigo-700">#{submitInstallmentModal.installmentNo}</p>
+              </div>
+            </div>
+
+            {/* Payment Method Selector */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setInstallmentPayMethod("wallet")}
+                className={`py-2.5 px-3 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border ${
+                  installmentPayMethod === "wallet"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                <span>👛</span>
+                <span>Wallet Balance</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInstallmentPayMethod("upi_qr")}
+                className={`py-2.5 px-3 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border ${
+                  installmentPayMethod === "upi_qr"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                <span>📱</span>
+                <span>UPI QR / Proof</span>
+              </button>
+            </div>
+
+            {installmentPayMethod === "wallet" ? (
+              <div className="space-y-3 p-4 bg-gray-50 rounded-2xl border border-gray-200 text-xs">
+                <div className="flex justify-between items-center text-gray-700">
+                  <span>Available Balance:</span>
+                  <span className="font-bold text-emerald-700 font-mono text-sm">
+                    ₹{(userProfile.balance || 0).toLocaleString("en-IN")}
+                  </span>
+                </div>
+                {(userProfile.balance || 0) < submitInstallmentModal.amount ? (
+                  <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-[11px] font-medium">
+                    ⚠️ Insufficient wallet balance (₹{userProfile.balance || 0}). Kripya wallet me paise add karein ya "UPI QR / Proof" option chunein.
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-500">
+                    Aapke Primary Wallet se ₹{submitInstallmentModal.amount} turant debit honge aur installment PAID mark ho jayegi.
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={(userProfile.balance || 0) < submitInstallmentModal.amount}
+                  onClick={submitInstallmentProof}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+                >
+                  Pay ₹{submitInstallmentModal.amount} from Wallet →
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={submitInstallmentProof} className="space-y-3.5">
+                {/* UPI QR & Bank Instruction */}
+                <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-1.5 text-xs text-indigo-950">
+                  <p className="font-bold">📱 Pay via Any UPI App (GPay, PhonePe, Paytm):</p>
+                  <p className="text-[11px] text-indigo-800">
+                    Aap company ke official UPI ya QR code par ₹{submitInstallmentModal.amount} transfer karein. Payment hone ke baad 12-digit UTR number aur screenshot yahan submit karein.
+                  </p>
+                </div>
+
+                {/* UTR Input */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    UTR / Transaction Reference Number <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 423589123456 (12 Digits)"
+                    value={installmentUtr}
+                    onChange={(e) => setInstallmentUtr(e.target.value.trim())}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-blue-500 outline-none uppercase"
+                  />
+                </div>
+
+                {/* Screenshot Upload */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Payment Screenshot / Receipt <span className="text-rose-500">*</span>
+                  </label>
+                  <label className="cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-2 transition active:scale-95">
+                    <span>📄</span>
+                    <span className="truncate">{installmentProofName || "Upload Receipt Screenshot"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleInstallmentProofUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {installmentProofUrl && (
+                    <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-2.5">
+                      <img src={installmentProofUrl} alt="Receipt Preview" className="w-10 h-10 object-cover rounded-lg border border-gray-200" />
+                      <div className="text-[11px] text-gray-600 truncate flex-1">
+                        <span className="font-bold text-gray-800 block truncate">{installmentProofName || "Receipt"}</span>
+                        <span className="text-emerald-600 font-bold">✓ Ready to submit</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSubmitInstallmentModal(null)}
+                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={installmentSubmitting}
+                    className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {installmentSubmitting ? "Submitting..." : "Submit Proof →"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </Sheet>
       )}
 
       <Toast msg={toast} onHide={() => setToast({ text: "", type: "" })} />

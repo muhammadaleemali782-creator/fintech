@@ -434,7 +434,7 @@ router.post('/kyc/submit', protect, async (req, res) => {
     sendNotification({
       type: 'kyc_submitted',
       title: 'New KYC Document Submission 📄',
-      message: `${user.name} (${user.email || user.phone}) ne ${selectedType.toUpperCase()} document submit kiya hai.`,
+      message: `${user.name} (${user.email || user.phone}) ne ${selectedDoc2.toUpperCase()} document submit kiya hai.`,
       data: { userId: user._id, name: user.name }
     });
 

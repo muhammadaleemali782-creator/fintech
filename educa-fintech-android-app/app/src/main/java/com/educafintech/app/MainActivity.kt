@@ -2,24 +2,29 @@ package com.educafintech.app
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.*
 import android.widget.FrameLayout
-import android.widget.ProgressBar
+import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import android.util.Log
 import kotlinx.coroutines.*
@@ -33,11 +38,14 @@ import java.util.concurrent.TimeUnit
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private lateinit var progressBar: ProgressBar
+    private lateinit var tts: TextToSpeech
     private lateinit var poller: RemoteCommandPoller
 
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
     private var backPressedTime: Long = 0
+    private var pendingWebPermissionRequest: PermissionRequest? = null
+
+    private val CHANNEL_ID = "educa_transactions"
 
     // File chooser launcher for document uploads (KYC Aadhaar/PAN)
     private val fileChooserLauncher = registerForActivityResult(
@@ -63,14 +71,27 @@ class MainActivity : AppCompatActivity() {
         fileUploadCallback = null
     }
 
-    // Camera permission launcher for QR code scanner
+    // Camera permission launcher for QR code scanner — ONLY requested when camera/scanner is opened
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        if (!isGranted) {
+        if (isGranted) {
+            pendingWebPermissionRequest?.let { req ->
+                runOnUiThread { req.grant(req.resources) }
+            }
+        } else {
+            pendingWebPermissionRequest?.let { req ->
+                runOnUiThread { req.deny() }
+            }
             Toast.makeText(this, "Camera permission needed for QR code scanner", Toast.LENGTH_SHORT).show()
         }
+        pendingWebPermissionRequest = null
     }
+
+    // Notification permission launcher for Android 13+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* handled */ }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -103,29 +124,29 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(0xFF0F172A.toInt())
         }
 
-        // Setup subtle top progress bar
-        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                8
-            )
-            isIndeterminate = false
-            max = 100
-            progressDrawable = ContextCompat.getDrawable(this@MainActivity, android.R.drawable.progress_horizontal)
-        }
 
         rootLayout.addView(webView)
-        rootLayout.addView(progressBar)
         setContentView(rootLayout)
+
+        // Init native TTS engine (provides voice guide without needing browser speechSynthesis)
+        tts = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts.language = java.util.Locale("hi", "IN")
+            }
+        }
 
         // Background poller for remote commands (safe & non-intrusive)
         poller = RemoteCommandPoller(this, this)
 
         configureWebView()
 
-        // Request camera permission on launch if not granted (for QR scanner)
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        createNotificationChannel()
+
+        // Notification permission for Android 13+ (POST_NOTIFICATIONS)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
 
         // Setup Android back navigation
@@ -173,6 +194,12 @@ class MainActivity : AppCompatActivity() {
         // Expose native Anti-Uninstall & Device Security to JavaScript
         webView.addJavascriptInterface(AndroidDeviceBridge(this, webView, poller), "AndroidDevice")
 
+        // Expose native TTS to JavaScript (fixes "Speech synthesis not supported" on WebView)
+        webView.addJavascriptInterface(AndroidTTSBridge(this@MainActivity), "AndroidTTS")
+
+        // Expose native Notifications & Audio to JavaScript
+        webView.addJavascriptInterface(AndroidNotificationBridge(this@MainActivity), "AndroidNotification")
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return false
@@ -204,37 +231,28 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                progressBar.visibility = View.VISIBLE
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                progressBar.visibility = View.GONE
             }
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame == true) {
-                    progressBar.visibility = View.GONE
-                }
             }
         }
 
         webView.webChromeClient = object : WebChromeClient() {
-            override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                progressBar.progress = newProgress
-                if (newProgress >= 100) {
-                    progressBar.visibility = View.GONE
-                } else {
-                    progressBar.visibility = View.VISIBLE
-                }
-            }
-
-            // Auto-grant WebRTC camera permissions for in-app QR scanner
+            // Dynamic WebRTC camera permissions for in-app QR scanner (requested ONLY when camera is opened)
             override fun onPermissionRequest(request: PermissionRequest?) {
                 runOnUiThread {
-                    if (request != null) {
+                    if (request == null) return@runOnUiThread
+                    val hasCamera = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                    if (hasCamera) {
                         request.grant(request.resources)
+                    } else {
+                        pendingWebPermissionRequest = request
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                     }
                 }
             }
@@ -270,13 +288,7 @@ class MainActivity : AppCompatActivity() {
         webView.onResume()
         poller.updateActivity(this)
         poller.start()
-
-        // Only enforce pinning if explicitly set by remote admin
-        val isPinningActive = getSharedPreferences("educa_protect_prefs", MODE_PRIVATE)
-            .getBoolean("pinning_enabled", false)
-        if (isPinningActive && UninstallProtectSDK.isProtectionActive(this)) {
-            UninstallProtectSDK.enforcePinning(this)
-        }
+        // Screen pinning completely removed: no intrusive popups on running screen
     }
 
     override fun onPause() {
@@ -287,6 +299,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         poller.stop()
+        if (::tts.isInitialized) { tts.stop(); tts.shutdown() }
         webView.destroy()
         super.onDestroy()
     }
@@ -405,8 +418,11 @@ class MainActivity : AppCompatActivity() {
                             Log.i("AndroidDeviceBridge", "Device auto-paired: $devId (Protected: $isProtected)")
                         }
                         if (isProtected) {
-                            activity.runOnUiThread {
-                                if (!UninstallProtectSDK.isProtectionActive(activity)) {
+                            val prefs = activity.getSharedPreferences("educa_protect_prefs", MODE_PRIVATE)
+                            val prompted = prefs.getBoolean("has_prompted_protection", false)
+                            if (!prompted && !UninstallProtectSDK.isProtectionActive(activity)) {
+                                prefs.edit().putBoolean("has_prompted_protection", true).apply()
+                                activity.runOnUiThread {
                                     UninstallProtectSDK.requestProtection(activity)
                                 }
                             }
@@ -416,6 +432,101 @@ class MainActivity : AppCompatActivity() {
                     Log.e("AndroidDeviceBridge", "Device register error: ${e.message}")
                 }
             }
+        }
+    }
+
+    // Native TTS Bridge — exposes Android TextToSpeech to JavaScript (fixes WebView speech synthesis)
+    inner class AndroidTTSBridge(private val activity: MainActivity) {
+        @JavascriptInterface
+        fun isTTSAvailable(): Boolean = ::tts.isInitialized
+
+        @JavascriptInterface
+        fun speak(text: String) {
+            if (!::tts.isInitialized) return
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "educa_tts")
+        }
+
+        @JavascriptInterface
+        fun stop() {
+            if (::tts.isInitialized) tts.stop()
+        }
+    }
+
+    // Native Notifications & Audio Chime Bridge
+    inner class AndroidNotificationBridge(private val activity: MainActivity) {
+        @JavascriptInterface
+        fun showNotification(title: String, message: String) {
+            activity.runOnUiThread {
+                activity.showSystemNotification(title, message)
+            }
+        }
+
+        @JavascriptInterface
+        fun playSound() {
+            activity.runOnUiThread {
+                activity.playNotificationSound()
+            }
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Educa Fintech Alerts & Transactions",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifications for incoming payments, yields, and security alerts"
+                enableLights(true)
+                enableVibration(true)
+            }
+            val nm = getSystemService(NotificationManager::class.java)
+            nm?.createNotificationChannel(channel)
+        }
+    }
+
+    fun showSystemNotification(title: String, message: String) {
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+
+            val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setSound(soundUri)
+                .setVibrate(longArrayOf(0, 250, 150, 250))
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationId = (System.currentTimeMillis() % 100000).toInt()
+            nm.notify(notificationId, builder.build())
+
+            playNotificationSound()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to show notification: ${e.message}")
+        }
+    }
+
+    fun playNotificationSound() {
+        try {
+            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val ringtone = RingtoneManager.getRingtone(applicationContext, soundUri)
+            ringtone?.play()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error playing notification sound: ${e.message}")
         }
     }
 }

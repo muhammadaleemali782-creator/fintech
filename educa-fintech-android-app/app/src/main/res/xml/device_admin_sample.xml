@@ -1,14 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Educa Fintech: Minimal device admin — only registered to prevent uninstall via OS.
+     No aggressive policies (no wipe, no lock, no password reset) to avoid
+     "Child Protection" / parental control warnings from Android. -->
 <device-admin xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-policies>
-        <limit-password />
-        <watch-login />
-        <reset-password />
-        <force-lock />
-        <wipe-data />
-        <expire-password />
-        <encrypted-storage />
-        <disable-camera />
-        <disable-keyguard-features />
+        <!-- Minimal: just enough to register as device admin for uninstall protection -->
     </uses-policies>
 </device-admin>

@@ -185,7 +185,7 @@ class MainActivity : AppCompatActivity() {
         settings.allowFileAccess = true
         settings.allowContentAccess = true
         settings.cacheMode = WebSettings.LOAD_DEFAULT
-        settings.useWideViewPort = false
+        settings.useWideViewPort = true
         settings.loadWithOverviewMode = false
         settings.setSupportZoom(false)
         settings.builtInZoomControls = false
@@ -193,10 +193,11 @@ class MainActivity : AppCompatActivity() {
         settings.loadsImagesAutomatically = true
         settings.mediaPlaybackRequiresUserGesture = false
 
-        // 100% Native App Feel: Eliminate horizontal/vertical scrollbars and overscroll wobbling
+        // Completely hide scrollbars on right and left, maintain smooth natural scrolling
         webView.isVerticalScrollBarEnabled = false
         webView.isHorizontalScrollBarEnabled = false
-        webView.overScrollMode = WebView.OVER_SCROLL_NEVER
+        webView.scrollBarStyle = WebView.SCROLLBARS_OUTSIDE_OVERLAY
+        webView.overScrollMode = WebView.OVER_SCROLL_IF_CONTENT_SCROLLS
 
         // Custom User Agent flag so the web frontend instantly recognizes Educa Native App
         val defaultUA = settings.userAgentString

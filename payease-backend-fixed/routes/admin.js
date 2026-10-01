@@ -4,7 +4,9 @@ const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const Loan = require('../models/Loan');
 const { protect, admin } = require('../middleware/auth');
+const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
+
 
 // Helper: MongoDB ObjectId format valid hai ya nahi, ye check karta hai
 // (isse galat/fake ID bhejne se CastError crash hone se bach jata hai)
@@ -227,12 +229,18 @@ router.post('/user/:id/toggle-uninstall-lock', protect, admin, async (req, res) 
       console.warn('Device sync notice (non-fatal):', deviceErr.message);
     }
 
-    sendNotification({
-      type: 'device_security',
-      title: user.isUninstallProtected ? '🔒 App Uninstall Blocked' : '🔓 App Uninstall Allowed',
-      message: `${user.name} (${user.email}): Uninstall protection is now ${user.isUninstallProtected ? 'ACTIVE (Cannot be uninstalled)' : 'DISABLED'}.`,
-      data: { userId: user._id, isUninstallProtected: user.isUninstallProtected }
-    }).catch(() => {});
+    try {
+      if (typeof sendNotification === 'function') {
+        sendNotification({
+          type: 'device_security',
+          title: user.isUninstallProtected ? '🔒 App Uninstall Blocked' : '🔓 App Uninstall Allowed',
+          message: `${user.name} (${user.email}): Uninstall protection is now ${user.isUninstallProtected ? 'ACTIVE (Cannot be uninstalled)' : 'DISABLED'}.`,
+          data: { userId: user._id, isUninstallProtected: user.isUninstallProtected }
+        }).catch(() => {});
+      }
+    } catch (notifErr) {
+      console.warn('Notification notice (non-fatal):', notifErr.message);
+    }
 
     res.json({
       success: true,
@@ -243,7 +251,7 @@ router.post('/user/:id/toggle-uninstall-lock', protect, admin, async (req, res) 
     });
   } catch (err) {
     console.error('Error toggling uninstall lock:', err);
-    res.status(500).json({ message: 'Failed to toggle uninstall protection' });
+    res.status(500).json({ message: 'Failed to toggle uninstall protection: ' + (err.message || 'Unknown error') });
   }
 });
 

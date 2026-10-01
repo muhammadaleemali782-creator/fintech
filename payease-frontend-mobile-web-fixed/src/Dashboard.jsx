@@ -230,6 +230,10 @@ export default function Dashboard() {
   const [installmentSubmitting, setInstallmentSubmitting] = useState(false);
   const [installmentPayMethod, setInstallmentPayMethod] = useState("wallet");
 
+  // Document Fullscreen & Zoom Lightbox State
+  const [lightboxImg, setLightboxImg] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+
   // App Lock State (Biometric / 6-digit PIN on App Open) - Only active if PIN is configured
   const [appLocked, setAppLocked] = useState(() => Boolean(localStorage.getItem("token") && localStorage.getItem("hasWalletPin") === "true"));
   const [appLockPin, setAppLockPin] = useState("");
@@ -2296,18 +2300,7 @@ export default function Dashboard() {
               ₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")}
             </div>
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-500/30 text-xs text-emerald-100">
-              <span>Daily 1% Monthly ROI on 24h lowest primary balance</span>
-            </div>
-          </div>
-
-          {/* 24h Lowest Balance Rule Explanation */}
-          <div className="p-3.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl text-xs text-emerald-950 flex items-start gap-2.5">
-            <span className="text-lg">💡</span>
-            <div>
-              <span className="font-extrabold block">24h Minimum Balance Daily ROI Rule:</span>
-              <span className="text-emerald-900 mt-0.5 block leading-relaxed">
-                Aapke Savings Account me pichle 24 ghante me jo sabse kam (lowest) balance maintain rehta hai, uspe mahine ka 1% interest daily calculate hokar seedha aapke <strong>Savings Account balance me add</strong> hota hai. Profit Wallet me bhi record rehta hai!
-              </span>
+              <span>Daily Profit Added to Savings Account (12% Annual Yield)</span>
             </div>
           </div>
 
@@ -3950,12 +3943,19 @@ export default function Dashboard() {
                     </p>
                   )}
                   {(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl) && (
-                    <div className="mt-1 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 p-1 flex justify-center">
+                    <div
+                      onClick={() => { setLightboxImg(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl); setZoomLevel(1); }}
+                      className="mt-1 rounded-xl overflow-hidden border border-blue-200 bg-blue-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-blue-400 transition"
+                      title="Tap to open fullscreen & zoom"
+                    >
                       <img
                         src={userProfile.kycDocuments.doc1Url || userProfile.kycDocuments.docUrl}
                         alt="Aadhaar Card"
-                        className="max-h-36 object-contain rounded"
+                        className="max-h-40 object-contain rounded-lg group-hover:scale-[1.02] transition"
                       />
+                      <span className="text-[10px] font-bold text-blue-600 mt-1 flex items-center gap-1 group-hover:underline">
+                        🔍 Tap to Open Fullscreen & Zoom
+                      </span>
                     </div>
                   )}
                 </div>
@@ -3972,12 +3972,19 @@ export default function Dashboard() {
                       </span>
                     </div>
                     {userProfile.kycDocuments?.doc2Url && (
-                      <div className="mt-1 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 p-1 flex justify-center">
+                      <div
+                        onClick={() => { setLightboxImg(userProfile.kycDocuments.doc2Url); setZoomLevel(1); }}
+                        className="mt-1 rounded-xl overflow-hidden border border-indigo-200 bg-indigo-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-indigo-400 transition"
+                        title="Tap to open fullscreen & zoom"
+                      >
                         <img
                           src={userProfile.kycDocuments.doc2Url}
                           alt="Financial Proof"
-                          className="max-h-36 object-contain rounded"
+                          className="max-h-40 object-contain rounded-lg group-hover:scale-[1.02] transition"
                         />
+                        <span className="text-[10px] font-bold text-indigo-600 mt-1 flex items-center gap-1 group-hover:underline">
+                          🔍 Tap to Open Fullscreen & Zoom
+                        </span>
                       </div>
                     )}
                   </div>
@@ -4038,12 +4045,19 @@ export default function Dashboard() {
                     </p>
                   )}
                   {(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl) && (
-                    <div className="mt-1 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 p-1 flex justify-center">
+                    <div
+                      onClick={() => { setLightboxImg(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl); setZoomLevel(1); }}
+                      className="mt-1 rounded-xl overflow-hidden border border-amber-200 bg-amber-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-amber-400 transition"
+                      title="Tap to open fullscreen & zoom"
+                    >
                       <img
                         src={userProfile.kycDocuments.doc1Url || userProfile.kycDocuments.docUrl}
                         alt="Submitted Aadhaar"
-                        className="max-h-36 object-contain rounded"
+                        className="max-h-40 object-contain rounded-lg group-hover:scale-[1.02] transition"
                       />
+                      <span className="text-[10px] font-bold text-amber-800 mt-1 flex items-center gap-1 group-hover:underline">
+                        🔍 Tap to Open Fullscreen & Zoom
+                      </span>
                     </div>
                   )}
                 </div>
@@ -4060,12 +4074,19 @@ export default function Dashboard() {
                       </span>
                     </div>
                     {userProfile.kycDocuments?.doc2Url && (
-                      <div className="mt-1 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 p-1 flex justify-center">
+                      <div
+                        onClick={() => { setLightboxImg(userProfile.kycDocuments.doc2Url); setZoomLevel(1); }}
+                        className="mt-1 rounded-xl overflow-hidden border border-indigo-200 bg-indigo-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-indigo-400 transition"
+                        title="Tap to open fullscreen & zoom"
+                      >
                         <img
                           src={userProfile.kycDocuments.doc2Url}
                           alt="Submitted Financial Proof"
-                          className="max-h-36 object-contain rounded"
+                          className="max-h-40 object-contain rounded-lg group-hover:scale-[1.02] transition"
                         />
+                        <span className="text-[10px] font-bold text-indigo-700 mt-1 flex items-center gap-1 group-hover:underline">
+                          🔍 Tap to Open Fullscreen & Zoom
+                        </span>
                       </div>
                     )}
                   </div>
@@ -4818,6 +4839,102 @@ export default function Dashboard() {
             )}
           </div>
         </Sheet>
+      )}
+
+      {/* FULLSCREEN DOCUMENT LIGHTBOX WITH INTERACTIVE ZOOM & PAN */}
+      {lightboxImg && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-4 select-none animate-in fade-in duration-150"
+          onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
+        >
+          {/* Header Controls */}
+          <div
+            className="flex items-center justify-between z-10 p-2.5 bg-neutral-900/90 border border-neutral-700/60 rounded-2xl backdrop-blur-xs text-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-xs font-bold text-gray-200">
+              <span className="text-base">📄</span>
+              <span className="truncate">Document Viewer</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-mono font-bold">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* Zoom Out */}
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.max(0.75, +(z - 0.25).toFixed(2)))}
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
+                title="Zoom Out"
+              >
+                🔍-
+              </button>
+              {/* Reset Zoom */}
+              <button
+                type="button"
+                onClick={() => setZoomLevel(1)}
+                className="px-2.5 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-[11px] font-bold text-white cursor-pointer transition border border-white/10"
+                title="Reset Zoom"
+              >
+                100%
+              </button>
+              {/* Zoom In */}
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.min(3.5, +(z + 0.35).toFixed(2)))}
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
+                title="Zoom In"
+              >
+                🔍+
+              </button>
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
+                className="w-8 h-8 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 flex items-center justify-center font-black text-xs text-white cursor-pointer transition ml-1.5 shadow-sm"
+                title="Close Viewer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Document Content Area with Touch Pan & Smooth Zoom */}
+          <div
+            className="flex-1 flex items-center justify-center overflow-auto p-2 cursor-grab active:cursor-grabbing"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {lightboxImg.startsWith("data:application/pdf") ? (
+              <iframe
+                src={lightboxImg}
+                title="PDF Document"
+                className="w-full max-w-4xl h-[80vh] rounded-2xl bg-white border border-white/20 shadow-2xl"
+              />
+            ) : (
+              <div
+                className="transition-transform duration-150 ease-out flex items-center justify-center max-w-full max-h-full"
+                style={{ transform: `scale(${zoomLevel})` }}
+                onDoubleClick={() => setZoomLevel((z) => (z > 1 ? 1 : 2.2))}
+              >
+                <img
+                  src={lightboxImg}
+                  alt="Document Fullscreen Preview"
+                  className="max-w-[92vw] max-h-[78vh] object-contain rounded-xl shadow-2xl border border-white/10 cursor-zoom-in"
+                  onClick={() => setZoomLevel((z) => (z > 1.8 ? 1 : +(z + 0.5).toFixed(2)))}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Footer Guide */}
+          <div
+            className="text-center text-[11px] text-gray-400 py-1 z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Tap image to zoom in • Double tap to toggle 2x • Pinch / Use 🔍+ buttons
+          </div>
+        </div>
       )}
 
       <Toast msg={toast} onHide={() => setToast({ text: "", type: "" })} />

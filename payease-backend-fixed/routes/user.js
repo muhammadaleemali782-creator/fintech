@@ -317,6 +317,9 @@ router.post('/kyc/submit', protect, async (req, res) => {
   try {
     const {
       aadharNumber,
+      aadhaarName,
+      aadhaarPhone,
+      aadhaarAddress,
       doc1Url,
       docUrl, // fallback for doc1
       doc2Type,
@@ -372,9 +375,21 @@ router.post('/kyc/submit', protect, async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // Validate Aadhaar personal details
+    const cleanAadhaarName = aadhaarName ? aadhaarName.trim() : '';
+    const cleanAadhaarPhone = aadhaarPhone ? aadhaarPhone.replace(/\D/g, '') : '';
+    const cleanAadhaarAddress = aadhaarAddress ? aadhaarAddress.trim() : (address ? address.trim() : '');
+
+    if (!cleanAadhaarName || cleanAadhaarName.length < 3)
+      return res.status(400).json({ message: 'Aadhaar par jo naam likha hai woh darj karein.' });
+    if (!cleanAadhaarPhone || cleanAadhaarPhone.length !== 10)
+      return res.status(400).json({ message: 'Aadhaar se linked 10-digit mobile number zaroori hai.' });
+    if (!cleanAadhaarAddress || cleanAadhaarAddress.length < 10)
+      return res.status(400).json({ message: 'Aadhaar card par likha hua address darj karein.' });
+
     user.kycStatus = 'pending';
     user.aadharNumber = cleanAadhaar;
-    if (address) user.address = address.trim();
+    user.address = cleanAadhaarAddress;
 
     user.kycDocuments = {
       docType: 'aadhaar',
@@ -383,14 +398,17 @@ router.post('/kyc/submit', protect, async (req, res) => {
       doc2Type: selectedDoc2,
       doc2Url: file2,
       aadharNumber: cleanAadhaar,
+      aadhaarName: cleanAadhaarName,
+      aadhaarPhone: cleanAadhaarPhone,
       panNumber: cleanPan || user.kycDocuments?.panNumber || '',
       chequeNumber: cleanCheque || user.kycDocuments?.chequeNumber || '',
-      address: address ? address.trim() : (user.address || ''),
+      address: cleanAadhaarAddress,
       googleDriveLink: '',
       docUrl: file1, // backwards compatibility
       adminRemarks: '',
       submittedAt: new Date()
     };
+
     user.markModified('kycDocuments');
     await user.save();
 

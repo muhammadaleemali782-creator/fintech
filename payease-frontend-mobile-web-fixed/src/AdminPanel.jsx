@@ -930,26 +930,35 @@ export default function AdminPanel() {
                 <p className="py-10 text-center text-gray-300 text-sm">No users found</p>
               ) : (
                 <>
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full">
+                  <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-100 shadow-xs">
+                    <table className="w-full min-w-[1100px] border-collapse bg-white">
                       <thead>
-                        <tr className="text-left text-xs text-gray-400 uppercase border-b">
-                          {["User", "KYC & Drive Doc", "Interest Rate (Custom)", "Card Tier", "Wallets", "Balance", "Referrals", "Status", "Action"].map(h => <th key={h} className="pb-3 font-semibold pr-3">{h}</th>)}
+                        <tr className="bg-slate-50/90 border-b border-gray-200 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                          <th className="py-3.5 px-4 w-[180px]">User</th>
+                          <th className="py-3.5 px-4 w-[190px]">KYC & Documents</th>
+                          <th className="py-3.5 px-4 w-[130px]">Interest Rate</th>
+                          <th className="py-3.5 px-4 w-[140px]">Card Tier</th>
+                          <th className="py-3.5 px-4 w-[140px]">Wallets</th>
+                          <th className="py-3.5 px-4 w-[100px]">Balance</th>
+                          <th className="py-3.5 px-4 w-[100px]">Referrals</th>
+                          <th className="py-3.5 px-4 w-[110px]">Status</th>
+                          <th className="py-3.5 px-4 w-[140px]">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="text-sm">
+                      <tbody className="divide-y divide-gray-100 text-xs">
                         {users.map(u => (
-                          <tr key={u._id} className="border-b border-gray-50 hover:bg-gray-50 transition">
-                            <td className="py-3 pr-3">
-                              <p className="font-semibold text-gray-900">{u.name}</p>
-                              <p className="text-gray-400 text-xs">{u.email}</p>
-                              <p className="text-gray-400 text-[11px] font-mono">{u.phone}</p>
+                          <tr key={u._id} className="hover:bg-slate-50/60 transition-colors">
+                            {/* USER */}
+                            <td className="py-4 px-4 align-top">
+                              <p className="font-bold text-sm text-gray-900 leading-tight">{u.name}</p>
+                              <p className="text-gray-500 text-[11px] truncate max-w-[160px]">{u.email}</p>
+                              <p className="text-gray-400 text-[11px] font-mono mt-0.5">{u.phone}</p>
                             </td>
 
-                            {/* KYC & GOOGLE DRIVE DOCS */}
-                            <td className="py-3 pr-3">
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-1">
+                            {/* KYC & DOCUMENTS */}
+                            <td className="py-4 px-4 align-top">
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-1.5">
                                   {u.kycStatus === "verified" ? (
                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                                       ✓ Verified
@@ -974,8 +983,8 @@ export default function AdminPanel() {
                                   )}
                                 </div>
 
-                                {u.kycDocuments?.googleDriveLink && (
-                                  <div>
+                                <div className="flex flex-wrap items-center gap-1">
+                                  {u.kycDocuments?.googleDriveLink && (
                                     <a
                                       href={u.kycDocuments.googleDriveLink}
                                       target="_blank"
@@ -984,11 +993,9 @@ export default function AdminPanel() {
                                     >
                                       📁 View Drive ↗
                                     </a>
-                                  </div>
-                                )}
+                                  )}
 
-                                {u.kycDocuments?.docUrl && (
-                                  <div className="flex items-center gap-1.5">
+                                  {u.kycDocuments?.docUrl && (
                                     <button
                                       type="button"
                                       onClick={() => setPreviewKycUser(u)}
@@ -996,17 +1003,8 @@ export default function AdminPanel() {
                                     >
                                       🖼 In-App View
                                     </button>
-                                    <a
-                                      href={u.kycDocuments.docUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-[10px] text-gray-400 hover:text-gray-600"
-                                      title="Open direct file"
-                                    >
-                                      ↗
-                                    </a>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
 
                                 {u.kycStatus === "pending" && (
                                   <div className="flex items-center gap-1 pt-1">
@@ -1027,9 +1025,9 @@ export default function AdminPanel() {
                               </div>
                             </td>
 
-                            {/* CUSTOM INTEREST RATE PER USER */}
-                            <td className="py-3 pr-3">
-                              <div className="flex items-center gap-1.5">
+                            {/* CUSTOM INTEREST RATE */}
+                            <td className="py-4 px-4 align-top">
+                              <div className="flex items-center gap-1.5 pt-0.5">
                                 <input
                                   type="number"
                                   defaultValue={u.interestRate || 12}
@@ -1044,16 +1042,16 @@ export default function AdminPanel() {
                                     const val = document.getElementById(`rate-${u._id}`)?.value;
                                     updateCustomInterest(u._id, val);
                                   }}
-                                  className="px-2 py-1 bg-[#1D6AE5] hover:bg-[#1558cc] text-white rounded-lg text-[11px] font-bold shadow-2xs"
+                                  className="px-2 py-1 bg-[#1D6AE5] hover:bg-[#1558cc] text-white rounded-lg text-[11px] font-bold shadow-2xs cursor-pointer active:scale-95"
                                 >
                                   Save
                                 </button>
                               </div>
                             </td>
 
-                            {/* SILVER / PLATINUM CARD TIER */}
-                            <td className="py-3 pr-3">
-                              <div className="space-y-1">
+                            {/* CARD TIER */}
+                            <td className="py-4 px-4 align-top">
+                              <div className="space-y-1.5">
                                 <div className="flex items-center gap-1.5">
                                   {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? (
                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-amber-400 to-yellow-400 text-black shadow-xs flex items-center gap-1">
@@ -1070,7 +1068,7 @@ export default function AdminPanel() {
                                 </div>
                                 <button
                                   onClick={() => toggleUserCard(u._id, u.cardTier, u.cardStatus?.platinum?.unlocked)}
-                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition ${
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition cursor-pointer active:scale-95 ${
                                     u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked
                                       ? "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
                                       : "bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100"
@@ -1081,9 +1079,9 @@ export default function AdminPanel() {
                               </div>
                             </td>
 
-                            {/* WALLETS ACTIVE */}
-                            <td className="py-3 pr-3">
-                              <div className="flex items-center gap-1">
+                            {/* WALLETS */}
+                            <td className="py-4 px-4 align-top">
+                              <div className="flex items-center gap-1 pt-0.5">
                                 <span className="px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded text-[10px] font-bold" title="Savings (12% APY)">
                                   🏦 Savings
                                 </span>
@@ -1096,16 +1094,23 @@ export default function AdminPanel() {
                               </div>
                             </td>
 
-                            <td className="py-3 pr-3 font-bold text-green-600">₹{u.balance.toLocaleString("en-IN")}</td>
-
-                            <td className="py-3 pr-3">
-                              <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-xs font-mono font-bold">{u.referralCode || "—"}</span>
-                              <span className="text-[10px] text-gray-400 ml-1">({u.referralCount || 0})</span>
+                            {/* BALANCE */}
+                            <td className="py-4 px-4 align-top">
+                              <p className="font-extrabold text-sm text-green-600 pt-0.5">₹{u.balance.toLocaleString("en-IN")}</p>
                             </td>
 
-                            <td className="py-3 pr-3">
+                            {/* REFERRALS */}
+                            <td className="py-4 px-4 align-top">
+                              <div className="pt-0.5">
+                                <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-xs font-mono font-bold">{u.referralCode || "—"}</span>
+                                <p className="text-[10px] text-gray-400 mt-0.5">({u.referralCount || 0} users)</p>
+                              </div>
+                            </td>
+
+                            {/* STATUS */}
+                            <td className="py-4 px-4 align-top">
                               <div className="space-y-1">
-                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${u.isBlocked ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${u.isBlocked ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
                                   {u.isBlocked ? "🔴 Blocked" : "🟢 Active"}
                                 </span>
                                 {u.isUninstallProtected ? (
@@ -1119,17 +1124,19 @@ export default function AdminPanel() {
                                 )}
                               </div>
                             </td>
-                            <td className="py-3 pr-2">
+
+                            {/* ACTIONS */}
+                            <td className="py-4 px-4 align-top">
                               <div className="flex flex-col gap-1.5 min-w-[125px]">
                                 <button
                                   onClick={() => toggleBlock(u._id)}
-                                  className={`px-3 py-1 rounded-lg text-xs font-bold text-white transition ${u.isBlocked ? "bg-green-500 hover:bg-green-600" : "bg-orange-500 hover:bg-orange-600"}`}
+                                  className={`px-3 py-1 rounded-lg text-xs font-bold text-white transition cursor-pointer active:scale-95 ${u.isBlocked ? "bg-green-500 hover:bg-green-600" : "bg-orange-500 hover:bg-orange-600"}`}
                                 >
                                   {u.isBlocked ? "Unblock" : "Block"}
                                 </button>
                                 <button
                                   onClick={() => toggleUninstallLock(u._id)}
-                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold text-white transition flex items-center justify-center gap-1 shadow-2xs ${
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold text-white transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95 ${
                                     u.isUninstallProtected
                                       ? "bg-rose-600 hover:bg-rose-700"
                                       : "bg-indigo-600 hover:bg-indigo-700"

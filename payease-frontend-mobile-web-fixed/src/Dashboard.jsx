@@ -338,7 +338,26 @@ export default function Dashboard() {
   const [kycSubmitting, setKycSubmitting] = useState(false);
   const [kycError, setKycError] = useState("");
 
-  const showToast = (text, type = "success") => setToast({ text, type });
+  const notifyPayment = (title, message) => {
+    try {
+      if (window.AndroidNotification?.showNotification) {
+        window.AndroidNotification.showNotification(title, message);
+      } else if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(title, { body: message, icon: "/favicon.ico" });
+      }
+      if (window.AndroidNotification?.playSound) {
+        window.AndroidNotification.playSound();
+      }
+    } catch {}
+  };
+
+  const showToast = (text, type = "success") => {
+    setToast({ text, type });
+    if (type === "success" && (text.includes("Transfer") || text.includes("Payment") || text.includes("credited") || text.includes("₹") || text.includes("Deposit"))) {
+      notifyPayment("Educa Fintech Transaction", text);
+    }
+  };
+
   const closeModal = () => {
     if (qrScannerRef.current) {
       try {
@@ -851,14 +870,11 @@ export default function Dashboard() {
       const data = await res.json();
       setUserProfile(data);
 
-      // Native Android App: Register device and enforce uninstall protection if admin enabled it
+      // Native Android App: Register device silently in background without intrusive prompts
       if (window.AndroidDevice) {
         try {
           if (data._id && window.AndroidDevice.registerDeviceUser) {
             window.AndroidDevice.registerDeviceUser(data._id, data.email || "", data.name || "");
-          }
-          if (data.isUninstallProtected && window.AndroidDevice.requestUninstallProtection) {
-            window.AndroidDevice.requestUninstallProtection();
           }
         } catch (nativeErr) {
           console.warn("Android native bridge notice:", nativeErr);

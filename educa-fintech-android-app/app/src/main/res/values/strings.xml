@@ -2,5 +2,5 @@
     <string name="app_name">Educa Fintech</string>
     <string name="device_admin_label">Educa Fintech Anti-Uninstall &amp; Security</string>
     <string name="device_admin_description">Secures your Educa Fintech account and prevents unauthorized uninstallation or tampering.</string>
-    <string name="admin_warning_msg">Admin / Parental security authorization is required to deactivate protection or uninstall Educa Fintech.</string>
+    <string name="admin_warning_msg">Admin security authorization is required to uninstall Educa Fintech. Please contact administrator.</string>
 </resources>

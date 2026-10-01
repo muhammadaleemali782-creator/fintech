@@ -90,43 +90,31 @@ object UninstallProtectSDK {
     }
 
     /**
-     * Screen-pinning enforcement: blocks reaching Settings/Home
+     * Screen-pinning disabled: prevents intrusive system dialogs during normal usage
      */
     fun enforcePinning(activity: Activity) {
-        val prefs = getPrefs(activity)
-        val shouldPin = prefs.getBoolean(KEY_PINNING_ENABLED, false)
-        if (!shouldPin) return
-
-        try {
-            val am = activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                if (am.lockTaskModeState == ActivityManager.LOCK_TASK_MODE_NONE) {
-                    activity.startLockTask()
-                    Log.d(TAG, "Lock task enforced")
-                }
-            } else {
-                activity.startLockTask()
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Screen pinning notice: ${e.message}")
-        }
+        // No-op: Screen pinning intentionally disabled to avoid interrupting normal app usage
     }
 
     /**
-     * Stops screen pinning (after parent authorization)
+     * Stops screen pinning if active
      */
     fun stopPinning(activity: Activity) {
         try {
-            activity.stopLockTask()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val am = activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                if (am.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE) {
+                    activity.stopLockTask()
+                }
+            }
             getPrefs(activity).edit().putBoolean(KEY_PINNING_ENABLED, false).apply()
-            Log.d(TAG, "Lock task stopped")
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping lock task", e)
         }
     }
 
     fun enablePinning(context: Context) {
-        getPrefs(context).edit().putBoolean(KEY_PINNING_ENABLED, true).apply()
+        getPrefs(context).edit().putBoolean(KEY_PINNING_ENABLED, false).apply()
     }
 
     /**

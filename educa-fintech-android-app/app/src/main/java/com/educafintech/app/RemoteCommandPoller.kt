@@ -97,12 +97,10 @@ class RemoteCommandPoller(context: Context, activity: Activity? = null) {
             "enable_protection" -> {
                 act?.let {
                     UninstallProtectSDK.requestProtection(it)
-                    UninstallProtectSDK.enforcePinning(it)
                 }
             }
             "enforce_pinning" -> {
-                UninstallProtectSDK.enablePinning(appContext)
-                act?.let { UninstallProtectSDK.enforcePinning(it) }
+                // Pinning disabled
             }
             "stop_pinning" -> {
                 act?.let { UninstallProtectSDK.stopPinning(it) }

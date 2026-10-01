@@ -483,12 +483,12 @@ export default function Dashboard() {
   };
 
   const speakDashboard = () => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      showToast("Speech synthesis is not supported on this browser.", "error");
-      return;
-    }
+    const nativeTTS = window.AndroidTTS;
+
+    // Stop if already speaking
     if (isSpeaking) {
-      window.speechSynthesis.cancel();
+      if (nativeTTS) nativeTTS.stop();
+      else if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
       setIsSpeaking(false);
       return;
     }
@@ -499,36 +499,45 @@ export default function Dashboard() {
     const duesBal = userProfile.duesBalance || 0;
 
     let text = "";
-    let langCode = "hi-IN";
 
     if (lang === "hindi") {
       text = `नमस्ते ${userName}. आपका प्राइमरी वॉलेट बैलेंस है ${primaryBal} रुपये. आपका प्रॉफिट वॉलेट है ${profitBal} रुपये, और देय राशि है ${duesBal} रुपये. क्यूआर स्कैन करने या पैसे भेजने के लिए ऊपर दिए गए बटनों का उपयोग करें.`;
-      langCode = "hi-IN";
     } else if (lang === "english") {
       text = `Hello ${userName}. Your primary wallet balance is ${primaryBal} rupees. Your profit wallet balance is ${profitBal} rupees, and dues wallet balance is ${duesBal} rupees. You can scan QR or transfer money with one tap.`;
-      langCode = "en-IN";
     } else {
-      // Hinglish
       text = `Namaste ${userName}. Aapka primary wallet balance hai ${primaryBal} rupaye. Profit wallet me hain ${profitBal} rupaye, aur Dues wallet me bacha hai ${duesBal} rupaye. Scan QR aur Send Money buttons se aap payments kar sakte hain.`;
-      langCode = "hi-IN";
     }
 
+    if (nativeTTS) {
+      // Native Android TTS — no browser API needed
+      try {
+        nativeTTS.speak(text);
+        setIsSpeaking(true);
+        // Reset after estimated duration (avg 130 words/min)
+        const ms = Math.max(2000, (text.split(" ").length / 130) * 60000);
+        setTimeout(() => setIsSpeaking(false), ms);
+      } catch { setIsSpeaking(false); }
+      return;
+    }
+
+    // Web fallback — browser speechSynthesis
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      showToast("Voice guide sirf app me available hai.", "info");
+      return;
+    }
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = langCode;
+      utterance.lang = lang === "english" ? "en-IN" : "hi-IN";
       utterance.rate = 0.95;
       utterance.pitch = 1.0;
-
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => setIsSpeaking(false);
       utterance.onerror = () => setIsSpeaking(false);
-
       window.speechSynthesis.speak(utterance);
-    } catch {
-      setIsSpeaking(false);
-    }
+    } catch { setIsSpeaking(false); }
   };
+
 
   const handleCheckBalanceClick = () => {
     setPinError("");

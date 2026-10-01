@@ -235,6 +235,34 @@ export default function Dashboard() {
   const [lightboxImg, setLightboxImg] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(1);
 
+  // Hero Flight Animation state (Strictly inside loan actions)
+  const [heroFlyId, setHeroFlyId] = useState(null);
+  const [loanSubmitting, setLoanSubmitting] = useState(false);
+
+  const triggerHeroFly = (id = "generic") => {
+    setHeroFlyId(id);
+    setTimeout(() => {
+      setHeroFlyId(prev => (prev === id ? null : prev));
+    }, 1250);
+  };
+
+  const LoanHeroFlyBadge = () => (
+    <div className="absolute pointer-events-none -top-3 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center animate-hero-flight select-none">
+      <div className="relative">
+        <span className="text-4xl filter drop-shadow-[0_0_15px_rgba(16,185,129,0.9)] inline-block animate-bounce">
+          🦸‍♂️
+        </span>
+        <span className="absolute -top-1 -right-2 text-base animate-ping">✨</span>
+      </div>
+      <span className="text-[10px] font-black tracking-wider text-emerald-200 bg-emerald-950/90 border border-emerald-400 px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap mt-0.5">
+        ⚡ HERO FLIGHT! 🚀
+      </span>
+      <span className="text-xs tracking-widest text-amber-300 font-bold opacity-80">
+        💨 ✨ 💫
+      </span>
+    </div>
+  );
+
   // App Lock State (Biometric / 6-digit PIN on App Open) - Only active if PIN is configured
   const [appLocked, setAppLocked] = useState(() => Boolean(localStorage.getItem("token") && localStorage.getItem("hasWalletPin") === "true"));
   const [appLockPin, setAppLockPin] = useState("");
@@ -1000,6 +1028,7 @@ export default function Dashboard() {
   };
 
   const openLoansHub = () => {
+    triggerHeroFly("loans_hub");
     loadLoans();
     setModal("all_loans");
     setNavTab("loans");
@@ -1349,6 +1378,8 @@ export default function Dashboard() {
       return showToast("Kripya Cheque Number darj karein", "error");
     }
 
+    setLoanSubmitting(true);
+    triggerHeroFly("personal_submit");
     try {
       const res = await fetch(`${API}/loan/apply`, {
         method: "POST",
@@ -1383,6 +1414,8 @@ export default function Dashboard() {
       }
     } catch {
       showToast("Network error applying for loan", "error");
+    } finally {
+      setLoanSubmitting(false);
     }
   };
 
@@ -1395,6 +1428,8 @@ export default function Dashboard() {
       return showToast("Kripya Cheque Number darj karein", "error");
     }
 
+    setLoanSubmitting(true);
+    triggerHeroFly("business_submit");
     try {
       const res = await fetch(`${API}/loan/apply`, {
         method: "POST",
@@ -1429,6 +1464,8 @@ export default function Dashboard() {
       }
     } catch {
       showToast("Network error submitting business loan", "error");
+    } finally {
+      setLoanSubmitting(false);
     }
   };
 
@@ -1444,6 +1481,8 @@ export default function Dashboard() {
       return showToast("Kripya Cheque Number darj karein", "error");
     }
 
+    setLoanSubmitting(true);
+    triggerHeroFly("student_submit");
     try {
       const res = await fetch(`${API}/loan/apply`, {
         method: "POST",
@@ -1479,6 +1518,8 @@ export default function Dashboard() {
       }
     } catch {
       showToast("Network error applying for student loan", "error");
+    } finally {
+      setLoanSubmitting(false);
     }
   };
 
@@ -1691,7 +1732,7 @@ export default function Dashboard() {
 
   const navItems = [
     { key: "home", label: "Home", icon: "🏠", onClick: () => { setModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); } },
-    { key: "loans", label: "Loans", icon: "🏦", onClick: openLoansHub },
+    { key: "loans", label: "Loans", icon: "🏦", onClick: openLoansHub, heroBadge: heroFlyId === "loans_hub" },
     { key: "scan", label: "Scan QR", icon: <ScannerIcon className="w-6 h-6 text-white" />, isCenter: true, onClick: () => setModal("scan_qr") },
     { key: "bonds", label: "Bonds", icon: "📈", onClick: () => setAccountModal("debt") },
     { key: "profile", label: "Profile", icon: "👤", onClick: () => setModal("profile") },
@@ -1884,12 +1925,13 @@ export default function Dashboard() {
           {/* Right: Dues Wallet Balance Card - CLEAN & UNLOCKED */}
           <div
             onClick={openLoansHub}
-            className={`rounded-3xl p-4 sm:p-5 text-white shadow-lg relative overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98] transition hover:shadow-xl ${
+            className={`relative overflow-visible rounded-3xl p-4 sm:p-5 text-white shadow-lg flex flex-col justify-between cursor-pointer active:scale-95 transition hover:shadow-xl ${
               (userProfile.duesBalance || 0) > 0
                 ? "bg-gradient-to-br from-red-600 via-rose-600 to-red-800 shadow-red-500/25"
                 : "bg-gradient-to-br from-slate-900 via-rose-950 to-neutral-900 border border-red-900/40 shadow-red-950/20"
             }`}
           >
+            {heroFlyId === "loans_hub" && <LoanHeroFlyBadge />}
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-1">
@@ -2078,9 +2120,13 @@ export default function Dashboard() {
 
             {/* 4. Personal Loan Account (5k-50k, 10-day cycle, Cheque facility) */}
             <div
-              onClick={() => openLoanSheet("personal_loan")}
-              className="p-5 rounded-2xl border-2 border-emerald-500/50 bg-emerald-50/20 hover:border-emerald-600 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+              onClick={() => {
+                triggerHeroFly("card_personal");
+                openLoanSheet("personal_loan");
+              }}
+              className="relative overflow-visible p-5 rounded-2xl border-2 border-emerald-500/50 bg-emerald-50/20 hover:border-emerald-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
             >
+              {heroFlyId === "card_personal" && <LoanHeroFlyBadge />}
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl">
@@ -2109,9 +2155,13 @@ export default function Dashboard() {
 
             {/* 5. Student Loan Account */}
             <div
-              onClick={() => openLoanSheet("student_loan")}
-              className="p-5 rounded-2xl border-2 border-cyan-500/50 bg-cyan-50/20 hover:border-cyan-600 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+              onClick={() => {
+                triggerHeroFly("card_student");
+                openLoanSheet("student_loan");
+              }}
+              className="relative overflow-visible p-5 rounded-2xl border-2 border-cyan-500/50 bg-cyan-50/20 hover:border-cyan-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
             >
+              {heroFlyId === "card_student" && <LoanHeroFlyBadge />}
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="w-11 h-11 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center text-xl">
@@ -2140,9 +2190,13 @@ export default function Dashboard() {
 
             {/* 6. Micro Business Loan Account (Daily Collection) */}
             <div
-              onClick={() => openLoanSheet("business_loan")}
-              className="p-5 rounded-2xl border-2 border-amber-500/50 bg-amber-50/20 hover:border-amber-600 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+              onClick={() => {
+                triggerHeroFly("card_business");
+                openLoanSheet("business_loan");
+              }}
+              className="relative overflow-visible p-5 rounded-2xl border-2 border-amber-500/50 bg-amber-50/20 hover:border-amber-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
             >
+              {heroFlyId === "card_business" && <LoanHeroFlyBadge />}
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl">
@@ -3019,10 +3073,20 @@ export default function Dashboard() {
             </div>
 
             <button
+              type="button"
+              disabled={loanSubmitting}
               onClick={submitPersonalLoan}
-              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
+              className="relative overflow-visible w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-extrabold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Apply for Personal Loan Account →
+              {heroFlyId === "personal_submit" && <LoanHeroFlyBadge />}
+              {loanSubmitting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Applying for Personal Loan...</span>
+                </>
+              ) : (
+                <span>Apply for Personal Loan Account →</span>
+              )}
             </button>
           </div>
         )}
@@ -3256,10 +3320,20 @@ export default function Dashboard() {
             </div>
 
             <button
+              type="button"
+              disabled={loanSubmitting}
               onClick={submitMicroBusinessLoan}
-              className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
+              className="relative overflow-visible w-full py-3.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-xl font-extrabold text-xs shadow-md shadow-amber-500/20 active:scale-95 transition cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Apply for Daily Business Loan →
+              {heroFlyId === "business_submit" && <LoanHeroFlyBadge />}
+              {loanSubmitting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Submitting Business Loan...</span>
+                </>
+              ) : (
+                <span>Apply for Daily Business Loan →</span>
+              )}
             </button>
           </div>
         )}
@@ -3795,10 +3869,20 @@ export default function Dashboard() {
             </div>
 
             <button
+              type="button"
+              disabled={loanSubmitting}
               onClick={submitStudentLoan}
-              className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer"
+              className="relative overflow-visible w-full py-3.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-xl font-extrabold text-xs shadow-md shadow-cyan-500/20 active:scale-95 transition cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Apply for Student Loan Account →
+              {heroFlyId === "student_submit" && <LoanHeroFlyBadge />}
+              {loanSubmitting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Submitting Student Loan...</span>
+                </>
+              ) : (
+                <span>Apply for Student Loan Account →</span>
+              )}
             </button>
           </div>
         )}
@@ -3851,14 +3935,18 @@ export default function Dashboard() {
               </p>
               <button
                 type="button"
-                onClick={() => setSubmitInstallmentModal({
-                  loanId: activeLoanDetails.loan?._id || loans[0]?._id,
-                  installmentNo: activeLoanDetails.nextInstallment.installmentNo,
-                  amount: activeLoanDetails.nextInstallment.amount
-                })}
-                className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition cursor-pointer"
+                onClick={() => {
+                  triggerHeroFly("pay_upcoming");
+                  setSubmitInstallmentModal({
+                    loanId: activeLoanDetails.loan?._id || loans[0]?._id,
+                    installmentNo: activeLoanDetails.nextInstallment.installmentNo,
+                    amount: activeLoanDetails.nextInstallment.amount
+                  });
+                }}
+                className="relative overflow-visible w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
               >
-                Pay Now (₹{activeLoanDetails.nextInstallment.amount}) →
+                {heroFlyId === "pay_upcoming" && <LoanHeroFlyBadge />}
+                <span>Pay Now (₹{activeLoanDetails.nextInstallment.amount}) →</span>
               </button>
             </div>
           )}
@@ -3955,6 +4043,7 @@ export default function Dashboard() {
                           <button
                             type="button"
                             onClick={() => {
+                              triggerHeroFly("pay_kist_" + l._id);
                               const nextInst = schedule.find(s => s.status === "pending" || s.status === "overdue") || { installmentNo: paidCount + 1, amount: instAmt };
                               setSubmitInstallmentModal({
                                 loanId: l._id,
@@ -3962,9 +4051,10 @@ export default function Dashboard() {
                                 amount: nextInst.amount || instAmt
                               });
                             }}
-                            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-xs active:scale-95 transition cursor-pointer"
+                            className="relative overflow-visible flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-xs active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
                           >
-                            Pay Kist ₹{instAmt} →
+                            {heroFlyId === ("pay_kist_" + l._id) && <LoanHeroFlyBadge />}
+                            <span>Pay Kist ₹{instAmt} →</span>
                           </button>
                           <button
                             type="button"
@@ -4050,9 +4140,10 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 gap-2.5">
               {/* Personal Loan */}
               <div
-                onClick={() => { closeModal(); openLoanSheet("personal_loan"); }}
-                className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-emerald-100/60 transition active:scale-95"
+                onClick={() => { triggerHeroFly("hub_apply_personal"); closeModal(); openLoanSheet("personal_loan"); }}
+                className="relative overflow-visible p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-emerald-100/60 transition active:scale-95"
               >
+                {heroFlyId === "hub_apply_personal" && <LoanHeroFlyBadge />}
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shrink-0">
                     🏦
@@ -4067,9 +4158,10 @@ export default function Dashboard() {
 
               {/* Student Loan */}
               <div
-                onClick={() => { closeModal(); openLoanSheet("student_loan"); }}
-                className="p-3 bg-cyan-50/70 border border-cyan-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-cyan-100/60 transition active:scale-95"
+                onClick={() => { triggerHeroFly("hub_apply_student"); closeModal(); openLoanSheet("student_loan"); }}
+                className="relative overflow-visible p-3 bg-cyan-50/70 border border-cyan-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-cyan-100/60 transition active:scale-95"
               >
+                {heroFlyId === "hub_apply_student" && <LoanHeroFlyBadge />}
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center text-xl shrink-0">
                     🎓
@@ -4084,9 +4176,10 @@ export default function Dashboard() {
 
               {/* Micro Business Loan */}
               <div
-                onClick={() => { closeModal(); openLoanSheet("business_loan"); }}
-                className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-amber-100/60 transition active:scale-95"
+                onClick={() => { triggerHeroFly("hub_apply_business"); closeModal(); openLoanSheet("business_loan"); }}
+                className="relative overflow-visible p-3 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-amber-100/60 transition active:scale-95"
               >
+                {heroFlyId === "hub_apply_business" && <LoanHeroFlyBadge />}
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl shrink-0">
                     🏬

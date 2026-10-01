@@ -30,6 +30,7 @@ export default function AdminPanel() {
   const [kycReviewRemarks, setKycReviewRemarks] = useState("");
   const [kycFilter, setKycFilter] = useState("all");
   const [lightboxImg, setLightboxImg] = useState(null); // fullscreen doc viewer
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [expandedLoanId, setExpandedLoanId] = useState(null);
   const [adminPayModal, setAdminPayModal] = useState(null);
   const [adminPayLoading, setAdminPayLoading] = useState(false);
@@ -495,26 +496,99 @@ export default function AdminPanel() {
 
   return (
     <div className="bg-gray-50 min-h-[100dvh] lg:flex">
-      {/* FULLSCREEN LIGHTBOX — click doc image to zoom */}
+      {/* FULLSCREEN LIGHTBOX WITH INTERACTIVE ZOOM & PAN */}
       {lightboxImg && (
         <div
-          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setLightboxImg(null)}
+          className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-4 select-none animate-in fade-in duration-150"
+          onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
         >
-          <button
-            className="absolute top-4 right-4 text-white text-3xl font-bold bg-white/10 hover:bg-white/20 w-10 h-10 rounded-full flex items-center justify-center"
-            onClick={() => setLightboxImg(null)}
-          >✕</button>
-          {lightboxImg.startsWith("data:application/pdf") ? (
-            <iframe src={lightboxImg} title="Doc Preview" className="w-full max-w-3xl h-[85vh] rounded-xl" />
-          ) : (
-            <img
-              src={lightboxImg}
-              alt="Document Fullscreen"
-              className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
-              onClick={e => e.stopPropagation()}
-            />
-          )}
+          {/* Header Controls */}
+          <div
+            className="flex items-center justify-between z-10 p-2.5 bg-neutral-900/90 border border-neutral-700/60 rounded-2xl backdrop-blur-xs text-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-xs font-bold text-gray-200">
+              <span className="text-base">📄</span>
+              <span className="truncate">Admin Document Viewer</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-mono font-bold">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* Zoom Out */}
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.max(0.75, +(z - 0.25).toFixed(2)))}
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
+                title="Zoom Out"
+              >
+                🔍-
+              </button>
+              {/* Reset Zoom */}
+              <button
+                type="button"
+                onClick={() => setZoomLevel(1)}
+                className="px-2.5 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-[11px] font-bold text-white cursor-pointer transition border border-white/10"
+                title="Reset Zoom"
+              >
+                100%
+              </button>
+              {/* Zoom In */}
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.min(3.5, +(z + 0.35).toFixed(2)))}
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
+                title="Zoom In"
+              >
+                🔍+
+              </button>
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
+                className="w-8 h-8 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 flex items-center justify-center font-black text-xs text-white cursor-pointer transition ml-1.5 shadow-sm"
+                title="Close Viewer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Document Content Area with Touch Pan & Smooth Zoom */}
+          <div
+            className="flex-1 flex items-center justify-center overflow-auto p-2 cursor-grab active:cursor-grabbing"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {lightboxImg.startsWith("data:application/pdf") ? (
+              <iframe
+                src={lightboxImg}
+                title="PDF Document"
+                className="w-full max-w-4xl h-[80vh] rounded-2xl bg-white border border-white/20 shadow-2xl"
+              />
+            ) : (
+              <div
+                className="transition-transform duration-150 ease-out flex items-center justify-center max-w-full max-h-full"
+                style={{ transform: `scale(${zoomLevel})` }}
+                onDoubleClick={() => setZoomLevel((z) => (z > 1 ? 1 : 2.2))}
+              >
+                <img
+                  src={lightboxImg}
+                  alt="Document Fullscreen Preview"
+                  className="max-w-[92vw] max-h-[78vh] object-contain rounded-xl shadow-2xl border border-white/10 cursor-zoom-in"
+                  onClick={() => setZoomLevel((z) => (z > 1.8 ? 1 : +(z + 0.5).toFixed(2)))}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Footer Guide */}
+          <div
+            className="text-center text-[11px] text-gray-400 py-1 z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Tap image to zoom in • Double tap to toggle 2x • Pinch / Use 🔍+ buttons
+          </div>
         </div>
       )}
 
@@ -1542,7 +1616,7 @@ export default function AdminPanel() {
                                               {inst.proofUrl && (
                                                 <button
                                                   type="button"
-                                                  onClick={() => setLightboxImg(inst.proofUrl)}
+                                                  onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
                                                   className="w-full py-1 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold border border-indigo-200 flex items-center justify-center gap-1 cursor-pointer"
                                                 >
                                                   <span>🖼</span> View Screenshot Proof
@@ -1914,7 +1988,7 @@ export default function AdminPanel() {
                           src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
                           alt="Aadhaar Preview"
                           className="max-h-[200px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
-                          onClick={() => setLightboxImg(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl)}
+                          onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl); setZoomLevel(1); }}
                         />
                       )}
                       <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Click to zoom</div>
@@ -1942,7 +2016,7 @@ export default function AdminPanel() {
                           src={previewKycUser.kycDocuments.doc2Url}
                           alt="Doc 2 Preview"
                           className="max-h-[200px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
-                          onClick={() => setLightboxImg(previewKycUser.kycDocuments.doc2Url)}
+                          onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc2Url); setZoomLevel(1); }}
                         />
                       )}
                       <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Click to zoom</div>

@@ -2197,10 +2197,11 @@ export default function Dashboard() {
             <div>
               <span className="font-extrabold block">24h Minimum Balance Daily ROI Rule:</span>
               <span className="text-emerald-900 mt-0.5 block leading-relaxed">
-                Aapke primary wallet me pichle 24 ghante me jo sabse kam (lowest) balance maintain rehta hai, uspe mahine ka 1% interest daily calculate hokar seedha aapke Profit Wallet me add hota hai!
+                Aapke Savings Account me pichle 24 ghante me jo sabse kam (lowest) balance maintain rehta hai, uspe mahine ka 1% interest daily calculate hokar seedha aapke <strong>Savings Account balance me add</strong> hota hai. Profit Wallet me bhi record rehta hai!
               </span>
             </div>
           </div>
+
 
           {/* Transactions Statement List */}
           <div>

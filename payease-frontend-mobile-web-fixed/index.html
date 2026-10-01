@@ -5,8 +5,8 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1" />
-    <meta name="theme-color" content="#1D6AE5" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#FFFFFF" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -75,124 +75,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div id="root">
-      <!-- INSTANT APP STARTUP SPLASH: SHATTER & REASSEMBLE LOGO ANIMATION -->
-      <style>
-        #educa-splash {
-          position: fixed;
-          inset: 0;
-          background: radial-gradient(circle at center, #0f172a 0%, #030712 100%);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          z-index: 999999;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-          user-select: none;
-          color: #ffffff;
-        }
-        .shard-svg {
-          width: 110px;
-          height: 110px;
-          overflow: visible;
-          animation: logoGlow 1.4s ease-in-out infinite;
-        }
-        .shard {
-          transform-box: fill-box;
-          transform-origin: center;
-          transition: all 0.2s ease;
-        }
-        .shard-tl {
-          animation: shatterTL 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-        .shard-tr {
-          animation: shatterTR 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-        .shard-bl {
-          animation: shatterBL 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-        .shard-br {
-          animation: shatterBR 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-        .shard-core {
-          transform-box: fill-box;
-          transform-origin: center;
-          animation: corePulse 1.4s ease-in-out infinite;
-        }
-        @keyframes shatterTL {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-          30%, 45% { transform: translate(-26px, -20px) rotate(-26deg); opacity: 0.85; }
-          72% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-        }
-        @keyframes shatterTR {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-          30%, 45% { transform: translate(26px, -20px) rotate(26deg); opacity: 0.85; }
-          72% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-        }
-        @keyframes shatterBL {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-          30%, 45% { transform: translate(-22px, 24px) rotate(-20deg); opacity: 0.85; }
-          72% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-        }
-        @keyframes shatterBR {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-          30%, 45% { transform: translate(22px, 24px) rotate(20deg); opacity: 0.85; }
-          72% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-        }
-        @keyframes corePulse {
-          0%, 100% { transform: scale(1); opacity: 0.8; }
-          35% { transform: scale(1.6); opacity: 1; filter: drop-shadow(0 0 12px #38bdf8); }
-          72% { transform: scale(1); opacity: 0.8; }
-        }
-        @keyframes logoGlow {
-          0%, 100% { filter: drop-shadow(0 8px 24px rgba(29, 106, 229, 0.35)); }
-          72% { filter: drop-shadow(0 0 32px #06b6d4) brightness(1.3); }
-        }
-      </style>
-      <div id="educa-splash">
-        <svg class="shard-svg" viewBox="0 0 100 100" fill="none">
-          <defs>
-            <linearGradient id="gTL" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#38bdf8" />
-              <stop offset="100%" stop-color="#2563eb" />
-            </linearGradient>
-            <linearGradient id="gTR" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#60a5fa" />
-              <stop offset="100%" stop-color="#4f46e5" />
-            </linearGradient>
-            <linearGradient id="gBL" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#0284c7" />
-              <stop offset="100%" stop-color="#1d4ed8" />
-            </linearGradient>
-            <linearGradient id="gBR" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#4338ca" />
-              <stop offset="100%" stop-color="#06b6d4" />
-            </linearGradient>
-          </defs>
-
-          <!-- TOP LEFT SHARD -->
-          <path class="shard shard-tl" d="M 50 6 L 14 26 L 36 50 L 50 44 Z" fill="url(#gTL)" stroke="#7dd3fc" stroke-width="1.2" />
-          <!-- TOP RIGHT SHARD -->
-          <path class="shard shard-tr" d="M 50 6 L 86 26 L 64 50 L 50 44 Z" fill="url(#gTR)" stroke="#93c5fd" stroke-width="1.2" />
-          <!-- BOTTOM LEFT SHARD -->
-          <path class="shard shard-bl" d="M 14 26 L 36 50 L 50 94 L 24 68 Z" fill="url(#gBL)" stroke="#38bdf8" stroke-width="1.2" />
-          <!-- BOTTOM RIGHT SHARD -->
-          <path class="shard shard-br" d="M 86 26 L 64 50 L 50 94 L 76 68 Z" fill="url(#gBR)" stroke="#22d3ee" stroke-width="1.2" />
-
-          <!-- ENERGY CORE -->
-          <circle class="shard-core" cx="50" cy="50" r="7" fill="#ffffff" stroke="#38bdf8" stroke-width="2" />
-        </svg>
-
-        <div style="margin-top: 24px; text-align: center;">
-          <h1 style="font-size: 17px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; margin: 0; background: linear-gradient(135deg, #ffffff, #93c5fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            Educa Fintech
-          </h1>
-          <p style="font-size: 11px; color: #94a3b8; font-weight: 600; margin-top: 6px; letter-spacing: 0.04em;">
-            Loading Secure Finance Portal...
-          </p>
-        </div>
-      </div>
-    </div>
+    <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

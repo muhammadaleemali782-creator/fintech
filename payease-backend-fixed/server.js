@@ -142,12 +142,112 @@ app.use((err, req, res, next) => {
 
 // ------------------ DB CONNECTION ------------------
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB Connected'))
+  .then(() => {
+    console.log('✅ MongoDB Connected');
+    scheduleDailyYield(); // Start daily yield processor after DB is ready
+  })
   .catch(err => {
     console.error('❌ MongoDB connection failed:', err.message);
     // DB ke bina payment app chalana khatarnak hai -> server hi band kar do
     process.exit(1);
   });
+
+// ------------------ DAILY YIELD SCHEDULER ------------------
+// Midnight IST (18:30 UTC) pe sab active users ka daily profit credit karta hai
+// Even if user never logs in — server-side cron without external dependency
+function scheduleDailyYield() {
+  const User = require('./models/User');
+  const Transaction = require('./models/Transaction');
+
+  async function runYieldForAllUsers() {
+    console.log('⏰ Daily yield run started:', new Date().toISOString());
+    try {
+      // Only process users with balance > 0
+      const users = await User.find({ balance: { $gt: 0 }, isBlocked: { $ne: true } })
+        .select('_id balance lowestBalance24h lastYieldCalculatedAt profitBalance interestRate');
+
+      let credited = 0;
+      for (const user of users) {
+        try {
+          const now = new Date();
+          if (!user.lastYieldCalculatedAt) {
+            user.lastYieldCalculatedAt = now;
+            user.lowestBalance24h = user.balance;
+            await user.save();
+            continue;
+          }
+
+          const msDiff = now.getTime() - new Date(user.lastYieldCalculatedAt).getTime();
+          const msInDay = 24 * 60 * 60 * 1000;
+          const days = Math.floor(msDiff / msInDay);
+          if (days < 1) continue;
+
+          const cappedDays = Math.min(days, 30);
+          const minBal = Math.max(0, user.lowestBalance24h || user.balance || 0);
+          const annualRate = (user.interestRate || 12) / 100;
+          const monthlyRate = annualRate / 12;
+          const calcFromDate = new Date(user.lastYieldCalculatedAt);
+
+          let totalYield = 0;
+          for (let d = 0; d < cappedDays; d++) {
+            const calcDate = new Date(calcFromDate.getTime() + d * msInDay);
+            const daysInMonth = new Date(calcDate.getFullYear(), calcDate.getMonth() + 1, 0).getDate();
+            totalYield += minBal * (monthlyRate / daysInMonth);
+          }
+          totalYield = Number(totalYield.toFixed(2));
+
+          if (totalYield > 0) {
+            const periodKey = `yield_${user._id}_${calcFromDate.toISOString().slice(0, 10)}`;
+            const alreadyCredited = await Transaction.findOne({ referenceId: periodKey });
+            if (!alreadyCredited) {
+              const newBalance = Number(((user.balance || 0) + totalYield).toFixed(2));
+              await User.findByIdAndUpdate(user._id, {
+                $inc: { balance: totalYield, profitBalance: totalYield },
+                lastYieldCalculatedAt: new Date(calcFromDate.getTime() + cappedDays * msInDay),
+                lowestBalance24h: newBalance
+              });
+              await Transaction.create({
+                userId: user._id,
+                type: 'daily_yield',
+                amount: totalYield,
+                method: 'internal',
+                status: 'completed',
+                referenceId: periodKey,
+                remarks: `Daily Savings Yield (${(monthlyRate * 100).toFixed(2)}% monthly on ₹${minBal.toLocaleString('en-IN')} for ${cappedDays} day${cappedDays > 1 ? 's' : ''})`
+              });
+              credited++;
+            }
+          }
+        } catch (e) {
+          console.error(`Yield error for user ${user._id}:`, e.message);
+        }
+      }
+      console.log(`✅ Daily yield done: ${credited} users credited`);
+    } catch (e) {
+      console.error('Daily yield scheduler error:', e.message);
+    }
+  }
+
+  // Run at next midnight IST (UTC+5:30 = UTC 18:30)
+  function msUntilNextMidnightIST() {
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC + 5:30
+    const istNow = new Date(now.getTime() + istOffset);
+    const istMidnight = new Date(istNow);
+    istMidnight.setUTCHours(0, 0, 0, 0); // next midnight IST = 18:30 UTC prev day
+    istMidnight.setUTCDate(istMidnight.getUTCDate() + 1);
+    return istMidnight.getTime() - now.getTime() - istOffset; // ms until 00:00 IST
+  }
+
+  const delay = Math.max(0, msUntilNextMidnightIST());
+  console.log(`⏰ Daily yield scheduled in ${Math.round(delay / 3600000)}h`);
+  setTimeout(() => {
+    runYieldForAllUsers();
+    setInterval(runYieldForAllUsers, 24 * 60 * 60 * 1000); // every 24h after first run
+  }, delay);
+}
+
+
 
 const server = app.listen(process.env.PORT, () => {
   console.log(`🚀 Server running on port ${process.env.PORT} [${process.env.NODE_ENV || 'development'}]`);

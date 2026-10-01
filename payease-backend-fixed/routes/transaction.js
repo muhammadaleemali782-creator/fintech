@@ -103,6 +103,12 @@ router.post('/transfer', protect, async (req, res) => {
       }
       senderNewBalance = updatedSender.balance;
 
+      // Track lowest balance in 24h window for yield calculation (minimum-balance rule)
+      if (updatedSender.lowestBalance24h === undefined || updatedSender.lowestBalance24h === null ||
+          senderNewBalance < updatedSender.lowestBalance24h) {
+        await User.findByIdAndUpdate(req.user._id, { $min: { lowestBalance24h: senderNewBalance } }, { session });
+      }
+
       // Atomic addition to receiver
       const updatedReceiver = await User.findByIdAndUpdate(
         recipientUser._id,
@@ -226,6 +232,9 @@ router.post('/withdraw', protect, async (req, res) => {
           throw e;
         }
         newBalance = updatedUser.balance;
+
+        // Track lowest balance for yield calculation (minimum-balance rule)
+        await User.findByIdAndUpdate(req.user._id, { $min: { lowestBalance24h: newBalance } }, { session });
 
         const created = await Transaction.create(
           [{ userId: req.user._id, type: 'withdrawal', amount, method, paymentDetails, status: 'completed' }],

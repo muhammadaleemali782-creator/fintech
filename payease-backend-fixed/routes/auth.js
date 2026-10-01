@@ -88,7 +88,7 @@ router.post('/register', registerRules, async (req, res) => {
       email: email.toLowerCase(),
       phone: phone.trim(),
       password: hashed,
-      loanLimit: 10000,
+      loanLimit: 5000,
       referredBy,
       ...(agentProfileData ? { agentProfile: agentProfileData } : {})
     });
@@ -132,7 +132,7 @@ router.post('/register', registerRules, async (req, res) => {
         balance: 0,
         profitBalance: 0,
         duesBalance: 0,
-        loanLimit: user.loanLimit || 10000,
+        loanLimit: user.loanLimit || 5000,
         referralCode: user.referralCode,
         agentProfile: user.agentProfile
       }
@@ -186,7 +186,7 @@ router.post('/login', async (req, res) => {
         balance: user.balance,
         profitBalance: user.profitBalance || 0,
         duesBalance: user.duesBalance || 0,
-        loanLimit: user.loanLimit || 10000,
+        loanLimit: user.loanLimit || 5000,
         referralCode: user.referralCode,
         agentProfile: user.agentProfile
       }

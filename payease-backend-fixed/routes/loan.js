@@ -54,8 +54,8 @@ const calculatePersonalLoanQuote = (amount, installmentsCount = 15) => {
 
   const processingFee = Math.round((amt * 5) / 100); // 5%
   const upiCharges = Math.round((amt * 1) / 100); // 1%
-  const advanceDeduction = installmentAmount; // 1st installment deducted upfront
-  const totalDeductions = processingFee + upiCharges + advanceDeduction;
+  const advanceDeduction = 0; // Optional - decided by Admin upon approval
+  const totalDeductions = processingFee + upiCharges;
   const disbursalAmount = Math.max(0, amt - totalDeductions);
 
   return {
@@ -98,6 +98,37 @@ const calculateMicroBusinessQuote = (amount, days = 60) => {
   };
 };
 
+// 3. Student Loan Quote (Subsidized: 8% p.a., 10-day cycle)
+const calculateStudentLoanQuote = (amount, installmentsCount = 15) => {
+  const amt = Math.min(Math.max(Number(amount) || 5000, 5000), 50000);
+  const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 30);
+  const ratePerInstallment = 0.67; // Subsidized student rate (~8% p.a.)
+
+  const principalPerInstallment = amt / count;
+  const interestPerInstallment = (amt * ratePerInstallment) / 100;
+  const installmentAmount = Math.round(principalPerInstallment + interestPerInstallment);
+  const totalPayable = installmentAmount * count;
+
+  const processingFee = Math.round((amt * 2) / 100); // Subsidized 2%
+  const upiCharges = Math.round((amt * 1) / 100); // 1%
+  const totalDeductions = processingFee + upiCharges;
+  const disbursalAmount = Math.max(0, amt - totalDeductions);
+
+  return {
+    loanType: 'student',
+    amount: amt,
+    installmentsCount: count,
+    cycleDays: 10,
+    interestRatePerInstallment: ratePerInstallment,
+    installmentAmount,
+    totalPayable,
+    processingFee,
+    upiCharges,
+    advanceDeduction: 0,
+    disbursalAmount
+  };
+};
+
 // Public/Live Calculator Quote
 router.post('/calculate', (req, res) => {
   const { loanType = 'personal', amount, installmentsCount, days } = req.body;
@@ -114,6 +145,18 @@ router.post('/calculate', (req, res) => {
     return res.json({ ...quote, schedule });
   }
 
+  if (loanType === 'student') {
+    const quote = calculateStudentLoanQuote(amount, installmentsCount);
+    const dates = getCollectionDates(new Date(), quote.installmentsCount);
+    const schedule = dates.map((dueDate, idx) => ({
+      installmentNo: idx + 1,
+      dueDate,
+      amount: quote.installmentAmount,
+      status: 'pending'
+    }));
+    return res.json({ ...quote, schedule });
+  }
+
   // Personal Loan default
   const quote = calculatePersonalLoanQuote(amount, installmentsCount);
   const dates = getCollectionDates(new Date(), quote.installmentsCount);
@@ -121,7 +164,7 @@ router.post('/calculate', (req, res) => {
     installmentNo: idx + 1,
     dueDate,
     amount: quote.installmentAmount,
-    status: idx === 0 ? 'advance_deducted' : 'pending'
+    status: 'pending'
   }));
 
   res.json({ ...quote, schedule });
@@ -169,6 +212,31 @@ router.post('/apply', protect, async (req, res) => {
       });
     }
 
+    // First-Time vs Repeat Borrower Rule: Applies to ALL loan types!
+    const isFirstTimeBorrower = (userDoc.loansCount || 0) === 0;
+    if (isFirstTimeBorrower) {
+      if (numAmount > 5000) {
+        return res.status(400).json({
+          message: 'Pehli baar kisi bhi loan (Personal, Micro Business, ya Student Loan) ke liye maximum eligible limit ₹5,000 hai. Purana loan clear karne par limit double ho jayegi.'
+        });
+      }
+    } else {
+      const currentLimit = userDoc.loanLimit || 10000;
+      if (numAmount > currentLimit) {
+        return res.status(400).json({
+          message: `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai.`
+        });
+      }
+    }
+
+    // Save/Sync documents to borrower profile KYC record if provided
+    if (documents?.doc1Url || documents?.doc2Url) {
+      if (!userDoc.kycDocuments) userDoc.kycDocuments = {};
+      if (documents.doc1Url && !userDoc.kycDocuments.doc1Url) userDoc.kycDocuments.doc1Url = documents.doc1Url;
+      if (documents.doc2Url && !userDoc.kycDocuments.doc2Url) userDoc.kycDocuments.doc2Url = documents.doc2Url;
+      await userDoc.save();
+    }
+
     if (loanType === 'micro_business') {
       // Micro Business Loan (Daily Collection)
       const validDays = [60, 80, 100, 120];
@@ -205,9 +273,11 @@ router.post('/apply', protect, async (req, res) => {
         disbursalAmount: quote.disbursalAmount,
         totalPayable: quote.totalPayable,
         remainingAmount: quote.totalPayable,
+        hasChequeFacility: !!hasChequeFacility,
+        chequeNumber: chequeNumber || '',
         installmentSchedule: schedule,
         emiSchedule: schedule,
-        documents: documents || {},
+        documents: { ...(documents || {}), chequeNumber },
         purpose: purpose || 'Micro Business Working Capital'
       });
 
@@ -217,28 +287,54 @@ router.post('/apply', protect, async (req, res) => {
       });
     }
 
-    // Personal Loan Engine
-    const isFirstTimeBorrower = (userDoc.loansCount || 0) === 0;
-    if (isFirstTimeBorrower) {
-      if (!hasChequeFacility && numAmount > 5000) {
-        return res.status(400).json({
-          message: 'Pehli baar bina cheque facility ke maximum loan limit ₹5,000 hai. ₹10,000 ke liye cheque facility choose karein.'
-        });
-      }
-      if (hasChequeFacility && numAmount > 10000) {
-        return res.status(400).json({
-          message: 'Pehli baar cheque facility ke sath maximum loan limit ₹10,000 hai.'
-        });
-      }
-    } else {
-      const currentLimit = userDoc.loanLimit || 10000;
-      if (numAmount > currentLimit) {
-        return res.status(400).json({
-          message: `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai.`
-        });
-      }
+    if (loanType === 'student') {
+      // Student Loan (Subsidized: 8% p.a., 10-day cycles)
+      const count = Number(installmentsCount) || 15;
+      const quote = calculateStudentLoanQuote(numAmount, count);
+      const accountNumber = await generateLoanAccountNumber('student');
+      const collectionDates = getCollectionDates(new Date(), count);
+      const schedule = collectionDates.map((dueDate, idx) => ({
+        installmentNo: idx + 1,
+        month: idx + 1,
+        dueDate,
+        amount: quote.installmentAmount,
+        status: 'pending'
+      }));
+
+      const loan = await Loan.create({
+        userId: req.user._id,
+        accountNumber,
+        loanType: 'student',
+        collectionFrequency: '10_days',
+        amount: quote.amount,
+        interestRate: quote.interestRatePerInstallment,
+        interestRatePerInstallment: quote.interestRatePerInstallment,
+        cycleDays: 10,
+        installmentsCount: quote.installmentsCount,
+        tenure: quote.installmentsCount,
+        installmentAmount: quote.installmentAmount,
+        emiAmount: quote.installmentAmount,
+        processingFee: quote.processingFee,
+        upiCharges: quote.upiCharges,
+        advanceDeduction: 0,
+        disbursalAmount: quote.disbursalAmount,
+        totalPayable: quote.totalPayable,
+        remainingAmount: quote.totalPayable,
+        hasChequeFacility: !!hasChequeFacility,
+        chequeNumber: chequeNumber || '',
+        installmentSchedule: schedule,
+        emiSchedule: schedule,
+        documents: { ...(documents || {}), chequeNumber },
+        purpose: purpose || 'Student Fee / College Loan'
+      });
+
+      return res.json({
+        message: 'Student Loan application submitted successfully!',
+        loan
+      });
     }
 
+    // Personal Loan Engine
     const count = Number(installmentsCount);
     if (!count || count < 15 || count > 30) {
       return res.status(400).json({ message: 'Easy Installments minimum 15 aur maximum 30 honi chahiye (10-din cycle).' });
@@ -498,28 +594,57 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       const user = await User.findById(loan.userId).session(session);
       if (!user) throw Object.assign(new Error('Borrower not found'), { status: 404 });
 
-      // Disburse NET amount
-      const payout = loan.disbursalAmount || loan.amount;
-      user.balance = (user.balance || 0) + payout;
-      user.loansCount = (user.loansCount || 0) + 1;
+      // 1st Installment option: Optional - controlled by Admin on approval!
+      // advanceOption: 'none' (Default - regular schedule, no advance deduction)
+      //               'deduct' (Deduct 1st installment upfront from payout & mark paid)
+      //               'waive'  (Waive/free 1st installment & disburse standard payout)
+      const { advanceOption = 'none' } = req.body;
+      const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
+      const baseDisbursal = Math.max(0, loan.amount - (loan.processingFee || 0) - (loan.upiCharges || 0));
 
-      // Mark advance installment as paid (for personal loans)
-      if (loan.loanType === 'personal' && loan.advanceDeduction > 0) {
+      let payout = baseDisbursal;
+
+      if (advanceOption === 'deduct') {
+        payout = Math.max(0, baseDisbursal - installmentAmt);
         if (loan.installmentSchedule && loan.installmentSchedule.length > 0) {
           loan.installmentSchedule[0].status = 'paid';
           loan.installmentSchedule[0].paidOn = new Date();
+          loan.installmentSchedule[0].adminEvidenceNote = 'Advance deducted on disbursal';
         }
         if (loan.emiSchedule && loan.emiSchedule.length > 0) {
           loan.emiSchedule[0].status = 'paid';
           loan.emiSchedule[0].paidOn = new Date();
+          loan.emiSchedule[0].adminEvidenceNote = 'Advance deducted on disbursal';
         }
-        loan.paidAmount = loan.advanceDeduction;
-        loan.remainingAmount = Math.max(0, loan.totalPayable - loan.advanceDeduction);
+        loan.advanceDeduction = installmentAmt;
+        loan.paidAmount = installmentAmt;
+        loan.remainingAmount = Math.max(0, loan.totalPayable - installmentAmt);
+      } else if (advanceOption === 'waive') {
+        payout = baseDisbursal;
+        if (loan.installmentSchedule && loan.installmentSchedule.length > 0) {
+          loan.installmentSchedule[0].status = 'paid';
+          loan.installmentSchedule[0].paidOn = new Date();
+          loan.installmentSchedule[0].adminEvidenceNote = 'Waived by Admin';
+        }
+        if (loan.emiSchedule && loan.emiSchedule.length > 0) {
+          loan.emiSchedule[0].status = 'paid';
+          loan.emiSchedule[0].paidOn = new Date();
+          loan.emiSchedule[0].adminEvidenceNote = 'Waived by Admin';
+        }
+        loan.advanceDeduction = 0;
+        loan.paidAmount = installmentAmt;
+        loan.remainingAmount = Math.max(0, loan.totalPayable - installmentAmt);
       } else {
+        // 'none' (Default) - No advance deduction, regular schedule starting at installment 1
+        payout = baseDisbursal;
+        loan.advanceDeduction = 0;
         loan.paidAmount = 0;
         loan.remainingAmount = loan.totalPayable;
       }
 
+      loan.disbursalAmount = payout;
+      user.balance = (user.balance || 0) + payout;
+      user.loansCount = (user.loansCount || 0) + 1;
       user.duesBalance = (user.duesBalance || 0) + loan.remainingAmount;
 
       await user.save({ session });
@@ -691,6 +816,11 @@ router.post('/admin/:loanId/installment/:installmentNo/approve', protect, admin,
 
       if (loan.remainingAmount <= 0 || loan.paidAmount >= loan.totalPayable) {
         loan.status = 'closed';
+        const borrower = await User.findById(loan.userId).session(session);
+        if (borrower) {
+          borrower.loanLimit = Math.min((borrower.loanLimit || 5000) * 2, 50000);
+          await borrower.save({ session });
+        }
       }
 
       loan.markModified('installmentSchedule');
@@ -757,6 +887,11 @@ router.post('/admin/:loanId/installment/:installmentNo/admin-pay', protect, admi
 
       if (loan.remainingAmount <= 0 || loan.paidAmount >= loan.totalPayable) {
         loan.status = 'closed';
+        const borrower = await User.findById(loan.userId).session(session);
+        if (borrower) {
+          borrower.loanLimit = Math.min((borrower.loanLimit || 5000) * 2, 50000);
+          await borrower.save({ session });
+        }
       }
 
       loan.markModified('installmentSchedule');

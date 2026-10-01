@@ -294,19 +294,42 @@ export default function Dashboard() {
     panNumber: "",
     bankAccountNumber: "",
     bankIfsc: "",
-    upiId: ""
+    upiId: "",
+    doc1Url: "",
+    doc2Url: ""
   });
 
   // Micro Business Loan State (Daily collection: 60d@18%, 80d@24%, 100d@30%, 120d@36%)
   const [mblForm, setMblForm] = useState({
-    amount: 10000,
+    amount: 5000,
     days: 60,
     purpose: "Shop Inventory & Working Capital",
     businessName: "",
+    hasChequeFacility: false,
+    chequeNumber: "",
     aadharNumber: "",
     panNumber: "",
     bankAccountNumber: "",
-    bankIfsc: ""
+    bankIfsc: "",
+    doc1Url: "",
+    doc2Url: ""
+  });
+
+  // Student Loan Application State (Subsidized: 8% p.a., 15-30 Easy Installments)
+  const [studentLoanForm, setStudentLoanForm] = useState({
+    amount: 5000,
+    installmentsCount: 15,
+    instituteName: "",
+    purpose: "School & College Fee",
+    hasChequeFacility: false,
+    chequeNumber: "",
+    aadharNumber: "",
+    panNumber: "",
+    bankAccountNumber: "",
+    bankIfsc: "",
+    doc1Url: "",
+    doc2Url: "",
+    studentProofUrl: ""
   });
 
   // Lending Bond Selection (40 or 80 months)
@@ -1027,12 +1050,11 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Personal Loan Calculations
+  // Loan Calculations (First time borrower strictly ₹5,000 across ALL loans; doubles for repeat borrowers)
   const isFirstTime = (userProfile.loansCount || 0) === 0;
-  const maxLimit = isFirstTime
-    ? (loanForm.hasChequeFacility ? 10000 : 5000)
-    : (userProfile.loanLimit || 10000);
+  const maxLimit = isFirstTime ? 5000 : (userProfile.loanLimit || 10000);
 
+  // Personal Loan Calculations
   const quoteAmount = Math.min(Math.max(Number(loanForm.amount) || 5000, 5000), maxLimit);
   const quoteCount = Math.min(Math.max(Number(loanForm.installmentsCount) || 15, 15), 30);
   const quoteRate = 1.34;
@@ -1042,12 +1064,12 @@ export default function Dashboard() {
   const totalPayable = installmentAmount * quoteCount;
   const processingFee = Math.round(quoteAmount * 0.05); // 5%
   const upiCharges = Math.round(quoteAmount * 0.01); // 1%
-  const advanceDeduction = installmentAmount; // 1st installment deducted upfront
-  const disbursalAmount = Math.max(0, quoteAmount - (processingFee + upiCharges + advanceDeduction));
+  const advanceDeduction = 0; // Optional - decided by Admin upon approval
+  const disbursalAmount = Math.max(0, quoteAmount - (processingFee + upiCharges));
   const previewDates = getUpcomingDates(Math.min(quoteCount, 6));
 
   // Micro Business Loan Calculations (Daily collection)
-  const mblAmount = Math.min(Math.max(Number(mblForm.amount) || 5000, 5000), 50000);
+  const mblAmount = Math.min(Math.max(Number(mblForm.amount) || 5000, 5000), maxLimit);
   const mblDays = Number(mblForm.days) || 60;
   const mblRateMap = { 60: 18, 80: 24, 100: 30, 120: 36 };
   const mblRate = mblRateMap[mblDays] || 18;
@@ -1055,6 +1077,54 @@ export default function Dashboard() {
   const mblTotalPayable = mblAmount + mblInterest;
   const mblDailyInstallment = Math.round(mblTotalPayable / mblDays);
   const mblPreviewDates = getUpcomingDailyDates(6);
+
+  // Student Loan Calculations (Subsidized: 8% p.a., 10-day cycle)
+  const studentAmount = Math.min(Math.max(Number(studentLoanForm.amount) || 5000, 5000), maxLimit);
+  const studentCount = Math.min(Math.max(Number(studentLoanForm.installmentsCount) || 15, 15), 30);
+  const studentRate = 0.67; // Subsidized rate (~8% annual over 10-day cycles)
+  const studentPrincipal = studentAmount / studentCount;
+  const studentInterest = (studentAmount * studentRate) / 100;
+  const studentInstallment = Math.round(studentPrincipal + studentInterest);
+  const studentTotalPayable = studentInstallment * studentCount;
+  const studentFee = Math.round(studentAmount * 0.02); // Subsidized 2%
+  const studentUpi = Math.round(studentAmount * 0.01); // 1%
+  const studentDisbursal = Math.max(0, studentAmount - (studentFee + studentUpi));
+  const studentPreviewDates = getUpcomingDates(Math.min(studentCount, 6));
+
+  // Lightweight Client-side Image Compression Helper for Loan Documents
+  const handleLoanDocFile = (file, setter, field) => {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      showToast("File size 15MB se kam honi chahiye", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (file.type === "application/pdf") {
+        setter(prev => ({ ...prev, [field]: event.target.result }));
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 1200;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        setter(prev => ({ ...prev, [field]: canvas.toDataURL("image/jpeg", 0.75) }));
+      };
+      img.onerror = () => {
+        setter(prev => ({ ...prev, [field]: event.target.result }));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const copyText = (text) => {
     navigator.clipboard.writeText(text);
@@ -1268,7 +1338,7 @@ export default function Dashboard() {
     if (!loanForm.aadharNumber || !loanForm.panNumber || !loanForm.bankAccountNumber) {
       return showToast("Kripya Aadhar, PAN aur Bank Account details darj karein", "error");
     }
-    if (isFirstTime && loanForm.hasChequeFacility && !loanForm.chequeNumber) {
+    if (loanForm.hasChequeFacility && !loanForm.chequeNumber) {
       return showToast("Kripya Cheque Number darj karein", "error");
     }
 
@@ -1280,7 +1350,7 @@ export default function Dashboard() {
           loanType: "personal",
           amount: quoteAmount,
           installmentsCount: quoteCount,
-          hasChequeFacility: isFirstTime ? !!loanForm.hasChequeFacility : false,
+          hasChequeFacility: !!loanForm.hasChequeFacility,
           chequeNumber: loanForm.chequeNumber,
           purpose: loanForm.purpose || "Personal Needs",
           documents: {
@@ -1289,7 +1359,9 @@ export default function Dashboard() {
             bankAccountNumber: loanForm.bankAccountNumber,
             bankIfsc: loanForm.bankIfsc,
             upiId: loanForm.upiId,
-            chequeNumber: loanForm.chequeNumber
+            chequeNumber: loanForm.chequeNumber,
+            doc1Url: loanForm.doc1Url,
+            doc2Url: loanForm.doc2Url
           }
         })
       });
@@ -1312,6 +1384,9 @@ export default function Dashboard() {
     if (!mblForm.aadharNumber || !mblForm.panNumber || !mblForm.bankAccountNumber) {
       return showToast("Kripya Aadhar, PAN aur Bank Account details darj karein", "error");
     }
+    if (mblForm.hasChequeFacility && !mblForm.chequeNumber) {
+      return showToast("Kripya Cheque Number darj karein", "error");
+    }
 
     try {
       const res = await fetch(`${API}/loan/apply`, {
@@ -1322,12 +1397,17 @@ export default function Dashboard() {
           amount: mblAmount,
           days: mblDays,
           purpose: mblForm.purpose || "Micro Business Working Capital",
+          hasChequeFacility: !!mblForm.hasChequeFacility,
+          chequeNumber: mblForm.chequeNumber,
           documents: {
             aadharNumber: mblForm.aadharNumber,
             panNumber: mblForm.panNumber,
             bankAccountNumber: mblForm.bankAccountNumber,
             bankIfsc: mblForm.bankIfsc,
-            businessName: mblForm.businessName
+            businessName: mblForm.businessName,
+            chequeNumber: mblForm.chequeNumber,
+            doc1Url: mblForm.doc1Url,
+            doc2Url: mblForm.doc2Url
           }
         })
       });
@@ -1342,6 +1422,56 @@ export default function Dashboard() {
       }
     } catch {
       showToast("Network error submitting business loan", "error");
+    }
+  };
+
+  // Submit Student Loan Application
+  const submitStudentLoan = async () => {
+    if (!studentLoanForm.aadharNumber || !studentLoanForm.panNumber || !studentLoanForm.bankAccountNumber) {
+      return showToast("Kripya Aadhar, PAN aur Bank Account details darj karein", "error");
+    }
+    if (!studentLoanForm.instituteName.trim()) {
+      return showToast("Kripya School / College / Institute ka naam darj karein", "error");
+    }
+    if (studentLoanForm.hasChequeFacility && !studentLoanForm.chequeNumber) {
+      return showToast("Kripya Cheque Number darj karein", "error");
+    }
+
+    try {
+      const res = await fetch(`${API}/loan/apply`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          loanType: "student",
+          amount: studentAmount,
+          installmentsCount: studentCount,
+          hasChequeFacility: !!studentLoanForm.hasChequeFacility,
+          chequeNumber: studentLoanForm.chequeNumber,
+          purpose: `Student Fee - ${studentLoanForm.instituteName}`,
+          documents: {
+            aadharNumber: studentLoanForm.aadharNumber,
+            panNumber: studentLoanForm.panNumber,
+            bankAccountNumber: studentLoanForm.bankAccountNumber,
+            bankIfsc: studentLoanForm.bankIfsc,
+            instituteName: studentLoanForm.instituteName,
+            chequeNumber: studentLoanForm.chequeNumber,
+            doc1Url: studentLoanForm.doc1Url,
+            doc2Url: studentLoanForm.doc2Url,
+            studentProofUrl: studentLoanForm.studentProofUrl
+          }
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || "Student Loan successfully applied!", "success");
+        closeModal();
+        loadLoans();
+        loadDashboard();
+      } else {
+        showToast(data.message || "Failed to apply student loan", "error");
+      }
+    } catch {
+      showToast("Network error applying for student loan", "error");
     }
   };
 
@@ -1516,12 +1646,40 @@ export default function Dashboard() {
 
   const activePersonalLoan = loans.find(l => (l.status === "active" || l.status === "pending" || l.status === "approved") && l.loanType === "personal");
   const activeBusinessLoan = loans.find(l => (l.status === "active" || l.status === "pending" || l.status === "approved") && l.loanType === "micro_business");
+  const activeStudentLoan = loans.find(l => (l.status === "active" || l.status === "pending" || l.status === "approved") && l.loanType === "student");
+
+  const openLoanSheet = (type) => {
+    requireKyc(() => {
+      const existingDoc1 = userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl || "";
+      const existingDoc2 = userProfile.kycDocuments?.doc2Url || "";
+      if (type === "personal_loan") {
+        setLoanForm(prev => ({
+          ...prev,
+          doc1Url: prev.doc1Url || existingDoc1,
+          doc2Url: prev.doc2Url || existingDoc2
+        }));
+      } else if (type === "business_loan") {
+        setMblForm(prev => ({
+          ...prev,
+          doc1Url: prev.doc1Url || existingDoc1,
+          doc2Url: prev.doc2Url || existingDoc2
+        }));
+      } else if (type === "student_loan") {
+        setStudentLoanForm(prev => ({
+          ...prev,
+          doc1Url: prev.doc1Url || existingDoc1,
+          doc2Url: prev.doc2Url || existingDoc2
+        }));
+      }
+      setAccountModal(type);
+    });
+  };
 
   const quickActions = [
     { icon: "📱", label: "My QR Code", sub: "Scan to receive", color: "bg-blue-100", action: () => setModal("my_qr") },
     { icon: "⚡", label: "Send Money", sub: "Instant P2P", color: "bg-emerald-100", action: () => requireKyc(() => setModal("send_money")) },
-    { icon: "🏦", label: "Personal Loan", sub: "10-day cycle", color: "bg-indigo-100", action: () => requireKyc(() => setAccountModal("personal_loan")) },
-    { icon: "🏬", label: "Business Loan", sub: "Daily collection", color: "bg-amber-100", action: () => requireKyc(() => setAccountModal("business_loan")) },
+    { icon: "🏦", label: "Personal Loan", sub: "10-day cycle", color: "bg-indigo-100", action: () => openLoanSheet("personal_loan") },
+    { icon: "🏬", label: "Business Loan", sub: "Daily collection", color: "bg-amber-100", action: () => openLoanSheet("business_loan") },
   ];
 
   const navItems = [
@@ -1913,7 +2071,7 @@ export default function Dashboard() {
 
             {/* 4. Personal Loan Account (5k-50k, 10-day cycle, Cheque facility) */}
             <div
-              onClick={() => setAccountModal("personal_loan")}
+              onClick={() => openLoanSheet("personal_loan")}
               className="p-5 rounded-2xl border-2 border-emerald-500/50 bg-emerald-50/20 hover:border-emerald-600 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
             >
               <div>
@@ -1922,14 +2080,14 @@ export default function Dashboard() {
                     🏦
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800">
-                    {activePersonalLoan ? (activePersonalLoan.accountNumber || "EFSPL0001") : "₹5k-₹50k"}
+                    {activePersonalLoan ? (activePersonalLoan.accountNumber || "EFSPL0001") : "10-Day Cycle"}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-base text-gray-900">Personal Loan Account</h4>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
                   {activePersonalLoan
                     ? `Active: ${activePersonalLoan.accountNumber} • Early payoff option available.`
-                    : `1st time: ₹5k without cheque / ₹10k with cheque. Min 15 Easy Installments.`}
+                    : `1st time limit: ₹5k. Min 15 Easy Installments on 1st, 11th & 21st.`}
                 </p>
               </div>
               <div className="pt-3 border-t border-emerald-200/60 flex items-center justify-between text-xs">
@@ -1944,8 +2102,8 @@ export default function Dashboard() {
 
             {/* 5. Student Loan Account */}
             <div
-              onClick={() => setAccountModal("student_loan")}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-cyan-500 bg-white hover:bg-cyan-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+              onClick={() => openLoanSheet("student_loan")}
+              className="p-5 rounded-2xl border-2 border-cyan-500/50 bg-cyan-50/20 hover:border-cyan-600 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
             >
               <div>
                 <div className="flex justify-between items-start mb-3">
@@ -1953,23 +2111,29 @@ export default function Dashboard() {
                     🎓
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-cyan-100 text-cyan-800">
-                    8% p.a.
+                    {activeStudentLoan ? (activeStudentLoan.accountNumber || "EDUCA-STU") : "8% p.a."}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-base text-gray-900">Student Loan Account</h4>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
-                  School, college aur coaching fee direct transfer. Subsidized interest aur student flexibility.
+                  {activeStudentLoan
+                    ? `Active: ${activeStudentLoan.accountNumber} • Subsidized student fee support.`
+                    : "School, college aur coaching fee direct transfer. Subsidized interest aur 15-30 Easy Installments."}
                 </p>
               </div>
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-cyan-700">Up to ₹1,00,000</span>
-                <span className="text-cyan-600 font-bold">Open Account →</span>
+              <div className="pt-3 border-t border-cyan-200/60 flex items-center justify-between text-xs">
+                <span className="font-bold text-cyan-800">
+                  {activeStudentLoan ? `₹${activeStudentLoan.amount.toLocaleString("en-IN")}` : `Limit ₹${maxLimit.toLocaleString("en-IN")}`}
+                </span>
+                <span className="text-cyan-700 font-bold">
+                  {activeStudentLoan ? "View Loan Data →" : "Apply Student Loan →"}
+                </span>
               </div>
             </div>
 
             {/* 6. Micro Business Loan Account (Daily Collection) */}
             <div
-              onClick={() => setAccountModal("business_loan")}
+              onClick={() => openLoanSheet("business_loan")}
               className="p-5 rounded-2xl border-2 border-amber-500/50 bg-amber-50/20 hover:border-amber-600 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
             >
               <div>
@@ -1988,7 +2152,7 @@ export default function Dashboard() {
               </div>
               <div className="pt-3 border-t border-amber-200/60 flex items-center justify-between text-xs">
                 <span className="font-bold text-amber-800">
-                  {activeBusinessLoan ? `₹${activeBusinessLoan.installmentAmount}/day` : "₹5k - ₹50k Daily"}
+                  {activeBusinessLoan ? `₹${activeBusinessLoan.installmentAmount}/day` : `Limit ₹${maxLimit.toLocaleString("en-IN")}`}
                 </span>
                 <span className="text-amber-700 font-bold">
                   {activeBusinessLoan ? "View Daily Loan →" : "Apply Daily Loan →"}
@@ -2646,34 +2810,32 @@ export default function Dashboard() {
           /* APPLY PERSONAL LOAN */
           <div className="space-y-4">
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 space-y-1">
-              <div>⚡ <strong>Amount:</strong> ₹5,000 se ₹50,000 tak.</div>
-              <div>📝 <strong>1st Time:</strong> ₹5,000 bina cheque, ₹10,000 cheque facility ke sath.</div>
+              <div>⚡ <strong>Amount:</strong> ₹5,000 se ₹{maxLimit.toLocaleString("en-IN")} tak.</div>
+              <div>📝 <strong>1st Time Limit:</strong> ₹5,000 (Time par pay karne par limit double hoti hai).</div>
               <div>📅 <strong>Tenure:</strong> Minimum 15 Easy Installments (10-din cycle: 1, 11, 21 tareekh).</div>
             </div>
 
-            {/* Cheque Facility Toggle for 1st-Time Borrowers */}
-            {isFirstTime && (
-              <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-indigo-900">
-                  <input
-                    type="checkbox"
-                    checked={loanForm.hasChequeFacility}
-                    onChange={e => setLoanForm({ ...loanForm, hasChequeFacility: e.target.checked, amount: e.target.checked ? 10000 : 5000 })}
-                    className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
-                  />
-                  <span>Use Cheque Facility (Unlock up to ₹10,000 limit)</span>
-                </label>
-                {loanForm.hasChequeFacility && (
-                  <input
-                    type="text"
-                    placeholder="Cheque Number (e.g. CHQ123456)"
-                    value={loanForm.chequeNumber}
-                    onChange={e => setLoanForm({ ...loanForm, chequeNumber: e.target.value })}
-                    className="w-full px-3 py-2 bg-white border border-indigo-300 rounded-lg text-xs outline-none"
-                  />
-                )}
-              </div>
-            )}
+            {/* Cheque Facility Toggle */}
+            <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-indigo-900">
+                <input
+                  type="checkbox"
+                  checked={loanForm.hasChequeFacility}
+                  onChange={e => setLoanForm({ ...loanForm, hasChequeFacility: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                />
+                <span>Cheque Facility Available (Check ke sath apply karein)</span>
+              </label>
+              {loanForm.hasChequeFacility && (
+                <input
+                  type="text"
+                  placeholder="Cheque Number (e.g. CHQ123456)"
+                  value={loanForm.chequeNumber}
+                  onChange={e => setLoanForm({ ...loanForm, chequeNumber: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-indigo-300 rounded-lg text-xs outline-none"
+                />
+              )}
+            </div>
 
             {/* Amount Slider */}
             <div>
@@ -2742,10 +2904,6 @@ export default function Dashboard() {
                 <span>- 1% UPI/Cash Charge:</span>
                 <span className="font-bold">₹{upiCharges}</span>
               </div>
-              <div className="flex justify-between text-red-600">
-                <span>- 1st Advance Installment:</span>
-                <span className="font-bold">₹{advanceDeduction}</span>
-              </div>
               <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
                 <span className="font-black text-gray-900">Final Disbursal Amount:</span>
                 <span className="text-base font-black text-emerald-700">₹{disbursalAmount.toLocaleString("en-IN")}</span>
@@ -2789,6 +2947,67 @@ export default function Dashboard() {
                   onChange={e => setLoanForm({ ...loanForm, bankIfsc: e.target.value.toUpperCase() })}
                   className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
                 />
+              </div>
+
+              {/* Document File Uploads */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  KYC Documents (Aadhaar & PAN / Cheque)
+                </label>
+
+                {/* Doc 1: Aadhaar */}
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-xs text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span>📄</span>
+                      <span className="truncate">{loanForm.doc1Url ? "✓ Aadhaar Attached" : "Upload Aadhaar Card (Doc 1)"}</span>
+                    </span>
+                    <span className="text-[10px] text-emerald-600 underline shrink-0 font-medium">{loanForm.doc1Url ? "Change" : "Browse"}</span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc1Url")}
+                    />
+                  </label>
+                  {loanForm.doc1Url && (
+                    <button
+                      type="button"
+                      onClick={() => { setLightboxImg(loanForm.doc1Url); setZoomLevel(1); }}
+                      className="px-2.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold shrink-0 transition"
+                      title="View Document"
+                    >
+                      🔍 View
+                    </button>
+                  )}
+                </div>
+
+                {/* Doc 2: PAN / Cheque */}
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-xs text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span>📑</span>
+                      <span className="truncate">{loanForm.doc2Url ? "✓ PAN / Cheque Attached" : "Upload PAN / Cheque (Doc 2)"}</span>
+                    </span>
+                    <span className="text-[10px] text-emerald-600 underline shrink-0 font-medium">{loanForm.doc2Url ? "Change" : "Browse"}</span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc2Url")}
+                    />
+                  </label>
+                  {loanForm.doc2Url && (
+                    <button
+                      type="button"
+                      onClick={() => { setLightboxImg(loanForm.doc2Url); setZoomLevel(1); }}
+                      className="px-2.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold shrink-0 transition"
+                      title="View Document"
+                    >
+                      🔍 View
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -2843,7 +3062,7 @@ export default function Dashboard() {
               <input
                 type="range"
                 min="5000"
-                max="50000"
+                max={maxLimit}
                 step="1000"
                 value={mblAmount}
                 onChange={e => setMblForm({ ...mblForm, amount: Number(e.target.value) })}
@@ -2851,8 +3070,30 @@ export default function Dashboard() {
               />
               <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
                 <span>Min ₹5,000</span>
-                <span>Max ₹50,000</span>
+                <span>Max ₹{maxLimit.toLocaleString("en-IN")}</span>
               </div>
+            </div>
+
+            {/* Cheque Facility Toggle */}
+            <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-amber-900">
+                <input
+                  type="checkbox"
+                  checked={mblForm.hasChequeFacility}
+                  onChange={e => setMblForm({ ...mblForm, hasChequeFacility: e.target.checked })}
+                  className="w-4 h-4 text-amber-600 rounded cursor-pointer"
+                />
+                <span>Cheque Facility Available (Check ke sath apply karein)</span>
+              </label>
+              {mblForm.hasChequeFacility && (
+                <input
+                  type="text"
+                  placeholder="Cheque Number (e.g. CHQ123456)"
+                  value={mblForm.chequeNumber}
+                  onChange={e => setMblForm({ ...mblForm, chequeNumber: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-xs outline-none"
+                />
+              )}
             </div>
 
             {/* Tenure Buttons */}
@@ -2928,13 +3169,83 @@ export default function Dashboard() {
                   className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 uppercase"
                 />
               </div>
-              <input
-                type="text"
-                placeholder="Bank Account Number"
-                value={mblForm.bankAccountNumber}
-                onChange={e => setMblForm({ ...mblForm, bankAccountNumber: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Bank Account Number"
+                  value={mblForm.bankAccountNumber}
+                  onChange={e => setMblForm({ ...mblForm, bankAccountNumber: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <input
+                  type="text"
+                  placeholder="IFSC Code"
+                  value={mblForm.bankIfsc}
+                  onChange={e => setMblForm({ ...mblForm, bankIfsc: e.target.value.toUpperCase() })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 uppercase"
+                />
+              </div>
+
+              {/* Document File Uploads */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  Business KYC Documents (Aadhaar & PAN / Cheque)
+                </label>
+
+                {/* Doc 1: Aadhaar */}
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-xs text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span>📄</span>
+                      <span className="truncate">{mblForm.doc1Url ? "✓ Aadhaar Attached" : "Upload Aadhaar Card (Doc 1)"}</span>
+                    </span>
+                    <span className="text-[10px] text-amber-600 underline shrink-0 font-medium">{mblForm.doc1Url ? "Change" : "Browse"}</span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc1Url")}
+                    />
+                  </label>
+                  {mblForm.doc1Url && (
+                    <button
+                      type="button"
+                      onClick={() => { setLightboxImg(mblForm.doc1Url); setZoomLevel(1); }}
+                      className="px-2.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold shrink-0 transition"
+                      title="View Document"
+                    >
+                      🔍 View
+                    </button>
+                  )}
+                </div>
+
+                {/* Doc 2: PAN / Cheque */}
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-xs text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span>📑</span>
+                      <span className="truncate">{mblForm.doc2Url ? "✓ PAN / Cheque Attached" : "Upload PAN / Cheque (Doc 2)"}</span>
+                    </span>
+                    <span className="text-[10px] text-amber-600 underline shrink-0 font-medium">{mblForm.doc2Url ? "Change" : "Browse"}</span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc2Url")}
+                    />
+                  </label>
+                  {mblForm.doc2Url && (
+                    <button
+                      type="button"
+                      onClick={() => { setLightboxImg(mblForm.doc2Url); setZoomLevel(1); }}
+                      className="px-2.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold shrink-0 transition"
+                      title="View Document"
+                    >
+                      🔍 View
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             <button
@@ -3180,17 +3491,310 @@ export default function Dashboard() {
 
       {/* 8. STUDENT LOAN ACCOUNT SHEET */}
       <Sheet open={accountModal === "student_loan"} onClose={closeModal} title="Student Loan Account" icon="🎓">
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl p-5 text-white">
-            <span className="text-xs text-cyan-100 font-bold uppercase tracking-wider">Subsidized Student Rate</span>
-            <div className="text-3xl font-black font-display my-1">8.0% p.a.</div>
-            <p className="text-xs text-cyan-100">School & College fee direct institute transfer</p>
+        {activeStudentLoan ? (
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl p-5 text-white shadow-md">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold uppercase tracking-wider text-cyan-100">Student Loan Account</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white uppercase">
+                  {activeStudentLoan.status}
+                </span>
+              </div>
+              <div className="text-2xl sm:text-3xl font-black font-mono my-1 tracking-wider">
+                {activeStudentLoan.accountNumber || "EDUCA-STU"}
+              </div>
+              <div className="flex justify-between text-xs text-cyan-100 pt-1">
+                <span>Sanctioned: ₹{activeStudentLoan.amount.toLocaleString("en-IN")}</span>
+                <span>Remaining: ₹{activeStudentLoan.remainingAmount || activeStudentLoan.amount}</span>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 rounded-2xl space-y-2 text-xs border border-gray-200">
+              <div className="flex justify-between"><span>Per Installment:</span><span className="font-bold text-cyan-800">₹{activeStudentLoan.installmentAmount}</span></div>
+              <div className="flex justify-between"><span>Tenure:</span><span className="font-bold">{activeStudentLoan.installmentsCount} Installments (10-Day Cycle)</span></div>
+              <div className="flex justify-between"><span>Rate:</span><span className="font-bold text-emerald-700">8% p.a. (Subsidized)</span></div>
+              {activeStudentLoan.documents?.instituteName && (
+                <div className="flex justify-between"><span>Institute:</span><span className="font-bold text-gray-800">{activeStudentLoan.documents.instituteName}</span></div>
+              )}
+            </div>
+
+            {activeStudentLoan.status === "active" && (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setSubmitInstallmentModal({
+                    loanId: activeStudentLoan._id,
+                    installmentNo: (activeStudentLoan.installmentsPaidCount || 0) + 1,
+                    amount: activeStudentLoan.installmentAmount
+                  })}
+                  className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer"
+                >
+                  Pay Next Installment (₹{activeStudentLoan.installmentAmount}) →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => closeLoanEarly(activeStudentLoan._id, activeStudentLoan.remainingAmount || activeStudentLoan.amount)}
+                  className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs transition cursor-pointer"
+                >
+                  ⚡ Close Loan Early in Full
+                </button>
+              </div>
+            )}
           </div>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl"><span className="text-gray-500">Max Facility</span><span className="font-bold text-gray-800">Up to ₹1,00,000</span></div>
-            <div className="flex justify-between p-2.5 bg-gray-50 rounded-xl"><span className="text-gray-500">Collateral Required</span><span className="font-bold text-emerald-700">Zero (Bina Guarantee)</span></div>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl p-4 text-white">
+              <span className="text-xs text-cyan-100 font-bold uppercase tracking-wider">Subsidized Student Rate</span>
+              <div className="text-2xl font-black font-display my-0.5">8.0% p.a.</div>
+              <p className="text-[11px] text-cyan-100">School, college aur coaching fee direct transfer</p>
+            </div>
+
+            <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 text-xs text-cyan-900 space-y-1">
+              <div>⚡ <strong>Amount:</strong> ₹5,000 se ₹{maxLimit.toLocaleString("en-IN")} tak.</div>
+              <div>📝 <strong>1st Time Limit:</strong> ₹5,000 (Subsidized student interest & easy installments).</div>
+              <div>📅 <strong>Tenure:</strong> 15 se 30 Easy Installments (10-din cycle: 1, 11, 21 tareekh).</div>
+            </div>
+
+            {/* Cheque Facility Toggle */}
+            <div className="p-3.5 bg-cyan-50/80 border border-cyan-200 rounded-xl space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-cyan-900">
+                <input
+                  type="checkbox"
+                  checked={studentLoanForm.hasChequeFacility}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, hasChequeFacility: e.target.checked })}
+                  className="w-4 h-4 text-cyan-600 rounded cursor-pointer"
+                />
+                <span>Cheque Facility Available (Check ke sath apply karein)</span>
+              </label>
+              {studentLoanForm.hasChequeFacility && (
+                <input
+                  type="text"
+                  placeholder="Cheque Number (e.g. CHQ123456)"
+                  value={studentLoanForm.chequeNumber}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, chequeNumber: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-cyan-300 rounded-lg text-xs outline-none"
+                />
+              )}
+            </div>
+
+            {/* Amount Slider */}
+            <div>
+              <div className="flex justify-between text-xs font-bold mb-1">
+                <span className="text-gray-700">Fee Loan Amount:</span>
+                <span className="font-mono text-cyan-700 text-sm">₹{studentAmount.toLocaleString("en-IN")}</span>
+              </div>
+              <input
+                type="range"
+                min="5000"
+                max={maxLimit}
+                step="1000"
+                value={studentAmount}
+                onChange={e => setStudentLoanForm({ ...studentLoanForm, amount: Number(e.target.value) })}
+                className="w-full accent-cyan-600 cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                <span>Min ₹5,000</span>
+                <span>Max ₹{maxLimit.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+
+            {/* Installments Slider */}
+            <div>
+              <div className="flex justify-between text-xs font-bold mb-1">
+                <span className="text-gray-700">Easy Installments:</span>
+                <span className="font-mono text-cyan-700 text-sm">{studentCount} Installments</span>
+              </div>
+              <input
+                type="range"
+                min="15"
+                max="30"
+                step="1"
+                value={studentCount}
+                onChange={e => setStudentLoanForm({ ...studentLoanForm, installmentsCount: Number(e.target.value) })}
+                className="w-full accent-cyan-600 cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                <span>Min 15 Installments</span>
+                <span>Max 30 Installments</span>
+              </div>
+            </div>
+
+            {/* Disbursal Calculation Breakdown */}
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3.5 space-y-1.5 text-xs">
+              <div className="font-bold text-gray-800 text-[11px] uppercase tracking-wider border-b border-gray-200 pb-1">
+                Fee Disbursal Calculation
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Fee Loan Sanctioned:</span>
+                <span className="font-bold text-gray-800">₹{studentAmount.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Subsidized Interest:</span>
+                <span className="font-bold text-cyan-700">8% p.a. (0.67% per installment)</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Per Easy Installment:</span>
+                <span className="font-bold text-gray-900">₹{studentInstallment.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-red-600">
+                <span>- 2% Subsidized Fee:</span>
+                <span className="font-bold">₹{studentFee}</span>
+              </div>
+              <div className="flex justify-between text-red-600">
+                <span>- 1% UPI/Cash Charge:</span>
+                <span className="font-bold">₹{studentUpi}</span>
+              </div>
+              <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
+                <span className="font-black text-gray-900">Final Disbursal Amount:</span>
+                <span className="text-base font-black text-cyan-700">₹{studentDisbursal.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+
+            {/* 10-Day Cycle Dates */}
+            <div className="p-2.5 bg-cyan-50/60 rounded-xl text-[11px] text-cyan-900">
+              <span className="font-bold">10-Day Cycle Dates: </span>
+              {studentPreviewDates.map(d => `${d.getDate()}/${d.getMonth()+1}`).join(", ")}... (Every 1st, 11th, 21st)
+            </div>
+
+            {/* Form Inputs */}
+            <div className="space-y-2.5 pt-2 border-t border-gray-100">
+              <input
+                type="text"
+                placeholder="School / College / Institute Name *"
+                value={studentLoanForm.instituteName}
+                onChange={e => setStudentLoanForm({ ...studentLoanForm, instituteName: e.target.value })}
+                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Aadhar Number"
+                  value={studentLoanForm.aadharNumber}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, aadharNumber: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <input
+                  type="text"
+                  placeholder="PAN Number"
+                  value={studentLoanForm.panNumber}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, panNumber: e.target.value.toUpperCase() })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 uppercase"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Bank Account Number"
+                  value={studentLoanForm.bankAccountNumber}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, bankAccountNumber: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <input
+                  type="text"
+                  placeholder="IFSC Code"
+                  value={studentLoanForm.bankIfsc}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, bankIfsc: e.target.value.toUpperCase() })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 uppercase"
+                />
+              </div>
+
+              {/* Document File Uploads (Doc 1, Doc 2, Doc 3) */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  Student Verification Documents
+                </label>
+
+                {/* Doc 1: Aadhaar */}
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-xs text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span>📄</span>
+                      <span className="truncate">{studentLoanForm.doc1Url ? "✓ Aadhaar Attached" : "Upload Aadhaar Card (Doc 1)"}</span>
+                    </span>
+                    <span className="text-[10px] text-cyan-600 underline shrink-0 font-medium">{studentLoanForm.doc1Url ? "Change" : "Browse"}</span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc1Url")}
+                    />
+                  </label>
+                  {studentLoanForm.doc1Url && (
+                    <button
+                      type="button"
+                      onClick={() => { setLightboxImg(studentLoanForm.doc1Url); setZoomLevel(1); }}
+                      className="px-2.5 py-2.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-xs font-bold shrink-0 transition"
+                      title="View Document"
+                    >
+                      🔍 View
+                    </button>
+                  )}
+                </div>
+
+                {/* Doc 2: PAN / Cheque */}
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-xs text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span>📑</span>
+                      <span className="truncate">{studentLoanForm.doc2Url ? "✓ PAN / Cheque Attached" : "Upload PAN / Cheque (Doc 2)"}</span>
+                    </span>
+                    <span className="text-[10px] text-cyan-600 underline shrink-0 font-medium">{studentLoanForm.doc2Url ? "Change" : "Browse"}</span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc2Url")}
+                    />
+                  </label>
+                  {studentLoanForm.doc2Url && (
+                    <button
+                      type="button"
+                      onClick={() => { setLightboxImg(studentLoanForm.doc2Url); setZoomLevel(1); }}
+                      className="px-2.5 py-2.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-xs font-bold shrink-0 transition"
+                      title="View Document"
+                    >
+                      🔍 View
+                    </button>
+                  )}
+                </div>
+
+                {/* Doc 3: Student ID / Fee Slip */}
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-xs text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span>🎓</span>
+                      <span className="truncate">{studentLoanForm.studentProofUrl ? "✓ Student ID Attached" : "Upload Student ID / Fee Slip (Doc 3)"}</span>
+                    </span>
+                    <span className="text-[10px] text-cyan-600 underline shrink-0 font-medium">{studentLoanForm.studentProofUrl ? "Change" : "Browse"}</span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "studentProofUrl")}
+                    />
+                  </label>
+                  {studentLoanForm.studentProofUrl && (
+                    <button
+                      type="button"
+                      onClick={() => { setLightboxImg(studentLoanForm.studentProofUrl); setZoomLevel(1); }}
+                      className="px-2.5 py-2.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-xs font-bold shrink-0 transition"
+                      title="View Document"
+                    >
+                      🔍 View
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={submitStudentLoan}
+              className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer"
+            >
+              Apply for Student Loan Account →
+            </button>
           </div>
-        </div>
+        )}
       </Sheet>
 
       {/* DEPOSIT SHEET */}

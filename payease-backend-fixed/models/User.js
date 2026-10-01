@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema({
   lastYieldCalculatedAt: { type: Date, default: Date.now }, // Timestamp of last 24h yield distribution
   profitBalance: { type: Number, default: 0 }, // Capitalised profits
   duesBalance: { type: Number, default: 0 }, // Total pending loan installments & card dues
-  loanLimit: { type: Number, default: 10000 }, // Doubles on completion (10k -> 20k -> 40k -> 50k max)
+  loanLimit: { type: Number, default: 5000 }, // Initial ₹5,000; doubles on loan completion (5k -> 10k -> 20k -> 40k -> 50k max)
   role: { type: String, enum: ['user', 'admin', 'agent'], default: 'user' },
   agentProfile: {
     applied: { type: Boolean, default: false },

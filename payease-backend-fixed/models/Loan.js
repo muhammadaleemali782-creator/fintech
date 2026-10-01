@@ -35,8 +35,11 @@ const loanSchema = new mongoose.Schema({
     upiQrUrl: String,
     chequeNumber: String,
     doc1Url: String,
+    doc1BackUrl: String,
     doc2Url: String,
-    studentProofUrl: String
+    doc2BackUrl: String,
+    studentProofUrl: String,
+    studentProofBackUrl: String
   },
   status: { 
     type: String, 
@@ -52,6 +55,7 @@ const loanSchema = new mongoose.Schema({
     paidOn: Date,
     utrNumber: String,
     proofUrl: String,
+    proofBackUrl: String,
     submittedAt: Date,
     paymentMethod: { type: String, default: 'wallet' },
     approvedBy: String,
@@ -66,6 +70,7 @@ const loanSchema = new mongoose.Schema({
     paidOn: Date,
     utrNumber: String,
     proofUrl: String,
+    proofBackUrl: String,
     submittedAt: Date,
     paymentMethod: { type: String, default: 'wallet' },
     approvedBy: String,

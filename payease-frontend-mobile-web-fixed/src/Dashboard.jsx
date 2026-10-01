@@ -266,6 +266,8 @@ export default function Dashboard() {
   const [installmentUtr, setInstallmentUtr] = useState("");
   const [installmentProofUrl, setInstallmentProofUrl] = useState("");
   const [installmentProofName, setInstallmentProofName] = useState("");
+  const [installmentProofBackUrl, setInstallmentProofBackUrl] = useState("");
+  const [installmentProofBackName, setInstallmentProofBackName] = useState("");
   const [installmentSubmitting, setInstallmentSubmitting] = useState(false);
   const [installmentPayMethod, setInstallmentPayMethod] = useState("wallet");
   const [expandedLoanId, setExpandedLoanId] = useState(null);
@@ -364,7 +366,9 @@ export default function Dashboard() {
     bankIfsc: "",
     upiId: "",
     doc1Url: "",
-    doc2Url: ""
+    doc1BackUrl: "",
+    doc2Url: "",
+    doc2BackUrl: ""
   });
 
   // Micro Business Loan State (Daily collection: 60d@18%, 80d@24%, 100d@30%, 120d@36%)
@@ -380,7 +384,9 @@ export default function Dashboard() {
     bankAccountNumber: "",
     bankIfsc: "",
     doc1Url: "",
-    doc2Url: ""
+    doc1BackUrl: "",
+    doc2Url: "",
+    doc2BackUrl: ""
   });
 
   // Student Loan Application State (Subsidized: 8% p.a., 15-30 Easy Installments)
@@ -396,8 +402,11 @@ export default function Dashboard() {
     bankAccountNumber: "",
     bankIfsc: "",
     doc1Url: "",
+    doc1BackUrl: "",
     doc2Url: "",
-    studentProofUrl: ""
+    doc2BackUrl: "",
+    studentProofUrl: "",
+    studentProofBackUrl: ""
   });
 
   // Lending Bond Selection (40 or 80 months)
@@ -432,11 +441,15 @@ export default function Dashboard() {
     aadhaarAddress: "",    // Address as per Aadhaar (mandatory)
     doc1Name: "",
     doc1Url: "",
+    doc1BackName: "",
+    doc1BackUrl: "",
     doc2Type: "pan", // 'pan' or 'cheque'
     panNumber: "",
     chequeNumber: "",
     doc2Name: "",
     doc2Url: "",
+    doc2BackName: "",
+    doc2BackUrl: "",
     address: ""
   });
   const [kycSubmitting, setKycSubmitting] = useState(false);
@@ -1223,18 +1236,24 @@ export default function Dashboard() {
   };
 
   // Client-side image compression for KYC (zero server bloat)
-  const handleKycFileChange = (e, slot = 1) => {
+  const handleKycFileChange = (e, slot = 1, side = "front") => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 15 * 1024 * 1024) {
       showToast("File size 15MB se kam honi chahiye", "error");
       return;
     }
+    const nameKey = slot === 1
+      ? (side === "back" ? "doc1BackName" : "doc1Name")
+      : (side === "back" ? "doc2BackName" : "doc2Name");
+    const urlKey = slot === 1
+      ? (side === "back" ? "doc1BackUrl" : "doc1Url")
+      : (side === "back" ? "doc2BackUrl" : "doc2Url");
+
     const reader = new FileReader();
     reader.onload = (event) => {
       if (file.type === "application/pdf") {
-        if (slot === 1) setKycForm(prev => ({ ...prev, doc1Name: file.name, doc1Url: event.target.result }));
-        else setKycForm(prev => ({ ...prev, doc2Name: file.name, doc2Url: event.target.result }));
+        setKycForm(prev => ({ ...prev, [nameKey]: file.name, [urlKey]: event.target.result }));
         return;
       }
       const img = new Image();
@@ -1257,12 +1276,10 @@ export default function Dashboard() {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, w, h);
         const compressed = canvas.toDataURL("image/jpeg", 0.75);
-        if (slot === 1) setKycForm(prev => ({ ...prev, doc1Name: file.name, doc1Url: compressed }));
-        else setKycForm(prev => ({ ...prev, doc2Name: file.name, doc2Url: compressed }));
+        setKycForm(prev => ({ ...prev, [nameKey]: file.name, [urlKey]: compressed }));
       };
       img.onerror = () => {
-        if (slot === 1) setKycForm(prev => ({ ...prev, doc1Name: file.name, doc1Url: event.target.result }));
-        else setKycForm(prev => ({ ...prev, doc2Name: file.name, doc2Url: event.target.result }));
+        setKycForm(prev => ({ ...prev, [nameKey]: file.name, [urlKey]: event.target.result }));
       };
       img.src = event.target.result;
     };
@@ -1293,7 +1310,7 @@ export default function Dashboard() {
       return;
     }
     if (!kycForm.doc1Url) {
-      setKycError("Document 1: Aadhaar Card ki photo/document upload zaroori hai.");
+      setKycError("Document 1: Aadhaar Card (Front) ki photo/document upload zaroori hai.");
       return;
     }
 
@@ -1313,7 +1330,7 @@ export default function Dashboard() {
     }
 
     if (!kycForm.doc2Url) {
-      setKycError(`Document 2: ${kycForm.doc2Type === "pan" ? "PAN Card" : "Bank Cheque"} ki photo/document upload zaroori hai.`);
+      setKycError(`Document 2: ${kycForm.doc2Type === "pan" ? "PAN Card" : "Bank Cheque"} (Front) ki photo/document upload zaroori hai.`);
       return;
     }
 
@@ -1329,16 +1346,18 @@ export default function Dashboard() {
           aadhaarPhone: cleanPhone,
           aadhaarAddress: kycForm.aadhaarAddress.trim(),
           doc1Url: kycForm.doc1Url,
+          doc1BackUrl: kycForm.doc1BackUrl || "",
           doc2Type: kycForm.doc2Type,
           panNumber: kycForm.panNumber.trim().toUpperCase(),
           chequeNumber: kycForm.chequeNumber.trim(),
           doc2Url: kycForm.doc2Url,
+          doc2BackUrl: kycForm.doc2BackUrl || "",
           address: kycForm.aadhaarAddress.trim()
         })
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(data.message || "Dono KYC documents successfully submit ho gaye!", "success");
+        showToast(data.message || "KYC documents successfully submit ho gaye!", "success");
         setUserProfile(prev => ({
           ...prev,
           kycStatus: "pending",
@@ -1349,8 +1368,10 @@ export default function Dashboard() {
             docType: "aadhaar",
             doc1Type: "aadhaar",
             doc1Url: kycForm.doc1Url,
+            doc1BackUrl: kycForm.doc1BackUrl || "",
             doc2Type: kycForm.doc2Type,
             doc2Url: kycForm.doc2Url,
+            doc2BackUrl: kycForm.doc2BackUrl || "",
             aadharNumber: cleanAadhaar,
             panNumber: kycForm.panNumber,
             chequeNumber: kycForm.chequeNumber,
@@ -1453,7 +1474,9 @@ export default function Dashboard() {
             upiId: loanForm.upiId,
             chequeNumber: loanForm.chequeNumber,
             doc1Url: loanForm.doc1Url,
-            doc2Url: loanForm.doc2Url
+            doc1BackUrl: loanForm.doc1BackUrl || "",
+            doc2Url: loanForm.doc2Url,
+            doc2BackUrl: loanForm.doc2BackUrl || ""
           }
         })
       });
@@ -1503,7 +1526,9 @@ export default function Dashboard() {
             businessName: mblForm.businessName,
             chequeNumber: mblForm.chequeNumber,
             doc1Url: mblForm.doc1Url,
-            doc2Url: mblForm.doc2Url
+            doc1BackUrl: mblForm.doc1BackUrl || "",
+            doc2Url: mblForm.doc2Url,
+            doc2BackUrl: mblForm.doc2BackUrl || ""
           }
         })
       });
@@ -1556,8 +1581,11 @@ export default function Dashboard() {
             instituteName: studentLoanForm.instituteName,
             chequeNumber: studentLoanForm.chequeNumber,
             doc1Url: studentLoanForm.doc1Url,
+            doc1BackUrl: studentLoanForm.doc1BackUrl || "",
             doc2Url: studentLoanForm.doc2Url,
-            studentProofUrl: studentLoanForm.studentProofUrl
+            doc2BackUrl: studentLoanForm.doc2BackUrl || "",
+            studentProofUrl: studentLoanForm.studentProofUrl,
+            studentProofBackUrl: studentLoanForm.studentProofBackUrl || ""
           }
         })
       });
@@ -1639,14 +1667,16 @@ export default function Dashboard() {
     if (res.ok) { loadLoans(); loadActiveLoanDetails(); loadDashboard(); }
   };
 
-  const handleInstallmentProofUpload = (e) => {
+  const handleInstallmentProofUpload = (e, side = "front") => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
       showToast("File size 5MB se kam honi chahiye", "error");
       return;
     }
-    setInstallmentProofName(file.name);
+    if (side === "back") setInstallmentProofBackName(file.name);
+    else setInstallmentProofName(file.name);
+
     const reader = new FileReader();
     reader.onload = () => {
       const img = new Image();
@@ -1663,7 +1693,9 @@ export default function Dashboard() {
         canvas.height = h;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, w, h);
-        setInstallmentProofUrl(canvas.toDataURL("image/jpeg", 0.8));
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        if (side === "back") setInstallmentProofBackUrl(dataUrl);
+        else setInstallmentProofUrl(dataUrl);
       };
       img.src = reader.result;
     };
@@ -1695,7 +1727,8 @@ export default function Dashboard() {
         body: JSON.stringify({
           installmentNo: submitInstallmentModal.installmentNo,
           utrNumber: installmentUtr.trim(),
-          proofUrl: installmentProofUrl
+          proofUrl: installmentProofUrl,
+          proofBackUrl: installmentProofBackUrl || ""
         })
       });
       const data = await res.json();
@@ -1705,6 +1738,8 @@ export default function Dashboard() {
         setInstallmentUtr("");
         setInstallmentProofUrl("");
         setInstallmentProofName("");
+        setInstallmentProofBackUrl("");
+        setInstallmentProofBackName("");
         loadLoans();
         loadActiveLoanDetails();
         loadDashboard();
@@ -3070,58 +3105,102 @@ export default function Dashboard() {
                   KYC Documents (Aadhaar & PAN / Cheque)
                 </label>
 
-                {/* Doc 1: Aadhaar */}
-                <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-xs text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span>📄</span>
-                      <span className="truncate">{loanForm.doc1Url ? "✓ Aadhaar Attached" : "Upload Aadhaar Card (Doc 1)"}</span>
-                    </span>
-                    <span className="text-[10px] text-emerald-600 underline shrink-0 font-medium">{loanForm.doc1Url ? "Change" : "Browse"}</span>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc1Url")}
-                    />
-                  </label>
-                  {loanForm.doc1Url && (
-                    <button
-                      type="button"
-                      onClick={() => { setLightboxImg(loanForm.doc1Url); setZoomLevel(1); }}
-                      className="px-2.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold shrink-0 transition"
-                      title="View Document"
-                    >
-                      🔍 View
-                    </button>
-                  )}
+                {/* Doc 1: Aadhaar (Front & Back) */}
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Aadhaar Card (Doc 1)</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-[11px] text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{loanForm.doc1Url ? "✓ Front" : "Upload Front"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc1Url")}
+                        />
+                      </label>
+                      {loanForm.doc1Url && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(loanForm.doc1Url); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Front"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-[11px] text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{loanForm.doc1BackUrl ? "✓ Back" : "Upload Back"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc1BackUrl")}
+                        />
+                      </label>
+                      {loanForm.doc1BackUrl && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(loanForm.doc1BackUrl); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Back"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Doc 2: PAN / Cheque */}
-                <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-xs text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span>📑</span>
-                      <span className="truncate">{loanForm.doc2Url ? "✓ PAN / Cheque Attached" : "Upload PAN / Cheque (Doc 2)"}</span>
-                    </span>
-                    <span className="text-[10px] text-emerald-600 underline shrink-0 font-medium">{loanForm.doc2Url ? "Change" : "Browse"}</span>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc2Url")}
-                    />
-                  </label>
-                  {loanForm.doc2Url && (
-                    <button
-                      type="button"
-                      onClick={() => { setLightboxImg(loanForm.doc2Url); setZoomLevel(1); }}
-                      className="px-2.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold shrink-0 transition"
-                      title="View Document"
-                    >
-                      🔍 View
-                    </button>
-                  )}
+                {/* Doc 2: PAN / Cheque (Front & Back) */}
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{loanForm.hasChequeFacility ? "Cancelled Cheque (Doc 2)" : "PAN Card (Doc 2)"}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-[11px] text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{loanForm.doc2Url ? "✓ Front" : "Upload Front"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc2Url")}
+                        />
+                      </label>
+                      {loanForm.doc2Url && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(loanForm.doc2Url); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Front"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-[11px] text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{loanForm.doc2BackUrl ? "✓ Back" : "Upload Back"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc2BackUrl")}
+                        />
+                      </label>
+                      {loanForm.doc2BackUrl && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(loanForm.doc2BackUrl); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Back"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3317,58 +3396,102 @@ export default function Dashboard() {
                   Business KYC Documents (Aadhaar & PAN / Cheque)
                 </label>
 
-                {/* Doc 1: Aadhaar */}
-                <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-xs text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span>📄</span>
-                      <span className="truncate">{mblForm.doc1Url ? "✓ Aadhaar Attached" : "Upload Aadhaar Card (Doc 1)"}</span>
-                    </span>
-                    <span className="text-[10px] text-amber-600 underline shrink-0 font-medium">{mblForm.doc1Url ? "Change" : "Browse"}</span>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc1Url")}
-                    />
-                  </label>
-                  {mblForm.doc1Url && (
-                    <button
-                      type="button"
-                      onClick={() => { setLightboxImg(mblForm.doc1Url); setZoomLevel(1); }}
-                      className="px-2.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold shrink-0 transition"
-                      title="View Document"
-                    >
-                      🔍 View
-                    </button>
-                  )}
+                {/* Doc 1: Aadhaar (Front & Back) */}
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Aadhaar Card (Doc 1)</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-[11px] text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{mblForm.doc1Url ? "✓ Front" : "Upload Front"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc1Url")}
+                        />
+                      </label>
+                      {mblForm.doc1Url && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(mblForm.doc1Url); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Front"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-[11px] text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{mblForm.doc1BackUrl ? "✓ Back" : "Upload Back"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc1BackUrl")}
+                        />
+                      </label>
+                      {mblForm.doc1BackUrl && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(mblForm.doc1BackUrl); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Back"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Doc 2: PAN / Cheque */}
-                <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-xs text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span>📑</span>
-                      <span className="truncate">{mblForm.doc2Url ? "✓ PAN / Cheque Attached" : "Upload PAN / Cheque (Doc 2)"}</span>
-                    </span>
-                    <span className="text-[10px] text-amber-600 underline shrink-0 font-medium">{mblForm.doc2Url ? "Change" : "Browse"}</span>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc2Url")}
-                    />
-                  </label>
-                  {mblForm.doc2Url && (
-                    <button
-                      type="button"
-                      onClick={() => { setLightboxImg(mblForm.doc2Url); setZoomLevel(1); }}
-                      className="px-2.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold shrink-0 transition"
-                      title="View Document"
-                    >
-                      🔍 View
-                    </button>
-                  )}
+                {/* Doc 2: PAN / Cheque (Front & Back) */}
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{mblForm.hasChequeFacility ? "Cancelled Cheque (Doc 2)" : "PAN Card (Doc 2)"}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-[11px] text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{mblForm.doc2Url ? "✓ Front" : "Upload Front"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc2Url")}
+                        />
+                      </label>
+                      {mblForm.doc2Url && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(mblForm.doc2Url); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Front"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-[11px] text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{mblForm.doc2BackUrl ? "✓ Back" : "Upload Back"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc2BackUrl")}
+                        />
+                      </label>
+                      {mblForm.doc2BackUrl && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(mblForm.doc2BackUrl); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Back"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3839,85 +3962,151 @@ export default function Dashboard() {
                   Student Verification Documents
                 </label>
 
-                {/* Doc 1: Aadhaar */}
-                <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-xs text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span>📄</span>
-                      <span className="truncate">{studentLoanForm.doc1Url ? "✓ Aadhaar Attached" : "Upload Aadhaar Card (Doc 1)"}</span>
-                    </span>
-                    <span className="text-[10px] text-cyan-600 underline shrink-0 font-medium">{studentLoanForm.doc1Url ? "Change" : "Browse"}</span>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc1Url")}
-                    />
-                  </label>
-                  {studentLoanForm.doc1Url && (
-                    <button
-                      type="button"
-                      onClick={() => { setLightboxImg(studentLoanForm.doc1Url); setZoomLevel(1); }}
-                      className="px-2.5 py-2.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-xs font-bold shrink-0 transition"
-                      title="View Document"
-                    >
-                      🔍 View
-                    </button>
-                  )}
+                {/* Doc 1: Aadhaar (Front & Back) */}
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Aadhaar Card (Doc 1)</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{studentLoanForm.doc1Url ? "✓ Front" : "Upload Front"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc1Url")}
+                        />
+                      </label>
+                      {studentLoanForm.doc1Url && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(studentLoanForm.doc1Url); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Front"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{studentLoanForm.doc1BackUrl ? "✓ Back" : "Upload Back"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc1BackUrl")}
+                        />
+                      </label>
+                      {studentLoanForm.doc1BackUrl && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(studentLoanForm.doc1BackUrl); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Back"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Doc 2: PAN / Cheque */}
-                <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-xs text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span>📑</span>
-                      <span className="truncate">{studentLoanForm.doc2Url ? "✓ PAN / Cheque Attached" : "Upload PAN / Cheque (Doc 2)"}</span>
-                    </span>
-                    <span className="text-[10px] text-cyan-600 underline shrink-0 font-medium">{studentLoanForm.doc2Url ? "Change" : "Browse"}</span>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc2Url")}
-                    />
-                  </label>
-                  {studentLoanForm.doc2Url && (
-                    <button
-                      type="button"
-                      onClick={() => { setLightboxImg(studentLoanForm.doc2Url); setZoomLevel(1); }}
-                      className="px-2.5 py-2.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-xs font-bold shrink-0 transition"
-                      title="View Document"
-                    >
-                      🔍 View
-                    </button>
-                  )}
+                {/* Doc 2: PAN / Cheque (Front & Back) */}
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{studentLoanForm.hasChequeFacility ? "Cancelled Cheque (Doc 2)" : "PAN Card (Doc 2)"}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{studentLoanForm.doc2Url ? "✓ Front" : "Upload Front"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc2Url")}
+                        />
+                      </label>
+                      {studentLoanForm.doc2Url && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(studentLoanForm.doc2Url); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Front"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{studentLoanForm.doc2BackUrl ? "✓ Back" : "Upload Back"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc2BackUrl")}
+                        />
+                      </label>
+                      {studentLoanForm.doc2BackUrl && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(studentLoanForm.doc2BackUrl); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Back"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Doc 3: Student ID / Fee Slip */}
-                <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-xs text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span>🎓</span>
-                      <span className="truncate">{studentLoanForm.studentProofUrl ? "✓ Student ID Attached" : "Upload Student ID / Fee Slip (Doc 3)"}</span>
-                    </span>
-                    <span className="text-[10px] text-cyan-600 underline shrink-0 font-medium">{studentLoanForm.studentProofUrl ? "Change" : "Browse"}</span>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "studentProofUrl")}
-                    />
-                  </label>
-                  {studentLoanForm.studentProofUrl && (
-                    <button
-                      type="button"
-                      onClick={() => { setLightboxImg(studentLoanForm.studentProofUrl); setZoomLevel(1); }}
-                      className="px-2.5 py-2.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-xs font-bold shrink-0 transition"
-                      title="View Document"
-                    >
-                      🔍 View
-                    </button>
-                  )}
+                {/* Doc 3: Student ID / Fee Slip (Front & Back) */}
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Student ID / Fee Slip (Doc 3)</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{studentLoanForm.studentProofUrl ? "✓ Front" : "Upload Front"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "studentProofUrl")}
+                        />
+                      </label>
+                      {studentLoanForm.studentProofUrl && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(studentLoanForm.studentProofUrl); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Front"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
+                        <span className="truncate">{studentLoanForm.studentProofBackUrl ? "✓ Back" : "Upload Back"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "studentProofBackUrl")}
+                        />
+                      </label>
+                      {studentLoanForm.studentProofBackUrl && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(studentLoanForm.studentProofBackUrl); setZoomLevel(1); }}
+                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
+                          title="View Back"
+                        >
+                          🔍
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -4999,22 +5188,40 @@ export default function Dashboard() {
                       Naam: <strong>{userProfile.kycDocuments.aadhaarName}</strong>
                     </p>
                   )}
-                  {(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl) && (
-                    <div
-                      onClick={() => { setLightboxImg(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl); setZoomLevel(1); }}
-                      className="mt-1 rounded-xl overflow-hidden border border-blue-200 bg-blue-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-blue-400 transition"
-                      title="Tap to open fullscreen & zoom"
-                    >
-                      <img
-                        src={userProfile.kycDocuments.doc1Url || userProfile.kycDocuments.docUrl}
-                        alt="Aadhaar Card"
-                        className="max-h-40 object-contain rounded-lg group-hover:scale-[1.02] transition"
-                      />
-                      <span className="text-[10px] font-bold text-blue-600 mt-1 flex items-center gap-1 group-hover:underline">
-                        🔍 Tap to Open Fullscreen & Zoom
-                      </span>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                    {(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl) && (
+                      <div
+                        onClick={() => { setLightboxImg(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl); setZoomLevel(1); }}
+                        className="rounded-xl overflow-hidden border border-blue-200 bg-blue-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-blue-400 transition"
+                        title="Tap to open fullscreen & zoom"
+                      >
+                        <img
+                          src={userProfile.kycDocuments.doc1Url || userProfile.kycDocuments.docUrl}
+                          alt="Aadhaar Card Front"
+                          className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
+                        />
+                        <span className="text-[10px] font-bold text-blue-600 mt-1 flex items-center gap-1 group-hover:underline">
+                          🔍 Front (Zoom)
+                        </span>
+                      </div>
+                    )}
+                    {userProfile.kycDocuments?.doc1BackUrl && (
+                      <div
+                        onClick={() => { setLightboxImg(userProfile.kycDocuments.doc1BackUrl); setZoomLevel(1); }}
+                        className="rounded-xl overflow-hidden border border-blue-200 bg-blue-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-blue-400 transition"
+                        title="Tap to open fullscreen & zoom"
+                      >
+                        <img
+                          src={userProfile.kycDocuments.doc1BackUrl}
+                          alt="Aadhaar Card Back"
+                          className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
+                        />
+                        <span className="text-[10px] font-bold text-blue-600 mt-1 flex items-center gap-1 group-hover:underline">
+                          🔍 Back (Zoom)
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Doc 2: PAN Card / Bank Cheque */}
@@ -5028,22 +5235,40 @@ export default function Dashboard() {
                         {userProfile.kycDocuments?.panNumber || userProfile.kycDocuments?.chequeNumber || "Verified"}
                       </span>
                     </div>
-                    {userProfile.kycDocuments?.doc2Url && (
-                      <div
-                        onClick={() => { setLightboxImg(userProfile.kycDocuments.doc2Url); setZoomLevel(1); }}
-                        className="mt-1 rounded-xl overflow-hidden border border-indigo-200 bg-indigo-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-indigo-400 transition"
-                        title="Tap to open fullscreen & zoom"
-                      >
-                        <img
-                          src={userProfile.kycDocuments.doc2Url}
-                          alt="Financial Proof"
-                          className="max-h-40 object-contain rounded-lg group-hover:scale-[1.02] transition"
-                        />
-                        <span className="text-[10px] font-bold text-indigo-600 mt-1 flex items-center gap-1 group-hover:underline">
-                          🔍 Tap to Open Fullscreen & Zoom
-                        </span>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                      {userProfile.kycDocuments?.doc2Url && (
+                        <div
+                          onClick={() => { setLightboxImg(userProfile.kycDocuments.doc2Url); setZoomLevel(1); }}
+                          className="rounded-xl overflow-hidden border border-indigo-200 bg-indigo-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-indigo-400 transition"
+                          title="Tap to open fullscreen & zoom"
+                        >
+                          <img
+                            src={userProfile.kycDocuments.doc2Url}
+                            alt="Financial Proof Front"
+                            className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
+                          />
+                          <span className="text-[10px] font-bold text-indigo-600 mt-1 flex items-center gap-1 group-hover:underline">
+                            🔍 Front (Zoom)
+                          </span>
+                        </div>
+                      )}
+                      {userProfile.kycDocuments?.doc2BackUrl && (
+                        <div
+                          onClick={() => { setLightboxImg(userProfile.kycDocuments.doc2BackUrl); setZoomLevel(1); }}
+                          className="rounded-xl overflow-hidden border border-indigo-200 bg-indigo-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-indigo-400 transition"
+                          title="Tap to open fullscreen & zoom"
+                        >
+                          <img
+                            src={userProfile.kycDocuments.doc2BackUrl}
+                            alt="Financial Proof Back"
+                            className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
+                          />
+                          <span className="text-[10px] font-bold text-indigo-600 mt-1 flex items-center gap-1 group-hover:underline">
+                            🔍 Back (Zoom)
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -5101,22 +5326,40 @@ export default function Dashboard() {
                       Naam: <strong>{userProfile.kycDocuments.aadhaarName}</strong>
                     </p>
                   )}
-                  {(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl) && (
-                    <div
-                      onClick={() => { setLightboxImg(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl); setZoomLevel(1); }}
-                      className="mt-1 rounded-xl overflow-hidden border border-amber-200 bg-amber-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-amber-400 transition"
-                      title="Tap to open fullscreen & zoom"
-                    >
-                      <img
-                        src={userProfile.kycDocuments.doc1Url || userProfile.kycDocuments.docUrl}
-                        alt="Submitted Aadhaar"
-                        className="max-h-40 object-contain rounded-lg group-hover:scale-[1.02] transition"
-                      />
-                      <span className="text-[10px] font-bold text-amber-800 mt-1 flex items-center gap-1 group-hover:underline">
-                        🔍 Tap to Open Fullscreen & Zoom
-                      </span>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                    {(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl) && (
+                      <div
+                        onClick={() => { setLightboxImg(userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl); setZoomLevel(1); }}
+                        className="rounded-xl overflow-hidden border border-amber-200 bg-amber-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-amber-400 transition"
+                        title="Tap to open fullscreen & zoom"
+                      >
+                        <img
+                          src={userProfile.kycDocuments.doc1Url || userProfile.kycDocuments.docUrl}
+                          alt="Submitted Aadhaar Front"
+                          className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
+                        />
+                        <span className="text-[10px] font-bold text-amber-800 mt-1 flex items-center gap-1 group-hover:underline">
+                          🔍 Front (Zoom)
+                        </span>
+                      </div>
+                    )}
+                    {userProfile.kycDocuments?.doc1BackUrl && (
+                      <div
+                        onClick={() => { setLightboxImg(userProfile.kycDocuments.doc1BackUrl); setZoomLevel(1); }}
+                        className="rounded-xl overflow-hidden border border-amber-200 bg-amber-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-amber-400 transition"
+                        title="Tap to open fullscreen & zoom"
+                      >
+                        <img
+                          src={userProfile.kycDocuments.doc1BackUrl}
+                          alt="Submitted Aadhaar Back"
+                          className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
+                        />
+                        <span className="text-[10px] font-bold text-amber-800 mt-1 flex items-center gap-1 group-hover:underline">
+                          🔍 Back (Zoom)
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Doc 2: PAN Card / Bank Cheque */}
@@ -5130,22 +5373,40 @@ export default function Dashboard() {
                         {userProfile.kycDocuments?.panNumber || userProfile.kycDocuments?.chequeNumber || "Submitted"}
                       </span>
                     </div>
-                    {userProfile.kycDocuments?.doc2Url && (
-                      <div
-                        onClick={() => { setLightboxImg(userProfile.kycDocuments.doc2Url); setZoomLevel(1); }}
-                        className="mt-1 rounded-xl overflow-hidden border border-indigo-200 bg-indigo-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-indigo-400 transition"
-                        title="Tap to open fullscreen & zoom"
-                      >
-                        <img
-                          src={userProfile.kycDocuments.doc2Url}
-                          alt="Submitted Financial Proof"
-                          className="max-h-40 object-contain rounded-lg group-hover:scale-[1.02] transition"
-                        />
-                        <span className="text-[10px] font-bold text-indigo-700 mt-1 flex items-center gap-1 group-hover:underline">
-                          🔍 Tap to Open Fullscreen & Zoom
-                        </span>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                      {userProfile.kycDocuments?.doc2Url && (
+                        <div
+                          onClick={() => { setLightboxImg(userProfile.kycDocuments.doc2Url); setZoomLevel(1); }}
+                          className="rounded-xl overflow-hidden border border-indigo-200 bg-indigo-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-indigo-400 transition"
+                          title="Tap to open fullscreen & zoom"
+                        >
+                          <img
+                            src={userProfile.kycDocuments.doc2Url}
+                            alt="Submitted Financial Proof Front"
+                            className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
+                          />
+                          <span className="text-[10px] font-bold text-indigo-700 mt-1 flex items-center gap-1 group-hover:underline">
+                            🔍 Front (Zoom)
+                          </span>
+                        </div>
+                      )}
+                      {userProfile.kycDocuments?.doc2BackUrl && (
+                        <div
+                          onClick={() => { setLightboxImg(userProfile.kycDocuments.doc2BackUrl); setZoomLevel(1); }}
+                          className="rounded-xl overflow-hidden border border-indigo-200 bg-indigo-50/40 p-1.5 flex flex-col items-center cursor-pointer group hover:border-indigo-400 transition"
+                          title="Tap to open fullscreen & zoom"
+                        >
+                          <img
+                            src={userProfile.kycDocuments.doc2BackUrl}
+                            alt="Submitted Financial Proof Back"
+                            className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
+                          />
+                          <span className="text-[10px] font-bold text-indigo-700 mt-1 flex items-center gap-1 group-hover:underline">
+                            🔍 Back (Zoom)
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -5238,41 +5499,81 @@ export default function Dashboard() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    Upload Aadhaar Photo / PDF <span className="text-rose-500">*</span>
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-gray-700">
+                    Upload Aadhaar Card (Front & Back) <span className="text-rose-500">*</span>
                   </label>
-                  <div className="flex items-center gap-2">
-                    <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-blue-300 rounded-xl text-xs text-blue-700 font-bold flex items-center justify-center gap-2 transition active:scale-95">
-                      <span>📄</span>
-                      <span className="truncate">{kycForm.doc1Name || "Upload Aadhaar File"}</span>
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        onChange={e => handleKycFileChange(e, 1)}
-                        className="hidden"
-                      />
-                    </label>
-                    {kycForm.doc1Url && (
-                      <button
-                        type="button"
-                        onClick={() => setKycForm({ ...kycForm, doc1Name: "", doc1Url: "" })}
-                        className="px-3 py-2.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
-                        title="Remove upload"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                  {kycForm.doc1Url && (
-                    <div className="mt-2 p-2 bg-white border border-gray-200 rounded-xl flex items-center gap-2.5">
-                      <img src={kycForm.doc1Url} alt="Aadhaar Preview" className="w-10 h-10 object-cover rounded-lg border border-gray-200 shrink-0" />
-                      <div className="text-[11px] text-gray-600 truncate flex-1">
-                        <span className="font-bold text-gray-800 block truncate">{kycForm.doc1Name || "Aadhaar Card"}</span>
-                        <span className="text-emerald-600 font-bold">✓ Uploaded</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Front */}
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 mb-1">Front Side *</div>
+                      <div className="flex items-center gap-1.5">
+                        <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-blue-300 rounded-xl text-xs text-blue-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
+                          <span>📄</span>
+                          <span className="truncate text-[11px]">{kycForm.doc1Name ? "Change" : "Front File"}</span>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={e => handleKycFileChange(e, 1, "front")}
+                            className="hidden"
+                          />
+                        </label>
+                        {kycForm.doc1Url && (
+                          <button
+                            type="button"
+                            onClick={() => setKycForm({ ...kycForm, doc1Name: "", doc1Url: "" })}
+                            className="p-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
+                            title="Remove Front"
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
+                      {kycForm.doc1Url && (
+                        <div className="mt-1.5 p-1.5 bg-white border border-gray-200 rounded-xl flex items-center gap-2">
+                          <img src={kycForm.doc1Url} alt="Aadhaar Front" className="w-8 h-8 object-cover rounded-lg border border-gray-200 shrink-0" />
+                          <div className="text-[10px] text-gray-600 truncate flex-1">
+                            <span className="font-bold text-emerald-600 block">✓ Front Added</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* Back */}
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 mb-1">Back Side (Optional)</div>
+                      <div className="flex items-center gap-1.5">
+                        <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-blue-300 rounded-xl text-xs text-blue-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
+                          <span>📄</span>
+                          <span className="truncate text-[11px]">{kycForm.doc1BackName ? "Change" : "Back File"}</span>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={e => handleKycFileChange(e, 1, "back")}
+                            className="hidden"
+                          />
+                        </label>
+                        {kycForm.doc1BackUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setKycForm({ ...kycForm, doc1BackName: "", doc1BackUrl: "" })}
+                            className="p-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
+                            title="Remove Back"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      {kycForm.doc1BackUrl && (
+                        <div className="mt-1.5 p-1.5 bg-white border border-gray-200 rounded-xl flex items-center gap-2">
+                          <img src={kycForm.doc1BackUrl} alt="Aadhaar Back" className="w-8 h-8 object-cover rounded-lg border border-gray-200 shrink-0" />
+                          <div className="text-[10px] text-gray-600 truncate flex-1">
+                            <span className="font-bold text-emerald-600 block">✓ Back Added</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -5342,41 +5643,81 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    Upload {kycForm.doc2Type === "pan" ? "PAN Card" : "Bank Cheque / Passbook"} <span className="text-rose-500">*</span>
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-gray-700">
+                    Upload {kycForm.doc2Type === "pan" ? "PAN Card" : "Bank Cheque / Passbook"} (Front & Back) <span className="text-rose-500">*</span>
                   </label>
-                  <div className="flex items-center gap-2">
-                    <label className="flex-1 cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-2 transition active:scale-95">
-                      <span>📄</span>
-                      <span className="truncate">{kycForm.doc2Name || `Upload ${kycForm.doc2Type === "pan" ? "PAN" : "Cheque"} File`}</span>
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        onChange={e => handleKycFileChange(e, 2)}
-                        className="hidden"
-                      />
-                    </label>
-                    {kycForm.doc2Url && (
-                      <button
-                        type="button"
-                        onClick={() => setKycForm({ ...kycForm, doc2Name: "", doc2Url: "" })}
-                        className="px-3 py-2.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
-                        title="Remove upload"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                  {kycForm.doc2Url && (
-                    <div className="mt-2 p-2 bg-white border border-gray-200 rounded-xl flex items-center gap-2.5">
-                      <img src={kycForm.doc2Url} alt="Doc 2 Preview" className="w-10 h-10 object-cover rounded-lg border border-gray-200 shrink-0" />
-                      <div className="text-[11px] text-gray-600 truncate flex-1">
-                        <span className="font-bold text-gray-800 block truncate">{kycForm.doc2Name || "Document 2"}</span>
-                        <span className="text-emerald-600 font-bold">✓ Uploaded</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Front */}
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 mb-1">Front Side *</div>
+                      <div className="flex items-center gap-1.5">
+                        <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
+                          <span>📄</span>
+                          <span className="truncate text-[11px]">{kycForm.doc2Name ? "Change" : "Front File"}</span>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={e => handleKycFileChange(e, 2, "front")}
+                            className="hidden"
+                          />
+                        </label>
+                        {kycForm.doc2Url && (
+                          <button
+                            type="button"
+                            onClick={() => setKycForm({ ...kycForm, doc2Name: "", doc2Url: "" })}
+                            className="p-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
+                            title="Remove Front"
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
+                      {kycForm.doc2Url && (
+                        <div className="mt-1.5 p-1.5 bg-white border border-gray-200 rounded-xl flex items-center gap-2">
+                          <img src={kycForm.doc2Url} alt="Doc 2 Front" className="w-8 h-8 object-cover rounded-lg border border-gray-200 shrink-0" />
+                          <div className="text-[10px] text-gray-600 truncate flex-1">
+                            <span className="font-bold text-emerald-600 block">✓ Front Added</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* Back */}
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 mb-1">Back Side (Optional)</div>
+                      <div className="flex items-center gap-1.5">
+                        <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
+                          <span>📄</span>
+                          <span className="truncate text-[11px]">{kycForm.doc2BackName ? "Change" : "Back File"}</span>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={e => handleKycFileChange(e, 2, "back")}
+                            className="hidden"
+                          />
+                        </label>
+                        {kycForm.doc2BackUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setKycForm({ ...kycForm, doc2BackName: "", doc2BackUrl: "" })}
+                            className="p-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
+                            title="Remove Back"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      {kycForm.doc2BackUrl && (
+                        <div className="mt-1.5 p-1.5 bg-white border border-gray-200 rounded-xl flex items-center gap-2">
+                          <img src={kycForm.doc2BackUrl} alt="Doc 2 Back" className="w-8 h-8 object-cover rounded-lg border border-gray-200 shrink-0" />
+                          <div className="text-[10px] text-gray-600 truncate flex-1">
+                            <span className="font-bold text-emerald-600 block">✓ Back Added</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -5850,30 +6191,58 @@ export default function Dashboard() {
                   />
                 </div>
 
-                {/* Screenshot Upload */}
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    Payment Screenshot / Receipt <span className="text-rose-500">*</span>
+                {/* Screenshot Upload (Front & Back) */}
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-gray-700">
+                    Payment Screenshots / Proof (Front & Back) <span className="text-rose-500">*</span>
                   </label>
-                  <label className="cursor-pointer py-2.5 px-3 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-2 transition active:scale-95">
-                    <span>📄</span>
-                    <span className="truncate">{installmentProofName || "Upload Receipt Screenshot"}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleInstallmentProofUpload}
-                      className="hidden"
-                    />
-                  </label>
-                  {installmentProofUrl && (
-                    <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-2.5">
-                      <img src={installmentProofUrl} alt="Receipt Preview" className="w-10 h-10 object-cover rounded-lg border border-gray-200" />
-                      <div className="text-[11px] text-gray-600 truncate flex-1">
-                        <span className="font-bold text-gray-800 block truncate">{installmentProofName || "Receipt"}</span>
-                        <span className="text-emerald-600 font-bold">✓ Ready to submit</span>
-                      </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Front Receipt */}
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 mb-1">Receipt (Front) *</div>
+                      <label className="cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
+                        <span>📄</span>
+                        <span className="truncate text-[11px]">{installmentProofName ? "Change" : "Upload"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={e => handleInstallmentProofUpload(e, "front")}
+                          className="hidden"
+                        />
+                      </label>
+                      {installmentProofUrl && (
+                        <div className="mt-1.5 p-1.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-2">
+                          <img src={installmentProofUrl} alt="Receipt Front" className="w-8 h-8 object-cover rounded-lg border border-gray-200 shrink-0" />
+                          <div className="text-[10px] text-gray-600 truncate flex-1">
+                            <span className="font-bold text-emerald-600 block">✓ Attached</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* Back / Extra Proof */}
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 mb-1">Back / Confirmation</div>
+                      <label className="cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
+                        <span>📄</span>
+                        <span className="truncate text-[11px]">{installmentProofBackName ? "Change" : "Upload"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={e => handleInstallmentProofUpload(e, "back")}
+                          className="hidden"
+                        />
+                      </label>
+                      {installmentProofBackUrl && (
+                        <div className="mt-1.5 p-1.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-2">
+                          <img src={installmentProofBackUrl} alt="Receipt Back" className="w-8 h-8 object-cover rounded-lg border border-gray-200 shrink-0" />
+                          <div className="text-[10px] text-gray-600 truncate flex-1">
+                            <span className="font-bold text-emerald-600 block">✓ Attached</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-2.5 pt-2">

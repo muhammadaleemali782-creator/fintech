@@ -230,10 +230,12 @@ router.post('/apply', protect, async (req, res) => {
     }
 
     // Save/Sync documents to borrower profile KYC record if provided
-    if (documents?.doc1Url || documents?.doc2Url) {
+    if (documents?.doc1Url || documents?.doc2Url || documents?.doc1BackUrl || documents?.doc2BackUrl) {
       if (!userDoc.kycDocuments) userDoc.kycDocuments = {};
       if (documents.doc1Url && !userDoc.kycDocuments.doc1Url) userDoc.kycDocuments.doc1Url = documents.doc1Url;
+      if (documents.doc1BackUrl && !userDoc.kycDocuments.doc1BackUrl) userDoc.kycDocuments.doc1BackUrl = documents.doc1BackUrl;
       if (documents.doc2Url && !userDoc.kycDocuments.doc2Url) userDoc.kycDocuments.doc2Url = documents.doc2Url;
+      if (documents.doc2BackUrl && !userDoc.kycDocuments.doc2BackUrl) userDoc.kycDocuments.doc2BackUrl = documents.doc2BackUrl;
       await userDoc.save();
     }
 
@@ -732,7 +734,7 @@ router.post('/:id/submit-installment', protect, async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id))
       return res.status(400).json({ message: 'Invalid loan ID' });
 
-    const { utrNumber, proofUrl, installmentNo } = req.body;
+    const { utrNumber, proofUrl, proofBackUrl, installmentNo } = req.body;
     if (!utrNumber || String(utrNumber).trim().length < 6) {
       return res.status(400).json({ message: 'Valid UTR / Transaction Reference number zaroori hai (min 6 characters).' });
     }
@@ -753,6 +755,7 @@ router.post('/:id/submit-installment', protect, async (req, res) => {
     target.status = 'submitted';
     target.utrNumber = String(utrNumber).trim();
     target.proofUrl = proofUrl;
+    target.proofBackUrl = proofBackUrl || '';
     target.submittedAt = new Date();
     target.paymentMethod = 'upi_qr';
 

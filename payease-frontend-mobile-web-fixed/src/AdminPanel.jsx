@@ -694,25 +694,25 @@ export default function AdminPanel() {
           </div>
         </nav>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8">
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 mb-4 sm:mb-8">
             {statCards.map(({ icon, label, value, g }) => (
-              <div key={label} className={`bg-gradient-to-br ${g} text-white p-4 sm:p-5 rounded-2xl shadow-lg`}>
-                <div className="text-2xl sm:text-3xl mb-2">{icon}</div>
-                <p className="text-white/70 text-xs">{label}</p>
-                <p className="text-xl sm:text-2xl font-black font-display mt-0.5">{value}</p>
+              <div key={label} className={`bg-gradient-to-br ${g} text-white p-3.5 sm:p-5 rounded-2xl shadow-md`}>
+                <div className="text-xl sm:text-3xl mb-1 sm:mb-2">{icon}</div>
+                <p className="text-white/80 text-[11px] sm:text-xs font-medium">{label}</p>
+                <p className="text-lg sm:text-2xl font-black font-display mt-0.5">{value}</p>
               </div>
             ))}
           </div>
 
           {/* Tabs — mobile/tablet only (desktop uses sidebar) */}
-          <div className="lg:hidden flex gap-2 mb-6 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto no-scrollbar">
+          <div className="lg:hidden flex gap-1.5 mb-4 sm:mb-6 bg-white p-1.5 rounded-2xl shadow-xs border border-gray-100 overflow-x-auto no-scrollbar">
             {tabs.map(({ key, label, icon, badge }) => (
               <button key={key} onClick={() => setTab(key)}
-                className={`flex-1 min-w-max py-2.5 px-4 rounded-xl font-semibold text-sm transition-all flex items-center gap-1.5 ${tab === key ? "bg-indigo-600 text-white shadow" : "text-gray-500 hover:text-gray-700"}`}>
-                <span>{icon}</span>{label}
-                {!!badge && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${tab === key ? "bg-white/20" : "bg-red-100 text-red-600"}`}>{badge}</span>}
+                className={`shrink-0 py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer ${tab === key ? "bg-indigo-600 text-white shadow-xs" : "text-gray-500 hover:text-gray-700"}`}>
+                <span>{icon}</span><span>{label}</span>
+                {!!badge && <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${tab === key ? "bg-white/20 text-white" : "bg-red-100 text-red-600"}`}>{badge}</span>}
               </button>
             ))}
           </div>
@@ -787,10 +787,10 @@ export default function AdminPanel() {
 
           {/* KYC VERIFICATION REQUESTS */}
           {tab === "kyc" && (
-            <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="bg-white rounded-2xl shadow-sm p-3.5 sm:p-6 border border-gray-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
                 <div>
-                  <h3 className="text-lg font-bold font-display text-gray-900 flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
                     <span>📄</span> User KYC Verification Requests
                   </h3>
                   <p className="text-xs text-gray-500">
@@ -799,15 +799,15 @@ export default function AdminPanel() {
                 </div>
 
                 {/* Action & Filter Pills */}
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                   <button
                     onClick={exportKycToCsv}
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                    className="w-full sm:w-auto justify-center px-3.5 py-2 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
                     <span>📥</span> Export to Excel
                   </button>
 
-                  <div className="flex gap-1.5 bg-gray-100 p-1 rounded-xl text-xs font-bold">
+                  <div className="w-full sm:w-auto overflow-x-auto no-scrollbar flex gap-1 bg-gray-100 p-1 rounded-xl text-xs font-bold shrink-0">
                     {[
                       { key: "all", label: "All Submissions" },
                       { key: "pending", label: `Pending (${pendingKycCount})` },
@@ -817,7 +817,7 @@ export default function AdminPanel() {
                       <button
                         key={f.key}
                         onClick={() => setKycFilter(f.key)}
-                        className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                        className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg transition cursor-pointer ${
                           kycFilter === f.key
                             ? "bg-white text-indigo-700 shadow-xs"
                             : "text-gray-500 hover:text-gray-800"
@@ -852,7 +852,7 @@ export default function AdminPanel() {
                     {kycUsers.map(u => (
                       <div
                         key={u._id}
-                        className="p-4 bg-gray-50 hover:bg-gray-100/80 border border-gray-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition"
+                        className="p-3.5 sm:p-4 bg-gray-50 hover:bg-gray-100/80 border border-gray-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 transition"
                       >
                         <div className="flex items-start gap-3 min-w-0">
                           {/* Both Document Thumbnails */}
@@ -943,13 +943,13 @@ export default function AdminPanel() {
                         </div>
 
                         {/* Action */}
-                        <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                        <div className="flex items-center gap-2 w-full md:w-auto shrink-0 md:self-center">
                           <button
                             onClick={() => {
                               setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
                               setPreviewKycUser(u);
                             }}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold shadow-md active:scale-95 transition flex items-center gap-1.5 cursor-pointer ${
+                            className={`w-full md:w-auto justify-center px-4 py-2.5 rounded-xl text-xs font-bold shadow-md active:scale-95 transition flex items-center gap-1.5 cursor-pointer ${
                               u.kycStatus === "rejected"
                                 ? "bg-rose-100 text-rose-700 border border-rose-200 shadow-none"
                                 : u.kycStatus === "verified"
@@ -1433,107 +1433,161 @@ export default function AdminPanel() {
 
           {/* APP DEVICES LOCK */}
           {tab === "devices" && (
-            <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+            <div className="bg-white rounded-2xl shadow-sm p-3.5 sm:p-6 border border-gray-100">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 sm:gap-3 mb-4 sm:mb-6">
                 <div>
-                  <h3 className="text-lg font-bold font-display">📱 App Devices & Remote Parental Bedtime Lock</h3>
+                  <h3 className="text-base sm:text-lg font-bold font-display">📱 App Devices & Remote Parental Bedtime Lock</h3>
                   <p className="text-xs text-gray-500">Jab bacha app chalayega, to uska device yahan dikhega. Aap yahan se 1-click me Bedtime Lock laga ya hata sakte hain.</p>
                 </div>
-                <button onClick={loadDevices} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition">
+                <button onClick={loadDevices} className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition cursor-pointer self-start sm:self-auto">
                   🔄 Refresh Devices
                 </button>
               </div>
 
               {/* PIN Card for Admin */}
-              <div className="mb-6 p-4 rounded-xl bg-blue-50/80 border border-blue-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 rounded-2xl bg-blue-50/80 border border-blue-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg font-bold shadow-sm">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-base sm:text-lg font-bold shadow-xs shrink-0">
                     🔑
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-blue-950">Parent / Admin Secret Unlock PIN</h4>
-                    <p className="text-xs text-blue-700">Agar aap bache ke phone par hain, to lock screen par <b>"Enter Admin Password to Unlock"</b> dabakar ye PIN ya Admin Password daalein:</p>
+                    <h4 className="text-xs sm:text-sm font-bold text-blue-950">Parent / Admin Secret Unlock PIN</h4>
+                    <p className="text-[11px] sm:text-xs text-blue-700">Lock screen par <b>"Enter Admin Password to Unlock"</b> dabakar ye PIN daalein:</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-3.5 py-1.5 bg-white border border-blue-300 rounded-lg font-mono font-bold text-sm text-blue-900 shadow-sm tracking-wider">
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <span className="px-3 py-1 bg-white border border-blue-300 rounded-lg font-mono font-bold text-xs sm:text-sm text-blue-900 shadow-2xs tracking-wider">
                     PIN: 1234
                   </span>
-                  <span className="text-xs text-blue-500 font-semibold">(Ya Admin Password)</span>
+                  <span className="text-[11px] text-blue-500 font-semibold">(Ya Admin Password)</span>
                 </div>
               </div>
 
               {devices.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <div className="text-center py-10 sm:py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                   <p className="text-3xl mb-2">📱</p>
                   <p className="text-gray-500 text-sm font-semibold">No app devices connected yet</p>
                   <p className="text-gray-400 text-xs mt-1">Jab koi user Android app me login ya signup karega, to uska device auto-connect hokar yahan aa jayega.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                        <th className="pb-3">User</th>
-                        <th className="pb-3">Device Model</th>
-                        <th className="pb-3">Last Seen</th>
-                        <th className="pb-3">OS Lock Status</th>
-                        <th className="pb-3 text-right">Remote Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {devices.map((d) => (
-                        <tr key={d.deviceId} className="hover:bg-gray-50/50 transition">
-                          <td className="py-3.5">
-                            <p className="font-bold text-gray-900">{d.userName || "User"}</p>
-                            <p className="text-xs text-gray-400 font-mono">{d.userEmail || d.deviceId}</p>
-                          </td>
-                          <td className="py-3.5 text-xs text-gray-600 font-medium">
-                            📱 {d.deviceName || "Android Phone"}
-                          </td>
-                          <td className="py-3.5 text-xs text-gray-400">
-                            {d.lastSeenAt ? new Date(d.lastSeenAt).toLocaleTimeString() : "Recent"}
-                          </td>
-                          <td className="py-3.5">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-                              d.adminStatus === "active"
-                                ? "bg-green-100 text-green-700 border border-green-200"
-                                : "bg-gray-100 text-gray-600 border border-gray-200"
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${d.adminStatus === "active" ? "bg-green-500" : "bg-gray-400"}`}></span>
-                              {d.adminStatus === "active" ? "🔒 LOCKED (Uninstall Blocked)" : "🔓 UNLOCKED"}
-                            </span>
-                          </td>
-                          <td className="py-3.5 text-right">
-                            {d.adminStatus === "active" ? (
-                              <button
-                                onClick={() => unlockDevice(d.deviceId)}
-                                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-sm transition"
-                              >
-                                🔓 Unlock Device (Allow Uninstall)
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => lockDevice(d.deviceId)}
-                                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition"
-                              >
-                                🔒 Lock Device (Send OS Prompt)
-                              </button>
-                            )}
-                          </td>
+                <>
+                  {/* Desktop Table */}
+                  <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-100">
+                    <table className="w-full min-w-[700px] text-left text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                          <th className="py-3 px-3">User</th>
+                          <th className="py-3 px-3">Device Model</th>
+                          <th className="py-3 px-3">Last Seen</th>
+                          <th className="py-3 px-3">OS Lock Status</th>
+                          <th className="py-3 px-3 text-right">Remote Action</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {devices.map((d) => (
+                          <tr key={d.deviceId} className="hover:bg-gray-50/50 transition">
+                            <td className="py-3.5 px-3">
+                              <p className="font-bold text-gray-900">{d.userName || "User"}</p>
+                              <p className="text-xs text-gray-400 font-mono truncate max-w-[180px]">{d.userEmail || d.deviceId}</p>
+                            </td>
+                            <td className="py-3.5 px-3 text-xs text-gray-600 font-medium">
+                              📱 {d.deviceName || "Android Phone"}
+                            </td>
+                            <td className="py-3.5 px-3 text-xs text-gray-400">
+                              {d.lastSeenAt ? new Date(d.lastSeenAt).toLocaleTimeString() : "Recent"}
+                            </td>
+                            <td className="py-3.5 px-3">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                                d.adminStatus === "active"
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : "bg-gray-100 text-gray-600 border border-gray-200"
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${d.adminStatus === "active" ? "bg-green-500" : "bg-gray-400"}`}></span>
+                                {d.adminStatus === "active" ? "🔒 LOCKED (Uninstall Blocked)" : "🔓 UNLOCKED"}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-3 text-right">
+                              {d.adminStatus === "active" ? (
+                                <button
+                                  onClick={() => unlockDevice(d.deviceId)}
+                                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
+                                >
+                                  🔓 Unlock Device (Allow Uninstall)
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => lockDevice(d.deviceId)}
+                                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
+                                >
+                                  🔒 Lock Device (Send OS Prompt)
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards View */}
+                  <div className="md:hidden space-y-3">
+                    {devices.map((d) => (
+                      <div key={d.deviceId} className="border border-gray-200/80 rounded-2xl p-3.5 bg-gray-50/50 space-y-3 shadow-2xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm text-gray-900 truncate">{d.userName || "User"}</p>
+                            <p className="text-xs text-gray-400 font-mono truncate">{d.userEmail || d.deviceId}</p>
+                          </div>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 whitespace-nowrap ${
+                            d.adminStatus === "active"
+                              ? "bg-green-100 text-green-700 border border-green-200"
+                              : "bg-gray-100 text-gray-600 border border-gray-200"
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${d.adminStatus === "active" ? "bg-green-500" : "bg-gray-400"}`}></span>
+                            {d.adminStatus === "active" ? "🔒 LOCKED" : "🔓 UNLOCKED"}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-gray-200/70 text-gray-600">
+                          <div>
+                            <span className="text-gray-400 block text-[10px] uppercase font-bold">Device Model</span>
+                            <span className="font-semibold text-gray-800 truncate block">📱 {d.deviceName || "Android Phone"}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 block text-[10px] uppercase font-bold">Last Seen</span>
+                            <span className="font-semibold text-gray-800 truncate block">{d.lastSeenAt ? new Date(d.lastSeenAt).toLocaleTimeString() : "Recent"}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          {d.adminStatus === "active" ? (
+                            <button
+                              onClick={() => unlockDevice(d.deviceId)}
+                              className="w-full py-2.5 px-3 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              🔓 Unlock Device (Allow Uninstall)
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => lockDevice(d.deviceId)}
+                              className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              🔒 Lock Device (Send OS Prompt)
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           )}
 
           {/* LOANS */}
           {tab === "loans" && (
-            <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-              <h3 className="text-lg font-bold font-display mb-5">Loan Applications</h3>
+            <div className="bg-white rounded-2xl shadow-sm p-3.5 sm:p-6 border border-gray-100">
+              <h3 className="text-base sm:text-lg font-bold font-display mb-4 sm:mb-5">Loan Applications</h3>
               {loans.length === 0 ? <p className="text-gray-300 text-center py-10 text-sm">No loans yet</p> : (
                 <div className="space-y-4">
                   {loans.map(l => {
@@ -1544,7 +1598,7 @@ export default function AdminPanel() {
                     const isExpanded = expandedLoanId === l._id;
 
                     return (
-                      <div key={l._id} className="border border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-md transition">
+                      <div key={l._id} className="border border-gray-200 rounded-2xl p-3.5 sm:p-5 hover:shadow-md transition">
                         <div className="flex justify-between items-start mb-3">
                           <div>
                             <div className="flex items-center gap-2">
@@ -1629,10 +1683,10 @@ export default function AdminPanel() {
                           return (
                             <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
                               {/* 1st Installment Decision Card for Admin */}
-                              <div className="p-3.5 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 border-2 border-indigo-200/80 rounded-2xl space-y-2.5 shadow-xs">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-lg">⚙️</span>
+                              <div className="p-3 sm:p-4 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 border-2 border-indigo-200/80 rounded-2xl space-y-2.5 shadow-xs">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
+                                  <div className="flex items-start sm:items-center gap-2">
+                                    <span className="text-base sm:text-lg shrink-0 mt-0.5 sm:mt-0">⚙️</span>
                                     <div>
                                       <h5 className="text-xs font-black text-gray-900 leading-tight">
                                         Pehli Installment Setting (Admin Choice)
@@ -1642,15 +1696,17 @@ export default function AdminPanel() {
                                       </p>
                                     </div>
                                   </div>
-                                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border shadow-xs ${
-                                    chosenOpt === "none"
-                                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                      : chosenOpt === "deduct"
-                                      ? "bg-amber-100 text-amber-800 border-amber-300"
-                                      : "bg-purple-100 text-purple-800 border-purple-300"
-                                  }`}>
-                                    {chosenOpt === "none" ? "🟢 NA LEIN (Pura Paisa)" : chosenOpt === "deduct" ? "🟡 Advance Kaatein" : "🟣 Waive/Maaf"}
-                                  </span>
+                                  <div className="self-start sm:self-auto shrink-0">
+                                    <span className={`inline-flex items-center whitespace-nowrap text-[10px] font-black px-2.5 py-0.5 rounded-full border shadow-2xs ${
+                                      chosenOpt === "none"
+                                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                        : chosenOpt === "deduct"
+                                        ? "bg-amber-100 text-amber-800 border-amber-300"
+                                        : "bg-purple-100 text-purple-800 border-purple-300"
+                                    }`}>
+                                      {chosenOpt === "none" ? "🟢 NA LEIN (Pura Paisa)" : chosenOpt === "deduct" ? "🟡 Advance Kaatein" : "🟣 Waive/Maaf"}
+                                    </span>
+                                  </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -1667,15 +1723,15 @@ export default function AdminPanel() {
                                         : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                                     }`}
                                   >
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between gap-1 mb-1">
                                       <span className="font-black text-xs text-emerald-950 flex items-center gap-1">
                                         <span>🟢 Pehli Kist NA lein</span>
                                       </span>
-                                      <span className="text-[9px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-black">
+                                      <span className="text-[9px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-black shrink-0 whitespace-nowrap">
                                         RECOMMENDED
                                       </span>
                                     </div>
-                                    <p className="text-[11px] text-gray-800 font-semibold mt-1">
+                                    <p className="text-[11px] text-gray-800 font-semibold">
                                       Borrower ko milega: <strong className="text-emerald-700 font-extrabold text-xs">₹{basePayout.toLocaleString("en-IN")}</strong>
                                     </p>
                                     <p className="text-[10px] text-emerald-700 font-medium mt-0.5">
@@ -1696,15 +1752,15 @@ export default function AdminPanel() {
                                         : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                                     }`}
                                   >
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between gap-1 mb-1">
                                       <span className="font-black text-xs text-amber-950 flex items-center gap-1">
                                         <span>🟡 Pehli Kist Advance Kaatein</span>
                                       </span>
-                                      <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-black">
+                                      <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-black shrink-0 whitespace-nowrap">
                                         ADVANCE
                                       </span>
                                     </div>
-                                    <p className="text-[11px] text-gray-800 font-semibold mt-1">
+                                    <p className="text-[11px] text-gray-800 font-semibold">
                                       Borrower ko milega: <strong className="text-amber-700 font-extrabold text-xs">₹{advancePayout.toLocaleString("en-IN")}</strong>
                                     </p>
                                     <p className="text-[10px] text-amber-700 font-medium mt-0.5">
@@ -1715,7 +1771,7 @@ export default function AdminPanel() {
                               </div>
 
                               {/* Action Buttons */}
-                              <div className="flex gap-3 relative">
+                              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 relative">
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1723,7 +1779,7 @@ export default function AdminPanel() {
                                     setLoanApproveModal(l);
                                     triggerAdminHeroFly(l._id);
                                   }}
-                                  className="relative overflow-visible flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                                  className="relative overflow-visible w-full sm:flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
                                 >
                                   {adminHeroFlyId === l._id && <AdminLoanHeroFlyBadge />}
                                   <span>✅ Approve & Disburse (₹{currentDisburseAmount.toLocaleString("en-IN")})</span>
@@ -1732,11 +1788,11 @@ export default function AdminPanel() {
                                   type="button"
                                   disabled={rejectLoadingId === l._id}
                                   onClick={() => rejectLoan(l._id)}
-                                  className="px-5 py-3 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                  className="w-full sm:w-auto px-5 py-2.5 sm:py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
                                 >
                                   {rejectLoadingId === l._id ? (
                                     <>
-                                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                      <span className="w-3.5 h-3.5 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
                                       <span>Rejecting...</span>
                                     </>
                                   ) : (
@@ -2383,13 +2439,13 @@ export default function AdminPanel() {
 
       {/* LOAN APPROVAL & DISBURSAL MODAL WITH 1ST INSTALLMENT OPTIONS */}
       {loanApproveModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-3.5 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
               <div className="flex items-center gap-2">
                 <span className="text-xl">🏦</span>
                 <div>
-                  <h3 className="font-extrabold text-base text-gray-900 leading-tight">
+                  <h3 className="font-extrabold text-sm sm:text-base text-gray-900 leading-tight">
                     Approve & Disburse Loan
                   </h3>
                   <p className="text-[11px] text-gray-500 font-medium">
@@ -2407,19 +2463,19 @@ export default function AdminPanel() {
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 bg-gray-50 rounded-xl">
+              <div className="p-2 sm:p-2.5 bg-gray-50 rounded-xl">
                 <span className="text-gray-400 block text-[10px]">Sanctioned Amount</span>
-                <span className="font-black text-gray-900 text-sm">₹{loanApproveModal.amount?.toLocaleString("en-IN")}</span>
+                <span className="font-black text-gray-900 text-xs sm:text-sm">₹{loanApproveModal.amount?.toLocaleString("en-IN")}</span>
               </div>
-              <div className="p-2.5 bg-gray-50 rounded-xl">
+              <div className="p-2 sm:p-2.5 bg-gray-50 rounded-xl">
                 <span className="text-gray-400 block text-[10px]">Installments</span>
-                <span className="font-black text-blue-700 text-sm">{loanApproveModal.installmentsCount || loanApproveModal.dailyTenureDays} Kist</span>
+                <span className="font-black text-blue-700 text-xs sm:text-sm">{loanApproveModal.installmentsCount || loanApproveModal.dailyTenureDays} Kist</span>
               </div>
-              <div className="p-2.5 bg-gray-50 rounded-xl">
+              <div className="p-2 sm:p-2.5 bg-gray-50 rounded-xl">
                 <span className="text-gray-400 block text-[10px]">Processing + UPI Fee</span>
                 <span className="font-black text-amber-700 text-xs">₹{(loanApproveModal.processingFee || 0) + (loanApproveModal.upiCharges || 0)}</span>
               </div>
-              <div className="p-2.5 bg-gray-50 rounded-xl">
+              <div className="p-2 sm:p-2.5 bg-gray-50 rounded-xl">
                 <span className="text-gray-400 block text-[10px]">Per Installment</span>
                 <span className="font-black text-emerald-700 text-xs">₹{loanApproveModal.installmentAmount || loanApproveModal.emiAmount || 0}</span>
               </div>
@@ -2433,7 +2489,7 @@ export default function AdminPanel() {
 
               <div className="space-y-2 text-xs">
                 {/* Option 1: Skip upfront deduction (Default - Pehli Installment NA lein) */}
-                <label className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
+                <label className={`flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-2xl border-2 cursor-pointer transition ${
                   advanceOption === "none"
                     ? "bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-300 shadow-xs"
                     : "bg-white border-gray-200 hover:bg-gray-50"
@@ -2446,22 +2502,22 @@ export default function AdminPanel() {
                     onChange={() => setAdvanceOption("none")}
                     className="mt-1 text-emerald-600 cursor-pointer accent-emerald-600"
                   />
-                  <div className="flex-1">
-                    <div className="font-extrabold text-emerald-950 flex items-center justify-between">
-                      <span className="text-xs">🟢 Pehli Installment NA lein (Pura Paisa Disburse)</span>
-                      <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-black">RECOMMENDED</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-extrabold text-emerald-950 flex items-center justify-between gap-1">
+                      <span className="text-xs">🟢 Pehli Installment NA lein</span>
+                      <span className="text-[9px] sm:text-[10px] bg-emerald-200 text-emerald-900 px-1.5 sm:px-2 py-0.5 rounded-full font-black shrink-0 whitespace-nowrap">RECOMMENDED</span>
                     </div>
                     <p className="text-[11px] text-gray-700 mt-1 font-medium">
                       Borrower ko seedha milega: <strong className="text-emerald-700 font-extrabold text-xs">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>
                     </p>
                     <p className="text-[10px] text-emerald-700 mt-0.5">
-                      ✓ Kist #1 baad me regular date par pending rahegi. Borrower baad me bharega.
+                      ✓ Kist #1 baad me regular date par pending rahegi.
                     </p>
                   </div>
                 </label>
 
                 {/* Option 2: Deduct advance */}
-                <label className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
+                <label className={`flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-2xl border-2 cursor-pointer transition ${
                   advanceOption === "deduct"
                     ? "bg-amber-50/90 border-amber-500 ring-2 ring-amber-300 shadow-xs"
                     : "bg-white border-gray-200 hover:bg-gray-50"
@@ -2474,10 +2530,10 @@ export default function AdminPanel() {
                     onChange={() => setAdvanceOption("deduct")}
                     className="mt-1 text-amber-600 cursor-pointer accent-amber-600"
                   />
-                  <div className="flex-1">
-                    <div className="font-extrabold text-amber-950 flex items-center justify-between">
-                      <span className="text-xs">🟡 Pehli Installment Advance Kaatein</span>
-                      <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-black">ADVANCE CUT</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-extrabold text-amber-950 flex items-center justify-between gap-1">
+                      <span className="text-xs">🟡 Advance Kaatein</span>
+                      <span className="text-[9px] sm:text-[10px] bg-amber-200 text-amber-900 px-1.5 sm:px-2 py-0.5 rounded-full font-black shrink-0 whitespace-nowrap">ADVANCE CUT</span>
                     </div>
                     <p className="text-[11px] text-gray-700 mt-1 font-medium">
                       Net Disburse: <strong className="text-amber-800 font-extrabold text-xs">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0) - (loanApproveModal.installmentAmount || loanApproveModal.emiAmount || 0)).toLocaleString("en-IN")}</strong>
@@ -2489,7 +2545,7 @@ export default function AdminPanel() {
                 </label>
 
                 {/* Option 3: Waive 1st installment */}
-                <label className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
+                <label className={`flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-2xl border-2 cursor-pointer transition ${
                   advanceOption === "waive"
                     ? "bg-purple-50/90 border-purple-500 ring-2 ring-purple-300 shadow-xs"
                     : "bg-white border-gray-200 hover:bg-gray-50"
@@ -2502,10 +2558,10 @@ export default function AdminPanel() {
                     onChange={() => setAdvanceOption("waive")}
                     className="mt-1 text-purple-600 cursor-pointer accent-purple-600"
                   />
-                  <div className="flex-1">
-                    <div className="font-extrabold text-purple-950 flex items-center justify-between">
-                      <span className="text-xs">🟣 Pehli Installment Waive / Maaf Karein</span>
-                      <span className="text-[10px] bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full font-black">WAIVER</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-extrabold text-purple-950 flex items-center justify-between gap-1">
+                      <span className="text-xs">🟣 Waive / Maaf Karein</span>
+                      <span className="text-[9px] sm:text-[10px] bg-purple-200 text-purple-900 px-1.5 sm:px-2 py-0.5 rounded-full font-black shrink-0 whitespace-nowrap">WAIVER</span>
                     </div>
                     <p className="text-[11px] text-gray-700 mt-1 font-medium">
                       Net Disburse: <strong className="text-purple-700 font-extrabold text-xs">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>

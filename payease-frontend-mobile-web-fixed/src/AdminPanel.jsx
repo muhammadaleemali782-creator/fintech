@@ -29,6 +29,7 @@ export default function AdminPanel() {
   const [previewKycUser, setPreviewKycUser] = useState(null);
   const [kycReviewRemarks, setKycReviewRemarks] = useState("");
   const [kycFilter, setKycFilter] = useState("all");
+  const [lightboxImg, setLightboxImg] = useState(null); // fullscreen doc viewer
 
   const showToast = (text, type = "success") => setToast({ text, type });
 
@@ -450,6 +451,29 @@ export default function AdminPanel() {
 
   return (
     <div className="bg-gray-50 min-h-[100dvh] lg:flex">
+      {/* FULLSCREEN LIGHTBOX — click doc image to zoom */}
+      {lightboxImg && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightboxImg(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white text-3xl font-bold bg-white/10 hover:bg-white/20 w-10 h-10 rounded-full flex items-center justify-center"
+            onClick={() => setLightboxImg(null)}
+          >✕</button>
+          {lightboxImg.startsWith("data:application/pdf") ? (
+            <iframe src={lightboxImg} title="Doc Preview" className="w-full max-w-3xl h-[85vh] rounded-xl" />
+          ) : (
+            <img
+              src={lightboxImg}
+              alt="Document Fullscreen"
+              className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            />
+          )}
+        </div>
+      )}
+
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-gray-900 to-gray-800 text-white sticky top-0 h-screen">
         <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
@@ -1630,6 +1654,18 @@ export default function AdminPanel() {
                   </span>
                 </div>
                 <div>
+                  <span className="text-gray-400 font-semibold block text-[10px]">NAAM (AADHAAR PE)</span>
+                  <span className="font-bold text-gray-900">
+                    {previewKycUser.kycDocuments?.aadhaarName || "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 font-semibold block text-[10px]">AADHAAR PHONE</span>
+                  <span className="font-mono font-bold text-gray-900">
+                    {previewKycUser.kycDocuments?.aadhaarPhone || "—"}
+                  </span>
+                </div>
+                <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">DOC 2 (FINANCIAL)</span>
                   <span className="font-bold text-indigo-700 uppercase">
                     {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "Bank Cheque" : "PAN Card"}
@@ -1645,10 +1681,10 @@ export default function AdminPanel() {
                       : (previewKycUser.kycDocuments?.panNumber || "—")}
                   </span>
                 </div>
-                <div className="col-span-2 sm:col-span-3">
-                  <span className="text-gray-400 font-semibold block text-[10px]">ADDRESS / RESIDENTIAL LOCATION</span>
+                <div className="col-span-2">
+                  <span className="text-gray-400 font-semibold block text-[10px]">AADHAAR ADDRESS</span>
                   <span className="font-semibold text-gray-800 text-xs">
-                    {previewKycUser.address || previewKycUser.kycDocuments?.address || "Not Provided"}
+                    {previewKycUser.kycDocuments?.address || previewKycUser.address || "Not Provided"}
                   </span>
                 </div>
                 <div>
@@ -1664,6 +1700,7 @@ export default function AdminPanel() {
                   </span>
                 </div>
               </div>
+
 
               {/* Google Drive Link if exists */}
               {previewKycUser.kycDocuments?.googleDriveLink && (
@@ -1692,20 +1729,22 @@ export default function AdminPanel() {
                     <span>🆔</span> Doc 1: Aadhaar Card Photo / PDF
                   </span>
                   {(previewKycUser.kycDocuments?.doc1Url || previewKycUser.kycDocuments?.docUrl) ? (
-                    <div className="bg-white rounded-xl p-1.5 border border-gray-200 flex items-center justify-center min-h-[200px] max-h-[260px] overflow-hidden">
+                    <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
                       {(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl).startsWith("data:application/pdf") ? (
                         <iframe
                           src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
                           title="Aadhaar PDF Preview"
-                          className="w-full h-[240px] rounded-lg border border-gray-200"
+                          className="w-full h-[200px] rounded-lg border border-gray-200"
                         />
                       ) : (
                         <img
                           src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
                           alt="Aadhaar Preview"
-                          className="max-h-[240px] max-w-full object-contain rounded-lg shadow-2xs"
+                          className="max-h-[200px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
+                          onClick={() => setLightboxImg(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl)}
                         />
                       )}
+                      <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Click to zoom</div>
                     </div>
                   ) : (
                     <div className="p-8 text-center text-xs text-gray-400">No Aadhaar document file</div>
@@ -1718,25 +1757,28 @@ export default function AdminPanel() {
                     <span>💳</span> Doc 2: {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "Bank Cheque" : "PAN Card"}
                   </span>
                   {previewKycUser.kycDocuments?.doc2Url ? (
-                    <div className="bg-white rounded-xl p-1.5 border border-gray-200 flex items-center justify-center min-h-[200px] max-h-[260px] overflow-hidden">
+                    <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
                       {previewKycUser.kycDocuments.doc2Url.startsWith("data:application/pdf") ? (
                         <iframe
                           src={previewKycUser.kycDocuments.doc2Url}
                           title="Doc 2 PDF Preview"
-                          className="w-full h-[240px] rounded-lg border border-gray-200"
+                          className="w-full h-[200px] rounded-lg border border-gray-200"
                         />
                       ) : (
                         <img
                           src={previewKycUser.kycDocuments.doc2Url}
                           alt="Doc 2 Preview"
-                          className="max-h-[240px] max-w-full object-contain rounded-lg shadow-2xs"
+                          className="max-h-[200px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
+                          onClick={() => setLightboxImg(previewKycUser.kycDocuments.doc2Url)}
                         />
                       )}
+                      <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Click to zoom</div>
                     </div>
                   ) : (
                     <div className="p-8 text-center text-xs text-gray-400">No Doc 2 file uploaded</div>
                   )}
                 </div>
+
               </div>
 
               {/* Admin Review Remarks Input Box */}

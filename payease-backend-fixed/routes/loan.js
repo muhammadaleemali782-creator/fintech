@@ -601,4 +601,235 @@ router.get('/all', protect, admin, async (req, res) => {
   }
 });
 
+// User submits installment payment proof (UTR + Screenshot)
+router.post('/:id/submit-installment', protect, async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id))
+      return res.status(400).json({ message: 'Invalid loan ID' });
+
+    const { utrNumber, proofUrl, installmentNo } = req.body;
+    if (!utrNumber || String(utrNumber).trim().length < 6) {
+      return res.status(400).json({ message: 'Valid UTR / Transaction Reference number zaroori hai (min 6 characters).' });
+    }
+    if (!proofUrl) {
+      return res.status(400).json({ message: 'Payment screenshot / receipt upload zaroori hai.' });
+    }
+
+    const loan = await Loan.findOne({ _id: req.params.id, userId: req.user._id, status: 'active' });
+    if (!loan) return res.status(404).json({ message: 'Active loan nahi mila' });
+
+    const list = loan.installmentSchedule.length > 0 ? loan.installmentSchedule : loan.emiSchedule;
+    let target = installmentNo
+      ? list.find(x => x.installmentNo === Number(installmentNo) && x.status !== 'paid')
+      : list.find(x => x.status === 'pending' || x.status === 'overdue');
+
+    if (!target) return res.status(400).json({ message: 'Koi pending installment nahi mili jise pay kiya ja sake.' });
+
+    target.status = 'submitted';
+    target.utrNumber = String(utrNumber).trim();
+    target.proofUrl = proofUrl;
+    target.submittedAt = new Date();
+    target.paymentMethod = 'upi_qr';
+
+    loan.markModified('installmentSchedule');
+    loan.markModified('emiSchedule');
+    await loan.save();
+
+    // Silently upload proof to User's Google Drive folder if configured
+    try {
+      const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+      if (adminDriveSetting && adminDriveSetting.value) {
+        fetch(adminDriveSetting.value, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'loan_installment_proof',
+            userId: req.user._id,
+            userName: req.user.name,
+            loanAccount: loan.accountNumber,
+            installmentNo: target.installmentNo,
+            amount: target.amount,
+            utrNumber: target.utrNumber,
+            proofUrl: proofUrl,
+            submittedAt: new Date()
+          })
+        }).catch(() => {});
+      }
+    } catch (_) {}
+
+    res.json({
+      success: true,
+      message: `Installment #${target.installmentNo} (₹${target.amount}) ka UTR verify ke liye submit ho gaya hai! Admin approval ke baad status update hoga.`,
+      loan
+    });
+  } catch (err) {
+    console.error('Submit installment error:', err);
+    res.status(500).json({ message: 'Failed to submit installment proof' });
+  }
+});
+
+// Admin approves user's submitted installment payment
+router.post('/admin/:loanId/installment/:installmentNo/approve', protect, admin, async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    let updatedLoan;
+    await session.withTransaction(async () => {
+      const loan = await Loan.findById(req.params.loanId).session(session);
+      if (!loan) throw Object.assign(new Error('Loan not found'), { status: 404 });
+
+      const list = loan.installmentSchedule.length > 0 ? loan.installmentSchedule : loan.emiSchedule;
+      const target = list.find(x => x.installmentNo === Number(req.params.installmentNo));
+      if (!target) throw Object.assign(new Error('Installment not found'), { status: 404 });
+      if (target.status === 'paid') throw Object.assign(new Error('Installment already marked as paid'), { status: 400 });
+
+      target.status = 'paid';
+      target.paidOn = new Date();
+      target.approvedBy = req.user.email;
+
+      loan.paidAmount = (loan.paidAmount || 0) + target.amount;
+      loan.remainingAmount = Math.max(0, (loan.remainingAmount || loan.totalPayable) - target.amount);
+
+      if (loan.remainingAmount <= 0 || loan.paidAmount >= loan.totalPayable) {
+        loan.status = 'closed';
+      }
+
+      loan.markModified('installmentSchedule');
+      loan.markModified('emiSchedule');
+      await loan.save({ session });
+
+      // Reduce user duesBalance
+      await User.findByIdAndUpdate(
+        loan.userId,
+        { $inc: { duesBalance: -target.amount } },
+        { session }
+      );
+
+      await Transaction.create([{
+        userId: loan.userId,
+        type: 'loan_installment',
+        amount: target.amount,
+        method: target.paymentMethod || 'upi_qr',
+        status: 'completed',
+        referenceId: `${loan._id}_inst_${target.installmentNo}`,
+        remarks: `Installment #${target.installmentNo} approved by Admin (UTR: ${target.utrNumber || 'N/A'})`
+      }], { session });
+
+      updatedLoan = loan;
+    });
+
+    res.json({
+      success: true,
+      message: `Installment #${req.params.installmentNo} approve ho gayi aur loan balance update ho gaya!`,
+      loan: updatedLoan
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message || 'Approval failed' });
+  } finally {
+    session.endSession();
+  }
+});
+
+// Admin marks an installment as paid directly with evidence/note
+router.post('/admin/:loanId/installment/:installmentNo/admin-pay', protect, admin, async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    const { evidenceNote, utrNumber, proofUrl } = req.body;
+    let updatedLoan;
+    await session.withTransaction(async () => {
+      const loan = await Loan.findById(req.params.loanId).session(session);
+      if (!loan) throw Object.assign(new Error('Loan not found'), { status: 404 });
+
+      const list = loan.installmentSchedule.length > 0 ? loan.installmentSchedule : loan.emiSchedule;
+      const target = list.find(x => x.installmentNo === Number(req.params.installmentNo));
+      if (!target) throw Object.assign(new Error('Installment not found'), { status: 404 });
+      if (target.status === 'paid') throw Object.assign(new Error('Installment already paid'), { status: 400 });
+
+      target.status = 'paid';
+      target.paidOn = new Date();
+      target.paymentMethod = 'admin_override';
+      target.adminEvidenceNote = evidenceNote || 'Paid via Admin offline verification';
+      target.utrNumber = utrNumber || target.utrNumber || 'OFFLINE_VERIFIED';
+      if (proofUrl) target.proofUrl = proofUrl;
+      target.approvedBy = req.user.email;
+
+      loan.paidAmount = (loan.paidAmount || 0) + target.amount;
+      loan.remainingAmount = Math.max(0, (loan.remainingAmount || loan.totalPayable) - target.amount);
+
+      if (loan.remainingAmount <= 0 || loan.paidAmount >= loan.totalPayable) {
+        loan.status = 'closed';
+      }
+
+      loan.markModified('installmentSchedule');
+      loan.markModified('emiSchedule');
+      await loan.save({ session });
+
+      await User.findByIdAndUpdate(
+        loan.userId,
+        { $inc: { duesBalance: -target.amount } },
+        { session }
+      );
+
+      await Transaction.create([{
+        userId: loan.userId,
+        type: 'loan_installment',
+        amount: target.amount,
+        method: 'admin_override',
+        status: 'completed',
+        referenceId: `${loan._id}_admin_inst_${target.installmentNo}`,
+        remarks: `Installment #${target.installmentNo} marked paid by Admin. Note: ${target.adminEvidenceNote}`
+      }], { session });
+
+      updatedLoan = loan;
+    });
+
+    res.json({
+      success: true,
+      message: `Installment #${req.params.installmentNo} successfully marked as PAID with evidence!`,
+      loan: updatedLoan
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message || 'Payment failed' });
+  } finally {
+    session.endSession();
+  }
+});
+
+// Get detailed active loan with 5-day upcoming due calculation & installment history
+router.get('/active-details', protect, async (req, res) => {
+  try {
+    const loan = await Loan.findOne({ userId: req.user._id, status: 'active' }).sort({ createdAt: -1 });
+    if (!loan) return res.json({ hasActiveLoan: false, duesBalance: req.user.duesBalance || 0 });
+
+    const list = loan.installmentSchedule.length > 0 ? loan.installmentSchedule : loan.emiSchedule;
+    const nextPending = list.find(x => x.status === 'pending' || x.status === 'submitted' || x.status === 'overdue');
+
+    let isUpcomingSoon = false;
+    let daysUntilDue = null;
+    if (nextPending && nextPending.dueDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const due = new Date(nextPending.dueDate);
+      due.setHours(0, 0, 0, 0);
+      const diffTime = due.getTime() - today.getTime();
+      daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      // Alert if due within 5 days or already overdue
+      if (daysUntilDue <= 5) {
+        isUpcomingSoon = true;
+      }
+    }
+
+    res.json({
+      hasActiveLoan: true,
+      loan,
+      nextInstallment: nextPending,
+      isUpcomingSoon,
+      daysUntilDue,
+      installments: list,
+      duesBalance: req.user.duesBalance || loan.remainingAmount || 0
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch active loan details' });
+  }
+});
+
 module.exports = router;

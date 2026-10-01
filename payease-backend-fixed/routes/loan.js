@@ -229,15 +229,153 @@ router.post('/apply', protect, async (req, res) => {
       }
     }
 
-    // Save/Sync documents to borrower profile KYC record if provided
-    if (documents?.doc1Url || documents?.doc2Url || documents?.doc1BackUrl || documents?.doc2BackUrl) {
-      if (!userDoc.kycDocuments) userDoc.kycDocuments = {};
-      if (documents.doc1Url && !userDoc.kycDocuments.doc1Url) userDoc.kycDocuments.doc1Url = documents.doc1Url;
-      if (documents.doc1BackUrl && !userDoc.kycDocuments.doc1BackUrl) userDoc.kycDocuments.doc1BackUrl = documents.doc1BackUrl;
-      if (documents.doc2Url && !userDoc.kycDocuments.doc2Url) userDoc.kycDocuments.doc2Url = documents.doc2Url;
-      if (documents.doc2BackUrl && !userDoc.kycDocuments.doc2BackUrl) userDoc.kycDocuments.doc2BackUrl = documents.doc2BackUrl;
-      await userDoc.save();
+    // ─────────────────────────────────────────────────────────────
+    // STRICT MANDATORY REQUIREMENTS FOR ALL LOANS
+    // Aadhaar (Front/Back), PAN (Front/Back), Barrier Cheque (Front/Back),
+    // Bank Details, UPI ID, Nominee Details, Email & Phone
+    // ─────────────────────────────────────────────────────────────
+    const docs = documents || {};
+    const aadharNumber = (docs.aadharNumber || userDoc.aadharNumber || '').toString().trim();
+    const aadharFront = docs.aadharUrl || docs.doc1Url || userDoc.kycDocuments?.doc1Url;
+    const aadharBack = docs.aadharBackUrl || docs.doc1BackUrl || userDoc.kycDocuments?.doc1BackUrl;
+
+    const panNumber = (docs.panNumber || userDoc.kycDocuments?.panNumber || '').toString().trim().toUpperCase();
+    const panFront = docs.panUrl || docs.doc2Url || userDoc.kycDocuments?.doc2Url;
+    const panBack = docs.panBackUrl || docs.doc2BackUrl || userDoc.kycDocuments?.doc2BackUrl;
+
+    const chequeNum = (docs.chequeNumber || chequeNumber || '').toString().trim();
+    const chequeFront = docs.chequeUrl || docs.chequeFrontUrl;
+    const chequeBack = docs.chequeBackUrl;
+
+    const bankName = (docs.bankName || '').toString().trim();
+    const bankAccount = (docs.bankAccountNumber || '').toString().trim();
+    const bankIfsc = (docs.bankIfsc || '').toString().trim().toUpperCase();
+
+    const upiId = (docs.upiId || '').toString().trim();
+
+    const nomineeName = (docs.nomineeName || '').toString().trim();
+    const nomineeRelation = (docs.nomineeRelation || '').toString().trim();
+    const nomineePhone = (docs.nomineePhone || '').toString().trim();
+
+    const applicantEmail = (docs.applicantEmail || docs.email || userDoc.email || '').toString().trim();
+    const applicantPhone = (docs.applicantPhone || docs.phone || userDoc.phone || '').toString().trim();
+
+    // 1. AADHAAR VALIDATION (Compulsory)
+    if (!aadharNumber || aadharNumber.replace(/\D/g, '').length !== 12) {
+      return res.status(400).json({ message: '12-digit Aadhaar Card number darj karna anivarya (mandatory) hai.' });
     }
+    if (!aadharFront) {
+      return res.status(400).json({ message: 'Aadhaar Card Front photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+    if (!aadharBack) {
+      return res.status(400).json({ message: 'Aadhaar Card Back photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+
+    // 2. PAN VALIDATION (Compulsory)
+    if (!panNumber || panNumber.length !== 10) {
+      return res.status(400).json({ message: 'Valid 10-character PAN Card number darj karna anivarya (mandatory) hai.' });
+    }
+    if (!panFront) {
+      return res.status(400).json({ message: 'PAN Card Front photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+    if (!panBack) {
+      return res.status(400).json({ message: 'PAN Card Back photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+
+    // 3. BARRIER CHEQUE VALIDATION (Compulsory)
+    if (!chequeNum) {
+      return res.status(400).json({ message: 'Barrier Cheque number darj karna anivarya (mandatory) hai.' });
+    }
+    if (!chequeFront) {
+      return res.status(400).json({ message: 'Barrier Cheque Front photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+    if (!chequeBack) {
+      return res.status(400).json({ message: 'Barrier Cheque Back photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+
+    // 4. BANKING DETAILS VALIDATION (Compulsory)
+    if (!bankName) {
+      return res.status(400).json({ message: 'Bank ka naam (Bank Name) darj karna anivarya (mandatory) hai.' });
+    }
+    if (!bankAccount || bankAccount.length < 8) {
+      return res.status(400).json({ message: 'Valid Bank Account Number darj karna anivarya (mandatory) hai.' });
+    }
+    if (!bankIfsc || bankIfsc.length < 9) {
+      return res.status(400).json({ message: 'Valid Bank IFSC Code darj karna anivarya (mandatory) hai.' });
+    }
+
+    // 5. UPI DETAILS VALIDATION (Compulsory)
+    if (!upiId || !upiId.includes('@')) {
+      return res.status(400).json({ message: 'Valid UPI ID (jaise mobile@upi ya name@bank) darj karna anivarya (mandatory) hai.' });
+    }
+
+    // 6. NOMINEE DETAILS VALIDATION (Compulsory)
+    if (!nomineeName) {
+      return res.status(400).json({ message: 'Nominee ka pura naam darj karna anivarya (mandatory) hai.' });
+    }
+    if (!nomineeRelation) {
+      return res.status(400).json({ message: 'Nominee ke sath rishta (Relation) chunna anivarya (mandatory) hai.' });
+    }
+    if (!nomineePhone || nomineePhone.replace(/\D/g, '').length < 10) {
+      return res.status(400).json({ message: 'Nominee ka 10-digit mobile number darj karna anivarya (mandatory) hai.' });
+    }
+
+    // 7. APPLICANT CONTACT VALIDATION (Compulsory)
+    if (!applicantEmail || !applicantEmail.includes('@')) {
+      return res.status(400).json({ message: 'Valid E-mail address darj karna anivarya (mandatory) hai.' });
+    }
+    if (!applicantPhone || applicantPhone.replace(/\D/g, '').length < 10) {
+      return res.status(400).json({ message: 'Valid phone number darj karna anivarya (mandatory) hai.' });
+    }
+
+    // Consolidated documents payload
+    const loanDocumentsPayload = {
+      aadharNumber,
+      aadharUrl: aadharFront,
+      aadharBackUrl: aadharBack,
+      doc1Url: aadharFront,
+      doc1BackUrl: aadharBack,
+      panNumber,
+      panUrl: panFront,
+      panBackUrl: panBack,
+      doc2Url: panFront,
+      doc2BackUrl: panBack,
+      chequeNumber: chequeNum,
+      chequeUrl: chequeFront,
+      chequeBackUrl: chequeBack,
+      bankName,
+      bankAccountNumber: bankAccount,
+      bankIfsc,
+      upiId,
+      nomineeName,
+      nomineeRelation,
+      nomineePhone,
+      applicantEmail,
+      applicantPhone,
+      businessName: docs.businessName || '',
+      studentProofUrl: docs.studentProofUrl || '',
+      studentProofBackUrl: docs.studentProofBackUrl || ''
+    };
+
+    const nomineePayload = {
+      name: nomineeName,
+      relation: nomineeRelation,
+      phone: nomineePhone
+    };
+
+    // Save/Sync documents to borrower profile KYC record
+    if (!userDoc.kycDocuments) userDoc.kycDocuments = {};
+    userDoc.aadharNumber = aadharNumber;
+    userDoc.kycDocuments.aadharNumber = aadharNumber;
+    userDoc.kycDocuments.doc1Url = aadharFront;
+    userDoc.kycDocuments.doc1BackUrl = aadharBack;
+    userDoc.kycDocuments.panNumber = panNumber;
+    userDoc.kycDocuments.doc2Url = panFront;
+    userDoc.kycDocuments.doc2BackUrl = panBack;
+    userDoc.kycDocuments.chequeNumber = chequeNum;
+    await userDoc.save();
+
+    let createdLoan = null;
 
     if (loanType === 'micro_business') {
       // Micro Business Loan (Daily Collection)
@@ -257,7 +395,7 @@ router.post('/apply', protect, async (req, res) => {
         status: 'pending'
       }));
 
-      const loan = await Loan.create({
+      createdLoan = await Loan.create({
         userId: req.user._id,
         accountNumber,
         loanType: 'micro_business',
@@ -275,21 +413,15 @@ router.post('/apply', protect, async (req, res) => {
         disbursalAmount: quote.disbursalAmount,
         totalPayable: quote.totalPayable,
         remainingAmount: quote.totalPayable,
-        hasChequeFacility: !!hasChequeFacility,
-        chequeNumber: chequeNumber || '',
+        hasChequeFacility: true,
+        chequeNumber: chequeNum,
+        nominee: nomineePayload,
+        documents: loanDocumentsPayload,
         installmentSchedule: schedule,
         emiSchedule: schedule,
-        documents: { ...(documents || {}), chequeNumber },
         purpose: purpose || 'Micro Business Working Capital'
       });
-
-      return res.json({
-        message: `Micro Business Loan (${numDays} Days @ ${quote.interestRate}%) application submitted!`,
-        loan
-      });
-    }
-
-    if (loanType === 'student') {
+    } else if (loanType === 'student') {
       // Student Loan (Subsidized: 8% p.a., 10-day cycles)
       const count = Number(installmentsCount) || 15;
       const quote = calculateStudentLoanQuote(numAmount, count);
@@ -303,7 +435,7 @@ router.post('/apply', protect, async (req, res) => {
         status: 'pending'
       }));
 
-      const loan = await Loan.create({
+      createdLoan = await Loan.create({
         userId: req.user._id,
         accountNumber,
         loanType: 'student',
@@ -322,67 +454,117 @@ router.post('/apply', protect, async (req, res) => {
         disbursalAmount: quote.disbursalAmount,
         totalPayable: quote.totalPayable,
         remainingAmount: quote.totalPayable,
-        hasChequeFacility: !!hasChequeFacility,
-        chequeNumber: chequeNumber || '',
+        hasChequeFacility: true,
+        chequeNumber: chequeNum,
+        nominee: nomineePayload,
+        documents: loanDocumentsPayload,
         installmentSchedule: schedule,
         emiSchedule: schedule,
-        documents: { ...(documents || {}), chequeNumber },
         purpose: purpose || 'Student Fee / College Loan'
       });
+    } else {
+      // Personal Loan Engine
+      const count = Number(installmentsCount);
+      if (!count || count < 15 || count > 30) {
+        return res.status(400).json({ message: 'Easy Installments minimum 15 aur maximum 30 honi chahiye (10-din cycle).' });
+      }
 
-      return res.json({
-        message: 'Student Loan application submitted successfully!',
-        loan
+      const quote = calculatePersonalLoanQuote(numAmount, count);
+      const accountNumber = await generateLoanAccountNumber('personal');
+      const collectionDates = getCollectionDates(new Date(), count);
+      const schedule = collectionDates.map((dueDate, idx) => ({
+        installmentNo: idx + 1,
+        month: idx + 1,
+        dueDate,
+        amount: quote.installmentAmount,
+        status: 'pending'
+      }));
+
+      createdLoan = await Loan.create({
+        userId: req.user._id,
+        accountNumber,
+        loanType: 'personal',
+        collectionFrequency: '10_days',
+        amount: quote.amount,
+        interestRate: quote.interestRatePerInstallment,
+        interestRatePerInstallment: quote.interestRatePerInstallment,
+        cycleDays: 10,
+        installmentsCount: quote.installmentsCount,
+        tenure: quote.installmentsCount,
+        installmentAmount: quote.installmentAmount,
+        emiAmount: quote.installmentAmount,
+        processingFee: quote.processingFee,
+        upiCharges: quote.upiCharges,
+        advanceDeduction: quote.advanceDeduction,
+        disbursalAmount: quote.disbursalAmount,
+        totalPayable: quote.totalPayable,
+        remainingAmount: quote.totalPayable,
+        hasChequeFacility: true,
+        chequeNumber: chequeNum,
+        nominee: nomineePayload,
+        documents: loanDocumentsPayload,
+        installmentSchedule: schedule,
+        emiSchedule: schedule,
+        purpose: purpose || 'Personal Loan'
       });
     }
 
-    // Personal Loan Engine
-    const count = Number(installmentsCount);
-    if (!count || count < 15 || count > 30) {
-      return res.status(400).json({ message: 'Easy Installments minimum 15 aur maximum 30 honi chahiye (10-din cycle).' });
+    // ─────────────────────────────────────────────────────────────
+    // BACKGROUND GOOGLE DRIVE SYNC (Saves complete loan bundle to Drive)
+    // ─────────────────────────────────────────────────────────────
+    try {
+      const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+      const adminDriveUrl = adminDriveSetting?.value;
+      if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
+        fetch(adminDriveUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'upload_loan_application',
+            loanAccount: createdLoan.accountNumber,
+            loanType: createdLoan.loanType,
+            userId: userDoc._id.toString(),
+            userName: userDoc.name,
+            email: applicantEmail,
+            phone: applicantPhone,
+            amount: createdLoan.amount,
+            aadharNumber,
+            doc1Url: aadharFront,
+            doc1BackUrl: aadharBack,
+            panNumber,
+            doc2Url: panFront,
+            doc2BackUrl: panBack,
+            chequeNumber: chequeNum,
+            chequeUrl: chequeFront,
+            chequeBackUrl: chequeBack,
+            bankName,
+            bankAccountNumber: bankAccount,
+            bankIfsc,
+            upiId,
+            nomineeName,
+            nomineeRelation,
+            nomineePhone,
+            submittedAt: new Date().toISOString()
+          })
+        })
+        .then(res => res.json())
+        .then(async (driveData) => {
+          if (driveData && (driveData.fileUrl || driveData.folderUrl)) {
+            const directLink = driveData.fileUrl || driveData.folderUrl;
+            await Loan.findByIdAndUpdate(createdLoan._id, {
+              'documents.googleDriveLink': directLink
+            });
+          }
+        })
+        .catch(e => console.warn('Drive loan webhook sync warning:', e.message));
+      }
+    } catch (driveErr) {
+      console.warn('Drive sync initiation failed:', driveErr.message);
     }
 
-    const quote = calculatePersonalLoanQuote(numAmount, count);
-    const accountNumber = await generateLoanAccountNumber('personal');
-    const collectionDates = getCollectionDates(new Date(), count);
-    const schedule = collectionDates.map((dueDate, idx) => ({
-      installmentNo: idx + 1,
-      month: idx + 1,
-      dueDate,
-      amount: quote.installmentAmount,
-      status: 'pending'
-    }));
-
-    const loan = await Loan.create({
-      userId: req.user._id,
-      accountNumber,
-      loanType: 'personal',
-      collectionFrequency: '10_days',
-      amount: quote.amount,
-      interestRate: quote.interestRatePerInstallment,
-      interestRatePerInstallment: quote.interestRatePerInstallment,
-      cycleDays: 10,
-      installmentsCount: quote.installmentsCount,
-      tenure: quote.installmentsCount,
-      installmentAmount: quote.installmentAmount,
-      emiAmount: quote.installmentAmount,
-      processingFee: quote.processingFee,
-      upiCharges: quote.upiCharges,
-      advanceDeduction: quote.advanceDeduction,
-      disbursalAmount: quote.disbursalAmount,
-      totalPayable: quote.totalPayable,
-      remainingAmount: quote.totalPayable,
-      hasChequeFacility: !!hasChequeFacility,
-      chequeNumber: chequeNumber || '',
-      installmentSchedule: schedule,
-      emiSchedule: schedule,
-      documents: { ...(documents || {}), chequeNumber },
-      purpose: purpose || 'Personal Loan'
-    });
-
     res.json({
-      message: 'Personal Loan application submitted successfully!',
-      loan
+      message: `${createdLoan.loanType === 'micro_business' ? 'Micro Business' : createdLoan.loanType === 'student' ? 'Student' : 'Personal'} Loan application submitted successfully! Sabhi documents aur details verify hone ke baad sanction hogi.`,
+      loan: createdLoan
     });
   } catch (err) {
     console.error('Loan apply error:', err);

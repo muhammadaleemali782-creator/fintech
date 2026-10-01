@@ -356,19 +356,31 @@ export default function Dashboard() {
   // Personal Loan Application State (₹5k-₹50k, 15-30 Easy Installments, 1.34% per installment)
   const [loanForm, setLoanForm] = useState({
     amount: 5000,
-    hasChequeFacility: false,
+    hasChequeFacility: true,
     chequeNumber: "",
+    chequeUrl: "",
+    chequeBackUrl: "",
     installmentsCount: 15,
     purpose: "Personal Needs",
     aadharNumber: "",
+    aadharUrl: "",
+    aadharBackUrl: "",
+    doc1Url: "",
+    doc1BackUrl: "",
     panNumber: "",
+    panUrl: "",
+    panBackUrl: "",
+    doc2Url: "",
+    doc2BackUrl: "",
+    bankName: "",
     bankAccountNumber: "",
     bankIfsc: "",
     upiId: "",
-    doc1Url: "",
-    doc1BackUrl: "",
-    doc2Url: "",
-    doc2BackUrl: ""
+    nomineeName: "",
+    nomineeRelation: "Father",
+    nomineePhone: "",
+    email: "",
+    phone: ""
   });
 
   // Micro Business Loan State (Daily collection: 60d@18%, 80d@24%, 100d@30%, 120d@36%)
@@ -377,16 +389,29 @@ export default function Dashboard() {
     days: 60,
     purpose: "Shop Inventory & Working Capital",
     businessName: "",
-    hasChequeFacility: false,
+    hasChequeFacility: true,
     chequeNumber: "",
+    chequeUrl: "",
+    chequeBackUrl: "",
     aadharNumber: "",
-    panNumber: "",
-    bankAccountNumber: "",
-    bankIfsc: "",
+    aadharUrl: "",
+    aadharBackUrl: "",
     doc1Url: "",
     doc1BackUrl: "",
+    panNumber: "",
+    panUrl: "",
+    panBackUrl: "",
     doc2Url: "",
-    doc2BackUrl: ""
+    doc2BackUrl: "",
+    bankName: "",
+    bankAccountNumber: "",
+    bankIfsc: "",
+    upiId: "",
+    nomineeName: "",
+    nomineeRelation: "Father",
+    nomineePhone: "",
+    email: "",
+    phone: ""
   });
 
   // Student Loan Application State (Subsidized: 8% p.a., 15-30 Easy Installments)
@@ -395,18 +420,31 @@ export default function Dashboard() {
     installmentsCount: 15,
     instituteName: "",
     purpose: "School & College Fee",
-    hasChequeFacility: false,
+    hasChequeFacility: true,
     chequeNumber: "",
+    chequeUrl: "",
+    chequeBackUrl: "",
     aadharNumber: "",
-    panNumber: "",
-    bankAccountNumber: "",
-    bankIfsc: "",
+    aadharUrl: "",
+    aadharBackUrl: "",
     doc1Url: "",
     doc1BackUrl: "",
+    panNumber: "",
+    panUrl: "",
+    panBackUrl: "",
     doc2Url: "",
     doc2BackUrl: "",
     studentProofUrl: "",
-    studentProofBackUrl: ""
+    studentProofBackUrl: "",
+    bankName: "",
+    bankAccountNumber: "",
+    bankIfsc: "",
+    upiId: "",
+    nomineeName: "",
+    nomineeRelation: "Father",
+    nomineePhone: "",
+    email: "",
+    phone: ""
   });
 
   // Lending Bond Selection (40 or 80 months)
@@ -1444,14 +1482,224 @@ export default function Dashboard() {
     }
   };
 
+  // Helper to render dual camera/gallery document picker box
+  const renderDocUploadBox = (title, frontUrl, backUrl, setter, frontField, backField, accentColor = "emerald") => {
+    const isEmerald = accentColor === "emerald";
+    const isAmber = accentColor === "amber";
+    const bgAccent = isEmerald
+      ? "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200"
+      : isAmber
+      ? "bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200"
+      : "bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border-cyan-200";
+
+    return (
+      <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
+            <span>{title}</span>
+            <span className="text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+              अनिवार्य (Mandatory)
+            </span>
+          </div>
+          {frontUrl && backUrl ? (
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              ✓ Ready
+            </span>
+          ) : (
+            <span className="text-[10px] font-semibold text-gray-400">Front & Back Needed</span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {/* Front Side */}
+          <div className="p-2 bg-white rounded-xl border border-gray-200 space-y-1.5 shadow-2xs">
+            <div className="text-[10px] font-bold text-gray-600 flex items-center justify-between">
+              <span>Front Side</span>
+              {frontUrl ? <span className="text-emerald-600 font-black text-[10px]">✓ Done</span> : <span className="text-rose-500 font-bold text-[9px]">Required</span>}
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              <label className={`cursor-pointer py-1 px-1 rounded-lg text-[10px] font-bold text-center flex items-center justify-center gap-0.5 border active:scale-95 transition ${bgAccent}`}>
+                <span>📷 Cam</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={e => handleLoanDocFile(e.target.files?.[0], setter, frontField)}
+                />
+              </label>
+              <label className="cursor-pointer py-1 px-1 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-[10px] font-bold text-center flex items-center justify-center gap-0.5 border border-gray-200 active:scale-95 transition">
+                <span>📁 Upload</span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={e => handleLoanDocFile(e.target.files?.[0], setter, frontField)}
+                />
+              </label>
+            </div>
+            {frontUrl && (
+              <button
+                type="button"
+                onClick={() => { setLightboxImg(frontUrl); setZoomLevel(1); }}
+                className="w-full py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[10px] font-bold text-center flex items-center justify-center gap-1 transition"
+              >
+                🔍 View Front
+              </button>
+            )}
+          </div>
+
+          {/* Back Side */}
+          <div className="p-2 bg-white rounded-xl border border-gray-200 space-y-1.5 shadow-2xs">
+            <div className="text-[10px] font-bold text-gray-600 flex items-center justify-between">
+              <span>Back Side</span>
+              {backUrl ? <span className="text-emerald-600 font-black text-[10px]">✓ Done</span> : <span className="text-rose-500 font-bold text-[9px]">Required</span>}
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              <label className={`cursor-pointer py-1 px-1 rounded-lg text-[10px] font-bold text-center flex items-center justify-center gap-0.5 border active:scale-95 transition ${bgAccent}`}>
+                <span>📷 Cam</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={e => handleLoanDocFile(e.target.files?.[0], setter, backField)}
+                />
+              </label>
+              <label className="cursor-pointer py-1 px-1 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-[10px] font-bold text-center flex items-center justify-center gap-0.5 border border-gray-200 active:scale-95 transition">
+                <span>📁 Upload</span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={e => handleLoanDocFile(e.target.files?.[0], setter, backField)}
+                />
+              </label>
+            </div>
+            {backUrl && (
+              <button
+                type="button"
+                onClick={() => { setLightboxImg(backUrl); setZoomLevel(1); }}
+                className="w-full py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[10px] font-bold text-center flex items-center justify-center gap-1 transition"
+              >
+                🔍 View Back
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Helper to validate all mandatory requirements before loan submission
+  const validateLoanInputs = (form, isStudent = false, isBusiness = false) => {
+    const aadhar = (form.aadharNumber || userProfile?.aadharNumber || "").toString().trim();
+    if (!aadhar || aadhar.replace(/\D/g, "").length !== 12) {
+      showToast("12-digit Aadhaar Card number darj karna anivarya hai", "error");
+      return false;
+    }
+    const aadharFront = form.doc1Url || form.aadharUrl || userProfile?.kycDocuments?.doc1Url;
+    const aadharBack = form.doc1BackUrl || form.aadharBackUrl || userProfile?.kycDocuments?.doc1BackUrl;
+    if (!aadharFront) {
+      showToast("Aadhaar Card Front photo capture ya upload karein", "error");
+      return false;
+    }
+    if (!aadharBack) {
+      showToast("Aadhaar Card Back photo capture ya upload karein", "error");
+      return false;
+    }
+
+    const pan = (form.panNumber || userProfile?.kycDocuments?.panNumber || "").toString().trim();
+    if (!pan || pan.length !== 10) {
+      showToast("Valid 10-character PAN Card number darj karna anivarya hai", "error");
+      return false;
+    }
+    const panFront = form.doc2Url || form.panUrl || userProfile?.kycDocuments?.doc2Url;
+    const panBack = form.doc2BackUrl || form.panBackUrl || userProfile?.kycDocuments?.doc2BackUrl;
+    if (!panFront) {
+      showToast("PAN Card Front photo capture ya upload karein", "error");
+      return false;
+    }
+    if (!panBack) {
+      showToast("PAN Card Back photo capture ya upload karein", "error");
+      return false;
+    }
+
+    if (!form.chequeNumber?.trim()) {
+      showToast("Barrier Cheque number darj karna anivarya hai", "error");
+      return false;
+    }
+    if (!form.chequeUrl) {
+      showToast("Barrier Cheque Front photo capture ya upload karein", "error");
+      return false;
+    }
+    if (!form.chequeBackUrl) {
+      showToast("Barrier Cheque Back photo capture ya upload karein", "error");
+      return false;
+    }
+
+    if (!form.bankName?.trim()) {
+      showToast("Bank ka naam (Bank Name) darj karein", "error");
+      return false;
+    }
+    if (!form.bankAccountNumber?.trim() || form.bankAccountNumber.trim().length < 8) {
+      showToast("Valid Bank Account Number darj karein", "error");
+      return false;
+    }
+    if (!form.bankIfsc?.trim() || form.bankIfsc.trim().length < 9) {
+      showToast("Valid Bank IFSC Code darj karein", "error");
+      return false;
+    }
+    if (!form.upiId?.trim() || !form.upiId.includes("@")) {
+      showToast("Valid UPI ID (jaise name@upi ya mobile@bank) darj karein", "error");
+      return false;
+    }
+
+    if (!form.nomineeName?.trim()) {
+      showToast("Nominee ka pura naam darj karein", "error");
+      return false;
+    }
+    if (!form.nomineeRelation?.trim()) {
+      showToast("Nominee ke sath rishta select karein", "error");
+      return false;
+    }
+    if (!form.nomineePhone?.trim() || form.nomineePhone.replace(/\D/g, "").length < 10) {
+      showToast("Nominee ka 10-digit mobile number darj karein", "error");
+      return false;
+    }
+
+    const email = (form.email || userProfile?.email || "").trim();
+    if (!email || !email.includes("@")) {
+      showToast("Valid E-mail address darj karein", "error");
+      return false;
+    }
+    const phone = (form.phone || userProfile?.phone || "").trim();
+    if (!phone || phone.replace(/\D/g, "").length < 10) {
+      showToast("Valid mobile number darj karein", "error");
+      return false;
+    }
+
+    if (isBusiness && !form.businessName?.trim()) {
+      showToast("Business / Dukan ka naam darj karein", "error");
+      return false;
+    }
+    if (isStudent) {
+      if (!form.instituteName?.trim()) {
+        showToast("School / College / Institute ka naam darj karein", "error");
+        return false;
+      }
+      if (!form.studentProofUrl) {
+        showToast("Student ID / Fee Slip Front photo upload karein", "error");
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   // Submit Personal Loan Application
   const submitPersonalLoan = async () => {
-    if (!loanForm.aadharNumber || !loanForm.panNumber || !loanForm.bankAccountNumber) {
-      return showToast("Kripya Aadhar, PAN aur Bank Account details darj karein", "error");
-    }
-    if (loanForm.hasChequeFacility && !loanForm.chequeNumber) {
-      return showToast("Kripya Cheque Number darj karein", "error");
-    }
+    if (!validateLoanInputs(loanForm, false, false)) return;
 
     setLoanSubmitting(true);
     triggerHeroFly("personal_submit");
@@ -1463,20 +1711,32 @@ export default function Dashboard() {
           loanType: "personal",
           amount: quoteAmount,
           installmentsCount: quoteCount,
-          hasChequeFacility: !!loanForm.hasChequeFacility,
-          chequeNumber: loanForm.chequeNumber,
+          hasChequeFacility: true,
+          chequeNumber: loanForm.chequeNumber.trim(),
           purpose: loanForm.purpose || "Personal Needs",
           documents: {
-            aadharNumber: loanForm.aadharNumber,
-            panNumber: loanForm.panNumber,
-            bankAccountNumber: loanForm.bankAccountNumber,
-            bankIfsc: loanForm.bankIfsc,
-            upiId: loanForm.upiId,
-            chequeNumber: loanForm.chequeNumber,
-            doc1Url: loanForm.doc1Url,
-            doc1BackUrl: loanForm.doc1BackUrl || "",
-            doc2Url: loanForm.doc2Url,
-            doc2BackUrl: loanForm.doc2BackUrl || ""
+            aadharNumber: loanForm.aadharNumber.trim() || userProfile?.aadharNumber,
+            aadharUrl: loanForm.doc1Url || loanForm.aadharUrl,
+            aadharBackUrl: loanForm.doc1BackUrl || loanForm.aadharBackUrl,
+            doc1Url: loanForm.doc1Url || loanForm.aadharUrl,
+            doc1BackUrl: loanForm.doc1BackUrl || loanForm.aadharBackUrl,
+            panNumber: loanForm.panNumber.trim().toUpperCase(),
+            panUrl: loanForm.doc2Url || loanForm.panUrl,
+            panBackUrl: loanForm.doc2BackUrl || loanForm.panBackUrl,
+            doc2Url: loanForm.doc2Url || loanForm.panUrl,
+            doc2BackUrl: loanForm.doc2BackUrl || loanForm.panBackUrl,
+            chequeNumber: loanForm.chequeNumber.trim(),
+            chequeUrl: loanForm.chequeUrl,
+            chequeBackUrl: loanForm.chequeBackUrl,
+            bankName: loanForm.bankName.trim(),
+            bankAccountNumber: loanForm.bankAccountNumber.trim(),
+            bankIfsc: loanForm.bankIfsc.trim().toUpperCase(),
+            upiId: loanForm.upiId.trim(),
+            nomineeName: loanForm.nomineeName.trim(),
+            nomineeRelation: loanForm.nomineeRelation.trim(),
+            nomineePhone: loanForm.nomineePhone.trim(),
+            applicantEmail: (loanForm.email || userProfile?.email || "").trim(),
+            applicantPhone: (loanForm.phone || userProfile?.phone || "").trim()
           }
         })
       });
@@ -1498,12 +1758,7 @@ export default function Dashboard() {
 
   // Submit Micro Business Loan Application
   const submitMicroBusinessLoan = async () => {
-    if (!mblForm.aadharNumber || !mblForm.panNumber || !mblForm.bankAccountNumber) {
-      return showToast("Kripya Aadhar, PAN aur Bank Account details darj karein", "error");
-    }
-    if (mblForm.hasChequeFacility && !mblForm.chequeNumber) {
-      return showToast("Kripya Cheque Number darj karein", "error");
-    }
+    if (!validateLoanInputs(mblForm, false, true)) return;
 
     setLoanSubmitting(true);
     triggerHeroFly("business_submit");
@@ -1516,19 +1771,32 @@ export default function Dashboard() {
           amount: mblAmount,
           days: mblDays,
           purpose: mblForm.purpose || "Micro Business Working Capital",
-          hasChequeFacility: !!mblForm.hasChequeFacility,
-          chequeNumber: mblForm.chequeNumber,
+          hasChequeFacility: true,
+          chequeNumber: mblForm.chequeNumber.trim(),
           documents: {
-            aadharNumber: mblForm.aadharNumber,
-            panNumber: mblForm.panNumber,
-            bankAccountNumber: mblForm.bankAccountNumber,
-            bankIfsc: mblForm.bankIfsc,
-            businessName: mblForm.businessName,
-            chequeNumber: mblForm.chequeNumber,
-            doc1Url: mblForm.doc1Url,
-            doc1BackUrl: mblForm.doc1BackUrl || "",
-            doc2Url: mblForm.doc2Url,
-            doc2BackUrl: mblForm.doc2BackUrl || ""
+            businessName: mblForm.businessName.trim(),
+            aadharNumber: mblForm.aadharNumber.trim() || userProfile?.aadharNumber,
+            aadharUrl: mblForm.doc1Url || mblForm.aadharUrl,
+            aadharBackUrl: mblForm.doc1BackUrl || mblForm.aadharBackUrl,
+            doc1Url: mblForm.doc1Url || mblForm.aadharUrl,
+            doc1BackUrl: mblForm.doc1BackUrl || mblForm.aadharBackUrl,
+            panNumber: mblForm.panNumber.trim().toUpperCase(),
+            panUrl: mblForm.doc2Url || mblForm.panUrl,
+            panBackUrl: mblForm.doc2BackUrl || mblForm.panBackUrl,
+            doc2Url: mblForm.doc2Url || mblForm.panUrl,
+            doc2BackUrl: mblForm.doc2BackUrl || mblForm.panBackUrl,
+            chequeNumber: mblForm.chequeNumber.trim(),
+            chequeUrl: mblForm.chequeUrl,
+            chequeBackUrl: mblForm.chequeBackUrl,
+            bankName: mblForm.bankName.trim(),
+            bankAccountNumber: mblForm.bankAccountNumber.trim(),
+            bankIfsc: mblForm.bankIfsc.trim().toUpperCase(),
+            upiId: mblForm.upiId.trim(),
+            nomineeName: mblForm.nomineeName.trim(),
+            nomineeRelation: mblForm.nomineeRelation.trim(),
+            nomineePhone: mblForm.nomineePhone.trim(),
+            applicantEmail: (mblForm.email || userProfile?.email || "").trim(),
+            applicantPhone: (mblForm.phone || userProfile?.phone || "").trim()
           }
         })
       });
@@ -1550,15 +1818,7 @@ export default function Dashboard() {
 
   // Submit Student Loan Application
   const submitStudentLoan = async () => {
-    if (!studentLoanForm.aadharNumber || !studentLoanForm.panNumber || !studentLoanForm.bankAccountNumber) {
-      return showToast("Kripya Aadhar, PAN aur Bank Account details darj karein", "error");
-    }
-    if (!studentLoanForm.instituteName.trim()) {
-      return showToast("Kripya School / College / Institute ka naam darj karein", "error");
-    }
-    if (studentLoanForm.hasChequeFacility && !studentLoanForm.chequeNumber) {
-      return showToast("Kripya Cheque Number darj karein", "error");
-    }
+    if (!validateLoanInputs(studentLoanForm, true, false)) return;
 
     setLoanSubmitting(true);
     triggerHeroFly("student_submit");
@@ -1570,22 +1830,35 @@ export default function Dashboard() {
           loanType: "student",
           amount: studentAmount,
           installmentsCount: studentCount,
-          hasChequeFacility: !!studentLoanForm.hasChequeFacility,
-          chequeNumber: studentLoanForm.chequeNumber,
+          hasChequeFacility: true,
+          chequeNumber: studentLoanForm.chequeNumber.trim(),
           purpose: `Student Fee - ${studentLoanForm.instituteName}`,
           documents: {
-            aadharNumber: studentLoanForm.aadharNumber,
-            panNumber: studentLoanForm.panNumber,
-            bankAccountNumber: studentLoanForm.bankAccountNumber,
-            bankIfsc: studentLoanForm.bankIfsc,
-            instituteName: studentLoanForm.instituteName,
-            chequeNumber: studentLoanForm.chequeNumber,
-            doc1Url: studentLoanForm.doc1Url,
-            doc1BackUrl: studentLoanForm.doc1BackUrl || "",
-            doc2Url: studentLoanForm.doc2Url,
-            doc2BackUrl: studentLoanForm.doc2BackUrl || "",
+            instituteName: studentLoanForm.instituteName.trim(),
+            aadharNumber: studentLoanForm.aadharNumber.trim() || userProfile?.aadharNumber,
+            aadharUrl: studentLoanForm.doc1Url || studentLoanForm.aadharUrl,
+            aadharBackUrl: studentLoanForm.doc1BackUrl || studentLoanForm.aadharBackUrl,
+            doc1Url: studentLoanForm.doc1Url || studentLoanForm.aadharUrl,
+            doc1BackUrl: studentLoanForm.doc1BackUrl || studentLoanForm.aadharBackUrl,
+            panNumber: studentLoanForm.panNumber.trim().toUpperCase(),
+            panUrl: studentLoanForm.doc2Url || studentLoanForm.panUrl,
+            panBackUrl: studentLoanForm.doc2BackUrl || studentLoanForm.panBackUrl,
+            doc2Url: studentLoanForm.doc2Url || studentLoanForm.panUrl,
+            doc2BackUrl: studentLoanForm.doc2BackUrl || studentLoanForm.panBackUrl,
+            chequeNumber: studentLoanForm.chequeNumber.trim(),
+            chequeUrl: studentLoanForm.chequeUrl,
+            chequeBackUrl: studentLoanForm.chequeBackUrl,
             studentProofUrl: studentLoanForm.studentProofUrl,
-            studentProofBackUrl: studentLoanForm.studentProofBackUrl || ""
+            studentProofBackUrl: studentLoanForm.studentProofBackUrl || "",
+            bankName: studentLoanForm.bankName.trim(),
+            bankAccountNumber: studentLoanForm.bankAccountNumber.trim(),
+            bankIfsc: studentLoanForm.bankIfsc.trim().toUpperCase(),
+            upiId: studentLoanForm.upiId.trim(),
+            nomineeName: studentLoanForm.nomineeName.trim(),
+            nomineeRelation: studentLoanForm.nomineeRelation.trim(),
+            nomineePhone: studentLoanForm.nomineePhone.trim(),
+            applicantEmail: (studentLoanForm.email || userProfile?.email || "").trim(),
+            applicantPhone: (studentLoanForm.phone || userProfile?.phone || "").trim()
           }
         })
       });
@@ -3066,141 +3339,156 @@ export default function Dashboard() {
               {previewDates.map(d => `${d.getDate()}/${d.getMonth()+1}`).join(", ")}... (Every 1st, 11th, 21st)
             </div>
 
-            {/* Document Verification Inputs */}
-            <div className="space-y-2.5 pt-2 border-t border-gray-100">
-              <input
-                type="text"
-                placeholder="Aadhar Number (12 digits)"
-                value={loanForm.aadharNumber}
-                onChange={e => setLoanForm({ ...loanForm, aadharNumber: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              <input
-                type="text"
-                placeholder="PAN Number (ABCDE1234F)"
-                value={loanForm.panNumber}
-                onChange={e => setLoanForm({ ...loanForm, panNumber: e.target.value.toUpperCase() })}
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
-              />
-              <div className="grid grid-cols-2 gap-2">
+            {/* All Mandatory Loan Verification Details */}
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2.5 text-[11px] text-amber-900 font-semibold flex items-center gap-1.5">
+                <span>⚠️</span>
+                <span>Yeh sabhi dastavej (documents) aur details submit karna <strong>100% anivarya (mandatory)</strong> hai.</span>
+              </div>
+
+              {/* 1. Aadhaar Card Details */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  1. Aadhaar Card Details <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
-                  placeholder="Bank Account Number"
-                  value={loanForm.bankAccountNumber}
-                  onChange={e => setLoanForm({ ...loanForm, bankAccountNumber: e.target.value })}
+                  maxLength={12}
+                  placeholder="12-Digit Aadhaar Number"
+                  value={loanForm.aadharNumber}
+                  onChange={e => setLoanForm({ ...loanForm, aadharNumber: e.target.value.replace(/\D/g, "") })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-mono tracking-wider"
+                />
+                {renderDocUploadBox("Aadhaar Card (Doc 1)", loanForm.doc1Url, loanForm.doc1BackUrl, setLoanForm, "doc1Url", "doc1BackUrl", "emerald")}
+              </div>
+
+              {/* 2. PAN Card Details */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  2. PAN Card Details <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={10}
+                  placeholder="10-Character PAN Number (ABCDE1234F)"
+                  value={loanForm.panNumber}
+                  onChange={e => setLoanForm({ ...loanForm, panNumber: e.target.value.toUpperCase() })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 uppercase font-mono tracking-wider"
+                />
+                {renderDocUploadBox("PAN Card (Doc 2)", loanForm.doc2Url, loanForm.doc2BackUrl, setLoanForm, "doc2Url", "doc2BackUrl", "emerald")}
+              </div>
+
+              {/* 3. Barrier Cheque Details */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  3. Barrier Cheque Details <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Barrier Cheque Number (e.g. 000123)"
+                  value={loanForm.chequeNumber}
+                  onChange={e => setLoanForm({ ...loanForm, chequeNumber: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-mono tracking-wider"
+                />
+                {renderDocUploadBox("Barrier Cheque (Doc 3)", loanForm.chequeUrl, loanForm.chequeBackUrl, setLoanForm, "chequeUrl", "chequeBackUrl", "emerald")}
+              </div>
+
+              {/* 4. Banking & UPI Details */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  4. Bank & UPI Details (Disbursal Account) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Bank ka Naam (e.g. State Bank of India)"
+                  value={loanForm.bankName}
+                  onChange={e => setLoanForm({ ...loanForm, bankName: e.target.value })}
                   className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500"
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Account Number"
+                    value={loanForm.bankAccountNumber}
+                    onChange={e => setLoanForm({ ...loanForm, bankAccountNumber: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                  />
+                  <input
+                    type="text"
+                    placeholder="IFSC Code"
+                    value={loanForm.bankIfsc}
+                    onChange={e => setLoanForm({ ...loanForm, bankIfsc: e.target.value.toUpperCase() })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 uppercase font-mono"
+                  />
+                </div>
                 <input
                   type="text"
-                  placeholder="IFSC Code"
-                  value={loanForm.bankIfsc}
-                  onChange={e => setLoanForm({ ...loanForm, bankIfsc: e.target.value.toUpperCase() })}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
+                  placeholder="UPI ID (e.g. 9876543210@paytm ya user@okhdfcbank)"
+                  value={loanForm.upiId}
+                  onChange={e => setLoanForm({ ...loanForm, upiId: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
                 />
               </div>
 
-              {/* Document File Uploads */}
+              {/* 5. Nominee Details */}
               <div className="space-y-2 pt-2 border-t border-gray-100">
                 <label className="block text-[11px] font-bold text-gray-700">
-                  KYC Documents (Aadhaar & PAN / Cheque)
+                  5. Nominee Details <span className="text-rose-500">*</span>
                 </label>
-
-                {/* Doc 1: Aadhaar (Front & Back) */}
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Aadhaar Card (Doc 1)</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-[11px] text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{loanForm.doc1Url ? "✓ Front" : "Upload Front"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc1Url")}
-                        />
-                      </label>
-                      {loanForm.doc1Url && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(loanForm.doc1Url); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Front"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-[11px] text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{loanForm.doc1BackUrl ? "✓ Back" : "Upload Back"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc1BackUrl")}
-                        />
-                      </label>
-                      {loanForm.doc1BackUrl && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(loanForm.doc1BackUrl); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Back"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                <input
+                  type="text"
+                  placeholder="Nominee ka Pura Naam (Full Name)"
+                  value={loanForm.nomineeName}
+                  onChange={e => setLoanForm({ ...loanForm, nomineeName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={loanForm.nomineeRelation}
+                    onChange={e => setLoanForm({ ...loanForm, nomineeRelation: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                  >
+                    <option value="Father">Father (पिता)</option>
+                    <option value="Mother">Mother (माता)</option>
+                    <option value="Spouse">Spouse (पति / पत्नी)</option>
+                    <option value="Brother">Brother (भाई)</option>
+                    <option value="Sister">Sister (बहन)</option>
+                    <option value="Son">Son (बेटा)</option>
+                    <option value="Daughter">Daughter (बेटी)</option>
+                    <option value="Other">Other (अन्य)</option>
+                  </select>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="Nominee Mobile (10 digits)"
+                    value={loanForm.nomineePhone}
+                    onChange={e => setLoanForm({ ...loanForm, nomineePhone: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                  />
                 </div>
+              </div>
 
-                {/* Doc 2: PAN / Cheque (Front & Back) */}
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{loanForm.hasChequeFacility ? "Cancelled Cheque (Doc 2)" : "PAN Card (Doc 2)"}</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-[11px] text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{loanForm.doc2Url ? "✓ Front" : "Upload Front"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc2Url")}
-                        />
-                      </label>
-                      {loanForm.doc2Url && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(loanForm.doc2Url); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Front"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-emerald-300 rounded-xl text-[11px] text-emerald-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{loanForm.doc2BackUrl ? "✓ Back" : "Upload Back"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setLoanForm, "doc2BackUrl")}
-                        />
-                      </label>
-                      {loanForm.doc2BackUrl && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(loanForm.doc2BackUrl); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Back"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                  </div>
+              {/* 6. Applicant Contact Details */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  6. Applicant Contact Details <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="email"
+                    placeholder="E-mail Address"
+                    value={loanForm.email || userProfile?.email || ""}
+                    onChange={e => setLoanForm({ ...loanForm, email: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="Phone Number"
+                    value={loanForm.phone || userProfile?.phone || ""}
+                    onChange={e => setLoanForm({ ...loanForm, phone: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                  />
                 </div>
               </div>
             </div>
@@ -3349,149 +3637,170 @@ export default function Dashboard() {
             </div>
 
             {/* KYC Inputs */}
-            <div className="space-y-2 pt-1 border-t border-gray-100">
-              <input
-                type="text"
-                placeholder="Shop / Business Name"
-                value={mblForm.businessName}
-                onChange={e => setMblForm({ ...mblForm, businessName: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
-              />
-              <div className="grid grid-cols-2 gap-2">
+            {/* All Mandatory Business Loan Verification Details */}
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2.5 text-[11px] text-amber-900 font-semibold flex items-center gap-1.5">
+                <span>⚠️</span>
+                <span>Yeh sabhi dastavej (documents) aur details submit karna <strong>100% anivarya (mandatory)</strong> hai.</span>
+              </div>
+
+              {/* Shop / Business Name */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  Business / Shop Name <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
-                  placeholder="Aadhar Number"
-                  value={mblForm.aadharNumber}
-                  onChange={e => setMblForm({ ...mblForm, aadharNumber: e.target.value })}
+                  placeholder="Dukan ya Business ka Naam"
+                  value={mblForm.businessName}
+                  onChange={e => setMblForm({ ...mblForm, businessName: e.target.value })}
                   className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
                 />
+              </div>
+
+              {/* 1. Aadhaar Card Details */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  1. Aadhaar Card Details <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
-                  placeholder="PAN Number"
+                  maxLength={12}
+                  placeholder="12-Digit Aadhaar Number"
+                  value={mblForm.aadharNumber}
+                  onChange={e => setMblForm({ ...mblForm, aadharNumber: e.target.value.replace(/\D/g, "") })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 font-mono tracking-wider"
+                />
+                {renderDocUploadBox("Aadhaar Card (Doc 1)", mblForm.doc1Url, mblForm.doc1BackUrl, setMblForm, "doc1Url", "doc1BackUrl", "amber")}
+              </div>
+
+              {/* 2. PAN Card Details */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  2. PAN Card Details <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={10}
+                  placeholder="10-Character PAN Number (ABCDE1234F)"
                   value={mblForm.panNumber}
                   onChange={e => setMblForm({ ...mblForm, panNumber: e.target.value.toUpperCase() })}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 uppercase"
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 uppercase font-mono tracking-wider"
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="Bank Account Number"
-                  value={mblForm.bankAccountNumber}
-                  onChange={e => setMblForm({ ...mblForm, bankAccountNumber: e.target.value })}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
-                />
-                <input
-                  type="text"
-                  placeholder="IFSC Code"
-                  value={mblForm.bankIfsc}
-                  onChange={e => setMblForm({ ...mblForm, bankIfsc: e.target.value.toUpperCase() })}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 uppercase"
-                />
+                {renderDocUploadBox("PAN Card (Doc 2)", mblForm.doc2Url, mblForm.doc2BackUrl, setMblForm, "doc2Url", "doc2BackUrl", "amber")}
               </div>
 
-              {/* Document File Uploads */}
+              {/* 3. Barrier Cheque Details */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  3. Barrier Cheque Details <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Barrier Cheque Number (e.g. 000123)"
+                  value={mblForm.chequeNumber}
+                  onChange={e => setMblForm({ ...mblForm, chequeNumber: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 font-mono tracking-wider"
+                />
+                {renderDocUploadBox("Barrier Cheque (Doc 3)", mblForm.chequeUrl, mblForm.chequeBackUrl, setMblForm, "chequeUrl", "chequeBackUrl", "amber")}
+              </div>
+
+              {/* 4. Banking & UPI Details */}
               <div className="space-y-2 pt-2 border-t border-gray-100">
                 <label className="block text-[11px] font-bold text-gray-700">
-                  Business KYC Documents (Aadhaar & PAN / Cheque)
+                  4. Bank & UPI Details (Disbursal Account) <span className="text-rose-500">*</span>
                 </label>
-
-                {/* Doc 1: Aadhaar (Front & Back) */}
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Aadhaar Card (Doc 1)</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-[11px] text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{mblForm.doc1Url ? "✓ Front" : "Upload Front"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc1Url")}
-                        />
-                      </label>
-                      {mblForm.doc1Url && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(mblForm.doc1Url); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Front"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-[11px] text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{mblForm.doc1BackUrl ? "✓ Back" : "Upload Back"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc1BackUrl")}
-                        />
-                      </label>
-                      {mblForm.doc1BackUrl && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(mblForm.doc1BackUrl); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Back"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                <input
+                  type="text"
+                  placeholder="Bank ka Naam (e.g. State Bank of India)"
+                  value={mblForm.bankName}
+                  onChange={e => setMblForm({ ...mblForm, bankName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Account Number"
+                    value={mblForm.bankAccountNumber}
+                    onChange={e => setMblForm({ ...mblForm, bankAccountNumber: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                  />
+                  <input
+                    type="text"
+                    placeholder="IFSC Code"
+                    value={mblForm.bankIfsc}
+                    onChange={e => setMblForm({ ...mblForm, bankIfsc: e.target.value.toUpperCase() })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 uppercase font-mono"
+                  />
                 </div>
+                <input
+                  type="text"
+                  placeholder="UPI ID (e.g. 9876543210@paytm ya user@okhdfcbank)"
+                  value={mblForm.upiId}
+                  onChange={e => setMblForm({ ...mblForm, upiId: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                />
+              </div>
 
-                {/* Doc 2: PAN / Cheque (Front & Back) */}
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{mblForm.hasChequeFacility ? "Cancelled Cheque (Doc 2)" : "PAN Card (Doc 2)"}</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-[11px] text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{mblForm.doc2Url ? "✓ Front" : "Upload Front"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc2Url")}
-                        />
-                      </label>
-                      {mblForm.doc2Url && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(mblForm.doc2Url); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Front"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-amber-300 rounded-xl text-[11px] text-amber-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{mblForm.doc2BackUrl ? "✓ Back" : "Upload Back"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setMblForm, "doc2BackUrl")}
-                        />
-                      </label>
-                      {mblForm.doc2BackUrl && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(mblForm.doc2BackUrl); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Back"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                  </div>
+              {/* 5. Nominee Details */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  5. Nominee Details <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nominee ka Pura Naam (Full Name)"
+                  value={mblForm.nomineeName}
+                  onChange={e => setMblForm({ ...mblForm, nomineeName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={mblForm.nomineeRelation}
+                    onChange={e => setMblForm({ ...mblForm, nomineeRelation: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                  >
+                    <option value="Father">Father (पिता)</option>
+                    <option value="Mother">Mother (माता)</option>
+                    <option value="Spouse">Spouse (पति / पत्नी)</option>
+                    <option value="Brother">Brother (भाई)</option>
+                    <option value="Sister">Sister (बहन)</option>
+                    <option value="Son">Son (बेटा)</option>
+                    <option value="Daughter">Daughter (बेटी)</option>
+                    <option value="Other">Other (अन्य)</option>
+                  </select>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="Nominee Mobile (10 digits)"
+                    value={mblForm.nomineePhone}
+                    onChange={e => setMblForm({ ...mblForm, nomineePhone: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* 6. Applicant Contact Details */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  6. Applicant Contact Details <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="email"
+                    placeholder="E-mail Address"
+                    value={mblForm.email || userProfile?.email || ""}
+                    onChange={e => setMblForm({ ...mblForm, email: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="Phone Number"
+                    value={mblForm.phone || userProfile?.phone || ""}
+                    onChange={e => setMblForm({ ...mblForm, phone: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                  />
                 </div>
               </div>
             </div>
@@ -3914,199 +4223,178 @@ export default function Dashboard() {
               {studentPreviewDates.map(d => `${d.getDate()}/${d.getMonth()+1}`).join(", ")}... (Every 1st, 11th, 21st)
             </div>
 
-            {/* Form Inputs */}
-            <div className="space-y-2.5 pt-2 border-t border-gray-100">
-              <input
-                type="text"
-                placeholder="School / College / Institute Name *"
-                value={studentLoanForm.instituteName}
-                onChange={e => setStudentLoanForm({ ...studentLoanForm, instituteName: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-              <div className="grid grid-cols-2 gap-2">
+            {/* All Mandatory Student Loan Verification Details */}
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2.5 text-[11px] text-amber-900 font-semibold flex items-center gap-1.5">
+                <span>⚠️</span>
+                <span>Yeh sabhi dastavej (documents) aur details submit karna <strong>100% anivarya (mandatory)</strong> hai.</span>
+              </div>
+
+              {/* School / College / Institute Name */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  School / College / Institute Name <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
-                  placeholder="Aadhar Number"
-                  value={studentLoanForm.aadharNumber}
-                  onChange={e => setStudentLoanForm({ ...studentLoanForm, aadharNumber: e.target.value })}
+                  placeholder="Institute ka Naam"
+                  value={studentLoanForm.instituteName}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, instituteName: e.target.value })}
                   className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500"
                 />
+              </div>
+
+              {/* 1. Aadhaar Card Details */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  1. Aadhaar Card Details <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
-                  placeholder="PAN Number"
+                  maxLength={12}
+                  placeholder="12-Digit Aadhaar Number"
+                  value={studentLoanForm.aadharNumber}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, aadharNumber: e.target.value.replace(/\D/g, "") })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 font-mono tracking-wider"
+                />
+                {renderDocUploadBox("Aadhaar Card (Doc 1)", studentLoanForm.doc1Url, studentLoanForm.doc1BackUrl, setStudentLoanForm, "doc1Url", "doc1BackUrl", "cyan")}
+              </div>
+
+              {/* 2. PAN Card Details */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  2. PAN Card Details <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={10}
+                  placeholder="10-Character PAN Number (ABCDE1234F)"
                   value={studentLoanForm.panNumber}
                   onChange={e => setStudentLoanForm({ ...studentLoanForm, panNumber: e.target.value.toUpperCase() })}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 uppercase"
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 uppercase font-mono tracking-wider"
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="Bank Account Number"
-                  value={studentLoanForm.bankAccountNumber}
-                  onChange={e => setStudentLoanForm({ ...studentLoanForm, bankAccountNumber: e.target.value })}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500"
-                />
-                <input
-                  type="text"
-                  placeholder="IFSC Code"
-                  value={studentLoanForm.bankIfsc}
-                  onChange={e => setStudentLoanForm({ ...studentLoanForm, bankIfsc: e.target.value.toUpperCase() })}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 uppercase"
-                />
+                {renderDocUploadBox("PAN Card (Doc 2)", studentLoanForm.doc2Url, studentLoanForm.doc2BackUrl, setStudentLoanForm, "doc2Url", "doc2BackUrl", "cyan")}
               </div>
 
-              {/* Document File Uploads (Doc 1, Doc 2, Doc 3) */}
+              {/* 3. Barrier Cheque Details */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  3. Barrier Cheque Details <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Barrier Cheque Number (e.g. 000123)"
+                  value={studentLoanForm.chequeNumber}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, chequeNumber: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 font-mono tracking-wider"
+                />
+                {renderDocUploadBox("Barrier Cheque (Doc 3)", studentLoanForm.chequeUrl, studentLoanForm.chequeBackUrl, setStudentLoanForm, "chequeUrl", "chequeBackUrl", "cyan")}
+              </div>
+
+              {/* 4. Student ID / Fee Slip Details */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  4. Student ID / Fee Slip (Proof) <span className="text-rose-500">*</span>
+                </label>
+                {renderDocUploadBox("Student ID / Fee Slip", studentLoanForm.studentProofUrl, studentLoanForm.studentProofBackUrl, setStudentLoanForm, "studentProofUrl", "studentProofBackUrl", "cyan")}
+              </div>
+
+              {/* 5. Banking & UPI Details */}
               <div className="space-y-2 pt-2 border-t border-gray-100">
                 <label className="block text-[11px] font-bold text-gray-700">
-                  Student Verification Documents
+                  5. Bank & UPI Details (Disbursal Account) <span className="text-rose-500">*</span>
                 </label>
-
-                {/* Doc 1: Aadhaar (Front & Back) */}
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Aadhaar Card (Doc 1)</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{studentLoanForm.doc1Url ? "✓ Front" : "Upload Front"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc1Url")}
-                        />
-                      </label>
-                      {studentLoanForm.doc1Url && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(studentLoanForm.doc1Url); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Front"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{studentLoanForm.doc1BackUrl ? "✓ Back" : "Upload Back"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc1BackUrl")}
-                        />
-                      </label>
-                      {studentLoanForm.doc1BackUrl && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(studentLoanForm.doc1BackUrl); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Back"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                <input
+                  type="text"
+                  placeholder="Bank ka Naam (e.g. State Bank of India)"
+                  value={studentLoanForm.bankName}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, bankName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Account Number"
+                    value={studentLoanForm.bankAccountNumber}
+                    onChange={e => setStudentLoanForm({ ...studentLoanForm, bankAccountNumber: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
+                  />
+                  <input
+                    type="text"
+                    placeholder="IFSC Code"
+                    value={studentLoanForm.bankIfsc}
+                    onChange={e => setStudentLoanForm({ ...studentLoanForm, bankIfsc: e.target.value.toUpperCase() })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 uppercase font-mono"
+                  />
                 </div>
+                <input
+                  type="text"
+                  placeholder="UPI ID (e.g. 9876543210@paytm ya user@okhdfcbank)"
+                  value={studentLoanForm.upiId}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, upiId: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
+                />
+              </div>
 
-                {/* Doc 2: PAN / Cheque (Front & Back) */}
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{studentLoanForm.hasChequeFacility ? "Cancelled Cheque (Doc 2)" : "PAN Card (Doc 2)"}</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{studentLoanForm.doc2Url ? "✓ Front" : "Upload Front"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc2Url")}
-                        />
-                      </label>
-                      {studentLoanForm.doc2Url && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(studentLoanForm.doc2Url); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Front"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{studentLoanForm.doc2BackUrl ? "✓ Back" : "Upload Back"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "doc2BackUrl")}
-                        />
-                      </label>
-                      {studentLoanForm.doc2BackUrl && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(studentLoanForm.doc2BackUrl); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Back"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                  </div>
+              {/* 6. Nominee Details */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  6. Nominee Details <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nominee ka Pura Naam (Full Name)"
+                  value={studentLoanForm.nomineeName}
+                  onChange={e => setStudentLoanForm({ ...studentLoanForm, nomineeName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={studentLoanForm.nomineeRelation}
+                    onChange={e => setStudentLoanForm({ ...studentLoanForm, nomineeRelation: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
+                  >
+                    <option value="Father">Father (पिता)</option>
+                    <option value="Mother">Mother (माता)</option>
+                    <option value="Spouse">Spouse (पति / पत्नी)</option>
+                    <option value="Brother">Brother (भाई)</option>
+                    <option value="Sister">Sister (बहन)</option>
+                    <option value="Son">Son (बेटा)</option>
+                    <option value="Daughter">Daughter (बेटी)</option>
+                    <option value="Other">Other (अन्य)</option>
+                  </select>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="Nominee Mobile (10 digits)"
+                    value={studentLoanForm.nomineePhone}
+                    onChange={e => setStudentLoanForm({ ...studentLoanForm, nomineePhone: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
+                  />
                 </div>
+              </div>
 
-                {/* Doc 3: Student ID / Fee Slip (Front & Back) */}
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Student ID / Fee Slip (Doc 3)</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{studentLoanForm.studentProofUrl ? "✓ Front" : "Upload Front"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "studentProofUrl")}
-                        />
-                      </label>
-                      {studentLoanForm.studentProofUrl && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(studentLoanForm.studentProofUrl); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Front"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-cyan-300 rounded-xl text-[11px] text-cyan-800 font-bold flex items-center justify-between transition active:scale-95">
-                        <span className="truncate">{studentLoanForm.studentProofBackUrl ? "✓ Back" : "Upload Back"}</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={e => handleLoanDocFile(e.target.files?.[0], setStudentLoanForm, "studentProofBackUrl")}
-                        />
-                      </label>
-                      {studentLoanForm.studentProofBackUrl && (
-                        <button
-                          type="button"
-                          onClick={() => { setLightboxImg(studentLoanForm.studentProofBackUrl); setZoomLevel(1); }}
-                          className="px-2 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-[11px] font-bold shrink-0 transition"
-                          title="View Back"
-                        >
-                          🔍
-                        </button>
-                      )}
-                    </div>
-                  </div>
+              {/* 7. Applicant Contact Details */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  7. Applicant Contact Details <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="email"
+                    placeholder="E-mail Address"
+                    value={studentLoanForm.email || userProfile?.email || ""}
+                    onChange={e => setStudentLoanForm({ ...studentLoanForm, email: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="Phone Number"
+                    value={studentLoanForm.phone || userProfile?.phone || ""}
+                    onChange={e => setStudentLoanForm({ ...studentLoanForm, phone: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
+                  />
                 </div>
               </div>
             </div>

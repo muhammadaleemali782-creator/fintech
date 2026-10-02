@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const Loan = require('../models/Loan');
+const Bond = require('../models/Bond');
 const { protect, admin } = require('../middleware/auth');
 const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
@@ -474,6 +475,16 @@ router.patch('/notifications/read-all', protect, admin, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong' });
+  }
+});
+
+// All bonds / lending records
+router.get('/bonds', protect, admin, async (req, res) => {
+  try {
+    const bonds = await Bond.find().populate('userId', 'name email phone').sort({ createdAt: -1 });
+    res.json(bonds);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch bonds' });
   }
 });
 

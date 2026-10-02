@@ -8,12 +8,16 @@ const { protect, admin } = require('../middleware/auth');
 const { isValidAmount } = require('../utils/validateAmount');
 const router = express.Router();
 
-// Helper to generate sequential account number like EFSPL0001 or EFSMB0001
-const generateLoanAccountNumber = async (type = 'personal') => {
-  const prefix = type === 'micro_business' ? 'EFSMB' : type === 'student' ? 'EFSSL' : 'EFSPL';
-  const count = await Loan.countDocuments({ loanType: type });
-  const num = (count + 1).toString().padStart(4, '0');
-  return `${prefix}${num}`;
+// Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
+const generateLoanAccountNumber = async () => {
+  const count = await Loan.countDocuments();
+  let seq = count + 1;
+  let accNo = `EFS0000${String(seq).padStart(3, '0')}`;
+  while (await Loan.findOne({ accountNumber: accNo })) {
+    seq++;
+    accNo = `EFS0000${String(seq).padStart(3, '0')}`;
+  }
+  return accNo;
 };
 
 // Collection dates on 1st, 11th, and 21st of months (10-day cycle)

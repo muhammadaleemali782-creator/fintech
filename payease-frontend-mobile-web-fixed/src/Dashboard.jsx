@@ -449,6 +449,30 @@ export default function Dashboard() {
 
   // Lending Bond Selection (40 or 80 months)
   const [lendingBondType, setLendingBondType] = useState("lending_40");
+  const [lendingForm, setLendingForm] = useState({
+    aadharNumber: "",
+    aadharUrl: "",
+    aadharBackUrl: "",
+    doc1Url: "",
+    doc1BackUrl: "",
+    panNumber: "",
+    panUrl: "",
+    panBackUrl: "",
+    doc2Url: "",
+    doc2BackUrl: "",
+    chequeNumber: "",
+    chequeUrl: "",
+    chequeBackUrl: "",
+    bankName: "",
+    bankAccountNumber: "",
+    bankIfsc: "",
+    upiId: "",
+    nomineeName: "",
+    nomineeRelation: "Father",
+    nomineePhone: "",
+    email: "",
+    phone: ""
+  });
 
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -1026,6 +1050,9 @@ export default function Dashboard() {
       if (res.ok && data) {
         setUserProfile(data);
         localStorage.setItem("educa_cached_profile", JSON.stringify(data));
+        // Keep user object in localStorage fresh and strictly preserve role
+        const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+        localStorage.setItem("user", JSON.stringify({ ...currentUser, ...data, role: data.role || currentUser.role }));
         setBalance(data.balance || 0);
         localStorage.setItem("educa_cached_balance", String(data.balance || 0));
 
@@ -1903,20 +1930,103 @@ export default function Dashboard() {
     }
   };
 
-  // Create Lending Monthly Bond (40 or 80 Months)
+  // Create Lending Monthly Bond (40 or 80 Months) with Mandatory Document Verification
   const createLendingBond = async (type = "lending_40") => {
     if (balance < 100000) {
       return showToast("Lending Bond banane ke liye wallet me kam se kam ₹1,00,000 hona chahiye", "error");
     }
+
+    const form = lendingForm;
+    // Strict Mandatory Field Validation
+    if (!form.aadharNumber || form.aadharNumber.replace(/\D/g, "").length !== 12) {
+      return showToast("12-digit Aadhaar Card number darj karna anivarya (mandatory) hai", "error");
+    }
+    if (!form.doc1Url) {
+      return showToast("Aadhaar Card Front photo upload/capture karna anivarya hai", "error");
+    }
+    if (!form.doc1BackUrl) {
+      return showToast("Aadhaar Card Back photo upload/capture karna anivarya hai", "error");
+    }
+    if (!form.panNumber || form.panNumber.length !== 10) {
+      return showToast("Valid 10-character PAN Card number darj karna anivarya hai", "error");
+    }
+    if (!form.doc2Url) {
+      return showToast("PAN Card Front photo upload/capture karna anivarya hai", "error");
+    }
+    if (!form.doc2BackUrl) {
+      return showToast("PAN Card Back photo upload/capture karna anivarya hai", "error");
+    }
+    if (!form.chequeNumber?.trim()) {
+      return showToast("Barrier Cheque number darj karna anivarya hai", "error");
+    }
+    if (!form.chequeUrl) {
+      return showToast("Barrier Cheque Front photo upload/capture karna anivarya hai", "error");
+    }
+    if (!form.chequeBackUrl) {
+      return showToast("Barrier Cheque Back photo upload/capture karna anivarya hai", "error");
+    }
+    if (!form.bankName?.trim()) {
+      return showToast("Bank ka naam darj karna anivarya hai", "error");
+    }
+    if (!form.bankAccountNumber?.trim() || form.bankAccountNumber.trim().length < 8) {
+      return showToast("Valid Bank Account Number darj karna anivarya hai", "error");
+    }
+    if (!form.bankIfsc?.trim() || form.bankIfsc.trim().length < 9) {
+      return showToast("Valid Bank IFSC Code darj karna anivarya hai", "error");
+    }
+    if (!form.upiId?.trim() || !form.upiId.includes("@")) {
+      return showToast("Valid UPI ID darj karna anivarya hai", "error");
+    }
+    if (!form.nomineeName?.trim()) {
+      return showToast("Nominee ka pura naam darj karna anivarya hai", "error");
+    }
+    if (!form.nomineePhone?.trim() || form.nomineePhone.replace(/\D/g, "").length < 10) {
+      return showToast("Nominee ka 10-digit mobile number darj karna anivarya hai", "error");
+    }
+    if (!form.email?.trim() || !form.email.includes("@")) {
+      return showToast("Valid E-mail address darj karna anivarya hai", "error");
+    }
+    if (!form.phone?.trim() || form.phone.replace(/\D/g, "").length < 10) {
+      return showToast("Valid 10-digit phone number darj karna anivarya hai", "error");
+    }
+
     const msg = type === "lending_40"
       ? "₹1,00,000 ka 40 Months Lending Bond lock karein? (₹1,40,000 return @ ₹3,500/month)"
-      : "₹1,00,000 ka 80 Months Lending Bond lock karein? (₹1,80,000 return @ ₹2,250/month)";
+      : "₹1,00,000 ka 80 Months Lending Bond lock karein? (₹2,00,000 return @ ₹2,500/month)";
     if (!window.confirm(msg)) return;
+
     try {
       const res = await fetch(`${API}/bond/create`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ bondType: type, amount: 100000 })
+        body: JSON.stringify({
+          bondType: type,
+          amount: 100000,
+          documents: {
+            aadharNumber: form.aadharNumber.replace(/\D/g, ""),
+            aadharUrl: form.doc1Url,
+            aadharBackUrl: form.doc1BackUrl,
+            doc1Url: form.doc1Url,
+            doc1BackUrl: form.doc1BackUrl,
+            panNumber: form.panNumber.toUpperCase(),
+            panUrl: form.doc2Url,
+            panBackUrl: form.doc2BackUrl,
+            doc2Url: form.doc2Url,
+            doc2BackUrl: form.doc2BackUrl,
+            chequeNumber: form.chequeNumber.trim(),
+            chequeUrl: form.chequeUrl,
+            chequeBackUrl: form.chequeBackUrl,
+            bankName: form.bankName.trim(),
+            bankAccountNumber: form.bankAccountNumber.trim(),
+            bankIfsc: form.bankIfsc.trim().toUpperCase(),
+            upiId: form.upiId.trim(),
+            nomineeName: form.nomineeName.trim(),
+            nomineeRelation: form.nomineeRelation || "Father",
+            nomineePhone: form.nomineePhone.replace(/\D/g, ""),
+            applicantEmail: form.email.trim(),
+            applicantPhone: form.phone.replace(/\D/g, "")
+          }
+        })
       });
       const data = await res.json();
       if (res.ok) {
@@ -2085,6 +2195,29 @@ export default function Dashboard() {
     });
   };
 
+  const openLendingSheet = () => {
+    const existingDoc1 = userProfile.kycDocuments?.doc1Url || userProfile.kycDocuments?.docUrl || "";
+    const existingDoc1Back = userProfile.kycDocuments?.doc1BackUrl || "";
+    const existingDoc2 = userProfile.kycDocuments?.doc2Url || "";
+    const existingDoc2Back = userProfile.kycDocuments?.doc2BackUrl || "";
+    setLendingForm(prev => ({
+      ...prev,
+      aadharNumber: prev.aadharNumber || userProfile.aadharNumber || userProfile.kycDocuments?.aadharNumber || "",
+      doc1Url: prev.doc1Url || existingDoc1,
+      doc1BackUrl: prev.doc1BackUrl || existingDoc1Back,
+      panNumber: prev.panNumber || userProfile.kycDocuments?.panNumber || "",
+      doc2Url: prev.doc2Url || existingDoc2,
+      doc2BackUrl: prev.doc2BackUrl || existingDoc2Back,
+      chequeNumber: prev.chequeNumber || userProfile.kycDocuments?.chequeNumber || "",
+      bankAccountNumber: prev.bankAccountNumber || userProfile.bankAccount?.accountNumber || "",
+      bankIfsc: prev.bankIfsc || userProfile.bankAccount?.ifsc || "",
+      upiId: prev.upiId || userProfile.upiId || "",
+      email: prev.email || userProfile.email || "",
+      phone: prev.phone || userProfile.phone || ""
+    }));
+    setAccountModal("lending");
+  };
+
   const quickActions = [
     { icon: "📱", label: "My QR Code", sub: "Scan to receive", color: "bg-blue-100", action: () => setModal("my_qr") },
     { icon: "⚡", label: "Send Money", sub: "Instant P2P", color: "bg-emerald-100", action: () => requireKyc(() => setModal("send_money")) },
@@ -2227,6 +2360,23 @@ export default function Dashboard() {
 
   return (
     <div className="bg-gray-50 min-h-[100dvh] w-full max-w-full overflow-x-hidden pb-safe-nav sm:pb-0 font-sans">
+      {/* ADMIN PERSISTENCE BANNER */}
+      {(userStored.role === "admin" || userProfile?.role === "admin") && (
+        <div className="bg-gradient-to-r from-gray-950 via-indigo-950 to-gray-950 border-b border-indigo-500/40 text-white px-3.5 sm:px-6 py-2.5 flex items-center justify-between text-xs sticky top-0 z-50 shadow-md">
+          <div className="flex items-center gap-2 font-bold min-w-0">
+            <span className="text-base shrink-0">🛡️</span>
+            <span className="truncate">Administrator Account Active</span>
+            <span className="hidden sm:inline text-indigo-300 font-normal">| Full Platform Controls</span>
+          </div>
+          <a
+            href="/admin"
+            className="shrink-0 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-black rounded-lg shadow-sm flex items-center gap-1 transition"
+          >
+            <span>⚡</span> Open Admin Panel →
+          </a>
+        </div>
+      )}
+
       {/* NAVBAR */}
       <nav className="bg-white shadow-sm sticky top-0 z-30 border-b border-gray-100 safe-top w-full">
         <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
@@ -2239,6 +2389,16 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-2.5">
+            {(userStored.role === "admin" || userProfile?.role === "admin") && (
+              <a
+                href="/admin"
+                className="px-2.5 sm:px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
+                title="Return to Admin Panel"
+              >
+                <span>🛡️</span> <span>Admin</span>
+              </a>
+            )}
+
             {/* Unified Settings Button (Language, Blind Voice Guide, & Tour) */}
             <button
               onClick={() => setModal("settings")}
@@ -2457,7 +2617,7 @@ export default function Dashboard() {
 
             {/* 3. Lending Account (40 & 80 Months Monthly Return Bonds) */}
             <div
-              onClick={() => setAccountModal("lending")}
+              onClick={openLendingSheet}
               className="p-5 rounded-2xl border-2 border-gray-200 hover:border-indigo-500 bg-white hover:bg-indigo-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
             >
               <div>
@@ -2471,11 +2631,11 @@ export default function Dashboard() {
                 </div>
                 <h4 className="font-extrabold text-base text-gray-900">Lending Account</h4>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
-                  1 Lakh par ₹1,40,000 (₹3,500/mo x 40m) ya ₹1,80,000 (80m) monthly payouts.
+                  1 Lakh par ₹1,40,000 (₹3,500/mo x 40m) ya ₹2,00,000 (₹2,500/mo x 80m) monthly payouts.
                 </p>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-indigo-700">₹3,500/mo Returns</span>
+                <span className="font-bold text-indigo-700">₹3,500/mo or ₹2,500/mo</span>
                 <span className="text-indigo-600 font-bold">Open Lending →</span>
               </div>
             </div>
@@ -3934,8 +4094,12 @@ export default function Dashboard() {
         <div className="space-y-4">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
             <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Lending Monthly Bonds</span>
-            <div className="text-3xl font-black font-display my-1">₹3,500 / Month</div>
-            <p className="text-xs text-blue-100">₹1 Lakh par ₹1,40,000 (40 mo) ya ₹1,80,000 (80 mo) payouts</p>
+            <div className="text-2xl sm:text-3xl font-black font-display my-1">
+              {lendingBondType === "lending_40" ? "₹3,500 / Month (40 Mo)" : "₹2,500 / Month (80 Mo)"}
+            </div>
+            <p className="text-xs text-blue-100">
+              ₹1 Lakh par ₹1,40,000 (40 mo @ ₹3,500/mo) ya ₹2,00,000 (80 mo @ ₹2,500/mo) guaranteed returns
+            </p>
           </div>
 
           <div className="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl space-y-3">
@@ -3944,7 +4108,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setLendingBondType("lending_40")}
-                className={`p-3 rounded-xl border text-center transition ${
+                className={`p-3 rounded-xl border text-center transition cursor-pointer ${
                   lendingBondType === "lending_40"
                     ? "bg-indigo-600 text-white border-indigo-600 shadow-md font-bold"
                     : "bg-white text-gray-700 border-gray-200 hover:bg-indigo-100"
@@ -3957,22 +4121,194 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setLendingBondType("lending_80")}
-                className={`p-3 rounded-xl border text-center transition ${
+                className={`p-3 rounded-xl border text-center transition cursor-pointer ${
                   lendingBondType === "lending_80"
                     ? "bg-indigo-600 text-white border-indigo-600 shadow-md font-bold"
                     : "bg-white text-gray-700 border-gray-200 hover:bg-indigo-100"
                 }`}
               >
                 <div className="text-xs font-bold">80 Months</div>
-                <div className="text-sm font-black mt-0.5">₹1,80,000 Return</div>
-                <div className="text-[10px] opacity-80">₹2,250 / month</div>
+                <div className="text-sm font-black mt-0.5">₹2,00,000 Return</div>
+                <div className="text-[10px] opacity-80">₹2,500 / month</div>
               </button>
             </div>
+
+            {/* MANDATORY DOCUMENTS FOR LENDING (SAME COMPULSORY SET AS LOANS) */}
+            <div className="p-3.5 bg-white border border-indigo-100 rounded-xl space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                  <span>📑</span> Mandatory Lending Verification Documents
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  Compulsory 100%
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500">
+                Lending bond account open karne ke liye sabhi document dono taraf (Front & Back) photo ya camera scan ke sath anivarya hain.
+              </p>
+
+              {/* 1. Aadhaar Card */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-gray-700 flex items-center justify-between">
+                  <span>1. Aadhaar Card Number <span className="text-rose-500">*</span></span>
+                  <span className="text-[10px] text-gray-400 font-mono">12 Digits</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={12}
+                  placeholder="12-digit Aadhaar Number"
+                  value={lendingForm.aadharNumber}
+                  onChange={e => setLendingForm({ ...lendingForm, aadharNumber: e.target.value.replace(/\D/g, "") })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                />
+                {renderDocUploadBox("Aadhaar Card (Doc 1)", lendingForm.doc1Url, lendingForm.doc1BackUrl, setLendingForm, "doc1Url", "doc1BackUrl", "cyan")}
+              </div>
+
+              {/* 2. PAN Card */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-gray-700 flex items-center justify-between">
+                  <span>2. PAN Card Number <span className="text-rose-500">*</span></span>
+                  <span className="text-[10px] text-gray-400 font-mono">10 Characters</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={10}
+                  placeholder="10-digit PAN (e.g. ABCDE1234F)"
+                  value={lendingForm.panNumber}
+                  onChange={e => setLendingForm({ ...lendingForm, panNumber: e.target.value.toUpperCase() })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 uppercase font-mono"
+                />
+                {renderDocUploadBox("PAN Card (Doc 2)", lendingForm.doc2Url, lendingForm.doc2BackUrl, setLendingForm, "doc2Url", "doc2BackUrl", "cyan")}
+              </div>
+
+              {/* 3. Barrier Cheque */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-gray-700 flex items-center justify-between">
+                  <span>3. Barrier Cheque Number <span className="text-rose-500">*</span></span>
+                  <span className="text-[10px] text-gray-400 font-mono">Cheque / Leaf No.</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Barrier Cheque Number"
+                  value={lendingForm.chequeNumber}
+                  onChange={e => setLendingForm({ ...lendingForm, chequeNumber: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                />
+                {renderDocUploadBox("Barrier Cheque (Doc 3)", lendingForm.chequeUrl, lendingForm.chequeBackUrl, setLendingForm, "chequeUrl", "chequeBackUrl", "cyan")}
+              </div>
+
+              {/* 4. Banking Details */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[11px] font-bold text-gray-700">
+                  4. Monthly Return Bank Account Details <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Bank Name (e.g. State Bank of India, HDFC)"
+                  value={lendingForm.bankName}
+                  onChange={e => setLendingForm({ ...lendingForm, bankName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Bank Account Number"
+                    value={lendingForm.bankAccountNumber}
+                    onChange={e => setLendingForm({ ...lendingForm, bankAccountNumber: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Bank IFSC Code"
+                    value={lendingForm.bankIfsc}
+                    onChange={e => setLendingForm({ ...lendingForm, bankIfsc: e.target.value.toUpperCase() })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 uppercase font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* 5. UPI Details */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-gray-700">
+                  5. UPI ID for Payout / Backup <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="UPI ID (e.g. name@okhdfcbank, 9876543210@paytm)"
+                  value={lendingForm.upiId}
+                  onChange={e => setLendingForm({ ...lendingForm, upiId: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                />
+              </div>
+
+              {/* 6. Nominee Details */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-gray-700">
+                  6. Nominee Details (Secured Nominee) <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nominee Full Name"
+                    value={lendingForm.nomineeName}
+                    onChange={e => setLendingForm({ ...lendingForm, nomineeName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <select
+                    value={lendingForm.nomineeRelation}
+                    onChange={e => setLendingForm({ ...lendingForm, nomineeRelation: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="Father">Father</option>
+                    <option value="Mother">Mother</option>
+                    <option value="Spouse">Spouse</option>
+                    <option value="Brother">Brother</option>
+                    <option value="Sister">Sister</option>
+                    <option value="Son">Son</option>
+                    <option value="Daughter">Daughter</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="Nominee 10-digit Phone"
+                    value={lendingForm.nomineePhone}
+                    onChange={e => setLendingForm({ ...lendingForm, nomineePhone: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* 7. Contact Details */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-gray-700">
+                  7. Investor Contact Verification <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="email"
+                    placeholder="E-mail Address"
+                    value={lendingForm.email || userProfile?.email || ""}
+                    onChange={e => setLendingForm({ ...lendingForm, email: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="10-digit Phone Number"
+                    value={lendingForm.phone || userProfile?.phone || ""}
+                    onChange={e => setLendingForm({ ...lendingForm, phone: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
             <button
               onClick={() => createLendingBond(lendingBondType)}
-              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95"
+              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-black text-xs shadow-md shadow-indigo-500/25 transition active:scale-95 cursor-pointer"
             >
-              Invest ₹1,00,000 in {lendingBondType === "lending_40" ? "40M" : "80M"} Lending Bond →
+              Invest ₹1,00,000 in {lendingBondType === "lending_40" ? "40M (₹3,500/mo)" : "80M (₹2,500/mo)"} Lending Bond →
             </button>
           </div>
 
@@ -3980,7 +4316,7 @@ export default function Dashboard() {
           <div className="space-y-2 border-t border-gray-100 pt-3">
             <div className="flex justify-between items-center">
               <h5 className="text-xs font-bold text-indigo-900 uppercase">Monthly Payouts & Credits Ledger</h5>
-              <span className="text-[10px] text-gray-400 font-semibold">₹3,500 / mo credits</span>
+              <span className="text-[10px] text-gray-400 font-semibold">Automatic Monthly Credits</span>
             </div>
 
             {(() => {
@@ -4000,7 +4336,14 @@ export default function Dashboard() {
                   {lendingBonds.map(b => (
                     <div key={b._id} className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs space-y-1.5">
                       <div className="flex justify-between items-center font-bold">
-                        <span className="text-indigo-950">{b.bondType === "lending_40" ? "40 Months Bond" : "80 Months Bond"}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-indigo-950">{b.bondType === "lending_40" ? "40 Months Bond" : "80 Months Bond"}</span>
+                          {b.accountNumber && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-100 text-indigo-900 border border-indigo-200">
+                              {b.accountNumber}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-indigo-700 font-black">+₹{b.monthlyPayout.toLocaleString("en-IN")} / Month</span>
                       </div>
                       <div className="flex justify-between text-[11px] text-gray-600">

@@ -7,6 +7,8 @@ export default function Header() {
   const [cardsOpen, setCardsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const user = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user") || "{}") : {};
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -122,18 +124,46 @@ export default function Header() {
 
         {/* CTA */}
         <div className="hidden sm:flex items-center gap-3">
-          <button
-            onClick={() => navigate("/login")}
-            className="text-xs xl:text-sm font-bold text-gray-700 hover:text-[#1D6AE5] px-3 py-2 transition cursor-pointer"
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => navigate("/login")}
-            className="px-4 py-2 rounded-xl text-xs xl:text-sm font-extrabold text-white bg-[#1D6AE5] hover:bg-[#1558cc] active:scale-95 transition shadow-md shadow-blue-500/25 flex items-center gap-1.5 cursor-pointer"
-          >
-            <span>🏦</span> Open 12% Account
-          </button>
+          {token ? (
+            user.role === "admin" ? (
+              <>
+                <button
+                  onClick={() => navigate("/admin")}
+                  className="px-3.5 py-1.5 rounded-xl text-xs xl:text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition shadow-md shadow-indigo-500/25 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>🛡️</span> Admin Panel
+                </button>
+                <button
+                  onClick={() => navigate("/dashboard")}
+                  className="text-xs xl:text-sm font-bold text-gray-700 hover:text-[#1D6AE5] px-3 py-2 transition cursor-pointer"
+                >
+                  Dashboard
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="px-4 py-2 rounded-xl text-xs xl:text-sm font-extrabold text-white bg-[#1D6AE5] hover:bg-[#1558cc] active:scale-95 transition shadow-md shadow-blue-500/25 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>📊</span> Go to Dashboard
+              </button>
+            )
+          ) : (
+            <>
+              <button
+                onClick={() => navigate("/login")}
+                className="text-xs xl:text-sm font-bold text-gray-700 hover:text-[#1D6AE5] px-3 py-2 transition cursor-pointer"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => navigate("/login")}
+                className="px-4 py-2 rounded-xl text-xs xl:text-sm font-extrabold text-white bg-[#1D6AE5] hover:bg-[#1558cc] active:scale-95 transition shadow-md shadow-blue-500/25 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>🏦</span> Open 12% Account
+              </button>
+            </>
+          )}
         </div>
 
         {/* MOBILE MENU TOGGLE */}
@@ -177,18 +207,46 @@ export default function Header() {
             </div>
           ))}
           <div className="pt-3 flex flex-col gap-2">
-            <button
-              onClick={() => { setMenuOpen(false); navigate("/login"); }}
-              className="w-full py-2.5 rounded-xl text-sm font-bold text-[#1D6AE5] border border-[#1D6AE5]"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => { setMenuOpen(false); navigate("/login"); }}
-              className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-[#1D6AE5]"
-            >
-              Open 12% Account
-            </button>
+            {token ? (
+              user.role === "admin" ? (
+                <>
+                  <button
+                    onClick={() => { setMenuOpen(false); navigate("/admin"); }}
+                    className="w-full py-2.5 rounded-xl text-sm font-black text-white bg-indigo-600 flex items-center justify-center gap-1.5"
+                  >
+                    <span>🛡️</span> Admin Panel
+                  </button>
+                  <button
+                    onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
+                    className="w-full py-2.5 rounded-xl text-sm font-bold text-[#1D6AE5] border border-[#1D6AE5]"
+                  >
+                    Customer Dashboard
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-[#1D6AE5]"
+                >
+                  Go to Dashboard
+                </button>
+              )
+            ) : (
+              <>
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/login"); }}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold text-[#1D6AE5] border border-[#1D6AE5]"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); navigate("/login"); }}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-[#1D6AE5]"
+                >
+                  Open 12% Account
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -6,19 +6,11 @@ const Transaction = require('../models/Transaction');
 const Settings = require('../models/Settings');
 const { protect, admin } = require('../middleware/auth');
 const { isValidAmount } = require('../utils/validateAmount');
+const { generateAccountNumber } = require('../utils/accountNumber');
 const router = express.Router();
 
 // Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
-const generateLoanAccountNumber = async () => {
-  const count = await Loan.countDocuments();
-  let seq = count + 1;
-  let accNo = `EFS0000${String(seq).padStart(3, '0')}`;
-  while (await Loan.findOne({ accountNumber: accNo })) {
-    seq++;
-    accNo = `EFS0000${String(seq).padStart(3, '0')}`;
-  }
-  return accNo;
-};
+const generateLoanAccountNumber = () => generateAccountNumber(Loan);
 
 // Collection dates on 1st, 11th, and 21st of months (10-day cycle)
 const getCollectionDates = (startDate, count) => {
@@ -868,6 +860,12 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
 router.get('/my', protect, async (req, res) => {
   try {
     const loans = await Loan.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    for (const l of loans) {
+      if (!l.accountNumber || !l.accountNumber.startsWith('EFS0000')) {
+        l.accountNumber = await generateLoanAccountNumber();
+        await l.save();
+      }
+    }
     res.json(loans);
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
@@ -908,6 +906,12 @@ router.get('/all', protect, admin, async (req, res) => {
     const loans = await Loan.find()
       .populate('userId', 'name email phone referralCode')
       .sort({ createdAt: -1 });
+    for (const l of loans) {
+      if (!l.accountNumber || !l.accountNumber.startsWith('EFS0000')) {
+        l.accountNumber = await generateLoanAccountNumber();
+        await l.save();
+      }
+    }
     res.json(loans);
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });

@@ -134,6 +134,7 @@ router.post('/register', registerRules, async (req, res) => {
         duesBalance: 0,
         loanLimit: user.loanLimit || 5000,
         referralCode: user.referralCode,
+        accountNumber: user.accountNumber,
         agentProfile: user.agentProfile
       }
     });
@@ -188,6 +189,7 @@ router.post('/login', async (req, res) => {
         duesBalance: user.duesBalance || 0,
         loanLimit: user.loanLimit || 5000,
         referralCode: user.referralCode,
+        accountNumber: user.accountNumber,
         agentProfile: user.agentProfile
       }
     });
@@ -253,6 +255,7 @@ router.post('/mail-login', async (req, res) => {
         role: user.role,
         balance: user.balance,
         referralCode: user.referralCode,
+        accountNumber: user.accountNumber,
         loginMethod: 'educa-mail'
       }
     });

@@ -2575,8 +2575,8 @@ export default function Dashboard() {
                   <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl">
                     💰
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-blue-100 text-blue-800">
-                    Primary Cash
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-blue-100 text-blue-800">
+                    {userProfile.accountNumber || "EFS0000001"}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-base text-gray-900">Wallet Account</h4>
@@ -2654,14 +2654,14 @@ export default function Dashboard() {
                   <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl">
                     🏦
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800">
-                    {activePersonalLoan ? (activePersonalLoan.accountNumber || "EFSPL0001") : "10-Day Cycle"}
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-emerald-100 text-emerald-800">
+                    {activePersonalLoan ? (activePersonalLoan.accountNumber || "EFS0000001") : "10-Day Cycle"}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-base text-gray-900">Personal Loan Account</h4>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
                   {activePersonalLoan
-                    ? `Active: ${activePersonalLoan.accountNumber} • Early payoff option available.`
+                    ? `Active: ${activePersonalLoan.accountNumber || "EFS0000001"} • Early payoff option available.`
                     : `1st time limit: ₹5k. Min 15 Easy Installments on 1st, 11th & 21st.`}
                 </p>
               </div>
@@ -2689,14 +2689,14 @@ export default function Dashboard() {
                   <div className="w-11 h-11 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center text-xl">
                     🎓
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-cyan-100 text-cyan-800">
-                    {activeStudentLoan ? (activeStudentLoan.accountNumber || "EDUCA-STU") : "8% p.a."}
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-cyan-100 text-cyan-800">
+                    {activeStudentLoan ? (activeStudentLoan.accountNumber || "EFS0000001") : "8% p.a."}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-base text-gray-900">Student Loan Account</h4>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
                   {activeStudentLoan
-                    ? `Active: ${activeStudentLoan.accountNumber} • Subsidized student fee support.`
+                    ? `Active: ${activeStudentLoan.accountNumber || "EFS0000001"} • Subsidized student fee support.`
                     : "School, college aur coaching fee direct transfer. Subsidized interest aur 15-30 Easy Installments."}
                 </p>
               </div>
@@ -3229,7 +3229,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <div className="text-2xl sm:text-3xl font-black font-mono my-1 tracking-wider">
-                {activePersonalLoan.accountNumber || "EFSPL0001"}
+                {activePersonalLoan.accountNumber || "EFS0000001"}
               </div>
               <div className="flex justify-between text-xs text-emerald-100 pt-1">
                 <span>Sanctioned: ₹{activePersonalLoan.amount.toLocaleString("en-IN")}</span>
@@ -3681,7 +3681,7 @@ export default function Dashboard() {
           <div className="space-y-4">
             <div className="bg-gradient-to-r from-amber-600 to-orange-700 rounded-2xl p-5 text-white">
               <span className="text-xs uppercase tracking-wider text-amber-100 font-bold">Active Daily Loan</span>
-              <div className="text-2xl font-black font-mono my-1">{activeBusinessLoan.accountNumber}</div>
+              <div className="text-2xl font-black font-mono my-1">{activeBusinessLoan.accountNumber || "EFS0000001"}</div>
               <p className="text-xs text-amber-100">Amount: ₹{activeBusinessLoan.amount.toLocaleString("en-IN")}</p>
             </div>
             <div className="p-4 bg-gray-50 rounded-2xl space-y-2 text-xs border border-gray-200">
@@ -4383,8 +4383,13 @@ export default function Dashboard() {
       {/* 7. WALLET ACCOUNT SHEET */}
       <Sheet open={accountModal === "wallet"} onClose={closeModal} title="Wallet Account" icon="💰">
         <div className="space-y-4">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
-            <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Available Cash Balance</span>
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white shadow-md">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Available Cash Balance</span>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-white/20 text-white">
+                A/C: {userProfile.accountNumber || "EFS0000001"}
+              </span>
+            </div>
             <div className="text-3xl font-black font-display my-1">₹{balance.toLocaleString("en-IN")}</div>
             <p className="text-xs text-blue-100">Ready for instant UPI, recharge aur withdrawal</p>
           </div>
@@ -4411,7 +4416,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <div className="text-2xl sm:text-3xl font-black font-mono my-1 tracking-wider">
-                {activeStudentLoan.accountNumber || "EDUCA-STU"}
+                {activeStudentLoan.accountNumber || "EFS0000001"}
               </div>
               <div className="flex justify-between text-xs text-cyan-100 pt-1">
                 <span>Sanctioned: ₹{activeStudentLoan.amount.toLocaleString("en-IN")}</span>
@@ -4867,7 +4872,7 @@ export default function Dashboard() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded-lg border border-slate-200">
-                              {l.accountNumber || "EDUCA-LOAN"}
+                              {l.accountNumber || "EFS0000001"}
                             </span>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
                               isStudent ? "bg-cyan-100 text-cyan-800" :

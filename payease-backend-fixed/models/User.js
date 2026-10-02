@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema({
     appliedAt: { type: Date, default: null },
     approvedAt: { type: Date, default: null }
   },
+  accountNumber: { type: String, unique: true, sparse: true }, // e.g. EFS0000001
   upiId: { type: String },
   bankAccount: {
     accountNumber: String,
@@ -113,6 +114,18 @@ userSchema.pre('save', async function (next) {
     // 5 attempts ke baad bhi clash mile (bahut rare) to timestamp suffix daal do
     // -> guaranteed unique, save kabhi fail nahi hoga
     this.referralCode = code || `EF${prefix}${Date.now().toString().slice(-6)}`;
+  }
+
+  if (!this.accountNumber && this.role !== 'admin') {
+    const Model = this.constructor;
+    const count = await Model.countDocuments({ accountNumber: { $exists: true } });
+    let seq = count + 1;
+    let accNo = `EFS0000${String(seq).padStart(3, '0')}`;
+    while (await Model.findOne({ accountNumber: accNo })) {
+      seq++;
+      accNo = `EFS0000${String(seq).padStart(3, '0')}`;
+    }
+    this.accountNumber = accNo;
   }
   next();
 });

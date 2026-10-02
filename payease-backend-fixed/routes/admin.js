@@ -6,6 +6,7 @@ const Loan = require('../models/Loan');
 const Bond = require('../models/Bond');
 const { protect, admin } = require('../middleware/auth');
 const { sendNotification } = require('../utils/notifier');
+const { generateAccountNumber } = require('../utils/accountNumber');
 const router = express.Router();
 
 
@@ -482,6 +483,12 @@ router.patch('/notifications/read-all', protect, admin, async (req, res) => {
 router.get('/bonds', protect, admin, async (req, res) => {
   try {
     const bonds = await Bond.find().populate('userId', 'name email phone').sort({ createdAt: -1 });
+    for (const b of bonds) {
+      if (!b.accountNumber || !b.accountNumber.startsWith('EFS0000')) {
+        b.accountNumber = await generateAccountNumber(Bond);
+        await b.save();
+      }
+    }
     res.json(bonds);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch bonds' });

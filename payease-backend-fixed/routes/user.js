@@ -5,6 +5,7 @@ const Transaction = require('../models/Transaction');
 const Settings = require('../models/Settings');
 const { protect } = require('../middleware/auth');
 const { sendNotification } = require('../utils/notifier');
+const { generateAccountNumber } = require('../utils/accountNumber');
 const router = express.Router();
 
 // Helper to evaluate and credit daily profit on lowest 24h primary Savings Account balance
@@ -86,6 +87,10 @@ router.get('/me', protect, async (req, res) => {
   try {
     let user = await User.findById(req.user._id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user.accountNumber && user.role !== 'admin') {
+      user.accountNumber = await generateAccountNumber(User);
+      await user.save();
+    }
     user = await processDailyYield(user);
     const userObj = user.toObject();
     userObj.hasWalletPin = !!user.walletPin;

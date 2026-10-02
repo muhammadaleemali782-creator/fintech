@@ -5,19 +5,11 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const { protect, admin } = require('../middleware/auth');
 const Settings = require('../models/Settings');
+const { generateAccountNumber } = require('../utils/accountNumber');
 const router = express.Router();
 
 // Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
-const generateBondAccountNumber = async () => {
-  const count = await Bond.countDocuments();
-  let seq = count + 1;
-  let accNo = `EFS0000${String(seq).padStart(3, '0')}`;
-  while (await Bond.findOne({ accountNumber: accNo })) {
-    seq++;
-    accNo = `EFS0000${String(seq).padStart(3, '0')}`;
-  }
-  return accNo;
-};
+const generateBondAccountNumber = () => generateAccountNumber(Bond);
 
 // Helper: Calculate bond details strictly on server (Anti-Burp/Anti-Tamper)
 const calculateBondTerms = (bondType, amount = 100000) => {
@@ -336,6 +328,12 @@ router.post('/create', protect, async (req, res) => {
 router.get('/admin/all', protect, admin, async (req, res) => {
   try {
     const bonds = await Bond.find().populate('userId', 'name email phone').sort({ createdAt: -1 });
+    for (const b of bonds) {
+      if (!b.accountNumber || !b.accountNumber.startsWith('EFS0000')) {
+        b.accountNumber = await generateBondAccountNumber();
+        await b.save();
+      }
+    }
     res.json(bonds);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch bonds for admin' });
@@ -347,6 +345,12 @@ router.get('/my', protect, async (req, res) => {
   try {
     const now = new Date();
     const bonds = await Bond.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    for (const b of bonds) {
+      if (!b.accountNumber || !b.accountNumber.startsWith('EFS0000')) {
+        b.accountNumber = await generateBondAccountNumber();
+        await b.save();
+      }
+    }
 
     // Process matured or pending monthly payouts automatically
     for (const b of bonds) {

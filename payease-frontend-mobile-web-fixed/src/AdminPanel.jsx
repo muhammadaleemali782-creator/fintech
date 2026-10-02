@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
 
@@ -17,6 +18,7 @@ export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [devices, setDevices] = useState([]);
   const [loans, setLoans] = useState([]);
+  const [bonds, setBonds] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [toast, setToast] = useState({ text: "", type: "" });
@@ -142,6 +144,10 @@ export default function AdminPanel() {
     try { const res = await fetch(`${API}/loan/all`, { headers }); const d = await res.json(); setLoans(Array.isArray(d) ? d : []); } catch {}
   }, []); // eslint-disable-line
 
+  const loadBonds = useCallback(async () => {
+    try { const res = await fetch(`${API}/admin/bonds`, { headers }); const d = await res.json(); setBonds(Array.isArray(d) ? d : []); } catch {}
+  }, []); // eslint-disable-line
+
   const loadDevices = useCallback(async () => {
     try {
       const res = await fetch(`${API}/v1/admin/devices`, { headers });
@@ -206,8 +212,8 @@ export default function AdminPanel() {
   };
 
   const loadAll = useCallback(() => {
-    loadStats(); loadPending(); loadAgents(); loadUsers(); loadLoans(); loadSettings(); loadNotifications(); loadDevices();
-  }, [loadStats, loadPending, loadAgents, loadUsers, loadLoans, loadSettings, loadNotifications, loadDevices]);
+    loadStats(); loadPending(); loadAgents(); loadUsers(); loadLoans(); loadBonds(); loadSettings(); loadNotifications(); loadDevices();
+  }, [loadStats, loadPending, loadAgents, loadUsers, loadLoans, loadBonds, loadSettings, loadNotifications, loadDevices]);
 
   useEffect(() => {
     loadAll();
@@ -532,6 +538,7 @@ export default function AdminPanel() {
     { key: "alerts", label: "Live Alerts", icon: "🔔", badge: unreadNotifs },
     { key: "agents", label: "Agent Partners", icon: "🤝", badge: pendingAgentsCount },
     { key: "loans", label: "Loans", icon: "🏦" },
+    { key: "lending", label: "Lending Accounts", icon: "🤝", badge: bonds.length },
     { key: "users", label: "Users & Accounts", icon: "👥" },
     { key: "devices", label: "App Lock", icon: "🔒", badge: devices.filter(d => d.adminStatus === "active").length },
     { key: "settings", label: "Settings", icon: "⚙️" },
@@ -666,10 +673,18 @@ export default function AdminPanel() {
             </button>
           ))}
         </nav>
-        <div className="px-4 py-4 border-t border-white/10">
-          <p className="text-gray-400 text-xs">Logged in as</p>
-          <p className="text-white font-semibold text-sm mb-3">{user.name}</p>
-          <button onClick={logout} className="w-full px-4 py-2.5 bg-red-500/90 text-white rounded-lg hover:bg-red-600 transition text-sm font-semibold">Logout</button>
+        <div className="px-4 py-4 border-t border-white/10 space-y-2.5">
+          <Link
+            to="/dashboard"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 border border-indigo-500/40 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
+          >
+            <span>📱</span> Customer App View
+          </Link>
+          <div>
+            <p className="text-gray-400 text-xs">Logged in as</p>
+            <p className="text-white font-semibold text-sm mb-2">{user.name}</p>
+          </div>
+          <button onClick={logout} className="w-full px-4 py-2 bg-red-500/90 text-white rounded-lg hover:bg-red-600 transition text-sm font-semibold">Logout</button>
         </div>
       </aside>
 
@@ -684,7 +699,13 @@ export default function AdminPanel() {
                 <p className="text-blue-400 text-xs font-semibold hidden sm:block">Educa Finance Control Center</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link
+                to="/dashboard"
+                className="px-2.5 py-1.5 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 border border-indigo-500/40 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
+              >
+                <span>📱</span> <span className="hidden sm:inline">App View</span>
+              </Link>
               <div className="text-right hidden sm:block">
                 <p className="text-gray-400 text-xs">Logged in as</p>
                 <p className="text-white font-semibold text-sm">{user.name}</p>
@@ -1966,6 +1987,216 @@ export default function AdminPanel() {
                             )}
                           </div>
                         )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* LENDING / BOND ACCOUNTS */}
+          {tab === "lending" && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100">
+                <div>
+                  <h3 className="text-lg font-bold font-display flex items-center gap-2">
+                    <span>🤝</span> Lending Investment Accounts ({bonds.length})
+                  </h3>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Compulsory KYC, Barrier Cheque, Nominee, UPI & Banking Details for Fixed Monthly Payout Accounts.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={loadBonds}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>🔄</span> Refresh
+                  </button>
+                </div>
+              </div>
+
+              {bonds.length === 0 ? (
+                <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
+                  <span className="text-4xl block mb-2">🤝</span>
+                  <p className="font-semibold text-gray-600">No lending accounts yet</p>
+                  <p className="text-xs mt-1">Jab users ₹3,500/mo (40m) ya ₹2,500/mo (80m) lending plan activate karenge, yahan unke documents aur account number show honge.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {bonds.map((b) => {
+                    const docs = b.documents || {};
+                    const aadharFront = docs.aadharUrl || docs.doc1Url;
+                    const aadharBack = docs.aadharBackUrl || docs.doc1BackUrl;
+                    const panFront = docs.panUrl || docs.doc2Url;
+                    const panBack = docs.panBackUrl || docs.doc2BackUrl;
+                    const chequeFront = docs.chequeUrl;
+                    const chequeBack = docs.chequeBackUrl;
+
+                    return (
+                      <div key={b._id} className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                        {/* Header: User Info & Account Number */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
+                              🤝
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-extrabold text-gray-900 text-base">{b.userId?.name || "Investor"}</h4>
+                                <span className="bg-indigo-100 text-indigo-900 text-xs font-black font-mono px-2.5 py-0.5 rounded-full border border-indigo-200">
+                                  A/C: {b.accountNumber || "EFS0000XXX"}
+                                </span>
+                                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                  b.status === "active" ? "bg-emerald-100 text-emerald-800" :
+                                  b.status === "matured" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700"
+                                }`}>
+                                  {b.status?.toUpperCase() || "ACTIVE"}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                📞 {b.userId?.phone || docs.applicantPhone || "N/A"} • ✉️ {b.userId?.email || docs.applicantEmail || "N/A"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-left sm:text-right text-xs text-gray-400">
+                            <span>Started: {new Date(b.startDate || b.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                          </div>
+                        </div>
+
+                        {/* Plan Stats Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl text-xs">
+                          <div>
+                            <span className="text-gray-400 block font-medium">Plan</span>
+                            <span className="font-bold text-gray-900 text-sm">{b.planName || (b.planId === "lending_80" ? "80 Months Plan" : "40 Months Plan")}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 block font-medium">Principal Deposited</span>
+                            <span className="font-bold text-gray-900 text-sm">₹{Number(b.principalAmount || 0).toLocaleString("en-IN")}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 block font-medium">Monthly Payout</span>
+                            <span className="font-extrabold text-emerald-700 text-sm">₹{Number(b.monthlyPayout || 0).toLocaleString("en-IN")}/mo</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 block font-medium">Payout Progress</span>
+                            <span className="font-bold text-indigo-700 text-sm">{b.monthsPaid || 0} / {b.monthsTotal || 40} Months</span>
+                          </div>
+                        </div>
+
+                        {/* Mandatory Submitted Documents Lightbox Buttons */}
+                        <div className="p-3.5 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-2">
+                          <div className="flex items-center justify-between text-xs font-bold text-indigo-950">
+                            <span className="flex items-center gap-1.5">
+                              <span>📄</span> Compulsory Documents (Aadhaar, PAN & Barrier Cheque)
+                            </span>
+                            {docs.driveLink && (
+                              <a
+                                href={docs.driveLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+                              >
+                                <span>📁</span> Google Drive Folder
+                              </a>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {aadharFront ? (
+                              <button
+                                type="button"
+                                onClick={() => { setLightboxImg(aadharFront); setZoomLevel(1); }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-indigo-800 hover:bg-indigo-50 shadow-2xs transition cursor-pointer"
+                              >
+                                🆔 Aadhaar Front 🔍
+                              </button>
+                            ) : (
+                              <span className="text-xs text-rose-500 bg-rose-50 px-2 py-1 rounded">No Aadhaar Front</span>
+                            )}
+                            {aadharBack && (
+                              <button
+                                type="button"
+                                onClick={() => { setLightboxImg(aadharBack); setZoomLevel(1); }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-indigo-800 hover:bg-indigo-50 shadow-2xs transition cursor-pointer"
+                              >
+                                🆔 Aadhaar Back 🔍
+                              </button>
+                            )}
+
+                            {panFront ? (
+                              <button
+                                type="button"
+                                onClick={() => { setLightboxImg(panFront); setZoomLevel(1); }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-indigo-800 hover:bg-indigo-50 shadow-2xs transition cursor-pointer"
+                              >
+                                💳 PAN Front 🔍
+                              </button>
+                            ) : (
+                              <span className="text-xs text-rose-500 bg-rose-50 px-2 py-1 rounded">No PAN Front</span>
+                            )}
+                            {panBack && (
+                              <button
+                                type="button"
+                                onClick={() => { setLightboxImg(panBack); setZoomLevel(1); }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-indigo-800 hover:bg-indigo-50 shadow-2xs transition cursor-pointer"
+                              >
+                                💳 PAN Back 🔍
+                              </button>
+                            )}
+
+                            {chequeFront ? (
+                              <button
+                                type="button"
+                                onClick={() => { setLightboxImg(chequeFront); setZoomLevel(1); }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-900 hover:bg-amber-50 shadow-2xs transition cursor-pointer"
+                              >
+                                📑 Barrier Cheque Front 🔍
+                              </button>
+                            ) : (
+                              <span className="text-xs text-rose-500 bg-rose-50 px-2 py-1 rounded">No Cheque Front</span>
+                            )}
+                            {chequeBack && (
+                              <button
+                                type="button"
+                                onClick={() => { setLightboxImg(chequeBack); setZoomLevel(1); }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-900 hover:bg-amber-50 shadow-2xs transition cursor-pointer"
+                              >
+                                📑 Barrier Cheque Back 🔍
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Banking, UPI & Nominee Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                          {/* Bank & UPI */}
+                          <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-1.5">
+                            <span className="font-black text-gray-800 flex items-center gap-1.5">
+                              <span>🏦</span> Bank & UPI Payout Destination
+                            </span>
+                            <div className="grid grid-cols-2 gap-2 text-gray-700">
+                              <div><span className="text-gray-400">Bank:</span> <strong className="font-semibold">{docs.bankName || "N/A"}</strong></div>
+                              <div><span className="text-gray-400">A/C No:</span> <strong className="font-semibold font-mono">{docs.bankAccountNumber || "N/A"}</strong></div>
+                              <div><span className="text-gray-400">IFSC:</span> <strong className="font-semibold font-mono">{docs.bankIfsc || "N/A"}</strong></div>
+                              <div><span className="text-gray-400">UPI ID:</span> <strong className="font-semibold text-emerald-800">{docs.upiId || "N/A"}</strong></div>
+                            </div>
+                          </div>
+
+                          {/* Nominee & Contact */}
+                          <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-1.5">
+                            <span className="font-black text-gray-800 flex items-center gap-1.5">
+                              <span>🛡️</span> Nominee & Applicant Contact
+                            </span>
+                            <div className="grid grid-cols-2 gap-2 text-gray-700">
+                              <div><span className="text-gray-400">Nominee:</span> <strong className="font-semibold">{docs.nomineeName || "N/A"}</strong></div>
+                              <div><span className="text-gray-400">Relation:</span> <strong className="font-semibold">{docs.nomineeRelation || "N/A"}</strong></div>
+                              <div><span className="text-gray-400">Nominee Ph:</span> <strong className="font-semibold">{docs.nomineePhone || "N/A"}</strong></div>
+                              <div><span className="text-gray-400">Applicant Ph:</span> <strong className="font-semibold">{docs.applicantPhone || b.userId?.phone || "N/A"}</strong></div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}

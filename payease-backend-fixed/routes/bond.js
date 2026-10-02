@@ -3,8 +3,21 @@ const mongoose = require('mongoose');
 const Bond = require('../models/Bond');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const { protect } = require('../middleware/auth');
+const { protect, admin } = require('../middleware/auth');
+const Settings = require('../models/Settings');
 const router = express.Router();
+
+// Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
+const generateBondAccountNumber = async () => {
+  const count = await Bond.countDocuments();
+  let seq = count + 1;
+  let accNo = `EFS0000${String(seq).padStart(3, '0')}`;
+  while (await Bond.findOne({ accountNumber: accNo })) {
+    seq++;
+    accNo = `EFS0000${String(seq).padStart(3, '0')}`;
+  }
+  return accNo;
+};
 
 // Helper: Calculate bond details strictly on server (Anti-Burp/Anti-Tamper)
 const calculateBondTerms = (bondType, amount = 100000) => {
@@ -52,10 +65,10 @@ const calculateBondTerms = (bondType, amount = 100000) => {
   }
 
   if (bondType === 'lending_80') {
-    // 80 Months Lending Bond: 1 Lakh -> 1.8 Lakh total @ 2,250 monthly payout
+    // 80 Months Lending Bond: 1 Lakh -> 2.0 Lakh total @ 2,500 monthly payout
     const factor = principal / 100000;
-    const monthlyPayout = Math.round(2250 * factor);
-    const returnAmount = Math.round(180000 * factor);
+    const monthlyPayout = Math.round(2500 * factor);
+    const returnAmount = Math.round(200000 * factor);
     const maturityDate = new Date(now);
     maturityDate.setMonth(maturityDate.getMonth() + 80);
     const nextPayoutDate = new Date(now);
@@ -79,10 +92,141 @@ const calculateBondTerms = (bondType, amount = 100000) => {
 
 // Create a new Bond
 router.post('/create', protect, async (req, res) => {
-  const { bondType, amount = 100000 } = req.body;
+  const { bondType, amount = 100000, documents } = req.body;
 
   if (!['debit_365', 'lending_40', 'lending_80'].includes(bondType)) {
     return res.status(400).json({ message: 'Invalid bond type' });
+  }
+
+  const userDoc = await User.findById(req.user._id);
+  if (!userDoc) return res.status(404).json({ message: 'User not found' });
+
+  // ─────────────────────────────────────────────────────────────
+  // STRICT MANDATORY REQUIREMENTS FOR LENDING ACCOUNTS
+  // Aadhaar (Front/Back), PAN (Front/Back), Barrier Cheque (Front/Back),
+  // Bank Details, UPI ID, Nominee Details, Email & Phone
+  // ─────────────────────────────────────────────────────────────
+  let bondDocumentsPayload = {};
+  if (['lending_40', 'lending_80'].includes(bondType)) {
+    const docs = documents || {};
+    const aadharNumber = (docs.aadharNumber || userDoc.aadharNumber || '').toString().trim();
+    const aadharFront = docs.aadharUrl || docs.doc1Url || userDoc.kycDocuments?.doc1Url;
+    const aadharBack = docs.aadharBackUrl || docs.doc1BackUrl || userDoc.kycDocuments?.doc1BackUrl;
+
+    const panNumber = (docs.panNumber || userDoc.kycDocuments?.panNumber || '').toString().trim().toUpperCase();
+    const panFront = docs.panUrl || docs.doc2Url || userDoc.kycDocuments?.doc2Url;
+    const panBack = docs.panBackUrl || docs.doc2BackUrl || userDoc.kycDocuments?.doc2BackUrl;
+
+    const chequeNum = (docs.chequeNumber || '').toString().trim();
+    const chequeFront = docs.chequeUrl || docs.chequeFrontUrl;
+    const chequeBack = docs.chequeBackUrl;
+
+    const bankName = (docs.bankName || '').toString().trim();
+    const bankAccount = (docs.bankAccountNumber || '').toString().trim();
+    const bankIfsc = (docs.bankIfsc || '').toString().trim().toUpperCase();
+
+    const upiId = (docs.upiId || '').toString().trim();
+
+    const nomineeName = (docs.nomineeName || '').toString().trim();
+    const nomineeRelation = (docs.nomineeRelation || '').toString().trim();
+    const nomineePhone = (docs.nomineePhone || '').toString().trim();
+
+    const applicantEmail = (docs.applicantEmail || docs.email || userDoc.email || '').toString().trim();
+    const applicantPhone = (docs.applicantPhone || docs.phone || userDoc.phone || '').toString().trim();
+
+    // 1. AADHAAR VALIDATION (Compulsory)
+    if (!aadharNumber || aadharNumber.replace(/\D/g, '').length !== 12) {
+      return res.status(400).json({ message: '12-digit Aadhaar Card number darj karna anivarya (mandatory) hai.' });
+    }
+    if (!aadharFront) {
+      return res.status(400).json({ message: 'Aadhaar Card Front photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+    if (!aadharBack) {
+      return res.status(400).json({ message: 'Aadhaar Card Back photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+
+    // 2. PAN VALIDATION (Compulsory)
+    if (!panNumber || panNumber.length !== 10) {
+      return res.status(400).json({ message: 'Valid 10-character PAN Card number darj karna anivarya (mandatory) hai.' });
+    }
+    if (!panFront) {
+      return res.status(400).json({ message: 'PAN Card Front photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+    if (!panBack) {
+      return res.status(400).json({ message: 'PAN Card Back photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+
+    // 3. BARRIER CHEQUE VALIDATION (Compulsory)
+    if (!chequeNum) {
+      return res.status(400).json({ message: 'Barrier Cheque number darj karna anivarya (mandatory) hai.' });
+    }
+    if (!chequeFront) {
+      return res.status(400).json({ message: 'Barrier Cheque Front photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+    if (!chequeBack) {
+      return res.status(400).json({ message: 'Barrier Cheque Back photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+
+    // 4. BANKING DETAILS VALIDATION (Compulsory)
+    if (!bankName) {
+      return res.status(400).json({ message: 'Bank ka naam (Bank Name) darj karna anivarya (mandatory) hai.' });
+    }
+    if (!bankAccount || bankAccount.length < 8) {
+      return res.status(400).json({ message: 'Valid Bank Account Number darj karna anivarya (mandatory) hai.' });
+    }
+    if (!bankIfsc || bankIfsc.length < 9) {
+      return res.status(400).json({ message: 'Valid Bank IFSC Code darj karna anivarya (mandatory) hai.' });
+    }
+
+    // 5. UPI DETAILS VALIDATION (Compulsory)
+    if (!upiId || !upiId.includes('@')) {
+      return res.status(400).json({ message: 'Valid UPI ID (jaise mobile@upi ya name@bank) darj karna anivarya (mandatory) hai.' });
+    }
+
+    // 6. NOMINEE DETAILS VALIDATION (Compulsory)
+    if (!nomineeName) {
+      return res.status(400).json({ message: 'Nominee ka pura naam darj karna anivarya (mandatory) hai.' });
+    }
+    if (!nomineeRelation) {
+      return res.status(400).json({ message: 'Nominee ke sath rishta (Relation) chunna anivarya (mandatory) hai.' });
+    }
+    if (!nomineePhone || nomineePhone.replace(/\D/g, '').length < 10) {
+      return res.status(400).json({ message: 'Nominee ka 10-digit mobile number darj karna anivarya (mandatory) hai.' });
+    }
+
+    // 7. APPLICANT CONTACT VALIDATION (Compulsory)
+    if (!applicantEmail || !applicantEmail.includes('@')) {
+      return res.status(400).json({ message: 'Valid E-mail address darj karna anivarya (mandatory) hai.' });
+    }
+    if (!applicantPhone || applicantPhone.replace(/\D/g, '').length < 10) {
+      return res.status(400).json({ message: 'Valid phone number darj karna anivarya (mandatory) hai.' });
+    }
+
+    bondDocumentsPayload = {
+      aadharNumber,
+      aadharUrl: aadharFront,
+      aadharBackUrl: aadharBack,
+      doc1Url: aadharFront,
+      doc1BackUrl: aadharBack,
+      panNumber,
+      panUrl: panFront,
+      panBackUrl: panBack,
+      doc2Url: panFront,
+      doc2BackUrl: panBack,
+      chequeNumber: chequeNum,
+      chequeUrl: chequeFront,
+      chequeBackUrl: chequeBack,
+      bankName,
+      bankAccountNumber: bankAccount,
+      bankIfsc,
+      upiId,
+      nomineeName,
+      nomineeRelation,
+      nomineePhone,
+      applicantEmail,
+      applicantPhone,
+      submittedAt: new Date()
+    };
   }
 
   let terms;
@@ -91,6 +235,8 @@ router.post('/create', protect, async (req, res) => {
   } catch (err) {
     return res.status(400).json({ message: err.message });
   }
+
+  const accountNumber = await generateBondAccountNumber();
 
   const session = await mongoose.startSession();
   try {
@@ -121,7 +267,9 @@ router.post('/create', protect, async (req, res) => {
 
       const created = await Bond.create([{
         userId: req.user._id,
+        accountNumber,
         ...terms,
+        documents: bondDocumentsPayload,
         status: 'active'
       }], { session });
 
@@ -134,18 +282,63 @@ router.post('/create', protect, async (req, res) => {
         method: 'wallet',
         status: 'completed',
         referenceId: bond._id.toString(),
-        remarks: `${bondType === 'debit_365' ? '365-Day Fixed Bond (₹1.18L Profit Maturity)' : 'Lending Monthly Bond'} Created`
+        remarks: `${bondType === 'debit_365' ? '365-Day Fixed Bond (₹1.18L Profit Maturity)' : `Lending Monthly Bond (${accountNumber})`} Created`
       }], { session });
     });
 
+    // Background Google Drive sync for lending documents
+    if (['lending_40', 'lending_80'].includes(bondType)) {
+      try {
+        const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+        const adminDriveUrl = adminDriveSetting?.value;
+        if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
+          fetch(adminDriveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'upload_lending_application',
+              accountNumber: bond.accountNumber,
+              bondType: bond.bondType,
+              userId: userDoc._id.toString(),
+              userName: userDoc.name,
+              amount: bond.principalAmount,
+              returnAmount: bond.returnAmount,
+              monthlyPayout: bond.monthlyPayout,
+              ...bondDocumentsPayload
+            })
+          })
+          .then(r => r.json())
+          .then(async (driveData) => {
+            if (driveData && (driveData.fileUrl || driveData.folderUrl)) {
+              await Bond.findByIdAndUpdate(bond._id, {
+                'documents.googleDriveFolderUrl': driveData.folderUrl || driveData.fileUrl,
+                'documents.googleDriveSyncStatus': 'synced'
+              });
+            }
+          })
+          .catch(e => console.warn('Lending Drive sync warning:', e.message));
+        }
+      } catch (driveErr) {}
+    }
+
     res.json({
-      message: '🎉 Bond created successfully! Funds locked safely.',
+      message: `🎉 Lending Bond created successfully! Account No: ${bond.accountNumber}`,
       bond
     });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message || 'Bond creation failed' });
   } finally {
     session.endSession();
+  }
+});
+
+// Admin: Get all bonds with user info & documents
+router.get('/admin/all', protect, admin, async (req, res) => {
+  try {
+    const bonds = await Bond.find().populate('userId', 'name email phone').sort({ createdAt: -1 });
+    res.json(bonds);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch bonds for admin' });
   }
 });
 

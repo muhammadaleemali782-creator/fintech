@@ -54,10 +54,13 @@ export function checkIsAppClient() {
 function RootRoute() {
   const isApp = checkIsAppClient();
   const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  // In App Mode: Direct login / dashboard, zero landing page
+  // In App Mode: Direct login / admin / dashboard, zero landing page
   if (isApp) {
-    if (token) return <Navigate to="/dashboard" replace />;
+    if (token) {
+      return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
+    }
     return <Login isApp={true} />;
   }
 

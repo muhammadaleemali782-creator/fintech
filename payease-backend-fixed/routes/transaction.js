@@ -4,6 +4,7 @@ const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 const { isValidAmount } = require('../utils/validateAmount');
+const bcrypt = require('bcryptjs');
 const router = express.Router();
 
 // 1. Lookup Recipient by Phone, Email, or Unique ID / Referral Code
@@ -49,7 +50,7 @@ router.get('/lookup/:identifier', protect, async (req, res) => {
 
 // 2. Instant App-to-App P2P Wallet Transfer (Anti-Burp / Anti-Tamper Security)
 router.post('/transfer', protect, async (req, res) => {
-  const { recipient: rawRecipient, amount: rawAmount, notes } = req.body;
+  const { recipient: rawRecipient, amount: rawAmount, notes, pin } = req.body;
 
   const senderUser = await User.findById(req.user._id);
   if (!senderUser) return res.status(404).json({ message: 'User not found' });
@@ -58,6 +59,23 @@ router.post('/transfer', protect, async (req, res) => {
       message: 'KYC Verification zaroori hai! Paise transfer karne ke liye kripya pehle apna KYC document submit aur verify karwayein.',
       requireKyc: true
     });
+  }
+
+  // Mandatory 6-Digit UPI PIN Check
+  if (!senderUser.walletPin) {
+    return res.status(400).json({
+      message: 'Kripya pehle apna 6-digit UPI PIN banayein.',
+      needsSetup: true
+    });
+  }
+
+  if (!pin || !/^\d{6}$/.test(String(pin))) {
+    return res.status(400).json({ message: 'Transfer ke liye 6-digit UPI PIN daalna anivarya hai.' });
+  }
+
+  const isPinValid = await bcrypt.compare(String(pin), senderUser.walletPin);
+  if (!isPinValid) {
+    return res.status(400).json({ message: 'Galat 6-digit UPI PIN enter kiya gaya hai.' });
   }
 
   const amount = Number(rawAmount);

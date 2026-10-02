@@ -182,18 +182,31 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Setup Android back navigation
+        // Setup Android back navigation with modal/sheet dismissal guard
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                } else {
-                    val currentTime = System.currentTimeMillis()
-                    if (currentTime - backPressedTime < 2000) {
-                        finish()
+                // 1. Check if React web frontend has an active modal/sheet to dismiss
+                webView.evaluateJavascript(
+                    "typeof window.handleAndroidBackPressed === 'function' ? window.handleAndroidBackPressed() : false"
+                ) { result ->
+                    val handled = result?.trim()?.equals("true", ignoreCase = true) == true
+                    if (handled) {
+                        // Modal or sheet was successfully dismissed, do not exit the app
+                        return@evaluateJavascript
+                    }
+
+                    // 2. If no modal is open, check if WebView browser history can navigate back
+                    if (webView.canGoBack()) {
+                        webView.goBack()
                     } else {
-                        backPressedTime = currentTime
-                        Toast.makeText(this@MainActivity, "Press back again to exit Educa Fintech", Toast.LENGTH_SHORT).show()
+                        // 3. Double-tap back within 2 seconds to confirm exiting the application
+                        val currentTime = System.currentTimeMillis()
+                        if (currentTime - backPressedTime < 2000) {
+                            finish()
+                        } else {
+                            backPressedTime = currentTime
+                            Toast.makeText(this@MainActivity, "Press back again to exit Educa Fintech", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }

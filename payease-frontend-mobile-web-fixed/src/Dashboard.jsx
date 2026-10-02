@@ -465,11 +465,16 @@ export default function Dashboard() {
   const [depForm, setDepForm] = useState({ amount: "", method: "upi", utrNumber: "" });
   const [wdForm, setWdForm] = useState({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "" });
   
-  // P2P Transfer State
-  const [sendForm, setSendForm] = useState({ recipient: "", amount: "", notes: "" });
+  // P2P Transfer & 6-Digit UPI PIN Intercept State
+  const [sendForm, setSendForm] = useState({ recipient: "", amount: "", notes: "", pin: "" });
   const [recipientInfo, setRecipientInfo] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState("");
+  const [pendingPinAction, setPendingPinAction] = useState(null);
+  const pendingPinActionRef = useRef(null);
+  useEffect(() => {
+    pendingPinActionRef.current = pendingPinAction;
+  }, [pendingPinAction]);
 
   // Personal Loan Application State (₹5k-₹50k, 15-30 Easy Installments, 1.34% per installment)
   const [loanForm, setLoanForm] = useState({
@@ -672,7 +677,39 @@ export default function Dashboard() {
     setKycError("");
     setModal(null);
     setAccountModal(null);
+    setLightboxImg(null);
+    setSubmitInstallmentModal(null);
+    setShowLoans(false);
   };
+
+  // Intercept Android Hardware Back Button & Mobile Browser Back navigation
+  useEffect(() => {
+    window.handleAndroidBackPressed = () => {
+      if (modal || accountModal || showLoans || showTour || lightboxImg || submitInstallmentModal) {
+        closeModal();
+        setShowTour(false);
+        return true;
+      }
+      return false;
+    };
+    return () => {
+      window.handleAndroidBackPressed = null;
+    };
+  }, [modal, accountModal, showLoans, showTour, lightboxImg, submitInstallmentModal]);
+
+  useEffect(() => {
+    const isOverlayOpen = Boolean(modal || accountModal || showLoans || lightboxImg || submitInstallmentModal);
+    if (isOverlayOpen) {
+      window.history.pushState({ educaSheetOpen: true }, "");
+      const onPopState = () => {
+        closeModal();
+      };
+      window.addEventListener("popstate", onPopState);
+      return () => {
+        window.removeEventListener("popstate", onPopState);
+      };
+    }
+  }, [modal, accountModal, showLoans, lightboxImg, submitInstallmentModal]);
 
   const [hasBiometric, setHasBiometric] = useState(false);
 
@@ -690,7 +727,18 @@ export default function Dashboard() {
     window.onBiometricSuccess = () => {
       setAppLocked(false);
       setBalanceRevealed(true);
-      setModal(null);
+      const nextAction = pendingPinActionRef.current;
+      setPendingPinAction(null);
+      if (nextAction?.type === "passbook") {
+        setModal("passbook");
+      } else if (nextAction?.type === "wallet") {
+        setModal(null);
+        setAccountModal("wallet");
+      } else if (nextAction?.type === "send_money") {
+        setModal("send_money");
+      } else {
+        setModal(null);
+      }
       showToast("Fingerprint verified! Wallet Unlocked", "success");
     };
 
@@ -876,6 +924,68 @@ export default function Dashboard() {
     }
   };
 
+  const handleOpenPassbook = () => {
+    setPinError("");
+    setPinInput("");
+    setConfirmPinInput("");
+    if (!userProfile.hasWalletPin) {
+      showToast("Kripya pehle 6-digit UPI PIN set karein", "info");
+      setPendingPinAction({ type: "passbook" });
+      setPinSetupMode(true);
+      setModal("wallet_pin");
+    } else if (!balanceRevealed) {
+      setPendingPinAction({ type: "passbook" });
+      setPinSetupMode(false);
+      setModal("wallet_pin");
+      if (window.AndroidBiometric?.isBiometricAvailable && window.AndroidBiometric.isBiometricAvailable()) {
+        setTimeout(() => {
+          triggerBiometricAuth();
+        }, 200);
+      }
+    } else {
+      setModal("passbook");
+    }
+  };
+
+  const handleOpenWalletAccount = () => {
+    setPinError("");
+    setPinInput("");
+    setConfirmPinInput("");
+    if (!userProfile.hasWalletPin) {
+      showToast("Kripya pehle 6-digit UPI PIN set karein", "info");
+      setPendingPinAction({ type: "wallet" });
+      setPinSetupMode(true);
+      setModal("wallet_pin");
+    } else if (!balanceRevealed) {
+      setPendingPinAction({ type: "wallet" });
+      setPinSetupMode(false);
+      setModal("wallet_pin");
+      if (window.AndroidBiometric?.isBiometricAvailable && window.AndroidBiometric.isBiometricAvailable()) {
+        setTimeout(() => {
+          triggerBiometricAuth();
+        }, 200);
+      }
+    } else {
+      setAccountModal("wallet");
+    }
+  };
+
+  const handleOpenSendMoney = () => {
+    requireKyc(() => {
+      if (!userProfile.hasWalletPin) {
+        showToast("Kripya pehle 6-digit UPI PIN set karein", "info");
+        setPendingPinAction({ type: "send_money" });
+        setPinSetupMode(true);
+        setPinError("");
+        setPinInput("");
+        setConfirmPinInput("");
+        setModal("wallet_pin");
+      } else {
+        setModal("send_money");
+      }
+    });
+  };
+
   const handlePinSubmit = async () => {
     if (pinInput.length !== 6 || !/^\d{6}$/.test(pinInput)) {
       setPinError("Kripya 6 number ka numeric PIN enter karein.");
@@ -899,8 +1009,20 @@ export default function Dashboard() {
         if (res.ok) {
           showToast("6-Digit Wallet PIN successfully set!", "success");
           setUserProfile(prev => ({ ...prev, hasWalletPin: true }));
+          localStorage.setItem("hasWalletPin", "true");
           setBalanceRevealed(true);
-          setModal(null);
+          const nextAction = pendingPinActionRef.current;
+          setPendingPinAction(null);
+          if (nextAction?.type === "passbook") {
+            setModal("passbook");
+          } else if (nextAction?.type === "wallet") {
+            setModal(null);
+            setAccountModal("wallet");
+          } else if (nextAction?.type === "send_money") {
+            setModal("send_money");
+          } else {
+            setModal(null);
+          }
         } else {
           setPinError(data.message || "PIN set karne me error aaya.");
         }
@@ -922,8 +1044,19 @@ export default function Dashboard() {
         if (res.ok) {
           setBalance(data.balance);
           setBalanceRevealed(true);
-          setModal(null);
-          showToast("Wallet Balance Unlocked!", "success");
+          const nextAction = pendingPinActionRef.current;
+          setPendingPinAction(null);
+          if (nextAction?.type === "passbook") {
+            setModal("passbook");
+          } else if (nextAction?.type === "wallet") {
+            setModal(null);
+            setAccountModal("wallet");
+          } else if (nextAction?.type === "send_money") {
+            setModal("send_money");
+          } else {
+            setModal(null);
+          }
+          showToast("Wallet & Passbook Unlocked!", "success");
         } else {
           if (data.needsSetup) {
             setPinSetupMode(true);
@@ -1033,8 +1166,18 @@ export default function Dashboard() {
     if (name) {
       setRecipientInfo({ name, uniqueId: recipient });
     }
-    setModal("send_money");
-    showToast(name ? `QR Scanned: ${name}` : `QR Scanned: ${recipient}`, "success");
+    if (!userProfile.hasWalletPin) {
+      showToast("Kripya pehle 6-digit UPI PIN set karein", "info");
+      setPendingPinAction({ type: "send_money" });
+      setPinSetupMode(true);
+      setPinError("");
+      setPinInput("");
+      setConfirmPinInput("");
+      setModal("wallet_pin");
+    } else {
+      setModal("send_money");
+      showToast(name ? `QR Scanned: ${name}` : `QR Scanned: ${recipient}`, "success");
+    }
   };
 
   const handleGalleryQr = async (e) => {
@@ -1118,18 +1261,20 @@ export default function Dashboard() {
     ? `EDUCA-${userProfile.referralCode || userProfile.phone}`
     : `EDUCA-${referralCode || "USER"}`;
 
-  // Generate QR Code
+  const activeAccountNum = userProfile.accountNumber || "EFS0000001";
+  const activeUpiId = userProfile.upiId || ((activeAccountNum).toLowerCase() + "@educa");
+
+  // Generate QR Code matching App UPI ID & Digital Bank Passbook
   useEffect(() => {
-    if (userUniqueId) {
-      QRCode.toDataURL(`educa://pay?to=${userUniqueId}&name=${encodeURIComponent(userStored.name || "User")}`, {
-        width: 250,
-        margin: 2,
-        color: { dark: "#0A192F", light: "#ffffff" }
-      })
-        .then(url => setQrDataUrl(url))
-        .catch(() => {});
-    }
-  }, [userUniqueId, userStored.name]);
+    const upiUri = `upi://pay?pa=${encodeURIComponent(activeUpiId)}&pn=${encodeURIComponent(userProfile.name || userStored.name || "Educa Customer")}&cu=INR`;
+    QRCode.toDataURL(upiUri, {
+      width: 250,
+      margin: 2,
+      color: { dark: "#0A192F", light: "#ffffff" }
+    })
+      .then(url => setQrDataUrl(url))
+      .catch(() => {});
+  }, [activeUpiId, userProfile.name, userStored.name]);
 
   // Recipient Auto-Lookup with Debounce
   useEffect(() => {
@@ -1651,6 +1796,19 @@ export default function Dashboard() {
     if (!sendForm.recipient) {
       return showToast("Recipient Phone, Email ya Unique ID daalein", "error");
     }
+    if (!userProfile.hasWalletPin) {
+      showToast("Kripya pehle apna 6-digit UPI PIN set karein", "info");
+      setPendingPinAction({ type: "send_money" });
+      setPinSetupMode(true);
+      setPinError("");
+      setPinInput("");
+      setConfirmPinInput("");
+      setModal("wallet_pin");
+      return;
+    }
+    if (!sendForm.pin || sendForm.pin.length !== 6) {
+      return showToast("Kripya apna 6-digit UPI PIN enter karein", "error");
+    }
     try {
       const res = await fetch(`${API}/transaction/transfer`, {
         method: "POST",
@@ -1658,18 +1816,29 @@ export default function Dashboard() {
         body: JSON.stringify({
           recipient: sendForm.recipient.trim(),
           amount: amt,
-          notes: sendForm.notes.trim()
+          notes: sendForm.notes.trim(),
+          pin: sendForm.pin
         })
       });
       const data = await res.json();
       if (res.ok) {
         showToast(data.message || "🎉 Transfer successful!", "success");
         closeModal();
-        setSendForm({ recipient: "", amount: "", notes: "" });
+        setSendForm({ recipient: "", amount: "", notes: "", pin: "" });
         setRecipientInfo(null);
         loadDashboard();
       } else {
-        showToast(data.message || "Transfer fail ho gaya", "error");
+        if (data.needsSetup) {
+          showToast(data.message || "Kripya pehle 6-digit UPI PIN banayein", "info");
+          setPendingPinAction({ type: "send_money" });
+          setPinSetupMode(true);
+          setPinError("");
+          setPinInput("");
+          setConfirmPinInput("");
+          setModal("wallet_pin");
+        } else {
+          showToast(data.message || "Transfer fail ho gaya", "error");
+        }
       }
     } catch {
       showToast("Network error transferring funds", "error");
@@ -2387,7 +2556,7 @@ export default function Dashboard() {
 
   const quickActions = [
     { icon: "📱", label: txt.myQrCode, sub: lang === "hindi" ? "पेमेंट प्राप्त करें" : "Scan to receive", color: "bg-blue-100", action: () => setModal("my_qr") },
-    { icon: "⚡", label: txt.sendMoney, sub: lang === "hindi" ? "तत्काल ट्रांसफर" : "Instant P2P", color: "bg-emerald-100", action: () => requireKyc(() => setModal("send_money")) },
+    { icon: "⚡", label: txt.sendMoney, sub: lang === "hindi" ? "तत्काल ट्रांसफर" : "Instant P2P", color: "bg-emerald-100", action: handleOpenSendMoney },
     { icon: "🏦", label: txt.personalLoanAccount, sub: lang === "hindi" ? "10-दिवसीय चक्र" : "10-day cycle", color: "bg-indigo-100", action: () => openLoanSheet("personal_loan") },
     { icon: "🏬", label: txt.businessLoanAccount, sub: lang === "hindi" ? "दैनिक कलेक्शन" : "Daily collection", color: "bg-amber-100", action: () => openLoanSheet("business_loan") },
   ];
@@ -2692,7 +2861,7 @@ export default function Dashboard() {
             {/* Quick Action Pill Buttons */}
             <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-5 w-full">
               <button
-                onClick={() => requireKyc(() => setModal("send_money"))}
+                onClick={handleOpenSendMoney}
                 className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>⚡</span> {txt.sendMoney}
@@ -2860,7 +3029,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* 1. Wallet Account */}
             <div
-              onClick={() => setAccountModal("wallet")}
+              onClick={handleOpenWalletAccount}
               className="p-5 rounded-2xl border-2 border-gray-200 hover:border-blue-500 bg-white hover:bg-blue-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
             >
               <div>
@@ -3146,29 +3315,86 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           1. MY QR CODE SHEET
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "my_qr"} onClose={closeModal} title="My Educa QR Code" icon="📱">
+      <Sheet open={modal === "my_qr"} onClose={closeModal} title={txt.myQrCode || "My QR Code"} icon="📱">
         <div className="text-center space-y-4">
-          <p className="text-xs text-gray-500">
-            Kisi bhi Educa User se instant paise mangwane ke liye yeh QR Code scan karwayen:
+          <p className="text-xs text-gray-600 font-medium">
+            {lang === "hindi"
+              ? "किसी भी UPI ऐप (GPay, PhonePe, Paytm) या Educa यूज़र से डायरेक्ट पेमेंट प्राप्त करने के लिए यह QR कोड स्कैन कराएं:"
+              : "Scan this QR code from any UPI app (GPay, PhonePe, Paytm) or Educa User to receive instant payments:"}
           </p>
-          <div className="p-4 bg-white rounded-3xl border-2 border-gray-200 shadow-lg inline-block mx-auto">
+
+          <div className="p-4 bg-white rounded-3xl border-2 border-indigo-100 shadow-xl inline-block mx-auto relative">
+            <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-blue-600 rounded-tl" />
+            <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-blue-600 rounded-tr" />
+            <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-blue-600 rounded-bl" />
+            <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-blue-600 rounded-br" />
             {qrDataUrl ? (
-              <img src={qrDataUrl} alt="Educa QR" className="w-56 h-56 mx-auto rounded-xl" />
+              <img src={qrDataUrl} alt="Educa QR" className="w-56 h-56 mx-auto rounded-2xl" />
             ) : (
               <div className="w-56 h-56 flex items-center justify-center text-xs text-gray-400">Generating QR...</div>
             )}
           </div>
-          <div className="bg-gray-50 rounded-2xl p-3 text-xs space-y-1">
-            <div className="font-bold text-gray-900 text-sm">{userStored.name || "User"}</div>
-            <div className="font-mono text-blue-700 font-bold tracking-wider">{userUniqueId}</div>
-            <div className="text-gray-500">{userProfile.phone || userStored.email}</div>
+
+          {/* Official Bank Passbook & App UPI Identity Card */}
+          <div className="bg-slate-900 text-white rounded-2xl p-4 text-left space-y-2.5 shadow-md border border-white/10">
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🏛️</span>
+                <div>
+                  <h4 className="font-extrabold text-xs text-white leading-tight">{userProfile.name || userStored.name || "Educa Customer"}</h4>
+                  <p className="text-[10px] text-indigo-300">{txt.branchName} • IFSC: EFS0000JHAL</p>
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                ✓ Active
+              </span>
+            </div>
+
+            {/* App UPI ID Row */}
+            <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10">
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.upiIdLabel}</span>
+                <span className="font-mono font-black text-xs text-emerald-300">{activeUpiId}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(activeUpiId, "qr_upi")}
+                className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 transition active:scale-95 cursor-pointer"
+              >
+                {copiedField === "qr_upi" ? "✓ " + txt.copied : "📋 " + txt.copy}
+              </button>
+            </div>
+
+            {/* Account Number Row */}
+            <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10">
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.accountNumberLabel}</span>
+                <span className="font-mono font-black text-xs text-white tracking-wider">{activeAccountNum}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(activeAccountNum, "qr_acc")}
+                className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 transition active:scale-95 cursor-pointer"
+              >
+                {copiedField === "qr_acc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => copyText(userUniqueId)}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95"
-          >
-            {copied ? "✅ Payment ID Copied!" : "📋 Copy Payment ID"}
-          </button>
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              onClick={() => copyToClipboard(activeUpiId, "qr_upi_btn")}
+              className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <span>📋</span> {copiedField === "qr_upi_btn" ? txt.copied : "Copy UPI ID"}
+            </button>
+            <button
+              onClick={shareFullBankDetails}
+              className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <span>📤</span> {txt.shareBankDetails}
+            </button>
+          </div>
         </div>
       </Sheet>
 
@@ -3508,11 +3734,36 @@ export default function Dashboard() {
             />
           </div>
 
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-xs font-bold text-gray-700">
+                {lang === "hindi" ? "6-अंकों का UPI PIN" : "6-Digit UPI PIN"} <span className="text-rose-500">*</span>
+              </label>
+              {!userProfile.hasWalletPin && (
+                <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  ⚠️ PIN Not Set
+                </span>
+              )}
+            </div>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="••••••"
+              value={sendForm.pin || ""}
+              onChange={e => setSendForm({ ...sendForm, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-center text-xl tracking-[0.35em] font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+            <p className="text-[10px] text-gray-400 mt-1 text-center">
+              🔒 Transaction confirm karne ke liye apna 6-digit secret UPI PIN dalein
+            </p>
+          </div>
+
           <button
             onClick={submitTransfer}
             className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
           >
-            Send Money Now →
+            {!userProfile.hasWalletPin ? "Set UPI PIN & Send Money →" : "Send Money Now →"}
           </button>
         </div>
       </Sheet>
@@ -5846,7 +6097,7 @@ export default function Dashboard() {
 
             {/* VIEW PRIMARY WALLET AMOUNT & PASSBOOK STATEMENT */}
             <button
-              onClick={() => { setModal("passbook"); }}
+              onClick={() => { closeModal(); setTimeout(() => handleOpenPassbook(), 150); }}
               className="w-full p-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-bold text-xs flex items-center justify-between shadow-md shadow-blue-500/20 transition active:scale-95"
             >
               <div className="flex items-center gap-3 text-left">
@@ -6954,9 +7205,11 @@ export default function Dashboard() {
                 <div className="text-3xl font-black font-display my-1">
                   ₹{(userProfile.balance ?? balance ?? 0).toLocaleString("en-IN")}
                 </div>
-                <p className="text-[11px] text-blue-100 mt-1">
-                  ID: <span className="font-mono font-bold text-emerald-300">{userUniqueId}</span>
-                </p>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-blue-100 mt-1">
+                  <span>A/C: <strong className="font-mono text-white">{activeAccountNum}</strong></span>
+                  <span>•</span>
+                  <span>UPI: <strong className="font-mono text-emerald-300">{activeUpiId}</strong></span>
+                </div>
               </div>
               <span className="px-2.5 py-1 bg-white/20 text-white text-[10px] font-black rounded-full uppercase">
                 Primary Wallet

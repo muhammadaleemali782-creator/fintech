@@ -19,23 +19,27 @@ router.get('/lookup/:identifier', protect, async (req, res) => {
       $or: [
         { phone: cleanId },
         { email: cleanId.toLowerCase() },
-        { referralCode: cleanId.toUpperCase() }
+        { referralCode: cleanId.toUpperCase() },
+        { accountNumber: cleanId.toUpperCase() },
+        { upiId: cleanId.toLowerCase() }
       ]
-    }).select('name phone email referralCode');
+    }).select('name phone email referralCode accountNumber upiId');
 
     if (!recipient) {
-      return res.status(404).json({ message: 'User not found with this Phone / ID / Email' });
+      return res.status(404).json({ message: 'User not found with this Phone / Account No / UPI ID / Email' });
     }
 
     if (recipient._id.equals(req.user._id)) {
       return res.status(400).json({ message: 'Khud ko paise transfer nahi kar sakte.' });
     }
 
-    const uniqueId = `EDUCA-${recipient.referralCode || recipient.phone}`;
+    const uniqueId = recipient.accountNumber || `EDUCA-${recipient.referralCode || recipient.phone}`;
     res.json({
       name: recipient.name,
       uniqueId,
       phone: recipient.phone,
+      accountNumber: recipient.accountNumber,
+      upiId: recipient.upiId,
       id: recipient._id
     });
   } catch (err) {
@@ -71,7 +75,9 @@ router.post('/transfer', protect, async (req, res) => {
     $or: [
       { phone: cleanRecipient },
       { email: cleanRecipient.toLowerCase() },
-      { referralCode: cleanRecipient.toUpperCase() }
+      { referralCode: cleanRecipient.toUpperCase() },
+      { accountNumber: cleanRecipient.toUpperCase() },
+      { upiId: cleanRecipient.toLowerCase() }
     ]
   });
 

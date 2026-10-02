@@ -126,6 +126,11 @@ userSchema.pre('save', async function (next) {
       accNo = `EFS0000${String(seq).padStart(3, '0')}`;
     }
     this.accountNumber = accNo;
+    if (!this.upiId || !this.upiId.includes('@')) {
+      this.upiId = `${accNo.toLowerCase()}@educa`;
+    }
+  } else if (this.accountNumber && (!this.upiId || !this.upiId.includes('@'))) {
+    this.upiId = `${this.accountNumber.toLowerCase()}@educa`;
   }
   next();
 });

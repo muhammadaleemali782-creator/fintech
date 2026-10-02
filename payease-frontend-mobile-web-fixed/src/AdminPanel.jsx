@@ -652,39 +652,38 @@ export default function AdminPanel() {
       )}
 
       {/* DESKTOP SIDEBAR */}
-      <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-gray-900 to-gray-800 text-white sticky top-0 h-screen">
-        <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
+      <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-gray-900 to-gray-800 text-white sticky top-0 h-screen overflow-hidden">
+        <div className="shrink-0 flex items-center gap-3 px-6 py-5 border-b border-white/10">
           <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs" />
           <div>
             <h1 className="font-black text-lg leading-none">Admin Panel</h1>
             <p className="text-blue-400 text-xs font-semibold mt-1">Educa Finance</p>
           </div>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-2.5 space-y-1 overflow-y-auto no-scrollbar">
           {tabs.map(({ key, label, icon, badge }) => (
             <button
               key={key} onClick={() => setTab(key)}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-sm transition ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition cursor-pointer ${
                 tab === key ? "bg-indigo-600 text-white shadow" : "text-gray-300 hover:bg-white/5 hover:text-white"
               }`}
             >
-              <span className="flex items-center gap-3"><span>{icon}</span>{label}</span>
+              <span className="flex items-center gap-2.5"><span>{icon}</span>{label}</span>
               {!!badge && <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{badge}</span>}
             </button>
           ))}
         </nav>
-        <div className="px-4 py-4 border-t border-white/10 space-y-2.5">
+        <div className="shrink-0 px-4 py-3.5 border-t border-white/10 space-y-2 bg-gray-900/95">
           <Link
             to="/dashboard"
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 border border-indigo-500/40 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 border border-indigo-500/40 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
           >
             <span>📱</span> Customer App View
           </Link>
-          <div>
-            <p className="text-gray-400 text-xs">Logged in as</p>
-            <p className="text-white font-semibold text-sm mb-2">{user.name}</p>
+          <div className="flex items-center justify-between text-xs pt-0.5">
+            <span className="text-gray-400 text-[11px]">Admin: <strong className="text-white font-semibold">{user.name}</strong></span>
           </div>
-          <button onClick={logout} className="w-full px-4 py-2 bg-red-500/90 text-white rounded-lg hover:bg-red-600 transition text-sm font-semibold">Logout</button>
+          <button onClick={logout} className="w-full px-3 py-1.5 bg-red-500/90 hover:bg-red-600 text-white rounded-lg transition text-xs font-semibold cursor-pointer">Logout</button>
         </div>
       </aside>
 
@@ -1125,7 +1124,7 @@ export default function AdminPanel() {
                     <table className="w-full min-w-[1100px] border-collapse bg-white">
                       <thead>
                         <tr className="bg-slate-50/90 border-b border-gray-200 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                          <th className="py-3.5 px-4 w-[180px]">User</th>
+                          <th className="py-3.5 px-4 w-[210px]">User & Account</th>
                           <th className="py-3.5 px-4 w-[190px]">KYC & Documents</th>
                           <th className="py-3.5 px-4 w-[130px]">Interest Rate</th>
                           <th className="py-3.5 px-4 w-[140px]">Card Tier</th>
@@ -1142,7 +1141,15 @@ export default function AdminPanel() {
                             {/* USER */}
                             <td className="py-4 px-4 align-top">
                               <p className="font-bold text-sm text-gray-900 leading-tight">{u.name}</p>
-                              <p className="text-gray-500 text-[11px] truncate max-w-[160px]">{u.email}</p>
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200" title="Account Number">
+                                  A/C: {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
+                                </span>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono text-gray-600 bg-gray-100" title="App UPI ID">
+                                  {u.upiId || `${(u.accountNumber || `efs${String(u._id).slice(-7)}`).toLowerCase()}@educa`}
+                                </span>
+                              </div>
+                              <p className="text-gray-500 text-[11px] truncate max-w-[190px] mt-1">{u.email}</p>
                               <p className="text-gray-400 text-[11px] font-mono mt-0.5">{u.phone}</p>
                             </td>
 
@@ -1340,6 +1347,14 @@ export default function AdminPanel() {
                         <div className="flex justify-between items-start mb-2.5">
                           <div>
                             <p className="font-bold text-sm text-gray-900">{u.name}</p>
+                            <div className="flex flex-wrap items-center gap-1 mt-1 mb-1">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                A/C: {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-gray-600 bg-gray-100">
+                                {u.upiId || `${(u.accountNumber || `efs${String(u._id).slice(-7)}`).toLowerCase()}@educa`}
+                              </span>
+                            </div>
                             <p className="text-xs text-gray-400">{u.email}</p>
                             <p className="text-[11px] font-mono text-gray-400">{u.phone}</p>
                           </div>

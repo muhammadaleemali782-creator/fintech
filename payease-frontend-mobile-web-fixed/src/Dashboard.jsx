@@ -65,7 +65,21 @@ const UI_TEXT = {
     voiceGuide: "Voice Guide",
     listening: "Bol raha hai...",
     profitWallet: "Profit Wallet",
+    profitYield: "1% Monthly Daily Yield & 365d Bonds",
     duesWallet: "Dues Wallet",
+    duesClear: "No Active Dues • All Clear (₹0)",
+    duesPending: "Pending Easy Installments & upcoming collections",
+    tenDayCycle: "10-Day Cycle (1st, 11th, 21st)",
+    historyBonds: "History & Bonds →",
+    payInstallment: "Pay Installment →",
+    viewDetails: "View Details →",
+    scanAnyQr: "Scan Any QR Code",
+    cameraGallery: "Camera Scanner & Gallery Upload",
+    instantP2p: "Instant P2P & Merchant Pay",
+    sendMoney: "Send Money",
+    myQrCode: "My QR Code",
+    addMoney: "Add Money",
+    cashOut: "Cash Out",
     primaryBalance: "Primary Wallet Balance",
     checkBalance: "Check Balance",
     hide: "Hide",
@@ -74,9 +88,9 @@ const UI_TEXT = {
     appTour: "App Feature Tour",
     passbookHistory: "View Wallet Amount & Passbook History",
     passbookSub: "Check balance, incoming & outgoing transactions",
-    myQrCode: "My QR Code",
     resetPin: "Change / Reset 6-Digit Wallet PIN",
     logout: "Log Out",
+    settings: "Settings",
     activeAccount: "Active Account",
     lifetimeId: "LIFETIME",
     copyId: "Copy ID",
@@ -85,6 +99,31 @@ const UI_TEXT = {
     next: "Next →",
     finish: "Got It, Let's Go! 🚀",
     back: "← Back",
+    // Bank Passbook Details
+    bankCardTitle: "Educa Fintech Digital Bank",
+    bankCardSub: "Official Digital Banking & Passbook",
+    branchName: "Jhalwa Branch, Prayagraj",
+    accountNumberLabel: "Account Number",
+    ifscLabel: "IFSC Code",
+    upiIdLabel: "App UPI ID",
+    copy: "Copy",
+    shareBankDetails: "📤 Share Bank & UPI Details",
+    shareSuccess: "Bank details copy ho gaye!",
+    sendMoneyPlaceholder: "Phone number, Account No (EFS0000XXX), ya UPI ID (@educa)",
+    accountsHubTitle: "6 Modular Accounts Hub",
+    accountsHubSub: "Sabhi accounts ka pura data dekhne ke liye card par click karein",
+    openAccount: "Open Account →",
+    walletAccount: "Wallet Account",
+    debtAccount: "Debt & Bond Account",
+    lendingAccount: "Lending Account",
+    personalLoanAccount: "Personal Loan Account",
+    studentLoanAccount: "Student Loan Account",
+    businessLoanAccount: "Micro Business Loan Account",
+    navHome: "Home",
+    navLoans: "Loans",
+    navScan: "Scan QR",
+    navBonds: "Bonds",
+    navProfile: "Profile",
   },
   hindi: {
     appTitle: "एड्युका फाइनेंस",
@@ -92,7 +131,21 @@ const UI_TEXT = {
     voiceGuide: "आवाज़ गाइड",
     listening: "बोल रहा है...",
     profitWallet: "प्रॉफ़िट वॉलेट",
+    profitYield: "1% मासिक दैनिक यील्ड और 365 दिन बॉन्ड",
     duesWallet: "देय राशि (Dues)",
+    duesClear: "कोई देय राशि नहीं • पूर्ण भुगतान (₹0)",
+    duesPending: "लंबित आसान किश्तें और आगामी वसूली",
+    tenDayCycle: "10-दिवसीय चक्र (1, 11, 21 तारीख)",
+    historyBonds: "इतिहास और बॉन्ड्स →",
+    payInstallment: "किश्त भुगतान करें →",
+    viewDetails: "विवरण देखें →",
+    scanAnyQr: "कोई भी QR कोड स्कैन करें",
+    cameraGallery: "कैमरा स्कैनर व गैलरी से अपलोड",
+    instantP2p: "त्वरित P2P और मर्चेंट भुगतान",
+    sendMoney: "पैसे भेजें",
+    myQrCode: "मेरा QR कोड",
+    addMoney: "पैसे जोड़ें",
+    cashOut: "निकासी करें",
     primaryBalance: "प्राइमरी वॉलेट बैलेंस",
     checkBalance: "बैलेंस देखें",
     hide: "छिपाएं",
@@ -101,9 +154,9 @@ const UI_TEXT = {
     appTour: "ऐप फ़ीचर टूर गाइड",
     passbookHistory: "वॉलेट राशि व पासबुक इतिहास देखें",
     passbookSub: "बैलेंस और लेन-देन का पूरा विवरण",
-    myQrCode: "मेरा QR कोड",
     resetPin: "6-अंकों का पिन बदलें / रीसेट करें",
     logout: "लॉग आउट",
+    settings: "सेटिंग्स",
     activeAccount: "सक्रिय खाता",
     lifetimeId: "लाइफटाइम",
     copyId: "ID कॉपी करें",
@@ -112,6 +165,31 @@ const UI_TEXT = {
     next: "आगे →",
     finish: "समझ गया, शुरू करें! 🚀",
     back: "← पीछे",
+    // Bank Passbook Details
+    bankCardTitle: "एड्युका फिनटेक डिजिटल बैंक",
+    bankCardSub: "आधिकारिक डिजिटल बैंकिंग व पासबुक",
+    branchName: "झलवा शाखा, प्रयागराज",
+    accountNumberLabel: "खाता संख्या",
+    ifscLabel: "IFSC कोड",
+    upiIdLabel: "ऐप UPI ID",
+    copy: "कॉपी",
+    shareBankDetails: "📤 बैंक व UPI विवरण शेयर करें",
+    shareSuccess: "बैंक विवरण कॉपी हो गया!",
+    sendMoneyPlaceholder: "फ़ोन नंबर, खाता संख्या (EFS0000XXX), या UPI ID (@educa)",
+    accountsHubTitle: "6 मॉड्यूलर खाता हब",
+    accountsHubSub: "सभी खातों का पूरा डेटा देखने के लिए कार्ड पर क्लिक करें",
+    openAccount: "खाता खोलें →",
+    walletAccount: "वॉलेट खाता",
+    debtAccount: "ऋण व बॉन्ड खाता",
+    lendingAccount: "लेंडिंग खाता",
+    personalLoanAccount: "पर्सनल लोन खाता",
+    studentLoanAccount: "छात्र लोन खाता",
+    businessLoanAccount: "माइक्रो बिजनेस लोन खाता",
+    navHome: "होम",
+    navLoans: "लोन",
+    navScan: "QR स्कैन",
+    navBonds: "बॉन्ड्स",
+    navProfile: "प्रोफ़ाइल",
   },
   english: {
     appTitle: "Educa Finance",
@@ -119,7 +197,21 @@ const UI_TEXT = {
     voiceGuide: "Voice Guide",
     listening: "Speaking...",
     profitWallet: "Profit Wallet",
+    profitYield: "1% Monthly Daily Yield & 365d Bonds",
     duesWallet: "Dues Wallet",
+    duesClear: "No Active Dues • All Clear (₹0)",
+    duesPending: "Pending Easy Installments & upcoming collections",
+    tenDayCycle: "10-Day Cycle (1st, 11th, 21st)",
+    historyBonds: "History & Bonds →",
+    payInstallment: "Pay Installment →",
+    viewDetails: "View Details →",
+    scanAnyQr: "Scan Any QR Code",
+    cameraGallery: "Camera Scanner & Gallery Upload",
+    instantP2p: "Instant P2P & Merchant Pay",
+    sendMoney: "Send Money",
+    myQrCode: "My QR Code",
+    addMoney: "Add Money",
+    cashOut: "Cash Out",
     primaryBalance: "Primary Wallet Balance",
     checkBalance: "Check Balance",
     hide: "Hide",
@@ -128,9 +220,9 @@ const UI_TEXT = {
     appTour: "App Feature Tour",
     passbookHistory: "View Wallet Amount & Passbook History",
     passbookSub: "Check balance, incoming & outgoing transactions",
-    myQrCode: "My QR Code",
     resetPin: "Change / Reset 6-Digit Wallet PIN",
     logout: "Log Out",
+    settings: "Settings",
     activeAccount: "Active Account",
     lifetimeId: "LIFETIME",
     copyId: "Copy ID",
@@ -139,6 +231,31 @@ const UI_TEXT = {
     next: "Next →",
     finish: "Got It, Let's Go! 🚀",
     back: "← Back",
+    // Bank Passbook Details
+    bankCardTitle: "Educa Fintech Digital Bank",
+    bankCardSub: "Official Digital Banking & Passbook",
+    branchName: "Jhalwa Branch, Prayagraj",
+    accountNumberLabel: "Account Number",
+    ifscLabel: "IFSC Code",
+    upiIdLabel: "App UPI ID",
+    copy: "Copy",
+    shareBankDetails: "📤 Share Bank & UPI Details",
+    shareSuccess: "Bank details copied to clipboard!",
+    sendMoneyPlaceholder: "Phone number, Account No (EFS0000XXX), or UPI ID (@educa)",
+    accountsHubTitle: "6 Modular Accounts Hub",
+    accountsHubSub: "Click any card to inspect full account details & transactions",
+    openAccount: "Open Account →",
+    walletAccount: "Wallet Account",
+    debtAccount: "Debt & Bond Account",
+    lendingAccount: "Lending Account",
+    personalLoanAccount: "Personal Loan Account",
+    studentLoanAccount: "Student Loan Account",
+    businessLoanAccount: "Micro Business Loan Account",
+    navHome: "Home",
+    navLoans: "Loans",
+    navScan: "Scan QR",
+    navBonds: "Bonds",
+    navProfile: "Profile",
   }
 };
 
@@ -237,6 +354,7 @@ export default function Dashboard() {
   const [referralCode, setReferralCode] = useState(userStored.referralCode || "");
   const [referralEarnings, setReferralEarnings] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
   const [navTab, setNavTab] = useState("home");
   const [userProfile, setUserProfile] = useState(() => {
     try {
@@ -1295,9 +1413,58 @@ export default function Dashboard() {
   };
 
   const copyText = (text) => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard?.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyToClipboard = (text, fieldName = "generic") => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        const el = document.createElement("textarea");
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+    } catch (e) {
+      console.warn("Copy fallback error", e);
+    }
+    setCopiedField(fieldName);
+    setCopied(true);
+    showToast(txt.copied || "Copied to clipboard!", "success");
+    setTimeout(() => {
+      setCopiedField(null);
+      setCopied(false);
+    }, 2200);
+  };
+
+  const shareFullBankDetails = () => {
+    const accNum = userProfile.accountNumber || "EFS0000001";
+    const upi = userProfile.upiId || `${accNum.toLowerCase()}@educa`;
+    const userName = userProfile.name || userStored.name || "Customer";
+    const shareText = `🏦 Educa Fintech Digital Bank Details\n` +
+      `👤 Name: ${userName}\n` +
+      `🔢 A/C No: ${accNum}\n` +
+      `🏛️ IFSC: EFS0000JHAL\n` +
+      `📍 Branch: Jhalwa Branch, Prayagraj - 211012\n` +
+      `⚡ App UPI ID: ${upi}\n\n` +
+      `📲 Transfer directly to this Account Number or UPI ID using Educa Fintech App!`;
+
+    if (navigator.share) {
+      navigator.share({
+        title: "Educa Fintech Bank Details",
+        text: shareText
+      }).catch(() => {
+        copyToClipboard(shareText, "share");
+      });
+    } else {
+      copyToClipboard(shareText, "share");
+      showToast(txt.shareSuccess || "Bank details copied to share!", "success");
+    }
   };
 
   // Client-side image compression for KYC (zero server bloat)
@@ -2219,18 +2386,18 @@ export default function Dashboard() {
   };
 
   const quickActions = [
-    { icon: "📱", label: "My QR Code", sub: "Scan to receive", color: "bg-blue-100", action: () => setModal("my_qr") },
-    { icon: "⚡", label: "Send Money", sub: "Instant P2P", color: "bg-emerald-100", action: () => requireKyc(() => setModal("send_money")) },
-    { icon: "🏦", label: "Personal Loan", sub: "10-day cycle", color: "bg-indigo-100", action: () => openLoanSheet("personal_loan") },
-    { icon: "🏬", label: "Business Loan", sub: "Daily collection", color: "bg-amber-100", action: () => openLoanSheet("business_loan") },
+    { icon: "📱", label: txt.myQrCode, sub: lang === "hindi" ? "पेमेंट प्राप्त करें" : "Scan to receive", color: "bg-blue-100", action: () => setModal("my_qr") },
+    { icon: "⚡", label: txt.sendMoney, sub: lang === "hindi" ? "तत्काल ट्रांसफर" : "Instant P2P", color: "bg-emerald-100", action: () => requireKyc(() => setModal("send_money")) },
+    { icon: "🏦", label: txt.personalLoanAccount, sub: lang === "hindi" ? "10-दिवसीय चक्र" : "10-day cycle", color: "bg-indigo-100", action: () => openLoanSheet("personal_loan") },
+    { icon: "🏬", label: txt.businessLoanAccount, sub: lang === "hindi" ? "दैनिक कलेक्शन" : "Daily collection", color: "bg-amber-100", action: () => openLoanSheet("business_loan") },
   ];
 
   const navItems = [
-    { key: "home", label: "Home", icon: "🏠", onClick: () => { setModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); } },
-    { key: "loans", label: "Loans", icon: "🏦", onClick: openLoansHub, heroBadge: heroFlyId === "loans_hub" },
-    { key: "scan", label: "Scan QR", icon: <ScannerIcon className="w-6 h-6 text-white" />, isCenter: true, onClick: () => setModal("scan_qr") },
-    { key: "bonds", label: "Bonds", icon: "📈", onClick: () => setAccountModal("debt") },
-    { key: "profile", label: "Profile", icon: "👤", onClick: () => setModal("profile") },
+    { key: "home", label: txt.navHome, icon: "🏠", onClick: () => { setModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); } },
+    { key: "loans", label: txt.navLoans, icon: "🏦", onClick: openLoansHub, heroBadge: heroFlyId === "loans_hub" },
+    { key: "scan", label: txt.navScan, icon: <ScannerIcon className="w-6 h-6 text-white" />, isCenter: true, onClick: () => setModal("scan_qr") },
+    { key: "bonds", label: txt.navBonds, icon: "📈", onClick: () => setAccountModal("debt") },
+    { key: "profile", label: txt.navProfile, icon: "👤", onClick: () => setModal("profile") },
   ];
 
   // ══════════════════════════════════════════════════════
@@ -2399,17 +2566,32 @@ export default function Dashboard() {
               </a>
             )}
 
+            {/* Quick 1-Tap Language Switch Button */}
+            <button
+              onClick={() => {
+                const nextLang = lang === "hinglish" ? "hindi" : lang === "hindi" ? "english" : "hinglish";
+                handleLanguageChange(nextLang);
+              }}
+              className="px-2 sm:px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
+              title="Switch Language: Hinglish / हिंदी / English"
+            >
+              <span>🌐</span>
+              <span className="font-extrabold">
+                {lang === "hindi" ? "हिंदी" : lang === "english" ? "EN" : "Hinglish"}
+              </span>
+            </button>
+
             {/* Unified Settings Button (Language, Blind Voice Guide, & Tour) */}
             <button
               onClick={() => setModal("settings")}
               aria-label="Settings and Accessibility"
-              className="px-2.5 sm:px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-gray-200"
+              className="px-2.5 sm:px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-gray-200 cursor-pointer"
               title="Settings & Accessibility"
             >
-              <span>⚙️</span> <span className="hidden sm:inline">Settings</span>
+              <span>⚙️</span> <span className="hidden sm:inline">{txt.settings || "Settings"}</span>
             </button>
 
-            <button onClick={logout} className="hidden sm:inline-block px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-semibold text-xs">
+            <button onClick={logout} className="hidden sm:inline-block px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-semibold text-xs cursor-pointer">
               {txt.logout}
             </button>
           </div>
@@ -2511,27 +2693,27 @@ export default function Dashboard() {
             <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-5 w-full">
               <button
                 onClick={() => requireKyc(() => setModal("send_money"))}
-                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5"
+                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
-                <span>⚡</span> Send Money
+                <span>⚡</span> {txt.sendMoney}
               </button>
               <button
                 onClick={() => setModal("my_qr")}
-                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5"
+                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
-                <span>📱</span> My QR Code
+                <span>📱</span> {txt.myQrCode}
               </button>
               <button
                 onClick={() => setModal("deposit")}
-                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5"
+                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
-                <span>➕</span> Add Money
+                <span>➕</span> {txt.addMoney}
               </button>
               <button
                 onClick={() => requireKyc(() => setModal("withdraw"))}
-                className="py-2 px-4 bg-white/10 hover:bg-white/20 backdrop-blur text-white/90 rounded-xl font-bold text-xs border border-white/20 active:scale-95 transition flex items-center gap-1.5"
+                className="py-2 px-4 bg-white/10 hover:bg-white/20 backdrop-blur text-white/90 rounded-xl font-bold text-xs border border-white/20 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
-                <span>↓</span> Cash Out
+                <span>↓</span> {txt.cashOut}
               </button>
             </div>
           </div>
@@ -2549,18 +2731,129 @@ export default function Dashboard() {
         </div>
 
         {/* ══════════════════════════════════════════════════════
+            OFFICIAL DIGITAL BANK ACCOUNT & UPI PASSBOOK CARD
+        ══════════════════════════════════════════════════════ */}
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-7 text-white shadow-xl border border-indigo-500/30 mb-6 sm:mb-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Header Row */}
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-2xl shadow-md border border-white/20 shrink-0">
+                🏛️
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base sm:text-lg font-black tracking-tight text-white font-display">
+                    {txt.bankCardTitle}
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {lang === "hindi" ? "सक्रिय खाता" : "Verified Account"}
+                  </span>
+                </div>
+                <p className="text-xs text-indigo-200/80 font-medium mt-0.5 flex items-center gap-1.5">
+                  <span>📍</span>
+                  <strong>{txt.branchName}</strong> • IFSC: <span className="font-mono font-bold text-amber-300">EFS0000JHAL</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={shareFullBankDetails}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+              >
+                <span>📤</span> {txt.shareBankDetails}
+              </button>
+            </div>
+          </div>
+
+          {/* Details Grid */}
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-4">
+            {/* Account Number */}
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs flex flex-col justify-between hover:bg-white/10 transition">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  {txt.accountNumberLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "acc")}
+                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
+                >
+                  {copiedField === "acc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                </button>
+              </div>
+              <div className="font-mono font-black text-xl sm:text-2xl text-white tracking-widest my-1">
+                {userProfile.accountNumber || "EFS0000001"}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                {lang === "hindi" ? "खाता धारक:" : "Holder:"} <span className="text-white font-semibold">{userProfile.name || userStored.name || "Customer"}</span>
+              </p>
+            </div>
+
+            {/* IFSC Code & Branch */}
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs flex flex-col justify-between hover:bg-white/10 transition">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  {txt.ifscLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard("EFS0000JHAL", "ifsc")}
+                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
+                >
+                  {copiedField === "ifsc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                </button>
+              </div>
+              <div className="font-mono font-black text-xl sm:text-2xl text-amber-300 tracking-wider my-1">
+                EFS0000JHAL
+              </div>
+              <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                {txt.branchName} - 211012
+              </p>
+            </div>
+
+            {/* App UPI ID */}
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs flex flex-col justify-between hover:bg-white/10 transition">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  {txt.upiIdLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "upi")}
+                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
+                >
+                  {copiedField === "upi" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                </button>
+              </div>
+              <div className="font-mono font-black text-lg sm:text-xl text-emerald-300 tracking-wide truncate my-1">
+                {userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa")}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                {lang === "hindi" ? "पैसे भेजने हेतु यह UPI ID दें" : "Virtual UPI ID for receiving payments"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════
             6 MODULAR ACCOUNTS SECTION (CLICK TO VIEW FULL DATA)
         ══════════════════════════════════════════════════════ */}
         <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-gray-100 mb-6 sm:mb-8">
           <div className="flex justify-between items-center mb-5">
             <div>
               <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
-                <span>📑</span> 6 Modular Accounts Hub
+                <span>📑</span> {txt.accountsHubTitle}
               </h3>
-              <p className="text-xs text-gray-500">Sabhi accounts ka pura data dekhne ke liye card par click karein</p>
+              <p className="text-xs text-gray-500">{txt.accountsHubSub}</p>
             </div>
             <span className="hidden sm:inline-block px-3 py-1 bg-blue-50 text-[#1D6AE5] rounded-full text-xs font-bold">
-              Click to Open Account Data
+              {txt.openAccount}
             </span>
           </div>
 
@@ -3135,40 +3428,50 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           2. SEND MONEY / P2P TRANSFER SHEET
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "send_money"} onClose={closeModal} title="Send Money (App-to-App)" icon="⚡">
+      <Sheet open={modal === "send_money"} onClose={closeModal} title={txt.sendMoney || "Send Money"} icon="⚡">
         <div className="space-y-4">
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900">
-            ⚡ <strong>Instant Wallet Transfer:</strong> Kisi bhi user ke Phone Number, Unique ID ya Email par seedha transfer karein.
+            ⚡ <strong>Instant Transfer:</strong> {lang === "hindi" ? "फ़ोन नंबर, खाता संख्या (EFS0000XXX), UPI ID (@educa) या ईमेल द्वारा तुरंत ट्रांसफर करें।" : "Transfer directly using Phone Number, Account Number (EFS0000XXX), UPI ID (@educa), or Email."}
           </div>
 
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="text-xs font-bold text-gray-700">Recipient Phone / Unique ID / Email</label>
+              <label className="text-xs font-bold text-gray-700">
+                {lang === "hindi" ? "फ़ोन / खाता संख्या / UPI ID / ईमेल" : "Recipient Phone / A/C No / UPI ID / Email"}
+              </label>
               <button
                 type="button"
                 onClick={() => setModal("scan_qr")}
-                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 transition active:scale-95"
+                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 transition active:scale-95 cursor-pointer"
               >
                 <ScannerIcon className="w-3.5 h-3.5 text-emerald-600 inline mr-0.5" /> Scan QR / Gallery
               </button>
             </div>
             <input
               type="text"
-              placeholder="e.g. 9876543210 ya EDUCA-EFUSR1234"
+              placeholder={txt.sendMoneyPlaceholder || "e.g. 9876543210, EFS0000101 ya efs0000101@educa"}
               value={sendForm.recipient}
               onChange={e => setSendForm({ ...sendForm, recipient: e.target.value })}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
             />
             {lookingUp && <p className="text-[11px] text-blue-600 mt-1">Checking recipient...</p>}
             {recipientInfo && (
               <div className="p-3 bg-emerald-50 border-2 border-emerald-300 rounded-xl text-xs text-emerald-950 font-bold mt-2 flex items-center justify-between shadow-xs">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0">
                     {(recipientInfo.name || "U")[0].toUpperCase()}
                   </div>
                   <div>
-                    <span className="text-emerald-800 text-[10px] uppercase font-bold block">Paying To (Verified User)</span>
+                    <span className="text-emerald-800 text-[10px] uppercase font-bold block">{lang === "hindi" ? "सत्यापित प्राप्तकर्ता" : "Paying To (Verified User)"}</span>
                     <span className="text-sm font-black text-emerald-950">{recipientInfo.name}</span>
+                    <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono text-emerald-800 mt-0.5">
+                      {recipientInfo.accountNumber && (
+                        <span className="bg-emerald-100/80 px-1.5 py-0.2 rounded font-bold">A/C: {recipientInfo.accountNumber}</span>
+                      )}
+                      {recipientInfo.upiId && (
+                        <span className="bg-emerald-100/80 px-1.5 py-0.2 rounded">UPI: {recipientInfo.upiId}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold">
@@ -4381,11 +4684,11 @@ export default function Dashboard() {
       </Sheet>
 
       {/* 7. WALLET ACCOUNT SHEET */}
-      <Sheet open={accountModal === "wallet"} onClose={closeModal} title="Wallet Account" icon="💰">
+      <Sheet open={accountModal === "wallet"} onClose={closeModal} title={txt.walletAccount || "Wallet Account"} icon="💰">
         <div className="space-y-4">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white shadow-md">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Available Cash Balance</span>
+              <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">{txt.primaryBalance || "Available Cash Balance"}</span>
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-white/20 text-white">
                 A/C: {userProfile.accountNumber || "EFS0000001"}
               </span>
@@ -4393,12 +4696,81 @@ export default function Dashboard() {
             <div className="text-3xl font-black font-display my-1">₹{balance.toLocaleString("en-IN")}</div>
             <p className="text-xs text-blue-100">Ready for instant UPI, recharge aur withdrawal</p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={() => { setAccountModal(null); setModal("deposit"); }} className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition">
-              + Add Funds
+
+          {/* Bank Passbook Summary */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 text-xs">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🏛️</span>
+                <div>
+                  <h4 className="font-extrabold text-gray-900">{txt.bankCardTitle}</h4>
+                  <p className="text-[11px] text-gray-500">{txt.branchName} • IFSC: EFS0000JHAL</p>
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                ✓ Active
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200">
+                <div>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.accountNumberLabel}</span>
+                  <span className="font-mono font-bold text-sm text-gray-900">{userProfile.accountNumber || "EFS0000001"}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "w_acc")}
+                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer active:scale-95"
+                >
+                  {copiedField === "w_acc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200">
+                <div>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.ifscLabel}</span>
+                  <span className="font-mono font-bold text-sm text-amber-700">EFS0000JHAL</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard("EFS0000JHAL", "w_ifsc")}
+                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer active:scale-95"
+                >
+                  {copiedField === "w_ifsc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200">
+                <div>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.upiIdLabel}</span>
+                  <span className="font-mono font-bold text-xs text-emerald-700">{userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa")}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "w_upi")}
+                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer active:scale-95"
+                >
+                  {copiedField === "w_upi" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={shareFullBankDetails}
+              className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+            >
+              <span>📤</span> {txt.shareBankDetails}
             </button>
-            <button onClick={() => { setAccountModal(null); setModal("withdraw"); }} className="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-bold text-xs transition">
-              ↓ Withdraw Cash
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => { setAccountModal(null); setModal("deposit"); }} className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition cursor-pointer active:scale-95">
+              + {txt.addMoney || "Add Funds"}
+            </button>
+            <button onClick={() => { setAccountModal(null); setModal("withdraw"); }} className="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-bold text-xs transition cursor-pointer active:scale-95">
+              ↓ {txt.cashOut || "Withdraw Cash"}
             </button>
           </div>
         </div>
@@ -5319,6 +5691,74 @@ export default function Dashboard() {
                 {copied ? "✓ Copied" : "📋 Copy ID"}
               </button>
             </div>
+          </div>
+
+          {/* OFFICIAL EDUCA DIGITAL BANK PASSBOOK CARD IN PROFILE */}
+          <div className="p-4 bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl shadow-sm border border-indigo-500/30 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🏛️</span>
+                <div>
+                  <h4 className="font-extrabold text-xs text-white">{txt.bankCardTitle}</h4>
+                  <p className="text-[10px] text-indigo-200">{txt.branchName}</p>
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                ✓ Active
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2 bg-white/5 rounded-xl border border-white/10">
+                <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.accountNumberLabel}</span>
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="font-mono font-bold text-white text-xs">{userProfile.accountNumber || "EFS0000001"}</span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "p_acc")}
+                    className="text-[10px] text-indigo-300 font-bold hover:underline cursor-pointer"
+                  >
+                    {copiedField === "p_acc" ? "✓" : "📋"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-2 bg-white/5 rounded-xl border border-white/10">
+                <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.ifscLabel}</span>
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="font-mono font-bold text-amber-300 text-xs">EFS0000JHAL</span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard("EFS0000JHAL", "p_ifsc")}
+                    className="text-[10px] text-indigo-300 font-bold hover:underline cursor-pointer"
+                  >
+                    {copiedField === "p_ifsc" ? "✓" : "📋"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="col-span-2 p-2 bg-white/5 rounded-xl border border-white/10">
+                <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.upiIdLabel}</span>
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="font-mono font-bold text-emerald-300 text-xs truncate max-w-[210px]">{userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa")}</span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "p_upi")}
+                    className="text-[10px] text-indigo-300 font-bold hover:underline cursor-pointer shrink-0 ml-1"
+                  >
+                    {copiedField === "p_upi" ? "✓ Copied" : "📋 Copy"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={shareFullBankDetails}
+              className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+            >
+              <span>📤</span> {txt.shareBankDetails}
+            </button>
           </div>
 
           {/* E-KYC STATUS & DOCUMENT CARD */}

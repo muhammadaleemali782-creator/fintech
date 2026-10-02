@@ -91,6 +91,10 @@ router.get('/me', protect, async (req, res) => {
       user.accountNumber = await generateAccountNumber(User);
       await user.save();
     }
+    if ((!user.upiId || !user.upiId.includes('@')) && user.accountNumber) {
+      user.upiId = `${user.accountNumber.toLowerCase()}@educa`;
+      await user.save();
+    }
     user = await processDailyYield(user);
     const userObj = user.toObject();
     userObj.hasWalletPin = !!user.walletPin;

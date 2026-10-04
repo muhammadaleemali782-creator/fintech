@@ -322,6 +322,7 @@ export default function Dashboard() {
     const cached = localStorage.getItem("educa_cached_balance");
     return cached !== null ? Number(cached) : (userStored.balance || 0);
   });
+  const [loadingDashboard, setLoadingDashboard] = useState(!localStorage.getItem("educa_cached_profile"));
   const [txns, setTxns] = useState(() => {
     try {
       const cached = localStorage.getItem("educa_cached_txns");
@@ -1370,6 +1371,9 @@ export default function Dashboard() {
         if (depData && depData.upiId) setDepositDetails(depData);
       } catch {}
     } catch {}
+    finally {
+      setLoadingDashboard(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1488,12 +1492,21 @@ export default function Dashboard() {
     loadLoans();
     loadBonds();
 
+    // Auto-refresh live balances every 10 seconds
+    const interval = setInterval(() => {
+      loadDashboard();
+    }, 10000);
+
     // Check if new user guided feature tour should run
     const tourDone = localStorage.getItem("educa_tour_completed");
+    let tourTimer;
     if (!tourDone) {
-      const tourTimer = setTimeout(() => setShowTour(true), 1200);
-      return () => clearTimeout(tourTimer);
+      tourTimer = setTimeout(() => setShowTour(true), 1200);
     }
+    return () => {
+      clearInterval(interval);
+      if (tourTimer) clearTimeout(tourTimer);
+    };
   }, [loadDashboard]);
 
   // Clean up speech synthesis on component unmount
@@ -2809,7 +2822,11 @@ export default function Dashboard() {
                 <span className="text-base sm:text-lg">📈</span>
               </div>
               <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate">
-                ₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")}
+                {loadingDashboard && userProfile.profitBalance === undefined ? (
+                  <span className="inline-block h-8 w-28 bg-white/20 rounded-lg animate-pulse" />
+                ) : (
+                  `₹${(userProfile.profitBalance || 0).toLocaleString("en-IN")}`
+                )}
               </h3>
               <p className="text-emerald-100/90 text-[11px] hidden sm:block">1% Monthly Daily Yield & 365d Bonds</p>
             </div>
@@ -2838,7 +2855,11 @@ export default function Dashboard() {
                 </span>
               </div>
               <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate text-white">
-                ₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}
+                {loadingDashboard && userProfile.duesBalance === undefined ? (
+                  <span className="inline-block h-8 w-24 bg-white/20 rounded-lg animate-pulse" />
+                ) : (
+                  `₹${(userProfile.duesBalance || 0).toLocaleString("en-IN")}`
+                )}
               </h3>
               <p className="text-red-100/90 text-[11px] hidden sm:block">
                 {(userProfile.duesBalance || 0) > 0
@@ -3071,7 +3092,11 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-gray-900">₹{balance.toLocaleString("en-IN")}</span>
+                {loadingDashboard && balance === 0 ? (
+                  <span className="inline-block h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                ) : (
+                  <span className="font-bold text-gray-900">₹{balance.toLocaleString("en-IN")}</span>
+                )}
                 <span className="text-[#1D6AE5] font-bold">Open Account →</span>
               </div>
             </div>
@@ -3096,7 +3121,11 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-rose-600">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")} Due</span>
+                {loadingDashboard && userProfile.duesBalance === undefined ? (
+                  <span className="inline-block h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                ) : (
+                  <span className="font-bold text-rose-600">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")} Due</span>
+                )}
                 <span className="text-rose-600 font-bold">Open Bonds & Dues →</span>
               </div>
             </div>
@@ -3590,7 +3619,11 @@ export default function Dashboard() {
               </span>
             </div>
             <div className="text-3xl sm:text-4xl font-black font-display my-1">
-              ₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")}
+              {loadingProfitHistory || (loadingDashboard && userProfile.profitBalance === undefined) ? (
+                <span className="inline-block h-9 w-36 bg-white/20 rounded-lg animate-pulse" />
+              ) : (
+                `₹${(userProfile.profitBalance || 0).toLocaleString("en-IN")}`
+              )}
             </div>
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-500/30 text-xs text-emerald-100">
               <span>Daily Profit Added to Savings Account (12% Annual Yield)</span>
@@ -5003,7 +5036,13 @@ export default function Dashboard() {
                 A/C: {userProfile.accountNumber || "EFS0000001"}
               </span>
             </div>
-            <div className="text-3xl font-black font-display my-1">₹{balance.toLocaleString("en-IN")}</div>
+            <div className="text-3xl font-black font-display my-1">
+              {loadingDashboard && balance === 0 ? (
+                <span className="inline-block h-9 w-32 bg-white/20 rounded-lg animate-pulse" />
+              ) : (
+                `₹${balance.toLocaleString("en-IN")}`
+              )}
+            </div>
             <p className="text-xs text-blue-100">Ready for instant UPI, recharge aur withdrawal</p>
           </div>
 
@@ -7403,7 +7442,11 @@ export default function Dashboard() {
               <div>
                 <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Primary Account Balance</span>
                 <div className="text-3xl font-black font-display my-1">
-                  ₹{(userProfile.balance ?? balance ?? 0).toLocaleString("en-IN")}
+                  {loadingDashboard && (userProfile.balance ?? balance) === 0 ? (
+                    <span className="inline-block h-9 w-32 bg-white/20 rounded-lg animate-pulse" />
+                  ) : (
+                    `₹${(userProfile.balance ?? balance ?? 0).toLocaleString("en-IN")}`
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-blue-100 mt-1">
                   <span>A/C: <strong className="font-mono text-white">{activeAccountNum}</strong></span>

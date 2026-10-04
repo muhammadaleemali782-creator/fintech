@@ -13,6 +13,7 @@ export default function AdminPanel() {
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const [tab, setTab] = useState("pending");
   const [stats, setStats] = useState({});
+  const [loadingStats, setLoadingStats] = useState(true);
   const [pending, setPending] = useState([]);
   const [agents, setAgents] = useState([]);
   const [users, setUsers] = useState([]);
@@ -29,7 +30,7 @@ export default function AdminPanel() {
   const [googleDriveUrl, setGoogleDriveUrl] = useState("");
   const [newGoogleDriveUrl, setNewGoogleDriveUrl] = useState("");
   const [analytics, setAnalytics] = useState(null);
-  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
   const [chartMode, setChartMode] = useState("daily"); // "daily" | "cumulative"
   const [hoveredChartBar, setHoveredChartBar] = useState(null);
   const [depositDetails, setDepositDetails] = useState({
@@ -123,6 +124,7 @@ export default function AdminPanel() {
 
   const loadStats = useCallback(async () => {
     try { const res = await fetch(`${API}/admin/stats`, { headers }); setStats(await res.json()); } catch {}
+    finally { setLoadingStats(false); }
   }, []); // eslint-disable-line
 
   const loadNotifications = useCallback(async () => {
@@ -283,7 +285,10 @@ export default function AdminPanel() {
 
   useEffect(() => {
     loadAll();
-    const i = setInterval(loadStats, 10000);
+    const i = setInterval(() => {
+      loadStats();
+      loadAnalytics();
+    }, 10000);
     return () => clearInterval(i);
   }, []); // eslint-disable-line
 
@@ -613,12 +618,15 @@ export default function AdminPanel() {
 
   const logout = () => { localStorage.clear(); window.location.href = "/"; };
 
+  const isReservesLoading = loadingAnalytics && !analytics;
+  const isStatsLoading = loadingStats && !stats.totalUsers;
+
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(analytics?.stats?.netFintechReserve || stats.netFintechReserve || stats.totalUserBalances || 601768.26).toLocaleString("en-IN")}`, g: "from-emerald-500 to-teal-600" },
-    { icon: "💰", label: "Total Deposits", value: `₹${Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 600000).toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1768.26).toLocaleString("en-IN")}`, g: "from-indigo-600 to-violet-600" },
-    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 5, g: "from-blue-500 to-blue-600" },
-    { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, g: "from-yellow-500 to-orange-500" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(analytics?.stats?.netFintechReserve || stats.netFintechReserve || stats.totalUserBalances || 601768.26).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-emerald-500 to-teal-600" },
+    { icon: "💰", label: "Total Deposits", value: `₹${Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 600000).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-green-500 to-emerald-600" },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1768.26).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-indigo-600 to-violet-600" },
+    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 5, loading: isStatsLoading, g: "from-blue-500 to-blue-600" },
+    { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, loading: isStatsLoading, g: "from-yellow-500 to-orange-500" },
   ];
 
   return (
@@ -785,11 +793,15 @@ export default function AdminPanel() {
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8">
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4 mb-4 sm:mb-8">
-            {statCards.map(({ icon, label, value, g }) => (
+            {statCards.map(({ icon, label, value, loading, g }) => (
               <div key={label} className={`bg-gradient-to-br ${g} text-white p-3.5 sm:p-5 rounded-2xl shadow-md`}>
                 <div className="text-xl sm:text-3xl mb-1 sm:mb-2">{icon}</div>
                 <p className="text-white/80 text-[11px] sm:text-xs font-medium">{label}</p>
-                <p className="text-lg sm:text-2xl font-black font-display mt-0.5">{value}</p>
+                {loading ? (
+                  <div className="h-6 sm:h-8 w-24 sm:w-32 bg-white/30 rounded-lg animate-pulse mt-1" />
+                ) : (
+                  <p className="text-lg sm:text-2xl font-black font-display mt-0.5">{value}</p>
+                )}
               </div>
             ))}
           </div>
@@ -819,8 +831,13 @@ export default function AdminPanel() {
                       Fintech Liquidity & Reserves Audit
                     </span>
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-black font-display">
-                    Total Fintech Reserves: ₹{Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 601768.26).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <h2 className="text-2xl sm:text-3xl font-black font-display flex flex-wrap items-center">
+                    <span>Total Fintech Reserves:&nbsp;</span>
+                    {loadingAnalytics && !analytics ? (
+                      <span className="inline-block h-8 w-44 bg-white/20 rounded-xl animate-pulse" />
+                    ) : (
+                      <span>₹{Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 601768.26).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    )}
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-300 mt-1 max-w-2xl">
                     Real-time capital balance, customer deposits, compounding 12% p.a. daily yield distribution, and liquidity reserve health.
@@ -850,9 +867,13 @@ export default function AdminPanel() {
                 <div className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-xs relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-0 pointer-events-none" />
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">🏦 Total Fintech Reserves</p>
-                  <p className="text-2xl sm:text-3xl font-black font-display text-emerald-600">
-                    ₹{Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 601768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </p>
+                  {loadingAnalytics && !analytics ? (
+                    <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
+                  ) : (
+                    <p className="text-2xl sm:text-3xl font-black font-display text-emerald-600">
+                      ₹{Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 601768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
                   <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
                     <span>Company-wide total capital pool</span>
@@ -862,9 +883,13 @@ export default function AdminPanel() {
                 <div className="bg-white rounded-2xl p-5 border border-blue-100 shadow-xs relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0 pointer-events-none" />
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">💰 Verified Customer Deposits</p>
-                  <p className="text-2xl sm:text-3xl font-black font-display text-blue-600">
-                    ₹{Number(analytics?.stats?.totalDeposits || 600000).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </p>
+                  {loadingAnalytics && !analytics ? (
+                    <div className="h-9 w-40 bg-blue-100/70 rounded-xl animate-pulse my-1" />
+                  ) : (
+                    <p className="text-2xl sm:text-3xl font-black font-display text-blue-600">
+                      ₹{Number(analytics?.stats?.totalDeposits || 600000).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
                   <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
                     <span>2 Approved Deposit Transactions</span>
@@ -874,9 +899,13 @@ export default function AdminPanel() {
                 <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-xs relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -z-0 pointer-events-none" />
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">⚡ Total Profit Credited</p>
-                  <p className="text-2xl sm:text-3xl font-black font-display text-indigo-600">
-                    ₹{Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </p>
+                  {loadingAnalytics && !analytics ? (
+                    <div className="h-9 w-40 bg-indigo-100/70 rounded-xl animate-pulse my-1" />
+                  ) : (
+                    <p className="text-2xl sm:text-3xl font-black font-display text-indigo-600">
+                      ₹{Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
                   <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
                     <span>12% p.a. ROI across 9 Consecutive Days</span>

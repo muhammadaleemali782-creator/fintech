@@ -10,76 +10,78 @@ const router = express.Router();
 
 // Helper to evaluate and credit daily profit on lowest 24h primary Savings Account balance
 async function processDailyYield(user) {
-  if (!user) return user;
-  const now = new Date();
+  if (!user || user.role === 'admin') return user;
 
-  if (!user.lastYieldCalculatedAt) {
+  // Get current date string in Indian Standard Time (Asia/Kolkata) e.g. '2026-10-05'
+  const todayISTStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+  // Find the latest daily_yield transaction to determine the next calendar day
+  const lastYieldTxn = await Transaction.findOne({ userId: user._id, type: 'daily_yield' }).sort({ createdAt: -1 });
+
+  let startDate;
+  if (lastYieldTxn) {
+    startDate = new Date(lastYieldTxn.createdAt);
+  } else {
     const firstDeposit = await Transaction.findOne({ userId: user._id, type: 'deposit', status: 'approved' }).sort({ createdAt: 1 });
-    user.lastYieldCalculatedAt = firstDeposit ? firstDeposit.createdAt : now;
-    user.lowestBalance24h = user.balance || 0;
-    await user.save();
+    if (!firstDeposit) return user;
+    startDate = new Date(firstDeposit.createdAt);
   }
 
-  // Ensure lowestBalance24h is not 0 if user has positive balance
+  // Ensure lowestBalance24h is active
   if (!user.lowestBalance24h || user.lowestBalance24h <= 0) {
     user.lowestBalance24h = user.balance || 0;
-  } else if (user.balance < user.lowestBalance24h) {
-    user.lowestBalance24h = user.balance;
   }
 
-  const msDiff = now.getTime() - new Date(user.lastYieldCalculatedAt).getTime();
-  const msInDay = 24 * 60 * 60 * 1000;
-  const days = Math.floor(msDiff / msInDay);
+  const minBal = Math.max(0, user.lowestBalance24h || user.balance || 0);
+  if (minBal <= 0) return user;
 
-  if (days >= 1) {
-    const cappedDays = Math.min(days, 60);
-    const minBal = Math.max(0, user.lowestBalance24h || 0);
+  const annualRate = (user.interestRate || 12) / 100; // default 12% p.a.
+  const monthlyRate = annualRate / 12;
 
-    const annualRate = (user.interestRate || 12) / 100; // default 12% p.a.
-    const monthlyRate = annualRate / 12;
+  let curr = new Date(startDate);
+  curr.setUTCHours(12, 0, 0, 0);
 
-    const calcFromDate = new Date(user.lastYieldCalculatedAt);
+  // Credit missing calendar days up to todayISTStr
+  for (let i = 0; i < 60; i++) {
+    curr.setUTCDate(curr.getUTCDate() + 1);
+    const dateStr = curr.toISOString().slice(0, 10);
+    if (dateStr > todayISTStr) break;
 
-    // Calculate and create individual transaction records for each single day
-    for (let d = 0; d < cappedDays; d++) {
-      const calcDate = new Date(calcFromDate.getTime() + (d + 1) * msInDay);
-      const dateStr = calcDate.toISOString().slice(0, 10);
-      const periodKey = `yield_${user._id}_${dateStr}`;
-      const alreadyCredited = await Transaction.findOne({ referenceId: periodKey });
+    const periodKey = `yield_${user._id}_${dateStr}`;
+    const alreadyCredited = await Transaction.findOne({ referenceId: periodKey });
 
-      if (!alreadyCredited && minBal > 0) {
-        const daysInMonth = new Date(calcDate.getFullYear(), calcDate.getMonth() + 1, 0).getDate();
-        const dailyRate = monthlyRate / daysInMonth;
-        const dayYield = Number((minBal * dailyRate).toFixed(2));
+    if (!alreadyCredited) {
+      const daysInMonth = new Date(curr.getFullYear(), curr.getMonth() + 1, 0).getDate();
+      const dailyRate = monthlyRate / daysInMonth;
+      const dayYield = Number((minBal * dailyRate).toFixed(2));
 
-        if (dayYield > 0) {
-          user.balance = Number(((user.balance || 0) + dayYield).toFixed(2));
-          user.profitBalance = Number(((user.profitBalance || 0) + dayYield).toFixed(2));
+      if (dayYield > 0) {
+        user.balance = Number(((user.balance || 0) + dayYield).toFixed(2));
+        user.profitBalance = Number(((user.profitBalance || 0) + dayYield).toFixed(2));
 
-          const formattedDateStr = calcDate.toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-          });
+        const formattedDateStr = curr.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
 
-          await Transaction.create({
-            userId: user._id,
-            type: 'daily_yield',
-            amount: dayYield,
-            method: 'internal',
-            status: 'completed',
-            referenceId: periodKey,
-            remarks: `Daily Savings Yield: ₹${dayYield.toFixed(2)} profit for ${formattedDateStr} (12% p.a. on ₹${minBal.toLocaleString('en-IN')})`,
-            createdAt: calcDate
-          });
-        }
+        await Transaction.create({
+          userId: user._id,
+          type: 'daily_yield',
+          amount: dayYield,
+          method: 'internal',
+          status: 'completed',
+          referenceId: periodKey,
+          remarks: `Daily Savings Yield: ₹${dayYield.toFixed(2)} profit for ${formattedDateStr} (12% p.a. on ₹${minBal.toLocaleString('en-IN')})`,
+          createdAt: new Date(curr)
+        });
       }
     }
-
-    user.lastYieldCalculatedAt = new Date(calcFromDate.getTime() + cappedDays * msInDay);
-    user.lowestBalance24h = user.balance || 0;
-    await user.save();
   }
+
+  user.lastYieldCalculatedAt = new Date();
+  user.lowestBalance24h = user.balance || 0;
+  await user.save();
 
   return user;
 }
@@ -322,6 +324,7 @@ router.get('/profit-history', protect, async (req, res) => {
     res.json({
       success: true,
       profitBalance: user.profitBalance || 0,
+      balance: user.balance || 0,
       lowestBalance24h: user.lowestBalance24h || 0,
       history
     });

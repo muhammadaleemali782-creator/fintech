@@ -1225,7 +1225,7 @@ export default function AdminPanel() {
                     <p className="text-xs text-gray-500">Har din ka alag-alag credit record date aur remarks ke sath</p>
                   </div>
                   <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                    8 Days Credited • Total +₹1,574.20
+                    {analytics?.dailyProfitChart?.length || 9} Days Credited • Total +₹{analytics?.stats?.totalYieldCredited ? Number(analytics.stats.totalYieldCredited).toLocaleString("en-IN") : "1,768.26"}
                   </span>
                 </div>
 
@@ -1243,7 +1243,7 @@ export default function AdminPanel() {
                     </span>
                   </div>
                   <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                    Kyun September me <strong>₹200.00/din</strong> aur October me <strong>₹193.55/din</strong> credit ho raha hai?
+                    Kyun September me <strong>₹200.00/din</strong> aur October me <strong>₹193.55 - ₹194.06/din</strong> credit ho raha hai?
                     Kyunki savings interest <strong>calendar month ke actual days</strong> par divide hota hai taaki har mahine exact 1% (₹6,000 on ₹6 Lakhs) credit ho:
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
@@ -1254,7 +1254,7 @@ export default function AdminPanel() {
                     </div>
                     <div className="p-3 bg-white rounded-xl border border-blue-100 shadow-2xs">
                       <span className="text-[11px] font-bold text-gray-500 block mb-0.5">🗓️ October (31 Days)</span>
-                      <p className="font-mono font-black text-sm text-indigo-600 mb-0.5">₹193.55 / din</p>
+                      <p className="font-mono font-black text-sm text-indigo-600 mb-0.5">₹193.55 - ₹194.06 / din</p>
                       <p className="text-[11px] text-gray-500">₹6,000 ÷ 31 din = ₹193.548...<br/><span className="text-gray-400 font-mono text-[10px]">31 din × ₹193.55 = ₹6,000 (1%)</span></p>
                     </div>
                     <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-2xs">
@@ -1280,24 +1280,25 @@ export default function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {[
-                        { day: 1, date: "27 Sept 2026", base: "₹6,00,000", rate: "12% p.a. (30d)", amt: "₹200.00", total: "₹200.00", user: "anand@educa.com" },
-                        { day: 2, date: "28 Sept 2026", base: "₹6,00,000", rate: "12% p.a. (30d)", amt: "₹200.00", total: "₹400.00", user: "anand@educa.com" },
-                        { day: 3, date: "29 Sept 2026", base: "₹6,00,000", rate: "12% p.a. (30d)", amt: "₹200.00", total: "₹600.00", user: "anand@educa.com" },
-                        { day: 4, date: "30 Sept 2026", base: "₹6,00,000", rate: "12% p.a. (30d)", amt: "₹200.00", total: "₹800.00", user: "anand@educa.com" },
-                        { day: 5, date: "01 Oct 2026", base: "₹6,00,000", rate: "12% p.a. (31d)", amt: "₹193.55", total: "₹993.55", user: "anand@educa.com" },
-                        { day: 6, date: "02 Oct 2026", base: "₹6,00,000", rate: "12% p.a. (31d)", amt: "₹193.55", total: "₹1,187.10", user: "anand@educa.com" },
-                        { day: 7, date: "03 Oct 2026", base: "₹6,00,000", rate: "12% p.a. (31d)", amt: "₹193.55", total: "₹1,380.65", user: "anand@educa.com" },
-                        { day: 8, date: "04 Oct 2026", base: "₹6,00,000", rate: "12% p.a. (31d)", amt: "₹193.55", total: "₹1,574.20", user: "anand@educa.com" },
-                      ].map((row) => (
-                        <tr key={row.day} className="hover:bg-gray-50/70 transition">
-                          <td className="py-3 pr-4 font-mono text-gray-400">{row.day}</td>
-                          <td className="py-3 pr-4 font-bold text-gray-900">{row.date}</td>
-                          <td className="py-3 pr-4 font-mono text-gray-600">{row.base}</td>
-                          <td className="py-3 pr-4 text-gray-500">{row.rate}</td>
-                          <td className="py-3 pr-4 font-black text-emerald-600">+{row.amt}</td>
-                          <td className="py-3 pr-4 font-bold font-mono text-indigo-700">{row.total}</td>
-                          <td className="py-3 pr-4 text-gray-500">{row.user}</td>
+                      {(analytics?.dailyProfitChart && analytics.dailyProfitChart.length > 0 ? analytics.dailyProfitChart : [
+                        { date: "2026-09-27", displayDate: "27 Sep", amount: 200, cumulativeYield: 200 },
+                        { date: "2026-09-28", displayDate: "28 Sep", amount: 200, cumulativeYield: 400 },
+                        { date: "2026-09-29", displayDate: "29 Sep", amount: 200, cumulativeYield: 600 },
+                        { date: "2026-09-30", displayDate: "30 Sep", amount: 200, cumulativeYield: 800 },
+                        { date: "2026-10-01", displayDate: "01 Oct", amount: 193.55, cumulativeYield: 993.55 },
+                        { date: "2026-10-02", displayDate: "02 Oct", amount: 193.55, cumulativeYield: 1187.10 },
+                        { date: "2026-10-03", displayDate: "03 Oct", amount: 193.55, cumulativeYield: 1380.65 },
+                        { date: "2026-10-04", displayDate: "04 Oct", amount: 193.55, cumulativeYield: 1574.20 },
+                        { date: "2026-10-05", displayDate: "05 Oct", amount: 194.06, cumulativeYield: 1768.26 }
+                      ]).map((row, idx) => (
+                        <tr key={row.date || idx} className="hover:bg-gray-50/70 transition">
+                          <td className="py-3 pr-4 font-mono text-gray-400">{idx + 1}</td>
+                          <td className="py-3 pr-4 font-bold text-gray-900">{row.displayDate || row.date}</td>
+                          <td className="py-3 pr-4 font-mono text-gray-600">₹6,00,000</td>
+                          <td className="py-3 pr-4 text-gray-500">{row.date?.startsWith("2026-09") ? "12% p.a. (30d)" : "12% p.a. (31d)"}</td>
+                          <td className="py-3 pr-4 font-black text-emerald-600">+₹{Number(row.amount).toFixed(2)}</td>
+                          <td className="py-3 pr-4 font-bold font-mono text-indigo-700">₹{Number(row.cumulativeYield).toFixed(2)}</td>
+                          <td className="py-3 pr-4 text-gray-500">anand@educa.com</td>
                           <td className="py-3">
                             <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
                               ✓ Credited

@@ -831,7 +831,15 @@ export default function Dashboard() {
       if (res.ok && data.success) {
         setProfitHistory(data.history || []);
         if (data.profitBalance !== undefined) {
-          setUserProfile(prev => ({ ...prev, profitBalance: data.profitBalance }));
+          setUserProfile(prev => ({
+            ...prev,
+            profitBalance: data.profitBalance,
+            balance: data.balance !== undefined ? data.balance : prev.balance
+          }));
+        }
+        if (data.balance !== undefined) {
+          setBalance(data.balance);
+          localStorage.setItem("educa_cached_balance", String(data.balance));
         }
       }
     } catch (e) {
@@ -3062,9 +3070,16 @@ export default function Dashboard() {
                   Available cash balance, QR payments, instant app-to-app transfer aur statement.
                 </p>
               </div>
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-gray-900">₹{balance.toLocaleString("en-IN")}</span>
-                <span className="text-[#1D6AE5] font-bold">Open Account →</span>
+              <div className="pt-3 border-t border-gray-100 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-gray-900 text-sm">₹{balance.toLocaleString("en-IN")}</span>
+                  <span className="text-[#1D6AE5] font-bold">Open Account →</span>
+                </div>
+                {(userProfile.profitBalance || 0) > 0 && (
+                  <p className="text-[10px] text-emerald-600 font-bold mt-1">
+                    ✓ +₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")} Profit isme plused hai
+                  </p>
+                )}
               </div>
             </div>
 
@@ -4995,6 +5010,11 @@ export default function Dashboard() {
               </span>
             </div>
             <div className="text-3xl font-black font-display my-1">₹{balance.toLocaleString("en-IN")}</div>
+            {(userProfile.profitBalance || 0) > 0 && (
+              <p className="text-[11px] text-emerald-200 font-bold bg-white/10 px-2.5 py-1 rounded-lg inline-block mb-1.5">
+                ✓ Total Daily Profit: +₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")} is balance me plused hai
+              </p>
+            )}
             <p className="text-xs text-blue-100">Ready for instant UPI, recharge aur withdrawal</p>
           </div>
 

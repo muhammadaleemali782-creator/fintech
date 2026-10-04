@@ -32,8 +32,9 @@ async function processDailyYield(user) {
     user.lowestBalance24h = user.balance || 0;
   }
 
-  const minBal = Math.max(0, user.lowestBalance24h || user.balance || 0);
-  if (minBal <= 0) return user;
+  const baseBal = Math.max(0, user.lowestBalance24h || user.balance || 0);
+  const totalCapital = Number((baseBal + (user.profitBalance || 0)).toFixed(2));
+  if (totalCapital <= 0) return user;
 
   const annualRate = (user.interestRate || 12) / 100; // default 12% p.a.
   const monthlyRate = annualRate / 12;
@@ -53,10 +54,11 @@ async function processDailyYield(user) {
     if (!alreadyCredited) {
       const daysInMonth = new Date(curr.getFullYear(), curr.getMonth() + 1, 0).getDate();
       const dailyRate = monthlyRate / daysInMonth;
-      const dayYield = Number((minBal * dailyRate).toFixed(2));
+      const currentCapital = Number(((user.balance || 0) + (user.profitBalance || 0)).toFixed(2));
+      const dayYield = Number((currentCapital * dailyRate).toFixed(2));
 
       if (dayYield > 0) {
-        user.balance = Number(((user.balance || 0) + dayYield).toFixed(2));
+        // Daily yield is credited strictly to Profit Wallet (profitBalance) - NOT to Wallet Account (balance)
         user.profitBalance = Number(((user.profitBalance || 0) + dayYield).toFixed(2));
 
         const formattedDateStr = curr.toLocaleDateString('en-IN', {
@@ -72,7 +74,7 @@ async function processDailyYield(user) {
           method: 'internal',
           status: 'completed',
           referenceId: periodKey,
-          remarks: `Daily Savings Yield: ₹${dayYield.toFixed(2)} profit for ${formattedDateStr} (12% p.a. on ₹${minBal.toLocaleString('en-IN')})`,
+          remarks: `Daily Savings Yield: ₹${dayYield.toFixed(2)} profit for ${formattedDateStr} (12% p.a. on ₹${currentCapital.toLocaleString('en-IN')})`,
           createdAt: new Date(curr)
         });
       }

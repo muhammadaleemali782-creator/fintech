@@ -614,9 +614,9 @@ export default function AdminPanel() {
   const logout = () => { localStorage.clear(); window.location.href = "/"; };
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(analytics?.stats?.netFintechReserve || stats.totalUserBalances || stats.totalDeposits || 601574.2).toLocaleString("en-IN")}`, g: "from-emerald-500 to-teal-600" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(analytics?.stats?.netFintechReserve || stats.netFintechReserve || stats.totalUserBalances || 601768.26).toLocaleString("en-IN")}`, g: "from-emerald-500 to-teal-600" },
     { icon: "💰", label: "Total Deposits", value: `₹${Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 600000).toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1574.2).toLocaleString("en-IN")}`, g: "from-indigo-600 to-violet-600" },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1768.26).toLocaleString("en-IN")}`, g: "from-indigo-600 to-violet-600" },
     { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 5, g: "from-blue-500 to-blue-600" },
     { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, g: "from-yellow-500 to-orange-500" },
   ];
@@ -820,7 +820,7 @@ export default function AdminPanel() {
                     </span>
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black font-display">
-                    Total Fintech Reserves: ₹{Number(analytics?.stats?.netFintechReserve || stats?.totalUserBalances || 601574.2).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    Total Fintech Reserves: ₹{Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 601768.26).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-300 mt-1 max-w-2xl">
                     Real-time capital balance, customer deposits, compounding 12% p.a. daily yield distribution, and liquidity reserve health.
@@ -849,13 +849,13 @@ export default function AdminPanel() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-xs relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-0 pointer-events-none" />
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">🏦 Total Liquid Capital</p>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">🏦 Total Fintech Reserves</p>
                   <p className="text-2xl sm:text-3xl font-black font-display text-emerald-600">
-                    ₹{Number(analytics?.stats?.totalUserBalances || 601574.2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    ₹{Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 601768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </p>
                   <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    <span>100% Solvency • Backed by primary deposits</span>
+                    <span>Company-wide total capital pool</span>
                   </p>
                 </div>
 
@@ -875,11 +875,11 @@ export default function AdminPanel() {
                   <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -z-0 pointer-events-none" />
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">⚡ Total Profit Credited</p>
                   <p className="text-2xl sm:text-3xl font-black font-display text-indigo-600">
-                    ₹{Number(analytics?.stats?.totalYieldCredited || 1574.2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    ₹{Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </p>
                   <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
-                    <span>12% p.a. ROI across 8 Consecutive Days</span>
+                    <span>12% p.a. ROI across 9 Consecutive Days</span>
                   </p>
                 </div>
               </div>
@@ -1118,13 +1118,13 @@ export default function AdminPanel() {
                     <h3 className="text-base font-black font-display text-gray-900 flex items-center gap-2">
                       <span>💎</span> Capital Sources (Kahan Se Aaya)
                     </h3>
-                    <span className="text-xs font-bold text-gray-400">Total Pool: ₹6,01,574.20</span>
+                    <span className="text-xs font-bold text-gray-400">Total Pool: ₹{Number(analytics?.stats?.netFintechReserve || 601768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                   </div>
 
                   {/* Multi-colored Visual Bar */}
                   <div className="h-4 rounded-full bg-gray-100 flex overflow-hidden shadow-inner">
-                    <div style={{ width: "99.74%" }} className="bg-emerald-500 h-full" title="Customer Deposits (99.74%)" />
-                    <div style={{ width: "0.26%" }} className="bg-indigo-600 h-full" title="Yield Profit (0.26%)" />
+                    <div style={{ width: "99.71%" }} className="bg-emerald-500 h-full" title="Customer Deposits (99.71%)" />
+                    <div style={{ width: "0.29%" }} className="bg-indigo-600 h-full" title="Yield Profit (0.29%)" />
                   </div>
 
                   <div className="space-y-3">
@@ -1139,7 +1139,7 @@ export default function AdminPanel() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-black text-sm text-gray-900">₹6,00,000.00</p>
+                        <p className="font-black text-sm text-gray-900">₹{Number(analytics?.stats?.totalDeposits || 600000).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                         <span className="text-[10px] font-bold text-emerald-600 uppercase">Principal Base</span>
                       </div>
                     </div>
@@ -1151,11 +1151,11 @@ export default function AdminPanel() {
                         </div>
                         <div>
                           <p className="font-extrabold text-xs text-gray-900">12% p.a. Savings Compounding Yield</p>
-                          <p className="text-[11px] text-gray-500">Automated daily profit credited across 8 days</p>
+                          <p className="text-[11px] text-gray-500">Automated daily profit credited across 9 days</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-black text-sm text-indigo-600">+₹1,574.20</p>
+                        <p className="font-black text-sm text-indigo-600">+₹{Number(analytics?.stats?.totalYieldCredited || 1768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                         <span className="text-[10px] font-bold text-indigo-500 uppercase">Generated ROI</span>
                       </div>
                     </div>
@@ -1878,7 +1878,12 @@ export default function AdminPanel() {
 
                             {/* BALANCE */}
                             <td className="py-4 px-4 align-top">
-                              <p className="font-extrabold text-sm text-green-600 pt-0.5">₹{u.balance.toLocaleString("en-IN")}</p>
+                              <p className="font-extrabold text-sm text-green-600 pt-0.5">₹{Number(u.balance || 0).toLocaleString("en-IN")}</p>
+                              {(u.profitBalance || 0) > 0 && (
+                                <p className="text-[10px] text-gray-400 font-mono mt-0.5">
+                                  Profit: +₹{Number(u.profitBalance).toLocaleString("en-IN")}
+                                </p>
+                              )}
                             </td>
 
                             {/* REFERRALS */}

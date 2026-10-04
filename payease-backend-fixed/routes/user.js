@@ -33,8 +33,7 @@ async function processDailyYield(user) {
   }
 
   const baseBal = Math.max(0, user.lowestBalance24h || user.balance || 0);
-  const totalCapital = Number((baseBal + (user.profitBalance || 0)).toFixed(2));
-  if (totalCapital <= 0) return user;
+  if (baseBal <= 0) return user;
 
   const annualRate = (user.interestRate || 12) / 100; // default 12% p.a.
   const monthlyRate = annualRate / 12;
@@ -54,11 +53,12 @@ async function processDailyYield(user) {
     if (!alreadyCredited) {
       const daysInMonth = new Date(curr.getFullYear(), curr.getMonth() + 1, 0).getDate();
       const dailyRate = monthlyRate / daysInMonth;
-      const currentCapital = Number(((user.balance || 0) + (user.profitBalance || 0)).toFixed(2));
+      const currentCapital = Number((user.balance || 0).toFixed(2));
       const dayYield = Number((currentCapital * dailyRate).toFixed(2));
 
       if (dayYield > 0) {
-        // Daily yield is credited strictly to Profit Wallet (profitBalance) - NOT to Wallet Account (balance)
+        // Daily yield is added to primary balance (total money available) and tracked in profitBalance
+        user.balance = Number(((user.balance || 0) + dayYield).toFixed(2));
         user.profitBalance = Number(((user.profitBalance || 0) + dayYield).toFixed(2));
 
         const formattedDateStr = curr.toLocaleDateString('en-IN', {

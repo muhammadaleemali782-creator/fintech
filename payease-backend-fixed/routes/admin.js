@@ -391,8 +391,13 @@ router.get('/stats', protect, admin, async (req, res) => {
       { $match: { type: 'daily_yield' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-    const users = await User.find({ role: 'user' }).select('balance');
+    const users = await User.find({ role: 'user' }).select('balance profitBalance');
     const totalUserBalances = users.reduce((sum, u) => sum + (u.balance || 0), 0);
+    const totalUserProfits = users.reduce((sum, u) => sum + (u.profitBalance || 0), 0);
+    const Bond = require('../models/Bond');
+    const activeBonds = await Bond.find({ status: 'active' });
+    const totalActiveBonds = Number(activeBonds.reduce((sum, b) => sum + (b.principalAmount || 0), 0).toFixed(2));
+    const netFintechReserve = Number((totalUserBalances + totalUserProfits + totalActiveBonds).toFixed(2));
     const pendingLoans = await Loan.countDocuments({ status: 'pending' });
 
     res.json({
@@ -401,6 +406,9 @@ router.get('/stats', protect, admin, async (req, res) => {
       totalDeposits: totalDeposits[0]?.total || 0,
       totalYield: totalYield[0]?.total || 0,
       totalUserBalances,
+      totalUserProfits,
+      totalActiveBonds,
+      netFintechReserve,
       pendingLoans
     });
   } catch (err) {
@@ -416,6 +424,15 @@ router.get('/analytics', protect, admin, async (req, res) => {
     const totalUsers = users.length;
     const totalUserBalances = Number(users.reduce((sum, u) => sum + (u.balance || 0), 0).toFixed(2));
     const totalUserProfits = Number(users.reduce((sum, u) => sum + (u.profitBalance || 0), 0).toFixed(2));
+
+    // Active Bonds in company
+    const Bond = require('../models/Bond');
+    const activeBonds = await Bond.find({ status: 'active' });
+    const totalActiveBonds = Number(activeBonds.reduce((sum, b) => sum + (b.principalAmount || 0), 0).toFixed(2));
+
+    // Poore company me jitna bhi paisa hai:
+    // Cash Wallets (Customer Deposits) + Profit Wallets (Accrued Yield) + Active Bonds
+    const netFintechReserve = Number((totalUserBalances + totalUserProfits + totalActiveBonds).toFixed(2));
 
     // 2. Deposits
     const depositTxns = await Transaction.find({ type: 'deposit', status: 'approved' }).sort({ createdAt: 1 });
@@ -469,24 +486,33 @@ router.get('/analytics', protect, admin, async (req, res) => {
       };
     });
 
-    // 8. Capital Sources Breakdown
-    const totalFintechLiquidity = totalUserBalances;
+    // 8. Capital Sources Breakdown (Kahan se aaya company me paisa)
+    const totalFintechLiquidity = netFintechReserve;
     const sources = [
       {
-        source: 'Customer Deposits (Principal Capital)',
-        amount: totalDeposits,
-        percent: totalFintechLiquidity > 0 ? Number(((totalDeposits / totalFintechLiquidity) * 100).toFixed(1)) : 100,
+        source: 'Customer Deposits (Primary Cash Wallets)',
+        amount: totalUserBalances,
+        percent: totalFintechLiquidity > 0 ? Number(((totalUserBalances / totalFintechLiquidity) * 100).toFixed(2)) : 0,
         color: '#10B981',
-        description: 'Direct deposits by users via UPI & Bank transfer'
+        description: 'Customer liquid wallet balances via UPI & Bank transfer'
       },
       {
-        source: 'Daily Savings Yield (12% p.a. Profit)',
-        amount: totalYieldCredited,
-        percent: totalFintechLiquidity > 0 ? Number(((totalYieldCredited / totalFintechLiquidity) * 100).toFixed(2)) : 0,
+        source: 'Profit Wallet Reserves (12% p.a. Accrued Yield)',
+        amount: totalUserProfits,
+        percent: totalFintechLiquidity > 0 ? Number(((totalUserProfits / totalFintechLiquidity) * 100).toFixed(2)) : 0,
         color: '#3B82F6',
-        description: 'Automated daily compounding returns credited by system'
+        description: 'Automated daily compounding returns credited to users'
       }
     ];
+    if (totalActiveBonds > 0) {
+      sources.push({
+        source: 'Active Bond Investments (365d / Lending)',
+        amount: totalActiveBonds,
+        percent: Number(((totalActiveBonds / totalFintechLiquidity) * 100).toFixed(2)),
+        color: '#8B5CF6',
+        description: 'Capital locked in active term bonds and lending pools'
+      });
+    }
 
     // 9. Milestone Growth Timeline
     const timeline = [];
@@ -530,13 +556,14 @@ router.get('/analytics', protect, admin, async (req, res) => {
         totalUsers,
         totalUserBalances,
         totalUserProfits,
+        totalActiveBonds,
         totalDeposits,
         totalYieldCredited,
         totalWithdrawals,
         totalLoansDisbursed,
         pendingTxnsCount,
         pendingLoansCount,
-        netFintechReserve: totalUserBalances
+        netFintechReserve
       },
       dailyProfitChart,
       sources,

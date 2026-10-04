@@ -3615,22 +3615,23 @@ export default function Dashboard() {
             </summary>
             <div className="mt-3 pt-3 border-t border-indigo-200/60 space-y-2.5 text-[11px] text-indigo-900 leading-relaxed">
               <p>
-                Educa Savings Account me aapko <strong>12% saal ka (1% mahina)</strong> profit milta hai. Daily profit calendar month ke total dino par divide hota hai taaki mahine ka total exact 1% rahe:
+                Educa Savings Account me <strong>Compounding Interest (1% Mahina / 12% Saal)</strong> milta hai jo aapke <strong>pure updated balance</strong> (Deposit + Judta hua Profit) par calculate hota hai:
               </p>
               <div className="grid grid-cols-2 gap-2 font-mono">
                 <div className="bg-white/90 p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
-                  <span className="text-gray-500 block text-[10px]">🗓️ Sep (30 Din):</span>
-                  <strong className="text-emerald-700 text-xs">₹6,000 ÷ 30 = ₹200/din</strong>
+                  <span className="text-gray-500 block text-[10px]">🗓️ Sep (₹6,00,000 Base):</span>
+                  <strong className="text-emerald-700 text-xs">₹6,000 ÷ 30 = ₹200.00/din</strong>
                   <span className="text-[9px] text-gray-400 block mt-0.5">30 din × ₹200 = ₹6,000</span>
                 </div>
                 <div className="bg-white/90 p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
-                  <span className="text-gray-500 block text-[10px]">🗓️ Oct (31 Din):</span>
-                  <strong className="text-indigo-700 text-xs">₹6,000 ÷ 31 = ₹193.55/din</strong>
-                  <span className="text-[9px] text-gray-400 block mt-0.5">31 din × ₹193.55 = ₹6,000</span>
+                  <span className="text-gray-500 block text-[10px]">🗓️ Oct (₹6,01,768 Total):</span>
+                  <strong className="text-indigo-700 text-xs">₹6,017.68 ÷ 31 = ₹194.12/din</strong>
+                  <span className="text-[9px] text-gray-400 block mt-0.5">Full balance par 1% monthly</span>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-white/70 border border-indigo-100/70 text-[10px] text-indigo-800">
-                ✅ <strong>Fayda same hai:</strong> 30 din wale mahine (Sep, Nov) me ₹200/din aur 31 din wale mahine (Oct, Dec, Jan) me ₹193.55/din milta hai — pura mahina milakar dono me exact <strong>₹6,000 (1% mahina / 12% saal)</strong> hi milta hai!
+              <div className="p-2 rounded-xl bg-white/70 border border-indigo-100/70 text-[10px] text-indigo-800 space-y-1">
+                <p>✅ <strong>Full Balance Par 1%:</strong> Jaise-jaise roz ka profit aapke balance me plus hota hai, agle din ka 1% interest usi badhe hue total balance par calculate hota hai (₹6,01,768 par 1% = ₹6,017.68 mahina).</p>
+                <p>📅 30 din wale mahine me 30 se divide aur 31 din wale mahine me 31 se divide hota hai.</p>
               </div>
             </div>
           </details>

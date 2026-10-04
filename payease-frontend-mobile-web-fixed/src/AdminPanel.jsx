@@ -1244,7 +1244,7 @@ export default function AdminPanel() {
                   </div>
                   <p className="text-xs text-gray-600 mb-3 leading-relaxed">
                     Kyun September me <strong>₹200.00/din</strong> aur October me <strong>₹193.55 - ₹194.06/din</strong> credit ho raha hai?
-                    Kyunki savings interest <strong>calendar month ke actual days</strong> par divide hota hai taaki har mahine exact 1% (₹6,000 on ₹6 Lakhs) credit ho:
+                    Kyunki savings interest <strong>updated running balance</strong> (Principal + Added Profit = ₹6,01,768 par 1% = ₹6,017.68/mo) aur <strong>calendar month ke actual days</strong> par divide hota hai:
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                     <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs">

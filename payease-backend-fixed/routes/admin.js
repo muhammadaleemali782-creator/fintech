@@ -397,7 +397,8 @@ router.get('/stats', protect, admin, async (req, res) => {
     const Bond = require('../models/Bond');
     const activeBonds = await Bond.find({ status: 'active' });
     const totalActiveBonds = Number(activeBonds.reduce((sum, b) => sum + (b.principalAmount || 0), 0).toFixed(2));
-    const netFintechReserve = Number((totalUserBalances + totalUserProfits + totalActiveBonds).toFixed(2));
+    // totalUserBalances already contains total funds (deposits + profits), so do not add profits twice
+    const netFintechReserve = Number((totalUserBalances + totalActiveBonds).toFixed(2));
     const pendingLoans = await Loan.countDocuments({ status: 'pending' });
 
     res.json({
@@ -430,9 +431,9 @@ router.get('/analytics', protect, admin, async (req, res) => {
     const activeBonds = await Bond.find({ status: 'active' });
     const totalActiveBonds = Number(activeBonds.reduce((sum, b) => sum + (b.principalAmount || 0), 0).toFixed(2));
 
-    // Poore company me jitna bhi paisa hai:
-    // Cash Wallets (Customer Deposits) + Profit Wallets (Accrued Yield) + Active Bonds
-    const netFintechReserve = Number((totalUserBalances + totalUserProfits + totalActiveBonds).toFixed(2));
+    // Poore company ka total liquid reserve:
+    // totalUserBalances already includes deposits and profits, plus any active bonds
+    const netFintechReserve = Number((totalUserBalances + totalActiveBonds).toFixed(2));
 
     // 2. Deposits
     const depositTxns = await Transaction.find({ type: 'deposit', status: 'approved' }).sort({ createdAt: 1 });

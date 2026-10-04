@@ -295,6 +295,11 @@ router.post('/withdraw', protect, async (req, res) => {
 // Get My Transactions
 router.get('/my', protect, async (req, res) => {
   try {
+    let user = await User.findById(req.user._id);
+    if (user) {
+      const { processDailyYield } = require('./user');
+      if (processDailyYield) await processDailyYield(user);
+    }
     const txns = await Transaction.find({ userId: req.user._id }).sort({ createdAt: -1 });
     res.json(txns);
   } catch (err) {

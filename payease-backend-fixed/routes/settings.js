@@ -110,4 +110,69 @@ router.post('/google-drive', protect, admin, async (req, res) => {
   }
 });
 
+// Get Admin Deposit Details (UPI & Bank info for customer deposits)
+router.get('/deposit-details', async (req, res) => {
+  try {
+    const setting = await Settings.findOne({ key: 'depositDetails' });
+    const defaultDetails = {
+      upiId: 'educafinance@upi',
+      upiName: 'Educa Finance & Payments',
+      accountNumber: '5010045239128',
+      ifsc: 'BARB0JHALWA',
+      bankName: 'Bank of Baroda',
+      branch: 'Jhalwa Branch, Prayagraj',
+      accountHolder: 'Educa Fintech Admin',
+      instructions: 'UPI App (GPay/PhonePe/Paytm) ya NetBanking se payment karne ke baad 12-digit UTR enter karein.'
+    };
+    res.json(setting ? setting.value : defaultDetails);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch deposit details' });
+  }
+});
+
+// Update Admin Deposit Details (Admin only)
+router.post('/deposit-details', protect, admin, async (req, res) => {
+  try {
+    const {
+      upiId,
+      upiName,
+      accountNumber,
+      ifsc,
+      bankName,
+      branch,
+      accountHolder,
+      instructions
+    } = req.body;
+
+    if (!upiId || !accountNumber) {
+      return res.status(400).json({ message: 'UPI ID and Account Number are required' });
+    }
+
+    const value = {
+      upiId: (upiId || '').trim(),
+      upiName: (upiName || 'Educa Finance & Payments').trim(),
+      accountNumber: (accountNumber || '').trim(),
+      ifsc: (ifsc || 'BARB0JHALWA').trim().toUpperCase(),
+      bankName: (bankName || 'Bank of Baroda').trim(),
+      branch: (branch || 'Jhalwa Branch').trim(),
+      accountHolder: (accountHolder || 'Educa Fintech Admin').trim(),
+      instructions: (instructions || 'Payment karne ke baad 12-digit UTR enter karein.').trim()
+    };
+
+    const updated = await Settings.findOneAndUpdate(
+      { key: 'depositDetails' },
+      { key: 'depositDetails', value, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    res.json({
+      success: true,
+      message: '✅ Admin Deposit Details (UPI & Bank) updated successfully!',
+      depositDetails: updated.value
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update deposit details' });
+  }
+});
+
 module.exports = router;

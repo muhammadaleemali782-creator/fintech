@@ -14,14 +14,14 @@ async function processDailyYield(user) {
   const now = new Date();
 
   if (!user.lastYieldCalculatedAt) {
-    user.lastYieldCalculatedAt = now;
+    const firstDeposit = await Transaction.findOne({ userId: user._id, type: 'deposit', status: 'approved' }).sort({ createdAt: 1 });
+    user.lastYieldCalculatedAt = firstDeposit ? firstDeposit.createdAt : now;
     user.lowestBalance24h = user.balance || 0;
     await user.save();
-    return user;
   }
 
-  // Track lowestBalance24h accurately — update if current balance is lower
-  if (user.lowestBalance24h === undefined || user.lowestBalance24h === null) {
+  // Ensure lowestBalance24h is not 0 if user has positive balance
+  if (!user.lowestBalance24h || user.lowestBalance24h <= 0) {
     user.lowestBalance24h = user.balance || 0;
   } else if (user.balance < user.lowestBalance24h) {
     user.lowestBalance24h = user.balance;
@@ -32,49 +32,51 @@ async function processDailyYield(user) {
   const days = Math.floor(msDiff / msInDay);
 
   if (days >= 1) {
-    const cappedDays = Math.min(days, 30);
+    const cappedDays = Math.min(days, 60);
     const minBal = Math.max(0, user.lowestBalance24h || 0);
 
-    // Use admin-configurable annual rate (stored as % e.g. 12 = 12% per annum = 1% per month)
-    const annualRate = (user.interestRate || 12) / 100; // default 12% p.a. = 1% p.m.
-    const monthlyRate = annualRate / 12; // = 0.01 (1% per month)
+    const annualRate = (user.interestRate || 12) / 100; // default 12% p.a.
+    const monthlyRate = annualRate / 12;
 
-    let totalYield = 0;
-    let calcFromDate = new Date(user.lastYieldCalculatedAt);
+    const calcFromDate = new Date(user.lastYieldCalculatedAt);
 
-    // Calculate day-by-day using actual days in each month (not hardcoded 30)
+    // Calculate and create individual transaction records for each single day
     for (let d = 0; d < cappedDays; d++) {
-      const calcDate = new Date(calcFromDate.getTime() + d * msInDay);
-      const daysInMonth = new Date(calcDate.getFullYear(), calcDate.getMonth() + 1, 0).getDate();
-      const dailyRate = monthlyRate / daysInMonth;
-      totalYield += minBal * dailyRate;
-    }
-    totalYield = Number(totalYield.toFixed(2));
-
-    if (totalYield > 0) {
-      // IDEMPOTENCY: use date string as referenceId to prevent duplicate daily credit
-      const periodKey = `yield_${user._id}_${calcFromDate.toISOString().slice(0, 10)}`;
+      const calcDate = new Date(calcFromDate.getTime() + (d + 1) * msInDay);
+      const dateStr = calcDate.toISOString().slice(0, 10);
+      const periodKey = `yield_${user._id}_${dateStr}`;
       const alreadyCredited = await Transaction.findOne({ referenceId: periodKey });
 
-      if (!alreadyCredited) {
-        // ✅ MAIN FIX: Credit yield to user.balance (Savings Account) — not just profitBalance
-        user.balance = Number(((user.balance || 0) + totalYield).toFixed(2));
-        user.profitBalance = Number(((user.profitBalance || 0) + totalYield).toFixed(2));
+      if (!alreadyCredited && minBal > 0) {
+        const daysInMonth = new Date(calcDate.getFullYear(), calcDate.getMonth() + 1, 0).getDate();
+        const dailyRate = monthlyRate / daysInMonth;
+        const dayYield = Number((minBal * dailyRate).toFixed(2));
 
-        await Transaction.create({
-          userId: user._id,
-          type: 'daily_yield',
-          amount: totalYield,
-          method: 'internal',
-          status: 'completed',
-          referenceId: periodKey,
-          remarks: `Daily Savings Yield (${(monthlyRate * 100).toFixed(2)}% monthly ROI on ₹${minBal.toLocaleString('en-IN')} lowest 24h balance for ${cappedDays} day${cappedDays > 1 ? 's' : ''})`
-        });
+        if (dayYield > 0) {
+          user.balance = Number(((user.balance || 0) + dayYield).toFixed(2));
+          user.profitBalance = Number(((user.profitBalance || 0) + dayYield).toFixed(2));
+
+          const formattedDateStr = calcDate.toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+
+          await Transaction.create({
+            userId: user._id,
+            type: 'daily_yield',
+            amount: dayYield,
+            method: 'internal',
+            status: 'completed',
+            referenceId: periodKey,
+            remarks: `Daily Savings Yield: ₹${dayYield.toFixed(2)} profit for ${formattedDateStr} (12% p.a. on ₹${minBal.toLocaleString('en-IN')})`,
+            createdAt: calcDate
+          });
+        }
       }
     }
 
-    user.lastYieldCalculatedAt = new Date(new Date(user.lastYieldCalculatedAt).getTime() + cappedDays * msInDay);
-    // Reset lowestBalance24h to current balance (including credited yield) for next period's compounding
+    user.lastYieldCalculatedAt = new Date(calcFromDate.getTime() + cappedDays * msInDay);
     user.lowestBalance24h = user.balance || 0;
     await user.save();
   }
@@ -528,5 +530,7 @@ router.get('/kyc', protect, async (req, res) => {
   }
 });
 
+router.processDailyYield = processDailyYield;
 module.exports = router;
+module.exports.processDailyYield = processDailyYield;
 

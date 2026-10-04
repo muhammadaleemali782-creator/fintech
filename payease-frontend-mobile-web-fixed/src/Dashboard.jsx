@@ -463,6 +463,17 @@ export default function Dashboard() {
   const txt = UI_TEXT[lang] || UI_TEXT.hinglish;
 
   const [depForm, setDepForm] = useState({ amount: "", method: "upi", utrNumber: "" });
+  const [depositDetails, setDepositDetails] = useState({
+    upiId: "educafinance@upi",
+    upiName: "Educa Finance & Payments",
+    accountNumber: "5010045239128",
+    ifsc: "BARB0JHALWA",
+    bankName: "Bank of Baroda",
+    branch: "Jhalwa Branch, Prayagraj",
+    accountHolder: "Educa Fintech Admin",
+    instructions: "Payment complete karne ke baad 12-digit UTR / Ref Number enter karke Submit karein."
+  });
+  const [copiedDepField, setCopiedDepField] = useState("");
   const [wdForm, setWdForm] = useState({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "" });
   
   // P2P Transfer & 6-Digit UPI PIN Intercept State
@@ -1345,6 +1356,11 @@ export default function Dashboard() {
       }
       loadTransactions();
       loadBonds();
+      try {
+        const depRes = await fetch(`${API}/settings/deposit-details`);
+        const depData = await depRes.json();
+        if (depData && depData.upiId) setDepositDetails(depData);
+      } catch {}
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -3282,7 +3298,10 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-3">
               {txns.slice(0, 10).map(t => {
-                const isCredit = t.type === "deposit" || t.type === "transfer_received" || t.type === "bond_payout" || t.type === "loan_disbursal";
+                const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal", "daily_yield", "referral_bonus"].includes(t.type);
+                let title = t.type.replace(/_/g, " ");
+                if (t.type === "daily_yield") title = "Daily Savings Profit";
+                else if (t.type === "referral_bonus") title = "Referral Bonus";
                 return (
                   <div key={t._id} className="flex items-center justify-between border border-gray-100 rounded-xl p-3.5 hover:bg-gray-50/50 transition">
                     <div className="flex items-center gap-3">
@@ -3291,7 +3310,7 @@ export default function Dashboard() {
                       </div>
                       <div>
                         <p className="font-semibold text-sm capitalize">
-                          {t.type.replace(/_/g, " ")} <span className="text-gray-400 font-normal uppercase text-[10px]">{t.method}</span>
+                          {title} <span className="text-gray-400 font-normal uppercase text-[10px]">{t.method}</span>
                         </p>
                         <p className="text-xs text-gray-400">
                           {new Date(t.createdAt).toLocaleDateString("en-IN")} • {t.remarks || t.recipientIdentifier || ""}
@@ -5700,22 +5719,163 @@ export default function Dashboard() {
 
       {/* DEPOSIT SHEET */}
       <Sheet open={modal === "deposit"} onClose={closeModal} title="Add Money" icon="💸">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-sm text-blue-800">
-          📌 <strong>Payment Details:</strong><br />
-          UPI ID: <code className="bg-white px-2 py-0.5 rounded text-xs">admin@upi</code><br />
-          A/C: <code className="bg-white px-2 py-0.5 rounded text-xs">1234567890</code> | IFSC: <code className="bg-white px-2 py-0.5 rounded text-xs">ABCD0001</code>
+        <div className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl p-4 mb-4 shadow-lg border border-indigo-800/40 space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🏦</span>
+              <div>
+                <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Official Deposit Account</p>
+                <p className="text-xs font-black">{depositDetails.bankName || "Bank of Baroda"}</p>
+              </div>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
+              Verified Self-Deposit
+            </span>
+          </div>
+
+          {depForm.method === "upi" ? (
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 space-y-2 border border-white/10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-gray-300 uppercase font-semibold">Admin UPI ID</p>
+                  <p className="font-mono font-bold text-sm text-cyan-300 select-all">{depositDetails.upiId}</p>
+                  <p className="text-[10px] text-gray-400 font-medium">{depositDetails.upiName}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    copyToClipboard(depositDetails.upiId);
+                    setCopiedDepField("UPI ID");
+                    showToast(`Copied UPI ID: ${depositDetails.upiId}`, "success");
+                    setTimeout(() => setCopiedDepField(""), 2000);
+                  }}
+                  className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs rounded-lg shadow-sm transition active:scale-95 flex items-center gap-1"
+                >
+                  {copiedDepField === "UPI ID" ? "✓ Copied" : "Copy UPI"}
+                </button>
+              </div>
+              {depForm.amount && Number(depForm.amount) >= 100 && (
+                <a
+                  href={`upi://pay?pa=${encodeURIComponent(depositDetails.upiId)}&pn=${encodeURIComponent(depositDetails.upiName || "Educa")}&am=${depForm.amount}&cu=INR`}
+                  className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-lg flex items-center justify-center gap-1 shadow transition"
+                >
+                  ⚡ Open GPay / PhonePe / Paytm to Pay ₹{depForm.amount}
+                </a>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 space-y-2.5 border border-white/10 text-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-gray-300 uppercase font-semibold">Account Number</p>
+                  <p className="font-mono font-bold text-sm text-cyan-300 select-all">{depositDetails.accountNumber}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    copyToClipboard(depositDetails.accountNumber);
+                    setCopiedDepField("Account No");
+                    showToast(`Copied Account No: ${depositDetails.accountNumber}`, "success");
+                    setTimeout(() => setCopiedDepField(""), 2000);
+                  }}
+                  className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[11px] rounded-lg transition"
+                >
+                  {copiedDepField === "Account No" ? "✓ Copied" : "Copy A/C"}
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-gray-300 uppercase font-semibold">IFSC Code</p>
+                  <p className="font-mono font-bold text-xs text-white">{depositDetails.ifsc}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    copyToClipboard(depositDetails.ifsc);
+                    setCopiedDepField("IFSC");
+                    showToast(`Copied IFSC: ${depositDetails.ifsc}`, "success");
+                    setTimeout(() => setCopiedDepField(""), 2000);
+                  }}
+                  className="px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white font-bold text-[11px] rounded-lg transition"
+                >
+                  {copiedDepField === "IFSC" ? "✓ Copied" : "Copy IFSC"}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-300 pt-1 border-t border-white/10">
+                <div>
+                  <span className="text-[10px] text-gray-400 block">Branch:</span>
+                  <span className="font-medium text-white">{depositDetails.branch || "Jhalwa Branch"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 block">Beneficiary:</span>
+                  <span className="font-medium text-white">{depositDetails.accountHolder || "Educa Admin"}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <p className="text-[11px] text-indigo-200">
+            ℹ️ {depositDetails.instructions || "Payment karne ke baad apna 12-digit UTR number enter karein."}
+          </p>
         </div>
+
         <div className="space-y-3">
-          <input type="number" inputMode="numeric" placeholder="Amount (min ₹100)" min="100" value={depForm.amount} onChange={e => setDepForm({ ...depForm, amount: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm" />
-          <select value={depForm.method} onChange={e => setDepForm({ ...depForm, method: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm">
-            <option value="upi">UPI Payment</option>
-            <option value="bank">Bank Transfer</option>
-          </select>
-          <input type="text" placeholder="UTR / Transaction ID" value={depForm.utrNumber} onChange={e => setDepForm({ ...depForm, utrNumber: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm" />
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Payment Method</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setDepForm({ ...depForm, method: "upi" })}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${
+                  depForm.method === "upi"
+                    ? "bg-blue-50 border-blue-600 text-blue-700 shadow-xs"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <span>⚡</span> UPI Payment
+              </button>
+              <button
+                type="button"
+                onClick={() => setDepForm({ ...depForm, method: "bank" })}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${
+                  depForm.method === "bank"
+                    ? "bg-blue-50 border-blue-600 text-blue-700 shadow-xs"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <span>🏦</span> Bank Transfer
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Deposit Amount (₹)</label>
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="Amount (min ₹100)"
+              min="100"
+              value={depForm.amount}
+              onChange={e => setDepForm({ ...depForm, amount: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">12-Digit UTR / Transaction ID</label>
+            <input
+              type="text"
+              placeholder="Enter 12-digit UTR number from receipt"
+              value={depForm.utrNumber}
+              onChange={e => setDepForm({ ...depForm, utrNumber: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm font-mono"
+            />
+          </div>
         </div>
+
         <div className="flex gap-3 mt-5">
           <button onClick={closeModal} className="flex-1 py-3 bg-gray-100 rounded-xl font-semibold text-sm hover:bg-gray-200 active:bg-gray-300 transition">Cancel</button>
-          <button onClick={submitDeposit} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-sm hover:shadow-lg active:scale-[0.98] transition">Submit</button>
+          <button onClick={submitDeposit} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-sm hover:shadow-lg active:scale-[0.98] transition">Submit Deposit</button>
         </div>
       </Sheet>
 
@@ -7221,8 +7381,8 @@ export default function Dashboard() {
           <div className="flex gap-1.5 p-1 bg-gray-100 rounded-xl">
             {[
               { id: "all", label: `All (${txns.length})` },
-              { id: "in", label: `In / Received (${txns.filter(t => ["deposit", "transfer_received", "bond_payout", "loan_disbursal"].includes(t.type)).length})` },
-              { id: "out", label: `Out / Sent (${txns.filter(t => !["deposit", "transfer_received", "bond_payout", "loan_disbursal"].includes(t.type)).length})` },
+              { id: "in", label: `In / Received (${txns.filter(t => ["deposit", "transfer_received", "bond_payout", "loan_disbursal", "daily_yield", "referral_bonus"].includes(t.type)).length})` },
+              { id: "out", label: `Out / Sent (${txns.filter(t => !["deposit", "transfer_received", "bond_payout", "loan_disbursal", "daily_yield", "referral_bonus"].includes(t.type)).length})` },
             ].map(f => (
               <button
                 key={f.id}
@@ -7242,7 +7402,7 @@ export default function Dashboard() {
           <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
             {(() => {
               const filtered = txns.filter(t => {
-                const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal"].includes(t.type);
+                const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal", "daily_yield", "referral_bonus"].includes(t.type);
                 if (passbookFilter === "in") return isCredit;
                 if (passbookFilter === "out") return !isCredit;
                 return true;
@@ -7258,7 +7418,7 @@ export default function Dashboard() {
               }
 
               return filtered.map(t => {
-                const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal"].includes(t.type);
+                const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal", "daily_yield", "referral_bonus"].includes(t.type);
                 
                 let title = t.type.replace(/_/g, " ");
                 let details = t.remarks || "";
@@ -7290,6 +7450,12 @@ export default function Dashboard() {
                 } else if (t.type === "bond_payout") {
                   title = `Bond Payout / Profit Credited`;
                   details = `Maturity return / monthly payout credited`;
+                } else if (t.type === "daily_yield") {
+                  title = `Daily Savings Profit Credited`;
+                  details = t.remarks || `Daily 12% p.a. savings profit credited`;
+                } else if (t.type === "referral_bonus") {
+                  title = `Referral Bonus Credited`;
+                  details = t.remarks || `Referral reward bonus credited`;
                 }
 
                 const d = new Date(t.createdAt);

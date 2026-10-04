@@ -387,16 +387,174 @@ router.get('/stats', protect, admin, async (req, res) => {
       { $match: { type: 'deposit', status: 'approved' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
+    const totalYield = await Transaction.aggregate([
+      { $match: { type: 'daily_yield' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const users = await User.find({ role: 'user' }).select('balance');
+    const totalUserBalances = users.reduce((sum, u) => sum + (u.balance || 0), 0);
     const pendingLoans = await Loan.countDocuments({ status: 'pending' });
 
     res.json({
       totalUsers,
       pendingTxns,
       totalDeposits: totalDeposits[0]?.total || 0,
+      totalYield: totalYield[0]?.total || 0,
+      totalUserBalances,
       pendingLoans
     });
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Detailed Fintech Analytics & Daily Profit Growth
+router.get('/analytics', protect, admin, async (req, res) => {
+  try {
+    // 1. Users & Balances
+    const users = await User.find({ role: 'user' }).select('name email phone balance profitBalance lowestBalance24h createdAt');
+    const totalUsers = users.length;
+    const totalUserBalances = Number(users.reduce((sum, u) => sum + (u.balance || 0), 0).toFixed(2));
+    const totalUserProfits = Number(users.reduce((sum, u) => sum + (u.profitBalance || 0), 0).toFixed(2));
+
+    // 2. Deposits
+    const depositTxns = await Transaction.find({ type: 'deposit', status: 'approved' }).sort({ createdAt: 1 });
+    const totalDeposits = Number(depositTxns.reduce((sum, d) => sum + (d.amount || 0), 0).toFixed(2));
+
+    // 3. Daily Yield / Profits
+    const yieldTxns = await Transaction.find({ type: 'daily_yield' }).sort({ createdAt: 1 }).populate('userId', 'name email');
+    const totalYieldCredited = Number(yieldTxns.reduce((sum, y) => sum + (y.amount || 0), 0).toFixed(2));
+
+    // 4. Pending Txns & Pending Loans
+    const pendingTxnsCount = await Transaction.countDocuments({ status: 'pending' });
+    const pendingLoansCount = await Loan.countDocuments({ status: 'pending' });
+
+    // 5. Withdrawals
+    const withdrawalTxns = await Transaction.find({ type: 'withdrawal', status: { $in: ['approved', 'completed'] } });
+    const totalWithdrawals = Number(withdrawalTxns.reduce((sum, w) => sum + (w.amount || 0), 0).toFixed(2));
+
+    // 6. Loans Active
+    const activeLoans = await Loan.find({ status: { $in: ['approved', 'active'] } });
+    const totalLoansDisbursed = Number(activeLoans.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(2));
+
+    // 7. Group Daily Yields by Date for Profit Chart
+    const dailyMap = {};
+    for (const yt of yieldTxns) {
+      const dateKey = new Date(yt.createdAt).toISOString().slice(0, 10);
+      if (!dailyMap[dateKey]) {
+        dailyMap[dateKey] = {
+          date: dateKey,
+          displayDate: new Date(yt.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+          amount: 0,
+          txnCount: 0,
+          users: new Set()
+        };
+      }
+      dailyMap[dateKey].amount = Number((dailyMap[dateKey].amount + (yt.amount || 0)).toFixed(2));
+      dailyMap[dateKey].txnCount += 1;
+      if (yt.userId) dailyMap[dateKey].users.add(yt.userId._id ? yt.userId._id.toString() : yt.userId.toString());
+    }
+
+    let runningYieldSum = 0;
+    const dailyProfitChart = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date)).map(d => {
+      runningYieldSum = Number((runningYieldSum + d.amount).toFixed(2));
+      return {
+        date: d.date,
+        displayDate: d.displayDate,
+        amount: d.amount,
+        cumulativeYield: runningYieldSum,
+        txnCount: d.txnCount,
+        uniqueUsers: d.users.size,
+        estimatedCapital: Number((totalDeposits + runningYieldSum).toFixed(2))
+      };
+    });
+
+    // 8. Capital Sources Breakdown
+    const totalFintechLiquidity = totalUserBalances;
+    const sources = [
+      {
+        source: 'Customer Deposits (Principal Capital)',
+        amount: totalDeposits,
+        percent: totalFintechLiquidity > 0 ? Number(((totalDeposits / totalFintechLiquidity) * 100).toFixed(1)) : 100,
+        color: '#10B981',
+        description: 'Direct deposits by users via UPI & Bank transfer'
+      },
+      {
+        source: 'Daily Savings Yield (12% p.a. Profit)',
+        amount: totalYieldCredited,
+        percent: totalFintechLiquidity > 0 ? Number(((totalYieldCredited / totalFintechLiquidity) * 100).toFixed(2)) : 0,
+        color: '#3B82F6',
+        description: 'Automated daily compounding returns credited by system'
+      }
+    ];
+
+    // 9. Milestone Growth Timeline
+    const timeline = [];
+    depositTxns.forEach(d => {
+      timeline.push({
+        date: d.createdAt,
+        type: 'deposit',
+        title: `Capital Deposit Added (+₹${d.amount.toLocaleString('en-IN')})`,
+        description: `Deposit via ${d.method?.toUpperCase() || 'UPI'} approved (UTR: ${d.utrNumber || 'Direct'})`,
+        amount: d.amount
+      });
+    });
+    yieldTxns.slice(-8).forEach(y => {
+      timeline.push({
+        date: y.createdAt,
+        type: 'yield',
+        title: `Daily Profit Credited (+₹${y.amount})`,
+        description: y.remarks || 'Daily savings yield credited',
+        amount: y.amount
+      });
+    });
+    timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // 10. Top Accounts by Liquidity & Profit
+    const topAccounts = users
+      .sort((a, b) => (b.balance || 0) - (a.balance || 0))
+      .slice(0, 10)
+      .map(u => ({
+        id: u._id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        balance: u.balance || 0,
+        profitBalance: u.profitBalance || 0,
+        registeredAt: u.createdAt
+      }));
+
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        totalUserBalances,
+        totalUserProfits,
+        totalDeposits,
+        totalYieldCredited,
+        totalWithdrawals,
+        totalLoansDisbursed,
+        pendingTxnsCount,
+        pendingLoansCount,
+        netFintechReserve: totalUserBalances
+      },
+      dailyProfitChart,
+      sources,
+      timeline: timeline.slice(0, 15),
+      topAccounts,
+      recentYieldLedger: yieldTxns.slice(-20).reverse().map(y => ({
+        id: y._id,
+        userName: y.userId?.name || 'User',
+        userEmail: y.userId?.email || '',
+        amount: y.amount,
+        remarks: y.remarks,
+        date: y.createdAt,
+        referenceId: y.referenceId
+      }))
+    });
+  } catch (err) {
+    console.error('Analytics fetch error:', err);
+    res.status(500).json({ message: 'Failed to fetch fintech analytics' });
   }
 });
 

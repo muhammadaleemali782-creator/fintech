@@ -1229,6 +1229,42 @@ export default function AdminPanel() {
                   </span>
                 </div>
 
+                {/* 12% Calculation Formula & Calendar Month Explanation */}
+                <div className="mb-5 p-4 bg-gradient-to-r from-indigo-50/90 via-blue-50/70 to-emerald-50/80 border border-indigo-100/90 rounded-2xl">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🧮</span>
+                      <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">
+                        Daily Savings Yield Calculation Formula & Calendar Month Breakdown
+                      </h4>
+                    </div>
+                    <span className="text-[11px] font-bold text-indigo-700 bg-white/90 px-2.5 py-0.5 rounded-full border border-indigo-200 font-mono">
+                      Annual: 12% p.a. | Monthly: 1.00%
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                    Kyun September me <strong>₹200.00/din</strong> aur October me <strong>₹193.55/din</strong> credit ho raha hai?
+                    Kyunki savings interest <strong>calendar month ke actual days</strong> par divide hota hai taaki har mahine exact 1% (₹6,000 on ₹6 Lakhs) credit ho:
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs">
+                      <span className="text-[11px] font-bold text-gray-500 block mb-0.5">🗓️ September (30 Days)</span>
+                      <p className="font-mono font-black text-sm text-emerald-600 mb-0.5">₹200.00 / din</p>
+                      <p className="text-[11px] text-gray-500">₹6,000 ÷ 30 din = ₹200.00/day<br/><span className="text-gray-400 font-mono text-[10px]">30 din × ₹200 = ₹6,000 (1%)</span></p>
+                    </div>
+                    <div className="p-3 bg-white rounded-xl border border-blue-100 shadow-2xs">
+                      <span className="text-[11px] font-bold text-gray-500 block mb-0.5">🗓️ October (31 Days)</span>
+                      <p className="font-mono font-black text-sm text-indigo-600 mb-0.5">₹193.55 / din</p>
+                      <p className="text-[11px] text-gray-500">₹6,000 ÷ 31 din = ₹193.548...<br/><span className="text-gray-400 font-mono text-[10px]">31 din × ₹193.55 = ₹6,000 (1%)</span></p>
+                    </div>
+                    <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-2xs">
+                      <span className="text-[11px] font-bold text-gray-500 block mb-0.5">🗓️ November (30 Days)</span>
+                      <p className="font-mono font-black text-sm text-emerald-600 mb-0.5">₹200.00 / din</p>
+                      <p className="text-[11px] text-gray-500">₹6,000 ÷ 30 din = ₹200.00/day<br/><span className="text-gray-400 font-mono text-[10px]">30 din × ₹200 = ₹6,000 (1%)</span></p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>

@@ -863,9 +863,8 @@ export default function AdminPanel() {
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-mono font-bold flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-                      <span>⚡ +₹{adminPerSec.toFixed(4)}/sec Live Stream</span>
+                      <span>⚡ Balance increases by +₹{adminPerSec.toFixed(4)} every second</span>
                     </span>
-                    <span className="text-xs text-indigo-200">Mini-second capital liquidity stream</span>
                   </div>
                   <p className="text-xs sm:text-sm text-gray-300 mt-1 max-w-2xl">
                     Real-time capital balance, customer deposits, compounding 12% p.a. daily yield distribution, and liquidity reserve health.

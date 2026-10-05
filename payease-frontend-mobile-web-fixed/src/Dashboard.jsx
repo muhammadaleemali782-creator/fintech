@@ -2858,16 +2858,15 @@ export default function Dashboard() {
                 )}
               </h3>
               
-              {/* LIVE MINI-SECOND EARNING TICKER BADGE */}
+              {/* LIVE REAL-TIME INTEREST INCREMENT BADGE */}
               <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2.5 py-1 rounded-xl w-fit border border-emerald-400/30 my-1">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
                 </span>
                 <span className="text-[11px] font-mono font-black text-emerald-200">
-                  +₹{perSecondYield.toFixed(4)}/sec
+                  +₹{perSecondYield.toFixed(4)} added every second
                 </span>
-                <span className="text-[9px] text-emerald-300 font-bold uppercase tracking-wider">Mini-Sec Live</span>
               </div>
 
               <p className="text-emerald-100/90 text-[11px] hidden sm:block">1% Monthly Daily Yield & 365d Bonds</p>
@@ -3680,7 +3679,7 @@ export default function Dashboard() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                 </span>
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-300">Live Mini-Second Earning Stream</span>
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-300">Live Interest: Earning Every Second</span>
               </div>
               <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
                 ⚡ 12% APY Live
@@ -3696,9 +3695,9 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Per Second Speed:</span>
+                <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Added Every Second:</span>
                 <div className="text-xs sm:text-sm font-black font-mono text-emerald-200 bg-emerald-900/60 px-2.5 py-1.5 rounded-xl border border-emerald-500/30 inline-block">
-                  ⚡ +₹{perSecondYield.toFixed(4)}/sec
+                  ⚡ +₹{perSecondYield.toFixed(4)} every second
                 </div>
               </div>
             </div>

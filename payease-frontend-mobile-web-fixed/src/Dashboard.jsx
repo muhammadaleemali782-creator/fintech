@@ -2857,19 +2857,7 @@ export default function Dashboard() {
                   `₹${liveProfitBalance.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
                 )}
               </h3>
-              
-              {/* LIVE REAL-TIME INTEREST INCREMENT BADGE */}
-              <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2.5 py-1 rounded-xl w-fit border border-emerald-400/30 my-1">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-                </span>
-                <span className="text-[11px] font-mono font-black text-emerald-200">
-                  +₹{perSecondYield.toFixed(4)} added every second
-                </span>
-              </div>
-
-              <p className="text-emerald-100/90 text-[11px] hidden sm:block">1% Monthly Daily Yield & 365d Bonds</p>
+              <p className="text-emerald-100/90 text-[11px] hidden sm:block mt-1">1% Monthly Daily Yield & 365d Bonds</p>
             </div>
             <div className="pt-2 border-t border-emerald-500/40 flex justify-between items-center text-[11px] text-emerald-100 relative z-10 mt-2">
               <span>{userProfile.interestRate || currentRate}% APY</span>

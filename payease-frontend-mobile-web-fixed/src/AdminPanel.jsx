@@ -621,10 +621,31 @@ export default function AdminPanel() {
   const isReservesLoading = loadingAnalytics && !analytics;
   const isStatsLoading = loadingStats && !stats.totalUsers;
 
+  // Live Mini-Second Profit & Reserves Stream (Admin)
+  const [adminLiveMs, setAdminLiveMs] = useState(Date.now());
+  const [adminSessionStart] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setAdminLiveMs(Date.now());
+    }, 60);
+    return () => clearInterval(timer);
+  }, []);
+
+  const totalReservesBase = Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 601768.26);
+  const totalProfitBase = Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1768.26);
+  const adminDailyRate = totalReservesBase > 0 ? (totalReservesBase * 0.12) / 365 : 0;
+  const adminPerSec = adminDailyRate / 86400;
+  const adminPerMs = adminPerSec / 1000;
+
+  const adminElapsedMs = adminLiveMs - adminSessionStart;
+  const liveAdminReserves = totalReservesBase + (adminElapsedMs * adminPerMs);
+  const liveAdminProfit = totalProfitBase + (adminElapsedMs * adminPerMs);
+
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(analytics?.stats?.netFintechReserve || stats.netFintechReserve || stats.totalUserBalances || 601768.26).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-emerald-500 to-teal-600" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, loading: isReservesLoading, g: "from-emerald-500 to-teal-600" },
     { icon: "💰", label: "Total Deposits", value: `₹${Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 600000).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-green-500 to-emerald-600" },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1768.26).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-indigo-600 to-violet-600" },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, loading: isReservesLoading, g: "from-indigo-600 to-violet-600" },
     { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 5, loading: isStatsLoading, g: "from-blue-500 to-blue-600" },
     { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, loading: isStatsLoading, g: "from-yellow-500 to-orange-500" },
   ];
@@ -836,9 +857,16 @@ export default function AdminPanel() {
                     {loadingAnalytics && !analytics ? (
                       <span className="inline-block h-8 w-44 bg-white/20 rounded-xl animate-pulse" />
                     ) : (
-                      <span>₹{Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 601768.26).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-mono text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
                     )}
                   </h2>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-mono font-bold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+                      <span>⚡ +₹{adminPerSec.toFixed(4)}/sec Live Stream</span>
+                    </span>
+                    <span className="text-xs text-indigo-200">Mini-second capital liquidity stream</span>
+                  </div>
                   <p className="text-xs sm:text-sm text-gray-300 mt-1 max-w-2xl">
                     Real-time capital balance, customer deposits, compounding 12% p.a. daily yield distribution, and liquidity reserve health.
                   </p>
@@ -870,13 +898,13 @@ export default function AdminPanel() {
                   {loadingAnalytics && !analytics ? (
                     <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
                   ) : (
-                    <p className="text-2xl sm:text-3xl font-black font-display text-emerald-600">
-                      ₹{Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 601768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    <p className="text-2xl sm:text-3xl font-black font-display font-mono text-emerald-600 tracking-tight">
+                      ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                     </p>
                   )}
                   <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    <span>Company-wide total capital pool</span>
+                    <span>Company-wide total capital pool (live)</span>
                   </p>
                 </div>
 
@@ -902,8 +930,8 @@ export default function AdminPanel() {
                   {loadingAnalytics && !analytics ? (
                     <div className="h-9 w-40 bg-indigo-100/70 rounded-xl animate-pulse my-1" />
                   ) : (
-                    <p className="text-2xl sm:text-3xl font-black font-display text-indigo-600">
-                      ₹{Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    <p className="text-2xl sm:text-3xl font-black font-display font-mono text-indigo-600 tracking-tight">
+                      ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                     </p>
                   )}
                   <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">

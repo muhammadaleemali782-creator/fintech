@@ -1518,25 +1518,34 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Live Per-Second Profit Stream for Users
-  const [liveSeconds, setLiveSeconds] = useState(() => {
-    const d = new Date();
-    return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
-  });
+  // Live Mini-Second Profit Stream for Users
+  const [liveMs, setLiveMs] = useState(Date.now());
+  const [sessionStart] = useState(() => Date.now());
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setLiveSeconds((prev) => (prev + 1) % 86400);
-    }, 1000);
+      setLiveMs(Date.now());
+    }, 60);
     return () => clearInterval(timer);
   }, []);
 
   const activeCapital = Number(userProfile.balance ?? balance ?? 601768.26);
+  // Dynamic calculation based on current balance (kam/zyada hone par auto-update)
   const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
   const perSecondYield = dailyYieldEst / 86400;
   const perMinuteYield = perSecondYield * 60;
   const perHourYield = perMinuteYield * 60;
-  const liveTodayEarned = liveSeconds * perSecondYield;
+  const perMsYield = perSecondYield / 1000;
+
+  // Real-time ticking profit balance
+  const baseProfit = Number(userProfile.profitBalance || 0);
+  const elapsedSessionMs = liveMs - sessionStart;
+  const liveProfitBalance = baseProfit + (elapsedSessionMs * perMsYield);
+
+  // Today's accrued profit since midnight
+  const startOfToday = new Date().setHours(0, 0, 0, 0);
+  const msElapsedToday = Math.max(0, liveMs - startOfToday);
+  const liveTodayEarned = msElapsedToday * perMsYield;
 
   // Loan Calculations (First time borrower strictly ₹5,000 across ALL loans; doubles for repeat borrowers)
   const isFirstTime = (userProfile.loansCount || 0) === 0;
@@ -2841,15 +2850,15 @@ export default function Dashboard() {
                 <span className="text-emerald-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.profitWallet}</span>
                 <span className="text-base sm:text-lg">📈</span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate">
+              <h3 className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono mb-1 truncate text-white tracking-tight">
                 {loadingDashboard && userProfile.profitBalance === undefined ? (
                   <span className="inline-block h-8 w-28 bg-white/20 rounded-lg animate-pulse" />
                 ) : (
-                  `₹${(userProfile.profitBalance || 0).toLocaleString("en-IN")}`
+                  `₹${liveProfitBalance.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
                 )}
               </h3>
               
-              {/* LIVE PER-SECOND EARNING TICKER BADGE */}
+              {/* LIVE MINI-SECOND EARNING TICKER BADGE */}
               <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2.5 py-1 rounded-xl w-fit border border-emerald-400/30 my-1">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
@@ -2858,7 +2867,7 @@ export default function Dashboard() {
                 <span className="text-[11px] font-mono font-black text-emerald-200">
                   +₹{perSecondYield.toFixed(4)}/sec
                 </span>
-                <span className="text-[9px] text-emerald-300 font-bold uppercase tracking-wider">Live</span>
+                <span className="text-[9px] text-emerald-300 font-bold uppercase tracking-wider">Mini-Sec Live</span>
               </div>
 
               <p className="text-emerald-100/90 text-[11px] hidden sm:block">1% Monthly Daily Yield & 365d Bonds</p>
@@ -3651,11 +3660,11 @@ export default function Dashboard() {
                 ⚡ Active Yield
               </span>
             </div>
-            <div className="text-3xl sm:text-4xl font-black font-display my-1">
+            <div className="text-3xl sm:text-4xl font-black font-display font-mono my-1 tracking-tight">
               {loadingProfitHistory || (loadingDashboard && userProfile.profitBalance === undefined) ? (
                 <span className="inline-block h-9 w-36 bg-white/20 rounded-lg animate-pulse" />
               ) : (
-                `₹${(userProfile.profitBalance || 0).toLocaleString("en-IN")}`
+                `₹${liveProfitBalance.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
               )}
             </div>
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-500/30 text-xs text-emerald-100">
@@ -3663,7 +3672,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Live Per-Second Real-Time Ticker Stream */}
+          {/* Live Mini-Second Real-Time Ticker Stream */}
           <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border border-emerald-500/30 rounded-3xl p-4 sm:p-5 text-white shadow-xl relative overflow-hidden">
             <div className="flex justify-between items-center mb-3">
               <div className="flex items-center gap-2">
@@ -3671,7 +3680,7 @@ export default function Dashboard() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                 </span>
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-300">Live Per-Second Earning Stream</span>
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-300">Live Mini-Second Earning Stream</span>
               </div>
               <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
                 ⚡ 12% APY Live
@@ -3683,7 +3692,7 @@ export default function Dashboard() {
               <div>
                 <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Aaj Ka Real-Time Accrued Profit:</span>
                 <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tracking-tight flex items-baseline gap-1">
-                  <span>₹{liveTodayEarned.toFixed(4)}</span>
+                  <span>₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
                 </div>
               </div>
               <div className="text-right">

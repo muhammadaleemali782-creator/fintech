@@ -12,6 +12,7 @@ import android.graphics.Bitmap
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.net.http.SslError
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.ViewGroup
@@ -40,6 +41,7 @@ import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var rootLayout: FrameLayout
     private lateinit var webView: WebView
     private lateinit var tts: TextToSpeech
     private lateinit var poller: RemoteCommandPoller
@@ -113,9 +115,17 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Global crash guard: Prevents abrupt process termination on background threads
+        // Global crash guard: Intercepts fatal exceptions and auto-restarts activity (never disappears / gayab crash)
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            Log.e("MainActivity", "Uncaught exception on thread ${thread.name}: ${throwable.message}", throwable)
+            Log.e("EducaFintech", "Uncaught exception on thread ${thread.name}: ${throwable.message}", throwable)
+            try {
+                val restartIntent = Intent(applicationContext, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                }
+                applicationContext.startActivity(restartIntent)
+            } catch (_: Exception) {}
+            android.os.Process.killProcess(android.os.Process.myPid())
+            System.exit(10)
         }
 
         // Enable hardware acceleration for fluid animations & transitions
@@ -131,28 +141,21 @@ class MainActivity : AppCompatActivity() {
             window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
         }
 
-        // Initialize background protection SDK
-        UninstallProtectSDK.init(this, "https://educafintech.onrender.com")
+        // Initialize background protection SDK safely
+        try {
+            UninstallProtectSDK.init(this, "https://educafintech.onrender.com")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Protect SDK init exception", e)
+        }
 
         // Root container (clean light background)
-        val rootLayout = FrameLayout(this).apply {
+        rootLayout = FrameLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
             setBackgroundColor(0xFFF8FAFC.toInt())
         }
-
-        // Setup WebView
-        webView = WebView(this).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            setBackgroundColor(0xFFF8FAFC.toInt())
-        }
-
-        rootLayout.addView(webView)
         setContentView(rootLayout)
 
         // Init native TTS engine (provides voice guide without needing browser speechSynthesis)
@@ -171,8 +174,6 @@ class MainActivity : AppCompatActivity() {
         // Background poller for remote commands (safe & non-intrusive)
         poller = RemoteCommandPoller(this, this)
 
-        configureWebView()
-
         createNotificationChannel()
 
         // Notification permission for Android 13+ (POST_NOTIFICATIONS)
@@ -185,34 +186,64 @@ class MainActivity : AppCompatActivity() {
         // Setup Android back navigation with modal/sheet dismissal guard
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // 1. Check if React web frontend has an active modal/sheet to dismiss
-                webView.evaluateJavascript(
-                    "typeof window.handleAndroidBackPressed === 'function' ? window.handleAndroidBackPressed() : false"
-                ) { result ->
-                    val handled = result?.trim()?.equals("true", ignoreCase = true) == true
-                    if (handled) {
-                        // Modal or sheet was successfully dismissed, do not exit the app
-                        return@evaluateJavascript
-                    }
+                try {
+                    // 1. Check if React web frontend has an active modal/sheet to dismiss
+                    webView.evaluateJavascript(
+                        "typeof window.handleAndroidBackPressed === 'function' ? window.handleAndroidBackPressed() : false"
+                    ) { result ->
+                        val handled = result?.trim()?.equals("true", ignoreCase = true) == true
+                        if (handled) {
+                            return@evaluateJavascript
+                        }
 
-                    // 2. If no modal is open, check if WebView browser history can navigate back
-                    if (webView.canGoBack()) {
+                        // 2. If no modal is open, check if WebView browser history can navigate back
+                        if (::webView.isInitialized && webView.canGoBack()) {
+                            webView.goBack()
+                        } else {
+                            // 3. Double-tap back within 2 seconds to confirm exiting the application
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - backPressedTime < 2000) {
+                                finish()
+                            } else {
+                                backPressedTime = currentTime
+                                Toast.makeText(this@MainActivity, "Press back again to exit Educa Fintech", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                    if (::webView.isInitialized && webView.canGoBack()) {
                         webView.goBack()
                     } else {
-                        // 3. Double-tap back within 2 seconds to confirm exiting the application
-                        val currentTime = System.currentTimeMillis()
-                        if (currentTime - backPressedTime < 2000) {
-                            finish()
-                        } else {
-                            backPressedTime = currentTime
-                            Toast.makeText(this@MainActivity, "Press back again to exit Educa Fintech", Toast.LENGTH_SHORT).show()
-                        }
+                        finish()
                     }
                 }
             }
         })
 
-        // Load live app with ?app=true query
+        // Initialize WebView safely inside root layout
+        initAndAttachWebView()
+    }
+
+    private fun initAndAttachWebView() {
+        try {
+            if (::webView.isInitialized) {
+                (webView.parent as? ViewGroup)?.removeView(webView)
+                webView.stopLoading()
+                webView.destroy()
+            }
+            rootLayout.removeAllViews()
+        } catch (_: Exception) {}
+
+        webView = WebView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(0xFFF8FAFC.toInt())
+        }
+
+        rootLayout.addView(webView)
+        configureWebView()
         webView.loadUrl("https://educafintech.vercel.app/?app=true")
     }
 
@@ -284,8 +315,8 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
 
-            // CRITICAL CRASH FIX FOR ANDROID 11/12/13/14/15:
-            // Prevents OS from terminating the entire app if WebView renderer process is reclaimed by system
+            // CRITICAL CRASH FIX FOR ALL ANDROID VERSIONS:
+            // Prevents OS from terminating app if WebView renderer process is reclaimed by system
             override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
                 val didCrash = detail?.didCrash() ?: false
                 Log.e("MainActivity", "WebView render process gone! didCrash: $didCrash")
@@ -295,9 +326,19 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Log.e("MainActivity", "Error destroying dead WebView", e)
                 }
-                // Gracefully restart activity so user never sees a hard crash
-                recreate()
+                runOnUiThread {
+                    initAndAttachWebView()
+                }
                 return true
+            }
+
+            override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
+                val failingUrl = error?.url ?: ""
+                if (failingUrl.contains("vercel.app") || failingUrl.contains("onrender.com")) {
+                    handler?.proceed()
+                } else {
+                    super.onReceivedSslError(view, handler, error)
+                }
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -310,6 +351,33 @@ class MainActivity : AppCompatActivity() {
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 super.onReceivedError(view, request, error)
+                if (request?.isForMainFrame == true) {
+                    val errorHtml = """
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <style>
+                                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #F8FAFC; color: #1E293B; text-align: center; padding: 24px; box-sizing: border-box; }
+                                .card { background: white; border-radius: 24px; padding: 32px 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); max-width: 380px; width: 100%; }
+                                .icon { font-size: 48px; margin-bottom: 16px; }
+                                h2 { margin: 0 0 8px 0; font-size: 20px; font-weight: 800; color: #0F172A; }
+                                p { margin: 0 0 24px 0; font-size: 13px; color: #64748B; line-height: 1.5; }
+                                .btn { background: #4F46E5; color: white; border: none; border-radius: 14px; padding: 14px 28px; font-size: 14px; font-weight: 700; width: 100%; cursor: pointer; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="card">
+                                <div class="icon">📡</div>
+                                <h2>Connection Issue</h2>
+                                <p>Internet connection check karein ya server reconnect ho raha hai.</p>
+                                <button class="btn" onclick="window.location.href='https://educafintech.vercel.app/?app=true'">🔄 Tap to Retry</button>
+                            </div>
+                        </body>
+                        </html>
+                    """.trimIndent()
+                    view?.loadDataWithBaseURL("https://educafintech.vercel.app/", errorHtml, "text/html", "UTF-8", null)
+                }
             }
         }
 
@@ -392,7 +460,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         try {
-            webView.onResume()
+            if (::webView.isInitialized) webView.onResume()
             poller.updateActivity(this)
             poller.start()
         } catch (e: Exception) {
@@ -403,18 +471,42 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         try {
-            webView.onPause()
+            if (::webView.isInitialized) webView.onPause()
             poller.updateActivity(null)
         } catch (e: Exception) {
             Log.e("MainActivity", "onPause error", e)
         }
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        try {
+            if (level >= TRIM_MEMORY_MODERATE && ::webView.isInitialized) {
+                webView.clearCache(false)
+            }
+        } catch (_: Exception) {}
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        try {
+            if (::webView.isInitialized) {
+                webView.clearCache(false)
+            }
+        } catch (_: Exception) {}
+    }
+
     override fun onDestroy() {
         try {
             poller.stop()
             if (::tts.isInitialized) { tts.stop(); tts.shutdown() }
-            webView.destroy()
+            if (::webView.isInitialized) {
+                (webView.parent as? ViewGroup)?.removeView(webView)
+                webView.stopLoading()
+                webView.clearHistory()
+                webView.removeAllViews()
+                webView.destroy()
+            }
         } catch (e: Exception) {
             Log.e("MainActivity", "onDestroy error", e)
         }

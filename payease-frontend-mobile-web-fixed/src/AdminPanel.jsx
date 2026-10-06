@@ -1101,155 +1101,314 @@ export default function AdminPanel() {
 
                     if (!data || data.length === 0) {
                       return (
-                        <div className="py-12 flex flex-col items-center justify-center text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                          <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl mb-3">
+                        <div className="py-14 flex flex-col items-center justify-center text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
+                          <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl mb-3 shadow-xs">
                             📊
                           </div>
-                          <p className="font-bold text-gray-700 text-sm">No Profit Yield History Yet</p>
+                          <p className="font-extrabold text-gray-800 text-sm">No Profit Yield History Yet</p>
                           <p className="text-xs text-gray-400 mt-1 max-w-sm">Daily interest calculations will automatically plot here as customer balances accrue yield.</p>
                         </div>
                       );
                     }
 
                     const isDaily = chartMode === "daily";
-                    const maxVal = isDaily
-                      ? Math.max(...data.map(d => d.amount), 220)
-                      : Math.max(...data.map(d => d.cumulativeYield), 1800);
 
-                    const chartW = 680;
-                    const chartH = 220;
-                    const padLeft = 60;
-                    const padRight = 30;
-                    const padTop = 30;
-                    const padBottom = 40;
+                    // Dynamic ceiling with nice human steps (never hardcoded flat 220 / 1800)
+                    const rawValues = data.map(d => isDaily ? Number(d.amount || 0) : Number(d.cumulativeYield || 0));
+                    const maxDataVal = Math.max(...rawValues, 1);
+
+                    // Add 25% headroom so highest bar/point has ample breathing space
+                    const targetCeil = maxDataVal * 1.25;
+                    const rawStep = targetCeil / 4;
+                    const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep || 1)));
+                    const norm = rawStep / magnitude;
+
+                    let niceMultiplier = 1;
+                    if (norm <= 1) niceMultiplier = 1;
+                    else if (norm <= 1.5) niceMultiplier = 1.5;
+                    else if (norm <= 2) niceMultiplier = 2;
+                    else if (norm <= 2.5) niceMultiplier = 2.5;
+                    else if (norm <= 5) niceMultiplier = 5;
+                    else niceMultiplier = 10;
+
+                    const stepVal = Math.max(1, niceMultiplier * magnitude);
+                    const maxVal = stepVal * 4;
+                    const gridTicks = [0, stepVal, stepVal * 2, stepVal * 3, stepVal * 4];
+
+                    const chartW = 760;
+                    const chartH = 270;
+                    const padLeft = 70;
+                    const padRight = 40;
+                    const padTop = 45;
+                    const padBottom = 50;
                     const plotW = chartW - padLeft - padRight;
                     const plotH = chartH - padTop - padBottom;
                     const stepX = plotW / data.length;
 
+                    // Calculate point coordinates
                     const points = data.map((d, i) => {
-                      const val = isDaily ? d.amount : d.cumulativeYield;
+                      const val = isDaily ? Number(d.amount || 0) : Number(d.cumulativeYield || 0);
                       const x = padLeft + (i + 0.5) * stepX;
                       const y = padTop + plotH - (val / maxVal) * plotH;
                       return { x, y, ...d, val };
                     });
 
+                    // Build area and line path for cumulative chart
                     const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
-                    const areaPath = `${linePath} L ${points[points.length - 1]?.x.toFixed(1)} ${padTop + plotH} L ${points[0]?.x.toFixed(1)} ${padTop + plotH} Z`;
+                    const areaPath = points.length > 0
+                      ? `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${padTop + plotH} L ${points[0].x.toFixed(1)} ${padTop + plotH} Z`
+                      : "";
 
                     return (
                       <div className="w-full overflow-x-auto no-scrollbar">
                         <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full min-w-[580px] h-auto select-none">
                           <defs>
+                            {/* Daily Bar Gradient */}
                             <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#4F46E5" />
-                              <stop offset="100%" stopColor="#818CF8" stopOpacity="0.7" />
+                              <stop offset="70%" stopColor="#6366F1" />
+                              <stop offset="100%" stopColor="#818CF8" stopOpacity="0.85" />
                             </linearGradient>
+                            <linearGradient id="barGradHover" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#3730A3" />
+                              <stop offset="100%" stopColor="#4F46E5" />
+                            </linearGradient>
+
+                            {/* Cumulative Area Gradient */}
                             <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.4" />
-                              <stop offset="100%" stopColor="#818CF8" stopOpacity="0.0" />
+                              <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.38" />
+                              <stop offset="50%" stopColor="#6366F1" stopOpacity="0.18" />
+                              <stop offset="100%" stopColor="#A5B4FC" stopOpacity="0.0" />
                             </linearGradient>
-                            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+
+                            {/* Shadows & Glow */}
+                            <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
                               <feGaussianBlur stdDeviation="3" result="blur" />
                               <feComposite in="SourceGraphic" in2="blur" operator="over" />
                             </filter>
+                            <filter id="pillShadow" x="-15%" y="-15%" width="130%" height="130%">
+                              <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#0F172A" floodOpacity="0.08" />
+                            </filter>
                           </defs>
 
-                          {/* Horizontal Gridlines */}
-                          {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
+                          {/* Horizontal Gridlines & Clean Ticks */}
+                          {gridTicks.map((tickVal, idx) => {
+                            const pct = tickVal / maxVal;
                             const y = padTop + plotH - pct * plotH;
-                            const labelVal = Math.round(pct * maxVal);
+                            const isBottom = idx === 0;
                             return (
                               <g key={idx}>
-                                <line x1={padLeft} y1={y} x2={chartW - padRight} y2={y} stroke="#E5E7EB" strokeDasharray="3 3" />
-                                <text x={padLeft - 10} y={y + 4} textAnchor="end" className="text-[10px] fill-gray-400 font-mono">
-                                  ₹{labelVal.toLocaleString("en-IN")}
+                                <line
+                                  x1={padLeft}
+                                  y1={y}
+                                  x2={chartW - padRight}
+                                  y2={y}
+                                  stroke={isBottom ? "#CBD5E1" : "#F1F5F9"}
+                                  strokeWidth={isBottom ? 1.5 : 1}
+                                  strokeDasharray={isBottom ? "none" : "4 4"}
+                                />
+                                <text
+                                  x={padLeft - 12}
+                                  y={y + 4}
+                                  textAnchor="end"
+                                  className="text-[11px] font-mono font-bold fill-slate-400"
+                                >
+                                  ₹{tickVal.toLocaleString("en-IN")}
                                 </text>
                               </g>
                             );
                           })}
 
-                          {/* Render Bars or Line */}
+                          {/* ─────────── 1. DAILY YIELD ADDED (BAR CHART) ─────────── */}
                           {isDaily ? (
                             data.map((d, i) => {
-                              const barW = Math.min(42, stepX * 0.65);
-                              const barH = (d.amount / maxVal) * plotH;
-                              const x = padLeft + (i + 0.5) * stepX - barW / 2;
+                              const barW = Math.min(68, Math.max(48, stepX * 0.38));
+                              const amount = Number(d.amount || 0);
+                              const barH = (amount / maxVal) * plotH;
+                              const xCenter = padLeft + (i + 0.5) * stepX;
+                              const x = xCenter - barW / 2;
                               const y = padTop + plotH - barH;
                               const isHovered = hoveredChartBar?.date === d.date;
 
                               return (
                                 <g
                                   key={d.date}
-                                  className="cursor-pointer transition-all duration-200"
+                                  className="cursor-pointer group"
                                   onMouseEnter={() => setHoveredChartBar(d)}
                                   onClick={() => setHoveredChartBar(d)}
                                 >
+                                  {/* Background Track Column */}
+                                  <rect
+                                    x={x}
+                                    y={padTop}
+                                    width={barW}
+                                    height={plotH}
+                                    rx={10}
+                                    fill={isHovered ? "#EEF2FF" : "#F8FAFC"}
+                                    stroke={isHovered ? "#C7D2FE" : "#F1F5F9"}
+                                    strokeWidth="1"
+                                    className="transition-colors duration-200"
+                                  />
+
+                                  {/* Active Value Bar */}
                                   <rect
                                     x={x}
                                     y={y}
                                     width={barW}
-                                    height={barH}
-                                    rx={6}
-                                    fill={isHovered ? "#3730A3" : "url(#barGrad)"}
-                                    className="transition-all"
+                                    height={Math.max(barH, 6)}
+                                    rx={10}
+                                    fill={isHovered ? "url(#barGradHover)" : "url(#barGrad)"}
+                                    className="transition-all duration-300"
                                   />
+
+                                  {/* Value Badge Capsule Floating on Top */}
+                                  <g transform={`translate(${xCenter}, ${Math.max(padTop + 14, y - 14)})`}>
+                                    <rect
+                                      x="-36"
+                                      y="-12"
+                                      width="72"
+                                      height="20"
+                                      rx="10"
+                                      fill={isHovered ? "#312E81" : "#EEF2FF"}
+                                      stroke={isHovered ? "#312E81" : "#C7D2FE"}
+                                      strokeWidth="1"
+                                      filter="url(#pillShadow)"
+                                      className="transition-colors duration-200"
+                                    />
+                                    <text
+                                      x="0"
+                                      y="2"
+                                      textAnchor="middle"
+                                      className={`text-[11px] font-black font-mono transition-colors duration-200 ${
+                                        isHovered ? "fill-white" : "fill-indigo-700"
+                                      }`}
+                                    >
+                                      +₹{amount.toFixed(2)}
+                                    </text>
+                                  </g>
+
+                                  {/* X-Axis Date Label */}
                                   <text
-                                    x={x + barW / 2}
-                                    y={y - 8}
-                                    textAnchor="middle"
-                                    className={`text-[10px] font-black font-mono transition-all ${
-                                      isHovered ? "fill-indigo-900 font-extrabold text-[11px]" : "fill-indigo-600"
-                                    }`}
-                                  >
-                                    +₹{d.amount}
-                                  </text>
-                                  <text
-                                    x={x + barW / 2}
+                                    x={xCenter}
                                     y={padTop + plotH + 20}
                                     textAnchor="middle"
-                                    className={`text-[11px] font-bold ${isHovered ? "fill-indigo-900" : "fill-gray-500"}`}
+                                    className={`text-[12px] font-black transition-colors duration-200 ${
+                                      isHovered ? "fill-indigo-900 font-extrabold" : "fill-gray-700"
+                                    }`}
                                   >
                                     {d.displayDate}
+                                  </text>
+                                  <text
+                                    x={xCenter}
+                                    y={padTop + plotH + 34}
+                                    textAnchor="middle"
+                                    className="text-[10px] font-bold fill-gray-400 font-mono"
+                                  >
+                                    Day {i + 1}
                                   </text>
                                 </g>
                               );
                             })
                           ) : (
+                            /* ─────────── 2. CUMULATIVE GROWTH (SMOOTH AREA LINE) ─────────── */
                             <g>
+                              {/* Vertical Guide Lines Dropping to Dates */}
+                              {points.map((p) => (
+                                <line
+                                  key={`guide-${p.date}`}
+                                  x1={p.x}
+                                  y1={p.y}
+                                  x2={p.x}
+                                  y2={padTop + plotH}
+                                  stroke="#C7D2FE"
+                                  strokeWidth="1.5"
+                                  strokeDasharray="4 3"
+                                />
+                              ))}
+
+                              {/* Area Fill */}
                               <path d={areaPath} fill="url(#areaGrad)" />
-                              <path d={linePath} fill="none" stroke="#4F46E5" strokeWidth="3" filter="url(#glow)" />
-                              {points.map((p) => {
+
+                              {/* Solid Glowing Line */}
+                              <path
+                                d={linePath}
+                                fill="none"
+                                stroke="#4F46E5"
+                                strokeWidth="4"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                filter="url(#lineGlow)"
+                              />
+
+                              {/* Interactive Nodes & Value Badges */}
+                              {points.map((p, i) => {
                                 const isHovered = hoveredChartBar?.date === p.date;
                                 return (
                                   <g
                                     key={p.date}
-                                    className="cursor-pointer"
+                                    className="cursor-pointer group"
                                     onMouseEnter={() => setHoveredChartBar(p)}
                                     onClick={() => setHoveredChartBar(p)}
                                   >
+                                    {/* Pulse Ring Halo */}
                                     <circle
                                       cx={p.x}
                                       cy={p.y}
-                                      r={isHovered ? 7 : 5}
+                                      r={isHovered ? 13 : 9}
+                                      fill="rgba(79, 70, 229, 0.16)"
+                                      className="transition-all duration-200"
+                                    />
+                                    {/* Center Core Circle */}
+                                    <circle
+                                      cx={p.x}
+                                      cy={p.y}
+                                      r={isHovered ? 7 : 5.5}
                                       fill={isHovered ? "#312E81" : "#4F46E5"}
                                       stroke="#FFFFFF"
-                                      strokeWidth="2.5"
+                                      strokeWidth="3"
+                                      className="transition-all duration-200"
                                     />
-                                    <text
-                                      x={p.x}
-                                      y={p.y - 10}
-                                      textAnchor="middle"
-                                      className="text-[10px] font-black fill-indigo-700 font-mono"
-                                    >
-                                      ₹{Math.round(p.val)}
-                                    </text>
+
+                                    {/* Floating Cumulative Value Badge */}
+                                    <g transform={`translate(${p.x}, ${Math.max(padTop + 14, p.y - 18)})`}>
+                                      <rect
+                                        x="-38"
+                                        y="-12"
+                                        width="76"
+                                        height="22"
+                                        rx="11"
+                                        fill={isHovered ? "#1E1B4B" : "#4F46E5"}
+                                        filter="url(#pillShadow)"
+                                        className="transition-colors duration-200"
+                                      />
+                                      <text
+                                        x="0"
+                                        y="3"
+                                        textAnchor="middle"
+                                        className="text-[11px] font-black fill-white font-mono"
+                                      >
+                                        ₹{Number(p.val).toFixed(2)}
+                                      </text>
+                                    </g>
+
+                                    {/* Date Label on Floor */}
                                     <text
                                       x={p.x}
                                       y={padTop + plotH + 20}
                                       textAnchor="middle"
-                                      className="text-[11px] font-bold fill-gray-500"
+                                      className={`text-[12px] font-black transition-colors duration-200 ${
+                                        isHovered ? "fill-indigo-900 font-extrabold" : "fill-gray-700"
+                                      }`}
                                     >
                                       {p.displayDate}
+                                    </text>
+                                    <text
+                                      x={p.x}
+                                      y={padTop + plotH + 34}
+                                      textAnchor="middle"
+                                      className="text-[10px] font-bold fill-indigo-600 font-mono"
+                                    >
+                                      Accrued ₹{Number(p.val).toFixed(2)}
                                     </text>
                                   </g>
                                 );
@@ -1466,39 +1625,51 @@ export default function AdminPanel() {
                 </div>
 
                 {/* 12% Calculation Formula & Calendar Month Explanation */}
-                <div className="mb-5 p-4 bg-gradient-to-r from-indigo-50/90 via-blue-50/70 to-emerald-50/80 border border-indigo-100/90 rounded-2xl">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🧮</span>
-                      <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">
-                        Daily Savings Yield Calculation Formula & Calendar Month Breakdown
-                      </h4>
+                {(() => {
+                  const currentBase = Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 710000);
+                  const monthly1Pct = currentBase * 0.01;
+                  const perDay30 = monthly1Pct / 30;
+                  const perDay31 = monthly1Pct / 31;
+
+                  return (
+                    <div className="mb-5 p-4 bg-gradient-to-r from-indigo-50/90 via-blue-50/70 to-emerald-50/80 border border-indigo-100/90 rounded-2xl">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🧮</span>
+                          <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">
+                            Daily Savings Yield Calculation Formula & Calendar Month Breakdown
+                          </h4>
+                        </div>
+                        <span className="text-[11px] font-bold text-indigo-700 bg-white/90 px-2.5 py-0.5 rounded-full border border-indigo-200 font-mono">
+                          Annual: 12% p.a. | Monthly: 1.00%
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                        Kyunki savings interest <strong>active deposits (₹{currentBase.toLocaleString("en-IN")})</strong> par 1% monthly (<strong>₹{monthly1Pct.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>) aur <strong>calendar month ke actual days</strong> par divide hota hai:
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                        <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs">
+                          <span className="text-[11px] font-bold text-gray-500 block mb-0.5">🗓️ September (30 Days)</span>
+                          <p className="font-mono font-black text-sm text-emerald-600 mb-0.5">₹{perDay30.toFixed(2)} / din</p>
+                          <p className="text-[11px] text-gray-500">₹{monthly1Pct.toLocaleString("en-IN")} ÷ 30 din = ₹{perDay30.toFixed(2)}/day<br/><span className="text-gray-400 font-mono text-[10px]">30 din × ₹{perDay30.toFixed(2)} = ₹{monthly1Pct.toLocaleString("en-IN")} (1%)</span></p>
+                        </div>
+                        <div className="p-3 bg-white rounded-xl border border-blue-200 bg-blue-50/30 shadow-2xs ring-1 ring-blue-300/40">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[11px] font-bold text-gray-700">🗓️ October (31 Days)</span>
+                            <span className="text-[9px] font-black text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded-md">Live Current Month</span>
+                          </div>
+                          <p className="font-mono font-black text-sm text-indigo-600 mb-0.5">₹{perDay31.toFixed(2)} / din</p>
+                          <p className="text-[11px] text-gray-500">₹{monthly1Pct.toLocaleString("en-IN")} ÷ 31 din = ₹{perDay31.toFixed(2)}/day<br/><span className="text-indigo-600 font-mono font-bold text-[10px]">31 din × ₹{perDay31.toFixed(2)} = ₹{monthly1Pct.toLocaleString("en-IN")} (1%)</span></p>
+                        </div>
+                        <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-2xs">
+                          <span className="text-[11px] font-bold text-gray-500 block mb-0.5">🗓️ November (30 Days)</span>
+                          <p className="font-mono font-black text-sm text-emerald-600 mb-0.5">₹{perDay30.toFixed(2)} / din</p>
+                          <p className="text-[11px] text-gray-500">₹{monthly1Pct.toLocaleString("en-IN")} ÷ 30 din = ₹{perDay30.toFixed(2)}/day<br/><span className="text-gray-400 font-mono text-[10px]">30 din × ₹{perDay30.toFixed(2)} = ₹{monthly1Pct.toLocaleString("en-IN")} (1%)</span></p>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-[11px] font-bold text-indigo-700 bg-white/90 px-2.5 py-0.5 rounded-full border border-indigo-200 font-mono">
-                      Annual: 12% p.a. | Monthly: 1.00%
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                    Kyunki savings interest <strong>updated running balance</strong> (Principal + Added Profit) par 1% monthly aur <strong>calendar month ke actual days</strong> par divide hota hai:
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                    <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs">
-                      <span className="text-[11px] font-bold text-gray-500 block mb-0.5">🗓️ September (30 Days)</span>
-                      <p className="font-mono font-black text-sm text-emerald-600 mb-0.5">₹200.00 / din</p>
-                      <p className="text-[11px] text-gray-500">₹6,000 ÷ 30 din = ₹200.00/day<br/><span className="text-gray-400 font-mono text-[10px]">30 din × ₹200 = ₹6,000 (1%)</span></p>
-                    </div>
-                    <div className="p-3 bg-white rounded-xl border border-blue-100 shadow-2xs">
-                      <span className="text-[11px] font-bold text-gray-500 block mb-0.5">🗓️ October (31 Days)</span>
-                      <p className="font-mono font-black text-sm text-indigo-600 mb-0.5">₹193.55 - ₹194.06 / din</p>
-                      <p className="text-[11px] text-gray-500">₹6,000 ÷ 31 din = ₹193.548...<br/><span className="text-gray-400 font-mono text-[10px]">31 din × ₹193.55 = ₹6,000 (1%)</span></p>
-                    </div>
-                    <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-2xs">
-                      <span className="text-[11px] font-bold text-gray-500 block mb-0.5">🗓️ November (30 Days)</span>
-                      <p className="font-mono font-black text-sm text-emerald-600 mb-0.5">₹200.00 / din</p>
-                      <p className="text-[11px] text-gray-500">₹6,000 ÷ 30 din = ₹200.00/day<br/><span className="text-gray-400 font-mono text-[10px]">30 din × ₹200 = ₹6,000 (1%)</span></p>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">

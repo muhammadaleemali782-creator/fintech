@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private var cameraCaptureUri: Uri? = null
     private var backPressedTime: Long = 0
     private var pendingWebPermissionRequest: PermissionRequest? = null
+    private var splashOverlay: android.view.View? = null
 
     private val CHANNEL_ID = "educa_transactions"
 
@@ -296,7 +297,92 @@ class MainActivity : AppCompatActivity() {
 
         rootLayout.addView(webView)
         configureWebView()
+        showNativeSplash()
         webView.loadUrl("https://educafintech.vercel.app/?app=true")
+    }
+
+    private fun showNativeSplash() {
+        try {
+            val density = resources.displayMetrics.density
+            val dpToPx = { dp: Int -> (dp * density).toInt() }
+
+            val splashLayout = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER
+                setBackgroundColor(0xFFFFFFFF.toInt())
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                isClickable = true
+                isFocusable = true
+            }
+
+            val logoView = android.widget.ImageView(this).apply {
+                setImageResource(R.mipmap.ic_launcher)
+                layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(84), dpToPx(84)).apply {
+                    bottomMargin = dpToPx(16)
+                }
+            }
+
+            val titleView = android.widget.TextView(this).apply {
+                text = "Educa Fintech"
+                textSize = 22f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setTextColor(0xFF0F172A.toInt())
+                gravity = android.view.Gravity.CENTER
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = dpToPx(4)
+                }
+            }
+
+            val subtitleView = android.widget.TextView(this).apply {
+                text = "NextGen Financial Hub • v2.0"
+                textSize = 12f
+                setTextColor(0xFF64748B.toInt())
+                gravity = android.view.Gravity.CENTER
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = dpToPx(24)
+                }
+            }
+
+            val progressBar = android.widget.ProgressBar(this).apply {
+                isIndeterminate = true
+                layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(32), dpToPx(32))
+            }
+
+            splashLayout.addView(logoView)
+            splashLayout.addView(titleView)
+            splashLayout.addView(subtitleView)
+            splashLayout.addView(progressBar)
+
+            splashOverlay = splashLayout
+            rootLayout.addView(splashLayout)
+
+            // Auto-dismiss safety timeout after 3.5 seconds
+            splashLayout.postDelayed({
+                dismissNativeSplash()
+            }, 3500)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Splash create error", e)
+        }
+    }
+
+    private fun dismissNativeSplash() {
+        runOnUiThread {
+            splashOverlay?.animate()?.alpha(0f)?.setDuration(350)?.withEndAction {
+                try {
+                    rootLayout.removeView(splashOverlay)
+                    splashOverlay = null
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -399,6 +485,7 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                dismissNativeSplash()
             }
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {

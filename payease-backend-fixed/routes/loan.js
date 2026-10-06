@@ -208,20 +208,36 @@ router.post('/apply', protect, async (req, res) => {
       });
     }
 
-    // First-Time vs Repeat Borrower Rule: Applies to ALL loan types!
-    const isFirstTimeBorrower = (userDoc.loansCount || 0) === 0;
-    if (isFirstTimeBorrower) {
-      if (numAmount > 5000) {
+    // Loan Limit Rules:
+    // Business Loan: Up to ₹20,000 with cheque, up to ₹10,000 without cheque
+    // Personal & Student Loans: First-time limit ₹5,000, repeat limit up to currentLimit
+    const isBusiness = loanType === 'micro_business';
+    const hasCheque = Boolean(hasChequeFacility || (documents && (documents.chequeUrl || documents.chequeFrontUrl || documents.chequeNumber)));
+
+    if (isBusiness) {
+      const businessLimit = hasCheque ? 20000 : 10000;
+      if (numAmount > businessLimit) {
         return res.status(400).json({
-          message: 'Pehli baar kisi bhi loan (Personal, Micro Business, ya Student Loan) ke liye maximum eligible limit ₹5,000 hai. Purana loan clear karne par limit double ho jayegi.'
+          message: hasCheque
+            ? 'Business loan cheque ke sath maximum limit ₹20,000 hai.'
+            : 'Business loan bina cheque ke maximum limit ₹10,000 hai. ₹20,000 limit ke liye cheque attach karein.'
         });
       }
     } else {
-      const currentLimit = userDoc.loanLimit || 10000;
-      if (numAmount > currentLimit) {
-        return res.status(400).json({
-          message: `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai.`
-        });
+      const isFirstTimeBorrower = (userDoc.loansCount || 0) === 0;
+      if (isFirstTimeBorrower) {
+        if (numAmount > 5000) {
+          return res.status(400).json({
+            message: 'Pehli baar Personal ya Student loan ke liye maximum eligible limit ₹5,000 hai. Purana loan clear karne par limit double ho jayegi.'
+          });
+        }
+      } else {
+        const currentLimit = userDoc.loanLimit || 10000;
+        if (numAmount > currentLimit) {
+          return res.status(400).json({
+            message: `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai.`
+          });
+        }
       }
     }
 
@@ -586,19 +602,26 @@ router.post('/:id/pay-installment', protect, async (req, res) => {
       const pending = loan.installmentSchedule.find(x => x.status === 'pending') || loan.emiSchedule.find(x => x.status === 'pending');
       if (!pending) throw Object.assign(new Error('No pending Easy Installment'), { status: 400 });
 
+      const { sourceWallet = 'main' } = req.body;
+      const isProfitSource = sourceWallet === 'profit';
       const installmentAmt = loan.installmentAmount || loan.emiAmount;
-      const updatedUser = await User.findOneAndUpdate(
-        { _id: req.user._id, balance: { $gte: installmentAmt } },
-        {
-          $inc: {
-            balance: -installmentAmt,
-            duesBalance: -installmentAmt
-          }
-        },
-        { new: true, session }
-      );
-      if (!updatedUser) throw Object.assign(new Error('Insufficient balance in wallet to pay installment'), { status: 400 });
-      newBalance = updatedUser.balance;
+
+      const userQuery = isProfitSource
+        ? { _id: req.user._id, profitBalance: { $gte: installmentAmt } }
+        : { _id: req.user._id, balance: { $gte: installmentAmt } };
+
+      const userUpdate = isProfitSource
+        ? { $inc: { profitBalance: -installmentAmt, duesBalance: -installmentAmt } }
+        : { $inc: { balance: -installmentAmt, duesBalance: -installmentAmt } };
+
+      const updatedUser = await User.findOneAndUpdate(userQuery, userUpdate, { new: true, session });
+      if (!updatedUser) {
+        throw Object.assign(
+          new Error(isProfitSource ? 'Insufficient profit wallet balance to pay installment' : 'Insufficient primary wallet balance to pay installment'),
+          { status: 400 }
+        );
+      }
+      newBalance = isProfitSource ? updatedUser.profitBalance : updatedUser.balance;
 
       pending.status = 'paid';
       pending.paidOn = new Date();

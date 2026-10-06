@@ -60,7 +60,7 @@ function ScannerIcon({ className = "w-6 h-6" }) {
 // UI Localization Dictionary (Hinglish, Hindi, English)
 const UI_TEXT = {
   hinglish: {
-    appTitle: "Educa Finance",
+    appTitle: "Educa Fintech",
     scanQr: "Scan QR",
     voiceGuide: "Voice Guide",
     listening: "Bol raha hai...",
@@ -126,7 +126,7 @@ const UI_TEXT = {
     navProfile: "Profile",
   },
   hindi: {
-    appTitle: "एड्युका फाइनेंस",
+    appTitle: "एड्युका फिनटेक",
     scanQr: "QR स्कैन",
     voiceGuide: "आवाज़ गाइड",
     listening: "बोल रहा है...",
@@ -192,7 +192,7 @@ const UI_TEXT = {
     navProfile: "प्रोफ़ाइल",
   },
   english: {
-    appTitle: "Educa Finance",
+    appTitle: "Educa Fintech",
     scanQr: "Scan QR",
     voiceGuide: "Voice Guide",
     listening: "Speaking...",
@@ -393,6 +393,8 @@ export default function Dashboard() {
   const [installmentProofBackName, setInstallmentProofBackName] = useState("");
   const [installmentSubmitting, setInstallmentSubmitting] = useState(false);
   const [installmentPayMethod, setInstallmentPayMethod] = useState("wallet");
+  const [installmentSourceWallet, setInstallmentSourceWallet] = useState("main");
+  const [advisorLang, setAdvisorLang] = useState("hinglish");
   const [expandedLoanId, setExpandedLoanId] = useState(null);
 
   // Document Fullscreen & Zoom Lightbox State
@@ -1828,8 +1830,9 @@ export default function Dashboard() {
   const disbursalAmount = Math.max(0, quoteAmount - (processingFee + upiCharges));
   const previewDates = getUpcomingDates(Math.min(quoteCount, 6));
 
-  // Micro Business Loan Calculations (Daily collection)
-  const mblAmount = Math.min(Math.max(Number(mblForm.amount) || 5000, 5000), maxLimit);
+  // Micro Business Loan Calculations (Daily collection: Up to ₹20k with cheque, ₹10k without)
+  const mblMaxLimit = mblForm.hasChequeFacility ? 20000 : 10000;
+  const mblAmount = Math.min(Math.max(Number(mblForm.amount) || 5000, 1000), mblMaxLimit);
   const mblDays = Number(mblForm.days) || 60;
   const mblRateMap = { 60: 18, 80: 24, 100: 30, 120: 36 };
   const mblRate = mblRateMap[mblDays] || 18;
@@ -2091,26 +2094,100 @@ export default function Dashboard() {
     setAdvisorInput("");
 
     const lower = q.toLowerCase();
+    const isEn = advisorLang === "english";
     let reply = "";
 
-    if (lower.includes("unchai") || lower.includes("unche") || lower.includes("growth") || lower.includes("safal") || lower.includes("vision")) {
-      reply = "Haan bilkul! 'Kya aap bhi unchaiyon pe jaana chahte hain? 🚀' — Educa Fintech isi maqsad se bana hai taaki har aam insaan ka paisa bank me idle pade rehne ke bajaye rozana 12% p.a. ki tezi se badhe aur emergency me instant ₹5,000 se ₹50,000 ka loan mile bina kisi paper chakkar ke!";
-    } else if (lower.includes("12") || lower.includes("interest") || lower.includes("byaj") || lower.includes("rate") || lower.includes("biyaj") || lower.includes("percentage")) {
-      reply = "Educa Savings Account me aapke poore balance par 12% p.a. (1% pratimaah) Compounding Interest milta hai! 📈\n\n• Calculation: Rozana per-second rate par hisaab hota hai.\n• 30 din wale mahine me: 1% ÷ 30 din per day.\n• 31 din wale mahine me: 1% ÷ 31 din per day.\n• Yeh profit aapke Profit Wallet me har second add hota rehta hai!";
-    } else if (lower.includes("tezi") || lower.includes("badhe") || lower.includes("speed") || lower.includes("second") || lower.includes("live")) {
-      reply = "Paisa kitni tezi se badhega? ⚡\n\n• Har Second: Aapke dashboard par live counter ticking hota hai.\n• Udaharan: Agar aapka balance ₹1,00,000 hai, to rozana lagbhag ₹32.87 se ₹33.33 profit judta hai, yaani har ghante ₹1.38 aur har minute lagbhag ₹0.023!\n• Aur jaise hi aap profit ko Main Wallet me transfer karte hain, compounding ki wajah se agle din se aur zyada tezi se badhta hai!";
-    } else if (lower.includes("transfer") || lower.includes("main wallet") || lower.includes("zero") || lower.includes("profit wallet") || lower.includes("lending") || lower.includes("loan ka paisa")) {
-      reply = "Profit Wallet & Transfer Ka Niyam: 🔄\n\n1. Base Balance: Jab tak aap profit ko transfer nahi karte, tab tak aapke Main Balance (jaise ₹6 Lakh) ke hisaab se hi rozana profit banta rahega.\n2. Manual Transfer: Jaise hi aap 'Main Wallet me Bhejein' dabayenge, pura profit Main Wallet me jud jayega, Profit Wallet wapas ₹0 ho jayega, aur agle second se badhe hue naye total balance par munafa calculate hoga!\n3. Lending & Loan: Aapka Lending returns aur Loan disbursal ka paisa bhi seedha isi Profit Wallet me aayega.";
-    } else if (lower.includes("loan") || lower.includes("udhar") || lower.includes("credit") || lower.includes("limit")) {
-      reply = "Educa Micro Loan Suvidha: 🤝\n\n• Pehli baar aane wale har user ke liye loan limit strict ₹5,000 hai (15 se 30 aasan installments me, sirf 1.34% per installment interest).\n• Jab pehla loan samay par chuka diya jata hai, to limit double hokar ₹10,000 se ₹50,000 tak badh jati hai!\n• Apply karne ke liye 'Quick Loan' par click karein.";
-    } else if (lower.includes("add") || lower.includes("deposit") || lower.includes("paisa dal") || lower.includes("money") || lower.includes("evidence") || lower.includes("utr")) {
-      reply = "Add Money / Deposit Kaise Karein? 💳\n\n1. Dashboard par 'Add Money' par click karein.\n2. Diye gaye QR code ya UPI ID par payment karein.\n3. Bank se prapt 12-digit UTR Number aur payment screenshot evidence attach karke submit karein.\n4. Admin approval ke baad turant balance add ho jata hai!";
-    } else if (lower.includes("pdf") || lower.includes("statement") || lower.includes("passbook") || lower.includes("download") || lower.includes("history")) {
-      reply = "PDF Statement & Passbook: 📄\n\nAap apne Passbook ya Profit History modal me jakar 'Export / Print PDF Statement' button daba sakte hain. Yeh instant digitally verified bank e-statement generate karta hai jise aap download ya print kar sakte hain!";
-    } else if (lower.includes("agent") || lower.includes("kamai") || lower.includes("commission") || lower.includes("referral")) {
-      reply = "Agent Business Model: 🏢\n\nAgents ko customer onboarding par commission milta hai. Agent portal me unka Total Deposit, Total Disbursal, Collection, Due amount aur Pre-closing analytics clear dikhayi dete hain!";
+    // 1. Instant Loan / EMI Number Extraction & Calculation
+    let requestedAmt = null;
+    const kMatch = lower.match(/(\d+(?:\.\d+)?)\s*k\b/);
+    if (kMatch) {
+      requestedAmt = Math.round(parseFloat(kMatch[1]) * 1000);
     } else {
-      reply = "Dhanyawad aapke sawaal ke liye! Educa Platform par aapko milta hai:\n• 12% p.a. live compounding savings interest\n• ₹5,000 se ₹50,000 tak instant loans\n• Safe UPI/QR P2P transfers\n• Real-time passbook & PDF download.\n\nAgar aapka sawaal solve ho gaya ho to neeche diye gaye 'Aapka issue resolve hua' button par click kar sakte hain!";
+      const numMatch = lower.match(/(?:₹|rs\.?|inr)?\s*(\d{1,3}(?:,\d{3})+|\d{3,7})/);
+      if (numMatch) {
+        requestedAmt = parseInt(numMatch[1].replace(/,/g, ""), 10);
+      }
+    }
+
+    if (requestedAmt || lower.includes("emi") || lower.includes("kist") || lower.includes("count") || lower.includes("calculate") || lower.includes("hisaab")) {
+      const amt = requestedAmt || 10000;
+      const installments = 18;
+      const ratePerInstallment = 1.34; // 1.34% per 10-day cycle
+      const totalInterest = Math.round((amt * (ratePerInstallment * installments)) / 100);
+      const totalPayable = amt + totalInterest;
+      const emiAmt = Math.round(totalPayable / installments);
+
+      if (isEn) {
+        reply = `🧮 Instant EMI Breakdown for ₹${amt.toLocaleString("en-IN")}:\n\n` +
+          `• Loan Amount: ₹${amt.toLocaleString("en-IN")}\n` +
+          `• Tenure: 18 Installments (Every 10-day cycle, 6 months)\n` +
+          `• Each Installment (EMI): ₹${emiAmt.toLocaleString("en-IN")} / cycle\n` +
+          `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (Just 1.34% per installment)\n` +
+          `• Total Repayment: ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
+          `🔥 With Educa Fintech, You Only Go Higher! 🚀\n` +
+          `Partner with us and elevate your business. Repay on time and your credit limit doubles automatically! 100% digital disbursal, zero hidden fees!`;
+      } else {
+        reply = `🧮 ₹${amt.toLocaleString("en-IN")} Loan Ka Turant EMI Hisaab:\n\n` +
+          `• Loan Amount: ₹${amt.toLocaleString("en-IN")}\n` +
+          `• Kul Kist (Tenure): 18 Kistein (Har 10 din me 1 kist, 6 mahine)\n` +
+          `• Har Kist (EMI): Sirf ₹${emiAmt.toLocaleString("en-IN")} / 10-din\n` +
+          `• Kul Byaj (Interest): ₹${totalInterest.toLocaleString("en-IN")} (Sirf 1.34% per kist)\n` +
+          `• Total Repayment: ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
+          `🔥 Educa Fintech Me Aap Sirf Upar Hi Jayenge! 🚀\n` +
+          `Aap hamare sath kaam karenge aur judenge to aapka business aur balance dono tezi se unchaiyon par jayenge! Samay par kist chukane par aapki loan limit turant double ho jati hai. Zero hidden charges, seedha aapke wallet me instant paisa!`;
+      }
+    } else if (lower.includes("fayde") || lower.includes("fyde") || lower.includes("benefit") || lower.includes("advantage") || lower.includes("kyu") || lower.includes("kyon")) {
+      if (isEn) {
+        reply = `🎯 Key Advantages of Educa Fintech Loans:\n\n` +
+          `1. ⚡ Instant Disbursal: No bank queues or physical paperwork. Direct to wallet!\n` +
+          `2. 📈 Limit Doubling: Repay your 18 installments on time and your limit doubles up to ₹50,000!\n` +
+          `3. 💼 Business Growth: Up to ₹20,000 with cheque facility or ₹10,000 direct capital for your trade!\n` +
+          `4. 🛡️ Complete Transparency: Transparent 1.34% per installment rate, zero hidden penalties!\n\n` +
+          `🚀 In Educa Fintech, you only move upwards towards financial freedom!`;
+      } else {
+        reply = `🎯 Educa Fintech Loan Ke Zabardast Fayde:\n\n` +
+          `1. ⚡ Turant Wallet Disbursal: Kisi bank ki lambi line ya paperwork ke bina turant aapke wallet me paisa!\n` +
+          `2. 📈 Limit Double Guarantee: 18 kistein samay par bharte hi aapki limit double ho jati hai (₹5,000 → ₹10,000 → ₹50,000 tak)!\n` +
+          `3. 💼 Business Growth Boost: Cheque ke sath ₹20,000 aur bina cheque ₹10,000 tak ki instant capital suvidha!\n` +
+          `4. 🛡️ 100% Transparent: Sirf 1.34% per installment ka transparent rate, zero hidden deduction!\n\n` +
+          `🚀 Educa Fintech me aap sirf upar hi jayenge — aaj hi apply karein aur aage badhein! 🌟`;
+      }
+    } else if (lower.includes("business") || lower.includes("cheque") || lower.includes("check") || lower.includes("dukan") || lower.includes("vyapar")) {
+      if (isEn) {
+        reply = `💼 Educa Micro Business Loan Limits:\n\n` +
+          `• With Cheque Facility: Up to ₹20,000 maximum eligible capital!\n` +
+          `• Without Cheque: Up to ₹10,000 instant capital!\n` +
+          `• Repayment: Flexible daily collection (60 to 120 days) or 10-day installments!\n\n` +
+          `Expand your inventory and scale your daily revenue with Educa Fintech! 🚀`;
+      } else {
+        reply = `💼 Educa Micro Business Loan Suvidha:\n\n` +
+          `• Cheque Ke Sath: Maximum ₹20,000 tak working capital!\n` +
+          `• Bina Cheque Ke: Maximum ₹10,000 tak instant capital!\n` +
+          `• Repayment: 60 se 120 din ke rozana aasan daily collections ya 10-day installments!\n\n` +
+          `Apne vyapar ko double karein — Educa Fintech me aap sirf unchaiyon pe jayenge! 🚀`;
+      }
+    } else if (lower.includes("12") || lower.includes("interest") || lower.includes("byaj") || lower.includes("munafa") || lower.includes("invest") || lower.includes("growth") || lower.includes("tezi") || lower.includes("bachat")) {
+      if (isEn) {
+        reply = `📈 Educa Fintech 12% p.a. Compounding Wealth Model:\n\n` +
+          `• 12% Annual Interest: 4x higher returns than regular banks!\n` +
+          `• Real-Time Accrual: Your money earns profit second-by-second live!\n` +
+          `• Dual Wallet Power: Transfer profit to Primary Wallet with 1-click or withdraw directly to Bank/UPI!\n\n` +
+          `🔥 "With Educa Fintech, you only go higher!" Invest and grow with confidence.`;
+      } else {
+        reply = `📈 Educa Fintech 12% p.a. Compounding Wealth Model:\n\n` +
+          `• 12% p.a. Compounding Return: Bank ke aam bachat khate se 4 guna zyada munafa!\n` +
+          `• Har Second Live Profit: Aapka balance har second live dashboard par profit kamata hai.\n` +
+          `• Dual Wallet Azadi: Profit ko 1-click me Primary Wallet me bhejein ya seedha Cash Out karein!\n\n` +
+          `🔥 "Educa Fintech me aap sirf upar hi jayenge!" Aaj hi shuru karein aur daulat badhayein!`;
+      }
+    } else if (lower.includes("unchai") || lower.includes("vision") || lower.includes("safal") || lower.includes("upar")) {
+      reply = isEn
+        ? "Yes! 'With Educa Fintech, you only go higher! 🚀' That is our core mission — idle funds earn 12% p.a. compounding returns, and you get instant loans up to ₹50,000 without paperwork hassle!"
+        : "Haan bilkul! 'Educa Fintech me aap sirf upar hi jayenge! 🚀' — Har aam insaan ka paisa har second 12% p.a. ki tezi se badhe aur emergency me instant ₹5,000 se ₹50,000 ka loan mile bina kisi paper chakkar ke!";
+    } else {
+      reply = isEn
+        ? "Welcome to Educa Fintech! 🚀\n• 12% p.a. live compounding savings interest\n• Instant Business Loans (Up to ₹20K with cheque / ₹10K direct)\n• Instant Personal Loans with 18 easy installments (1.34%/cycle)\n• Ask any amount to calculate instant EMI!"
+        : "Educa Fintech me aapka swagat hai! 🚀\n• 12% p.a. live compounding munafa\n• Instant Business Loans (₹20,000 cheque ke sath / ₹10,000 direct)\n• Instant Personal Loans 18 aasan kiston me (1.34% per kist)\n• Koi bhi amount likhein (jaise 10000, 20000) aur turant EMI hisaab dekhein!";
     }
 
     setTimeout(() => {
@@ -3027,10 +3104,16 @@ export default function Dashboard() {
     }
   };
 
-  // Pay Easy Installment
-  const payInstallment = async (id, instAmount) => {
-    if (!window.confirm(`Pay Easy Installment of ₹${instAmount}?`)) return;
-    const res = await fetch(`${API}/loan/${id}/pay-installment`, { method: "POST", headers });
+  // Pay Easy Installment (Primary Wallet vs Profit Wallet)
+  const payInstallment = async (id, instAmount, sourceWallet = "main") => {
+    const isProfit = sourceWallet === "profit";
+    const walletLabel = isProfit ? "Profit Wallet" : "Primary Wallet";
+    if (!window.confirm(`Pay Easy Installment of ₹${instAmount} from ${walletLabel}?`)) return;
+    const res = await fetch(`${API}/loan/${id}/pay-installment`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ sourceWallet })
+    });
     const data = await res.json();
     showToast(data.message, res.ok ? "success" : "error");
     if (res.ok) { loadLoans(); loadActiveLoanDetails(); loadDashboard(); }
@@ -3076,7 +3159,7 @@ export default function Dashboard() {
     if (!submitInstallmentModal) return;
 
     if (installmentPayMethod === "wallet") {
-      await payInstallment(submitInstallmentModal.loanId, submitInstallmentModal.amount);
+      await payInstallment(submitInstallmentModal.loanId, submitInstallmentModal.amount, installmentSourceWallet);
       setSubmitInstallmentModal(null);
       return;
     }
@@ -3385,19 +3468,18 @@ export default function Dashboard() {
               </a>
             )}
 
-            {/* Collapsible Language Selector */}
+            {/* Collapsible Language Selector - Ultra Compact (EN / HI / HN) */}
             <div className="relative" ref={langDropdownRef}>
               <button
                 type="button"
                 onClick={() => setLangDropdownOpen(prev => !prev)}
-                className="px-2 sm:px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
+                className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
                 title="Select Language / भाषा चुनें"
                 aria-haspopup="true"
                 aria-expanded={langDropdownOpen}
               >
-                <span>🌐</span>
                 <span className="font-extrabold uppercase">
-                  {lang === "hindi" ? "हिंदी" : lang === "english" ? "English" : "Hinglish"}
+                  {lang === "hindi" ? "HI" : lang === "english" ? "EN" : "HN"}
                 </span>
                 <svg
                   className={`w-3 h-3 text-blue-600 transition-transform duration-200 ${langDropdownOpen ? "rotate-180" : ""}`}
@@ -3410,14 +3492,14 @@ export default function Dashboard() {
               </button>
 
               {langDropdownOpen && (
-                <div className="absolute right-0 mt-1.5 w-44 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 mt-1.5 w-40 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 mb-1">
                     {lang === "hindi" ? "भाषा चुनें" : lang === "english" ? "Choose Language" : "Bhasha Chunein"}
                   </div>
                   {[
-                    { code: "english", label: "English", flag: "🇬🇧", sub: "Global English" },
-                    { code: "hindi", label: "हिंदी", flag: "🇮🇳", sub: "शुद्ध हिंदी" },
-                    { code: "hinglish", label: "Hinglish", flag: "🗣️", sub: "Hindi + English" },
+                    { code: "english", label: "EN • English", flag: "🇬🇧" },
+                    { code: "hindi", label: "HI • हिंदी", flag: "🇮🇳" },
+                    { code: "hinglish", label: "HN • Hinglish", flag: "🗣️" },
                   ].map(item => {
                     const isSelected = lang === item.code;
                     return (
@@ -3433,11 +3515,8 @@ export default function Dashboard() {
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-base">{item.flag}</span>
-                          <div>
-                            <div className="text-xs font-semibold leading-tight">{item.label}</div>
-                            <div className="text-[10px] text-gray-400 leading-none mt-0.5">{item.sub}</div>
-                          </div>
+                          <span className="text-sm">{item.flag}</span>
+                          <span className="text-xs font-bold">{item.label}</span>
                         </div>
                         {isSelected && (
                           <span className="text-blue-600 text-xs font-bold">✓</span>
@@ -3448,26 +3527,6 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-
-            {/* Educa AI Financial Advisor */}
-            <button
-              onClick={() => setShowAiAdvisor(true)}
-              className="px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-black text-xs flex items-center gap-1.5 transition active:scale-95 shadow-2xs"
-              title="AI Financial Advisor: Kya aap bhi unchaiyon pe jaana chahte hain?"
-            >
-              <span className="text-sm">🤖</span>
-              <span className="hidden md:inline">AI Advisor 🚀</span>
-            </button>
-
-            {/* Unified Settings Button (Language, Blind Voice Guide, & Tour) */}
-            <button
-              onClick={() => setModal("settings")}
-              aria-label="Settings and Accessibility"
-              className="px-2.5 sm:px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 border border-gray-200 cursor-pointer"
-              title="Settings & Accessibility"
-            >
-              <span>⚙️</span> <span className="hidden sm:inline">{txt.settings || "Settings"}</span>
-            </button>
 
             <button onClick={logout} className="hidden sm:inline-block px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-semibold text-xs cursor-pointer">
               {txt.logout}
@@ -4638,23 +4697,10 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Live Mini-Second Real-Time Ticker Stream */}
+          {/* Live Real-Time Ticker Stream */}
           <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border border-emerald-500/30 rounded-3xl p-4 sm:p-5 text-white shadow-xl relative overflow-hidden">
-            <div className="flex justify-between items-center mb-3">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-300">Live Interest: Earning Every Second</span>
-              </div>
-              <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                ⚡ 12% APY Live
-              </span>
-            </div>
-
             {/* Live Accruing Counter Box */}
-            <div className="bg-black/40 rounded-2xl p-3.5 border border-emerald-500/20 mb-3 flex items-center justify-between">
+            <div className="bg-black/40 rounded-2xl p-3.5 border border-emerald-500/20 flex items-center justify-between">
               <div>
                 <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Aaj Ka Real-Time Accrued Profit:</span>
                 <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tracking-tight flex items-baseline gap-1">
@@ -4664,28 +4710,8 @@ export default function Dashboard() {
               <div className="text-right">
                 <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Added Every Second:</span>
                 <div className="text-xs sm:text-sm font-black font-mono text-emerald-200 bg-emerald-900/60 px-2.5 py-1.5 rounded-xl border border-emerald-500/30 inline-block">
-                  ⚡ +₹{perSecondYield.toFixed(4)} every second
+                  ⚡ +₹{perSecondYield.toFixed(4)}/sec
                 </div>
-              </div>
-            </div>
-
-            {/* Breakdown Grid */}
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 text-center font-mono">
-              <div className="bg-white/5 rounded-xl p-2 border border-white/10">
-                <span className="text-[9px] text-gray-400 block">Per Second</span>
-                <strong className="text-emerald-300 text-xs block truncate">+₹{perSecondYield.toFixed(4)}</strong>
-              </div>
-              <div className="bg-white/5 rounded-xl p-2 border border-white/10">
-                <span className="text-[9px] text-gray-400 block">Per Minute</span>
-                <strong className="text-emerald-300 text-xs block truncate">₹{perMinuteYield.toFixed(2)}</strong>
-              </div>
-              <div className="bg-white/5 rounded-xl p-2 border border-white/10">
-                <span className="text-[9px] text-gray-400 block">Per Ghanta</span>
-                <strong className="text-emerald-300 text-xs block truncate">₹{perHourYield.toFixed(2)}</strong>
-              </div>
-              <div className="bg-white/5 rounded-xl p-2 border border-white/10">
-                <span className="text-[9px] text-gray-400 block">Per Din</span>
-                <strong className="text-emerald-300 text-xs block truncate">₹{dailyYieldEst.toFixed(2)}</strong>
               </div>
             </div>
           </div>
@@ -5457,30 +5483,42 @@ export default function Dashboard() {
               </div>
               <input
                 type="range"
-                min="5000"
-                max={maxLimit}
+                min="1000"
+                max={mblMaxLimit}
                 step="1000"
                 value={mblAmount}
                 onChange={e => setMblForm({ ...mblForm, amount: Number(e.target.value) })}
                 className="w-full accent-amber-600 cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                <span>Min ₹5,000</span>
-                <span>Max ₹{maxLimit.toLocaleString("en-IN")}</span>
+                <span>Min ₹1,000</span>
+                <span>Max ₹{mblMaxLimit.toLocaleString("en-IN")}</span>
               </div>
             </div>
 
-            {/* Cheque Facility Toggle */}
+            {/* Cheque Facility Toggle (₹20,000 with Cheque, ₹10,000 without) */}
             <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl space-y-2">
               <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-amber-900">
                 <input
                   type="checkbox"
                   checked={mblForm.hasChequeFacility}
-                  onChange={e => setMblForm({ ...mblForm, hasChequeFacility: e.target.checked })}
+                  onChange={e => {
+                    const checked = e.target.checked;
+                    setMblForm({
+                      ...mblForm,
+                      hasChequeFacility: checked,
+                      amount: !checked && mblAmount > 10000 ? 10000 : mblAmount
+                    });
+                  }}
                   className="w-4 h-4 text-amber-600 rounded cursor-pointer"
                 />
                 <span>Cheque Facility Available (Check ke sath apply karein)</span>
               </label>
+              <div className="text-[11px] font-semibold text-amber-800">
+                {mblForm.hasChequeFacility
+                  ? "✅ Cheque ke sath: Maximum ₹20,000 limit active"
+                  : "ℹ️ Bina Cheque ke: Maximum ₹10,000 limit (₹20,000 ke liye check lagayein)"}
+              </div>
               {mblForm.hasChequeFacility && (
                 <input
                   type="text"
@@ -7631,6 +7669,70 @@ export default function Dashboard() {
             </button>
           </div>
 
+          {/* SETTINGS & ACCESSIBILITY SECTION (CONSOLIDATED INSIDE PROFILE) */}
+          <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
+                <span>⚙️</span> <span>App Settings & Preferences</span>
+              </span>
+              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Preferences</span>
+            </div>
+
+            {/* Language Selector in Profile */}
+            <div>
+              <span className="text-[11px] font-bold text-gray-700 block mb-1.5">App Language / भाषा चुनें:</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { code: "hinglish", label: "Hinglish", flag: "🗣️" },
+                  { code: "hindi", label: "हिंदी", flag: "🇮🇳" },
+                  { code: "english", label: "English", flag: "🇬🇧" },
+                ].map(item => (
+                  <button
+                    key={item.code}
+                    type="button"
+                    onClick={() => handleLanguageChange(item.code)}
+                    className={`py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 border cursor-pointer ${
+                      lang === item.code
+                        ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    <span>{item.flag}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Voice Guide Audio Reader */}
+            <div className="p-2.5 bg-white border border-gray-200 rounded-xl flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-gray-900 block">Voice Guide (दृष्टिबाधित सहायता)</span>
+                <span className="text-[10px] text-gray-500">Screen reader for blind assistance</span>
+              </div>
+              <button
+                type="button"
+                onClick={speakDashboard}
+                className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition cursor-pointer ${
+                  isSpeaking ? "bg-amber-500 text-white" : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                }`}
+              >
+                <span>{isSpeaking ? "⏹️" : "🔊"}</span>
+                <span>{isSpeaking ? "Stop" : "Sunayein"}</span>
+              </button>
+            </div>
+
+            {/* Feature Tour */}
+            <button
+              type="button"
+              onClick={() => { closeModal(); setTourStep(0); setShowTour(true); }}
+              className="w-full py-2 px-3 bg-white hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5"><span>🎓</span> Replay App Feature Tour</span>
+              <span className="text-gray-400">→</span>
+            </button>
+          </div>
+
           <button onClick={logout} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-100 active:bg-red-200 transition">
             {txt.logout}
           </button>
@@ -8977,29 +9079,78 @@ export default function Dashboard() {
 
             {installmentPayMethod === "wallet" ? (
               <div className="space-y-3 p-4 bg-gray-50 rounded-2xl border border-gray-200 text-xs">
-                <div className="flex justify-between items-center text-gray-700">
-                  <span>Available Balance:</span>
+                {/* Source Wallet Selector */}
+                <div>
+                  <label className="text-xs font-bold text-gray-700 mb-1.5 block">
+                    Kahan se pay karein? (Source Wallet):
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setInstallmentSourceWallet("main")}
+                      className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                        installmentSourceWallet === "main"
+                          ? "bg-blue-50 border-blue-500 ring-2 ring-blue-500/30 text-blue-950 font-bold"
+                          : "bg-white border-gray-200 text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span>🏛️ Primary Wallet</span>
+                        {installmentSourceWallet === "main" && <span className="text-blue-600 text-xs">✓</span>}
+                      </div>
+                      <div className="text-sm font-black mt-1 text-blue-700">
+                        ₹{(userProfile.balance || 0).toLocaleString("en-IN")}
+                      </div>
+                      <span className="text-[10px] text-gray-500">Main Account</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setInstallmentSourceWallet("profit")}
+                      className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                        installmentSourceWallet === "profit"
+                          ? "bg-blue-50 border-blue-500 ring-2 ring-blue-500/30 text-blue-950 font-bold"
+                          : "bg-white border-gray-200 text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span>📈 Profit Wallet</span>
+                        {installmentSourceWallet === "profit" && <span className="text-blue-600 text-xs">✓</span>}
+                      </div>
+                      <div className="text-sm font-black mt-1 text-blue-700">
+                        ₹{Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </div>
+                      <span className="text-[10px] text-gray-500">Accrued Profit</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center text-gray-700 pt-1 border-t border-gray-200">
+                  <span>Selected Wallet Balance:</span>
                   <span className="font-bold text-emerald-700 font-mono text-sm">
-                    ₹{(userProfile.balance || 0).toLocaleString("en-IN")}
+                    ₹{installmentSourceWallet === "profit"
+                      ? Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                      : (userProfile.balance || 0).toLocaleString("en-IN")}
                   </span>
                 </div>
-                {(userProfile.balance || 0) < submitInstallmentModal.amount ? (
+
+                {((installmentSourceWallet === "profit" ? (userProfile.profitBalance || 0) : (userProfile.balance || 0)) < submitInstallmentModal.amount) ? (
                   <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-[11px] font-medium">
-                    ⚠️ Insufficient wallet balance (₹{userProfile.balance || 0}). Kripya wallet me paise add karein ya "UPI QR / Proof" option chunein.
+                    ⚠️ Insufficient balance in {installmentSourceWallet === "profit" ? "Profit Wallet" : "Primary Wallet"}. Kripya doosra wallet chunein ya "UPI QR / Proof" option use karein.
                   </div>
                 ) : (
                   <p className="text-[11px] text-gray-500">
-                    Aapke Primary Wallet se ₹{submitInstallmentModal.amount} turant debit honge aur installment PAID mark ho jayegi.
+                    Aapke {installmentSourceWallet === "profit" ? "Profit Wallet" : "Primary Wallet"} se ₹{submitInstallmentModal.amount} turant debit honge aur installment PAID mark ho jayegi.
                   </p>
                 )}
 
                 <button
                   type="button"
-                  disabled={(userProfile.balance || 0) < submitInstallmentModal.amount}
+                  disabled={(installmentSourceWallet === "profit" ? (userProfile.profitBalance || 0) : (userProfile.balance || 0)) < submitInstallmentModal.amount}
                   onClick={submitInstallmentProof}
                   className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
                 >
-                  Pay ₹{submitInstallmentModal.amount} from Wallet →
+                  Pay ₹{submitInstallmentModal.amount} from {installmentSourceWallet === "profit" ? "Profit Wallet" : "Primary Wallet"} →
                 </button>
               </div>
             ) : (
@@ -9202,39 +9353,77 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           EDUCA AI FINANCIAL ADVISOR SHEET
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={showAiAdvisor} onClose={() => setShowAiAdvisor(false)} title="Educa AI Financial Advisor" icon="🤖">
-        <div className="space-y-4">
-          {/* Hero Banner: Kya aap bhi unchaiyon pe jaana chahte hain? */}
-          <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-2xl p-4 text-white shadow-md relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 pointer-events-none" />
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl">🚀</span>
-              <h4 className="font-black text-sm sm:text-base tracking-tight text-white">
-                Kya aap bhi unchaiyon pe jaana chahte hain?
-              </h4>
+      <Sheet open={showAiAdvisor} onClose={() => setShowAiAdvisor(false)} title="Educa AI Financial Advisor" icon="⚡">
+        <div className="space-y-3.5">
+          {/* Header Row: Live Status + Compact Language Toggle */}
+          <div className="flex items-center justify-between pb-1.5 border-b border-gray-100">
+            <span className="text-[11px] font-bold text-gray-500 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>Instant Wealth & EMI Advisor</span>
+            </span>
+            <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+              <button
+                type="button"
+                onClick={() => setAdvisorLang("hinglish")}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-black transition cursor-pointer ${
+                  advisorLang === "hinglish" ? "bg-amber-500 text-white shadow-xs" : "text-gray-600 hover:text-gray-900"
+                }`}
+                title="Hinglish / हिंदी"
+              >
+                HN
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdvisorLang("english")}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-black transition cursor-pointer ${
+                  advisorLang === "english" ? "bg-amber-500 text-white shadow-xs" : "text-gray-600 hover:text-gray-900"
+                }`}
+                title="Global English"
+              >
+                EN
+              </button>
             </div>
-            <p className="text-xs text-amber-100 leading-relaxed">
-              Educa Platform ke 12% p.a. Savings Interest, live per-second profit calculation, instant loan rules aur deposit suvidha ke baare me koi bhi sawaal poochein!
-            </p>
           </div>
 
-          {/* Quick FAQ / Topic Chips */}
-          <div className="flex flex-wrap gap-1.5">
+          {/* 3 MAGNETIC HIGH-CONVERTING LINES */}
+          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-amber-500/30 rounded-2xl p-3.5 text-white shadow-md space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="text-base shrink-0">🚀</span>
+              <p className="text-xs font-black text-amber-300 leading-snug">
+                "Educa Fintech me aap sirf upar hi jayenge!" — 12% p.a. live compounding munafa bank se 4x tezi se daulat badhata hai.
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-base shrink-0">💼</span>
+              <p className="text-xs font-bold text-emerald-300 leading-snug">
+                Instant Business Capital: Cheque ke sath ₹20,000 aur direct ₹10,000 tak bina kisi paper chakkar ke.
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-base shrink-0">🧮</span>
+              <p className="text-xs font-semibold text-blue-200 leading-snug">
+                Turant EMI & Fayde: Koi bhi amount likhein ya click karein — turant 18 kiston ka hisaab aur motivation paayein!
+              </p>
+            </div>
+          </div>
+
+          {/* Horizontal Scrolling Quick Action Chips */}
+          <div className="overflow-x-auto no-scrollbar flex items-center gap-1.5 py-1">
             {[
-              "12% Interest kaise milta hai?",
-              "Mera paisa kitni tezi se badhega?",
-              "Profit ko Main Wallet me kaise bhejein?",
-              "₹5,000 Loan kaise milega?",
-              "Add money par evidence kaise daalein?",
-              "PDF Statement kaise download karein?"
+              { label: "🧮 ₹10,000 EMI Hisaab", q: "10000 loan ka emi count karo" },
+              { label: "💼 Business Loan ₹20K", q: "Cheque ke sath business loan 20000" },
+              { label: "⚡ ₹5,000 Instant Loan", q: "5000 loan emi calculation" },
+              { label: "🎯 Loan Ke Fayde", q: "Loan ke fayde ginwao motivation wale" },
+              { label: "📈 12% Compounding Munafa", q: "12% interest compounding kaise milta hai" },
+              { label: "🔄 Profit Transfer Niyam", q: "Profit wallet se main wallet transfer" },
             ].map((chip) => (
               <button
-                key={chip}
+                key={chip.label}
                 type="button"
-                onClick={() => handleAdvisorSend(chip)}
-                className="text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 px-2.5 py-1 rounded-full transition active:scale-95 cursor-pointer"
+                onClick={() => handleAdvisorSend(chip.q)}
+                className="text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/90 px-3 py-1.5 rounded-full transition active:scale-95 cursor-pointer whitespace-nowrap shadow-2xs shrink-0"
               >
-                {chip}
+                {chip.label}
               </button>
             ))}
           </div>
@@ -9247,7 +9436,7 @@ export default function Dashboard() {
                 className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed whitespace-pre-line shadow-2xs ${
+                  className={`max-w-[88%] rounded-2xl p-3 text-xs leading-relaxed whitespace-pre-line shadow-2xs ${
                     msg.sender === "user"
                       ? "bg-blue-600 text-white rounded-tr-none font-medium"
                       : "bg-white text-gray-800 border border-gray-200/80 rounded-tl-none font-normal"
@@ -9272,7 +9461,7 @@ export default function Dashboard() {
               type="text"
               value={advisorInput}
               onChange={(e) => setAdvisorInput(e.target.value)}
-              placeholder="Apna sawaal likhein (e.g. 12% interest, loan limit...)"
+              placeholder={advisorLang === "english" ? "Type amount or question (e.g. 10000, 20000, EMI...)" : "Amount ya sawaal likhein (e.g. 10000, 20000, loan fayde...)"}
               className="flex-1 px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 bg-white"
             />
             <button
@@ -9280,16 +9469,16 @@ export default function Dashboard() {
               disabled={!advisorInput.trim()}
               className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs rounded-xl transition active:scale-95 disabled:opacity-50 shadow-2xs cursor-pointer"
             >
-              Poochhein
+              {advisorLang === "english" ? "Ask 🚀" : "Poochhein 🚀"}
             </button>
           </form>
 
-          {/* Issue Resolved / Clear Chat Action Button requested by user */}
-          <div className="pt-2 border-t border-gray-100 flex justify-center">
+          {/* Clear Chat Action Button */}
+          <div className="pt-1 border-t border-gray-100 flex justify-center">
             <button
               type="button"
               onClick={handleResolveAdvisorChat}
-              className="w-full py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-2xs cursor-pointer"
+              className="w-full py-2 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-2xs cursor-pointer"
             >
               <span>✅</span>
               <span>Aapka issue resolve hua? (Chat Clear Karein)</span>

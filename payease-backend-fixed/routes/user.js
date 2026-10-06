@@ -559,12 +559,12 @@ router.post('/transfer-profit-to-wallet', protect, async (req, res) => {
       amount: profit,
       method: 'wallet',
       status: 'completed',
-      remarks: 'Profit transferred to Primary Wallet for 12% p.a. compounding'
+      remarks: 'Profit transferred to Primary Wallet'
     });
 
     res.json({
       success: true,
-      message: `₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })} Primary Wallet me safaltapoorvak transfer ho gaya! Ab is poore balance par compounding profit milega.`,
+      message: `₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })} Primary Wallet me safaltapoorvak transfer ho gaya!`,
       transferredAmount: profit,
       newBalance: user.balance,
       newProfitBalance: 0,

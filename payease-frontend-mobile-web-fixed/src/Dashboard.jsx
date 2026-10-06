@@ -1728,7 +1728,7 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(data.message || "Profit Main Wallet me transfer ho gaya! Ab poore balance par 12% compounding milega.", "success");
+        showToast(data.message || "Profit Main Wallet me transfer ho gaya!", "success");
         setUserProfile(prev => ({
           ...prev,
           balance: data.newBalance !== undefined ? data.newBalance : (prev.balance + currentProfit),
@@ -3377,7 +3377,7 @@ export default function Dashboard() {
                     disabled={transferringProfit}
                     className="px-2 py-0.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold text-[10px] transition active:scale-95 cursor-pointer"
                   >
-                    {transferringProfit ? "Transferring..." : "🔄 Compound"}
+                    {transferringProfit ? "Transferring..." : "🔄 Main Wallet"}
                   </button>
                 )}
                 <span className="font-bold underline">History →</span>
@@ -4188,7 +4188,7 @@ export default function Dashboard() {
               className="py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition cursor-pointer"
             >
               <span>🔄</span>
-              <span>{transferringProfit ? "Transferring to Wallet..." : "Main Wallet me Bhejein (12% Compounding)"}</span>
+              <span>{transferringProfit ? "Transferring to Wallet..." : "Main Wallet me Bhejein"}</span>
             </button>
             <button
               type="button"

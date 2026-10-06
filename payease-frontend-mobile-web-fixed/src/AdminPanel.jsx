@@ -618,6 +618,9 @@ export default function AdminPanel() {
 
   const logout = () => { localStorage.clear(); window.location.href = "/"; };
 
+  const totalReservesBase = Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 0);
+  const totalProfitBase = Number(analytics?.stats?.totalUserProfits || stats?.totalUserProfits || analytics?.stats?.totalYieldCredited || stats?.totalYield || 0);
+
   const isReservesLoading = loadingAnalytics && !analytics && !totalReservesBase;
   const isStatsLoading = loadingStats && !stats.totalUsers;
 
@@ -639,9 +642,6 @@ export default function AdminPanel() {
     }, 100);
     return () => clearInterval(timer);
   }, []);
-
-  const totalReservesBase = Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 0);
-  const totalProfitBase = Number(analytics?.stats?.totalUserProfits || stats?.totalUserProfits || analytics?.stats?.totalYieldCredited || stats?.totalYield || 0);
 
   useEffect(() => {
     const sTime = analytics?.stats?.serverTime || stats?.serverTime;

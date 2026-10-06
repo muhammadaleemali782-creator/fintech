@@ -632,8 +632,8 @@ export default function AdminPanel() {
     return () => clearInterval(timer);
   }, []);
 
-  const totalReservesBase = Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 601768.26);
-  const totalProfitBase = Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 1768.26);
+  const totalReservesBase = Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 0);
+  const totalProfitBase = Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 0);
   const adminDailyRate = totalReservesBase > 0 ? (totalReservesBase * 0.12) / 365 : 0;
   const adminPerSec = adminDailyRate / 86400;
   const adminPerMs = adminPerSec / 1000;
@@ -644,9 +644,9 @@ export default function AdminPanel() {
 
   const statCards = [
     { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, loading: isReservesLoading, g: "from-emerald-500 to-teal-600" },
-    { icon: "💰", label: "Total Deposits", value: `₹${Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 600000).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-green-500 to-emerald-600" },
+    { icon: "💰", label: "Total Deposits", value: `₹${Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 0).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-green-500 to-emerald-600" },
     { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, loading: isReservesLoading, g: "from-indigo-600 to-violet-600" },
-    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 5, loading: isStatsLoading, g: "from-blue-500 to-blue-600" },
+    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 0, loading: isStatsLoading, g: "from-blue-500 to-blue-600" },
     { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, loading: isStatsLoading, g: "from-yellow-500 to-orange-500" },
   ];
 
@@ -908,12 +908,12 @@ export default function AdminPanel() {
                     <div className="h-9 w-40 bg-blue-100/70 rounded-xl animate-pulse my-1" />
                   ) : (
                     <p className="text-2xl sm:text-3xl font-black font-display text-blue-600">
-                      ₹{Number(analytics?.stats?.totalDeposits || 600000).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ₹{Number(analytics?.stats?.totalDeposits || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </p>
                   )}
                   <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-                    <span>2 Approved Deposit Transactions</span>
+                    <span>{analytics?.stats?.approvedDepositCount ?? 0} Approved Deposit Transactions</span>
                   </p>
                 </div>
 
@@ -968,16 +968,19 @@ export default function AdminPanel() {
                 {/* SVG Visual Chart */}
                 <div className="mt-6">
                   {(() => {
-                    const data = analytics?.dailyProfitChart || [
-                      { date: '2026-09-27', displayDate: '27 Sep', amount: 200, cumulativeYield: 200, estimatedCapital: 600200 },
-                      { date: '2026-09-28', displayDate: '28 Sep', amount: 200, cumulativeYield: 400, estimatedCapital: 600400 },
-                      { date: '2026-09-29', displayDate: '29 Sep', amount: 200, cumulativeYield: 600, estimatedCapital: 600600 },
-                      { date: '2026-09-30', displayDate: '30 Sep', amount: 200, cumulativeYield: 800, estimatedCapital: 600800 },
-                      { date: '2026-10-01', displayDate: '01 Oct', amount: 193.55, cumulativeYield: 993.55, estimatedCapital: 600993.55 },
-                      { date: '2026-10-02', displayDate: '02 Oct', amount: 193.55, cumulativeYield: 1187.1, estimatedCapital: 601187.1 },
-                      { date: '2026-10-03', displayDate: '03 Oct', amount: 193.55, cumulativeYield: 1380.65, estimatedCapital: 601380.65 },
-                      { date: '2026-10-04', displayDate: '04 Oct', amount: 193.55, cumulativeYield: 1574.2, estimatedCapital: 601574.2 },
-                    ];
+                    const data = analytics?.dailyProfitChart || [];
+
+                    if (!data || data.length === 0) {
+                      return (
+                        <div className="py-12 flex flex-col items-center justify-center text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                          <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl mb-3">
+                            📊
+                          </div>
+                          <p className="font-bold text-gray-700 text-sm">No Profit Yield History Yet</p>
+                          <p className="text-xs text-gray-400 mt-1 max-w-sm">Daily interest calculations will automatically plot here as customer balances accrue yield.</p>
+                        </div>
+                      );
+                    }
 
                     const isDaily = chartMode === "daily";
                     const maxVal = isDaily
@@ -1151,7 +1154,7 @@ export default function AdminPanel() {
                       </div>
                       <div>
                         <span className="text-gray-500 text-[10px] block">Total Capital:</span>
-                        <span className="font-black text-gray-900 text-sm">₹{Number(hoveredChartBar.estimatedCapital || 600000 + hoveredChartBar.cumulativeYield).toLocaleString("en-IN")}</span>
+                        <span className="font-black text-gray-900 text-sm">₹{Number(hoveredChartBar.estimatedCapital || (analytics?.stats?.totalDeposits || 0) + hoveredChartBar.cumulativeYield).toLocaleString("en-IN")}</span>
                       </div>
                     </div>
                   </div>
@@ -1168,48 +1171,59 @@ export default function AdminPanel() {
                     <h3 className="text-base font-black font-display text-gray-900 flex items-center gap-2">
                       <span>💎</span> Capital Sources (Kahan Se Aaya)
                     </h3>
-                    <span className="text-xs font-bold text-gray-400">Total Pool: ₹{Number(analytics?.stats?.netFintechReserve || 601768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                    <span className="text-xs font-bold text-gray-400">Total Pool: ₹{Number(analytics?.stats?.netFintechReserve || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                   </div>
 
                   {/* Multi-colored Visual Bar */}
-                  <div className="h-4 rounded-full bg-gray-100 flex overflow-hidden shadow-inner">
-                    <div style={{ width: "99.71%" }} className="bg-emerald-500 h-full" title="Customer Deposits (99.71%)" />
-                    <div style={{ width: "0.29%" }} className="bg-indigo-600 h-full" title="Yield Profit (0.29%)" />
-                  </div>
+                  {(() => {
+                    const pool = Number(analytics?.stats?.netFintechReserve || 0);
+                    const dep = Number(analytics?.stats?.totalDeposits || 0);
+                    const yld = Number(analytics?.stats?.totalYieldCredited || 0);
+                    const depPct = pool > 0 ? Math.min(100, (dep / pool) * 100).toFixed(1) : "0";
+                    const yldPct = pool > 0 ? Math.min(100, (yld / pool) * 100).toFixed(1) : "0";
+                    return (
+                      <>
+                        <div className="h-4 rounded-full bg-gray-100 flex overflow-hidden shadow-inner">
+                          <div style={{ width: `${depPct}%` }} className="bg-emerald-500 h-full transition-all duration-300" title={`Customer Deposits (${depPct}%)`} />
+                          <div style={{ width: `${yldPct}%` }} className="bg-indigo-600 h-full transition-all duration-300" title={`Yield Profit (${yldPct}%)`} />
+                        </div>
 
-                  <div className="space-y-3">
-                    <div className="p-3.5 rounded-2xl border border-emerald-100 bg-emerald-50/50 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-xs">
-                          99.7%
-                        </div>
-                        <div>
-                          <p className="font-extrabold text-xs text-gray-900">Direct Customer Deposits</p>
-                          <p className="text-[11px] text-gray-500">Self-funded capital via UPI / Bank Transfer</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-sm text-gray-900">₹{Number(analytics?.stats?.totalDeposits || 600000).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                        <span className="text-[10px] font-bold text-emerald-600 uppercase">Principal Base</span>
-                      </div>
-                    </div>
+                        <div className="space-y-3">
+                          <div className="p-3.5 rounded-2xl border border-emerald-100 bg-emerald-50/50 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-xs">
+                                {depPct}%
+                              </div>
+                              <div>
+                                <p className="font-extrabold text-xs text-gray-900">Direct Customer Deposits</p>
+                                <p className="text-[11px] text-gray-500">Self-funded capital via UPI / Bank Transfer</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-black text-sm text-gray-900">₹{dep.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                              <span className="text-[10px] font-bold text-emerald-600 uppercase">Principal Base</span>
+                            </div>
+                          </div>
 
-                    <div className="p-3.5 rounded-2xl border border-indigo-100 bg-indigo-50/50 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs">
-                          0.3%
+                          <div className="p-3.5 rounded-2xl border border-indigo-100 bg-indigo-50/50 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs">
+                                {yldPct}%
+                              </div>
+                              <div>
+                                <p className="font-extrabold text-xs text-gray-900">12% p.a. Savings Compounding Yield</p>
+                                <p className="text-[11px] text-gray-500">Automated daily profit credited across active balances</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-black text-sm text-indigo-600">+₹{yld.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                              <span className="text-[10px] font-bold text-indigo-500 uppercase">Generated ROI</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-extrabold text-xs text-gray-900">12% p.a. Savings Compounding Yield</p>
-                          <p className="text-[11px] text-gray-500">Automated daily profit credited across 9 days</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-sm text-indigo-600">+₹{Number(analytics?.stats?.totalYieldCredited || 1768.26).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                        <span className="text-[10px] font-bold text-indigo-500 uppercase">Generated ROI</span>
-                      </div>
-                    </div>
-                  </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Narrative Audit: "Kaise Badha" */}
@@ -1222,43 +1236,29 @@ export default function AdminPanel() {
                   </div>
 
                   <div className="space-y-3.5 text-xs">
-                    <div className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">1</span>
-                        <div className="w-0.5 flex-1 bg-gray-200 my-1" />
+                    {analytics?.timeline && analytics.timeline.length > 0 ? (
+                      analytics.timeline.map((item, idx) => (
+                        <div key={idx} className="flex gap-3">
+                          <div className="flex flex-col items-center">
+                            <span className={`w-6 h-6 rounded-full ${item.type === 'deposit' ? 'bg-emerald-600' : 'bg-indigo-600'} text-white flex items-center justify-center text-[10px] font-black shrink-0`}>
+                              {idx + 1}
+                            </span>
+                            {idx < analytics.timeline.length - 1 && <div className="w-0.5 flex-1 bg-gray-200 my-1" />}
+                          </div>
+                          <div className="pb-2">
+                            <p className="font-black text-gray-900 text-xs">
+                              {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} — {item.title}
+                            </p>
+                            <p className="text-gray-500 text-[11px] mt-0.5">{item.description}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-8 text-center text-gray-400">
+                        <p className="font-bold text-xs">Abhi koi capital activity record nahi hui hai</p>
+                        <p className="text-[11px] mt-1 text-gray-400">Naye deposits ya daily profit credit hote hi live audit trail yahan appear hoga.</p>
                       </div>
-                      <div className="pb-2">
-                        <p className="font-black text-gray-900 text-xs">26 Sept 2026 — Capital Inflow (₹6,00,000)</p>
-                        <p className="text-gray-500 text-[11px] mt-0.5">
-                          User Anand ne 2 deposit transactions kiye (₹3,00,000 + ₹3,00,000). Admin ne receipt verify karke dono transactions ko approve kiya. Total capital base ₹6,00,000 ban gaya.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">2</span>
-                        <div className="w-0.5 flex-1 bg-gray-200 my-1" />
-                      </div>
-                      <div className="pb-2">
-                        <p className="font-black text-gray-900 text-xs">27–30 Sept 2026 — September Cycle (+₹800.00)</p>
-                        <p className="text-gray-500 text-[11px] mt-0.5">
-                          September me 30 din hote hain (1% monthly ÷ 30 = ₹200.00/din). 4 din me total ₹800.00 daily yield auto-credit hua. Month end balance ₹6,00,800.00 pahunch gaya.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">3</span>
-                      </div>
-                      <div>
-                        <p className="font-black text-gray-900 text-xs">01–04 Oct 2026 — October Cycle (+₹774.20)</p>
-                        <p className="text-gray-500 text-[11px] mt-0.5">
-                          October me 31 din hote hain (1% monthly ÷ 31 = ₹193.55/din). 4 din me ₹774.20 add hua. Kul capital ₹6,01,574.20 ban gaya hai aur har raat 12 baje automatically compound ho raha hai.
-                        </p>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1275,7 +1275,7 @@ export default function AdminPanel() {
                     <p className="text-xs text-gray-500">Har din ka alag-alag credit record date aur remarks ke sath</p>
                   </div>
                   <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                    {analytics?.dailyProfitChart?.length || 9} Days Credited • Total +₹{analytics?.stats?.totalYieldCredited ? Number(analytics.stats.totalYieldCredited).toLocaleString("en-IN") : "1,768.26"}
+                    {analytics?.dailyProfitChart?.length || 0} Days Credited • Total +₹{Number(analytics?.stats?.totalYieldCredited || 0).toLocaleString("en-IN")}
                   </span>
                 </div>
 
@@ -1293,8 +1293,7 @@ export default function AdminPanel() {
                     </span>
                   </div>
                   <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                    Kyun September me <strong>₹200.00/din</strong> aur October me <strong>₹193.55 - ₹194.06/din</strong> credit ho raha hai?
-                    Kyunki savings interest <strong>updated running balance</strong> (Principal + Added Profit = ₹6,01,768 par 1% = ₹6,017.68/mo) aur <strong>calendar month ke actual days</strong> par divide hota hai:
+                    Kyunki savings interest <strong>updated running balance</strong> (Principal + Added Profit) par 1% monthly aur <strong>calendar month ke actual days</strong> par divide hota hai:
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                     <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs">
@@ -1330,32 +1329,30 @@ export default function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {(analytics?.dailyProfitChart && analytics.dailyProfitChart.length > 0 ? analytics.dailyProfitChart : [
-                        { date: "2026-09-27", displayDate: "27 Sep", amount: 200, cumulativeYield: 200 },
-                        { date: "2026-09-28", displayDate: "28 Sep", amount: 200, cumulativeYield: 400 },
-                        { date: "2026-09-29", displayDate: "29 Sep", amount: 200, cumulativeYield: 600 },
-                        { date: "2026-09-30", displayDate: "30 Sep", amount: 200, cumulativeYield: 800 },
-                        { date: "2026-10-01", displayDate: "01 Oct", amount: 193.55, cumulativeYield: 993.55 },
-                        { date: "2026-10-02", displayDate: "02 Oct", amount: 193.55, cumulativeYield: 1187.10 },
-                        { date: "2026-10-03", displayDate: "03 Oct", amount: 193.55, cumulativeYield: 1380.65 },
-                        { date: "2026-10-04", displayDate: "04 Oct", amount: 193.55, cumulativeYield: 1574.20 },
-                        { date: "2026-10-05", displayDate: "05 Oct", amount: 194.06, cumulativeYield: 1768.26 }
-                      ]).map((row, idx) => (
-                        <tr key={row.date || idx} className="hover:bg-gray-50/70 transition">
-                          <td className="py-3 pr-4 font-mono text-gray-400">{idx + 1}</td>
-                          <td className="py-3 pr-4 font-bold text-gray-900">{row.displayDate || row.date}</td>
-                          <td className="py-3 pr-4 font-mono text-gray-600">₹6,00,000</td>
-                          <td className="py-3 pr-4 text-gray-500">{row.date?.startsWith("2026-09") ? "12% p.a. (30d)" : "12% p.a. (31d)"}</td>
-                          <td className="py-3 pr-4 font-black text-emerald-600">+₹{Number(row.amount).toFixed(2)}</td>
-                          <td className="py-3 pr-4 font-bold font-mono text-indigo-700">₹{Number(row.cumulativeYield).toFixed(2)}</td>
-                          <td className="py-3 pr-4 text-gray-500">anand@educa.com</td>
-                          <td className="py-3">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
-                              ✓ Credited
-                            </span>
+                      {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
+                        <tr>
+                          <td colSpan="8" className="py-8 text-center text-gray-400 font-medium">
+                            Koi daily profit yield abhi tak record nahi hua hai.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        analytics.dailyProfitChart.map((row, idx) => (
+                          <tr key={row.date || idx} className="hover:bg-gray-50/70 transition">
+                            <td className="py-3 pr-4 font-mono text-gray-400">{idx + 1}</td>
+                            <td className="py-3 pr-4 font-bold text-gray-900">{row.displayDate || row.date}</td>
+                            <td className="py-3 pr-4 font-mono text-gray-600">₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}</td>
+                            <td className="py-3 pr-4 text-gray-500">12% p.a.</td>
+                            <td className="py-3 pr-4 font-black text-emerald-600">+₹{Number(row.amount).toFixed(2)}</td>
+                            <td className="py-3 pr-4 font-bold font-mono text-indigo-700">₹{Number(row.cumulativeYield).toFixed(2)}</td>
+                            <td className="py-3 pr-4 text-gray-500">{row.uniqueUsers ? `${row.uniqueUsers} User(s)` : "Active User"}</td>
+                            <td className="py-3">
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                                ✓ Credited
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

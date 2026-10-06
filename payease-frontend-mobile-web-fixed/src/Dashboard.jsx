@@ -1529,7 +1529,7 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const activeCapital = Number(userProfile.balance ?? balance ?? 601768.26);
+  const activeCapital = Number(userProfile.balance ?? balance ?? 0);
   // Dynamic calculation based on current balance (kam/zyada hone par auto-update)
   const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
   const perSecondYield = dailyYieldEst / 86400;
@@ -3726,18 +3726,18 @@ export default function Dashboard() {
               </p>
               <div className="grid grid-cols-2 gap-2 font-mono">
                 <div className="bg-white/90 p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
-                  <span className="text-gray-500 block text-[10px]">🗓️ Sep (₹6,00,000 Base):</span>
-                  <strong className="text-emerald-700 text-xs">₹6,000 ÷ 30 = ₹200.00/din</strong>
-                  <span className="text-[9px] text-gray-400 block mt-0.5">30 din × ₹200 = ₹6,000</span>
+                  <span className="text-gray-500 block text-[10px]">🗓️ 30 Din Wale Mahine (e.g. Sep/Nov):</span>
+                  <strong className="text-emerald-700 text-xs">1% ÷ 30 Din</strong>
+                  <span className="text-[9px] text-gray-400 block mt-0.5">₹1,00,000 par ₹33.33/din</span>
                 </div>
                 <div className="bg-white/90 p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
-                  <span className="text-gray-500 block text-[10px]">🗓️ Oct (₹6,01,768 Total):</span>
-                  <strong className="text-indigo-700 text-xs">₹6,017.68 ÷ 31 = ₹194.12/din</strong>
-                  <span className="text-[9px] text-gray-400 block mt-0.5">Full balance par 1% monthly</span>
+                  <span className="text-gray-500 block text-[10px]">🗓️ 31 Din Wale Mahine (e.g. Oct/Dec):</span>
+                  <strong className="text-indigo-700 text-xs">1% ÷ 31 Din</strong>
+                  <span className="text-[9px] text-gray-400 block mt-0.5">₹1,00,000 par ₹32.26/din</span>
                 </div>
               </div>
               <div className="p-2 rounded-xl bg-white/70 border border-indigo-100/70 text-[10px] text-indigo-800 space-y-1">
-                <p>✅ <strong>Full Balance Par 1%:</strong> Jaise-jaise roz ka profit aapke balance me plus hota hai, agle din ka 1% interest usi badhe hue total balance par calculate hota hai (₹6,01,768 par 1% = ₹6,017.68 mahina).</p>
+                <p>✅ <strong>Full Balance Par 1%:</strong> Jaise-jaise roz ka profit aapke balance me plus hota hai, agle din ka 1% interest usi badhe hue total balance par calculate hota hai.</p>
                 <p>📅 30 din wale mahine me 30 se divide aur 31 din wale mahine me 31 se divide hota hai.</p>
               </div>
             </div>

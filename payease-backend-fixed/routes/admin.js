@@ -559,6 +559,7 @@ router.get('/analytics', protect, admin, async (req, res) => {
         totalUserProfits,
         totalActiveBonds,
         totalDeposits,
+        approvedDepositCount: depositTxns.length,
         totalYieldCredited,
         totalWithdrawals,
         totalLoansDisbursed,

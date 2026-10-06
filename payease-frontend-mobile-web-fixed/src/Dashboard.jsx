@@ -652,6 +652,18 @@ export default function Dashboard() {
   const [kycSubmitting, setKycSubmitting] = useState(false);
   const [kycError, setKycError] = useState("");
 
+  // Auto-dismiss KYC red error message after 4 seconds
+  useEffect(() => {
+    if (!kycError) return;
+    const t = setTimeout(() => setKycError(""), 4000);
+    return () => clearTimeout(t);
+  }, [kycError]);
+
+  // Clear KYC error immediately whenever user touches or modifies any form field
+  useEffect(() => {
+    if (kycError) setKycError("");
+  }, [kycForm]);
+
   const notifyPayment = (title, message) => {
     try {
       if (window.AndroidNotification?.showNotification) {
@@ -1329,6 +1341,13 @@ export default function Dashboard() {
   const loadDashboard = useCallback(async () => {
     try {
       const res = await fetch(`${API}/user/me`, { headers });
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("educa_cached_profile");
+        navigate("/login");
+        return;
+      }
       const data = await res.json();
       if (res.ok && data) {
         setUserProfile(data);
@@ -1678,12 +1697,15 @@ export default function Dashboard() {
     }
   };
 
-  // Client-side image compression for KYC (zero server bloat)
+  // Client-side image compression for KYC (optimized for Android & mobile)
   const handleKycFileChange = (e, slot = 1, side = "front") => {
+    setKycError(""); // Immediately remove red error when user picks a photo
     const file = e.target.files?.[0];
     if (!file) return;
+    try { e.target.value = ""; } catch (_) {} // Android re-selection fix
+
     if (file.size > 15 * 1024 * 1024) {
-      showToast("File size 15MB se kam honi chahiye", "error");
+      setKycError("File size 15MB se kam honi chahiye");
       return;
     }
     const nameKey = slot === 1
@@ -1693,40 +1715,49 @@ export default function Dashboard() {
       ? (side === "back" ? "doc1BackUrl" : "doc1Url")
       : (side === "back" ? "doc2BackUrl" : "doc2Url");
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (file.type === "application/pdf") {
+    if (file.type === "application/pdf") {
+      const reader = new FileReader();
+      reader.onload = (event) => {
         setKycForm(prev => ({ ...prev, [nameKey]: file.name, [urlKey]: event.target.result }));
-        return;
-      }
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxDim = 1200;
-        let w = img.width;
-        let h = img.height;
-        if (w > maxDim || h > maxDim) {
-          if (w > h) {
-            h = Math.round((h * maxDim) / w);
-            w = maxDim;
-          } else {
-            w = Math.round((w * maxDim) / h);
-            h = maxDim;
-          }
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // Android/Mobile: Instant ObjectURL avoids heavy base64 memory overhead for 48MP+ camera photos
+    const blobUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(blobUrl);
+      const canvas = document.createElement("canvas");
+      const maxDim = 1200;
+      let w = img.width;
+      let h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
         }
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, w, h);
-        const compressed = canvas.toDataURL("image/jpeg", 0.75);
-        setKycForm(prev => ({ ...prev, [nameKey]: file.name, [urlKey]: compressed }));
-      };
-      img.onerror = () => {
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL("image/jpeg", 0.75);
+      setKycForm(prev => ({ ...prev, [nameKey]: file.name, [urlKey]: compressed }));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      const reader = new FileReader();
+      reader.onload = (event) => {
         setKycForm(prev => ({ ...prev, [nameKey]: file.name, [urlKey]: event.target.result }));
       };
-      img.src = event.target.result;
+      reader.readAsDataURL(file);
     };
-    reader.readAsDataURL(file);
+    img.src = blobUrl;
   };
 
   // Submit KYC (2 Mandatory Documents: Doc 1 Aadhaar + Doc 2 PAN / Cheque)
@@ -1824,6 +1855,16 @@ export default function Dashboard() {
         }));
         closeModal();
       } else {
+        if (res.status === 401) {
+          setKycError(data.message || "Aapka session expire ho chuka hai ya account reset hua hai. Kripya dobara login ya sign up karein.");
+          setTimeout(() => {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            localStorage.removeItem("educa_cached_profile");
+            navigate("/login");
+          }, 2500);
+          return;
+        }
         setKycError(data.message || "KYC submit karne me samasya aayi.");
       }
     } catch {
@@ -7383,7 +7424,20 @@ export default function Dashboard() {
               </div>
 
               {kycError && (
-                <p className="text-xs text-rose-600 font-semibold">{kycError}</p>
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="shrink-0 text-sm">⚠️</span>
+                    <span className="leading-snug">{kycError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setKycError("")}
+                    className="text-rose-400 hover:text-rose-700 font-black text-sm px-1.5 py-0.5 rounded-lg hover:bg-rose-100 transition shrink-0 cursor-pointer"
+                    title="Dismiss"
+                  >
+                    ✕
+                  </button>
+                </div>
               )}
 
               <div className="flex gap-2.5 pt-2">

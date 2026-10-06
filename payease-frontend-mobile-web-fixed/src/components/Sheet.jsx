@@ -16,7 +16,7 @@ export default function Sheet({ open, onClose, title, icon, extraHeader = null, 
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md sm:w-full rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 pb-safe sm:pb-6 max-h-[92vh] overflow-y-auto animate-[slideUp_.25s_ease-out] sm:animate-none bg-white text-gray-900"
+        className="w-full sm:max-w-md sm:w-full rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 sm:p-6 pb-[calc(env(safe-area-inset-bottom,16px)+16px)] sm:pb-6 max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto overscroll-contain touch-pan-y animate-[slideUp_.25s_ease-out] sm:animate-none bg-white text-gray-900"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mobile drag handle */}

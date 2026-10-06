@@ -2245,6 +2245,8 @@ export default function Dashboard() {
 
   const submitDeposit = async () => {
     if (!depForm.amount || !depForm.utrNumber) return showToast("Amount aur UTR number daalna zaroori hai", "error");
+    if (+depForm.amount < 1) return showToast("Kripya valid deposit amount enter karein (min ₹1)", "error");
+    if (!depForm.proofUrl) return showToast("Kripya payment screenshot / receipt evidence attach karein", "error");
     const res = await fetch(`${API}/transaction/deposit`, {
       method: "POST",
       headers,
@@ -6851,15 +6853,20 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1">Deposit Amount (₹)</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-xs font-bold text-gray-700 block">Deposit Amount (₹)</label>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                ♾️ {lang === "hindi" ? "अनंत सीमा (No Upper Limit)" : "Infinite Range (No Upper Limit)"}
+              </span>
+            </div>
             <input
               type="number"
               inputMode="numeric"
-              placeholder="Amount (min ₹100)"
-              min="100"
+              placeholder={lang === "hindi" ? "राशि दर्ज करें (कोई अधिकतम सीमा नहीं • min ₹1)" : "Enter Amount (No Upper Limit • Infinite Range • min ₹1)"}
+              min="1"
               value={depForm.amount}
               onChange={e => setDepForm({ ...depForm, amount: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm font-bold"
             />
           </div>
 
@@ -6876,7 +6883,7 @@ export default function Dashboard() {
 
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1">
-              Payment Screenshot / Receipt Evidence <span className="text-gray-400 font-normal">(Proof)</span>
+              Payment Screenshot / Receipt Evidence <span className="text-rose-500 font-bold">*</span>
             </label>
             <div className="border-2 border-dashed border-gray-200 rounded-xl p-3 text-center bg-gray-50/60 hover:bg-gray-100/60 transition">
               {depForm.proofUrl ? (
@@ -6915,9 +6922,25 @@ export default function Dashboard() {
       </Sheet>
 
       {/* WITHDRAW SHEET */}
-      <Sheet open={modal === "withdraw"} onClose={closeModal} title="Withdraw Money" icon="💰">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 text-sm text-yellow-800">
-          ⚡ Below ₹5000 = <strong>Auto-processed</strong> | Above ₹5000 = <strong>Admin approval</strong>
+      <Sheet open={modal === "withdraw"} onClose={closeModal} title="Withdraw Money (Money Out)" icon="💰">
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3.5 mb-4 text-xs text-amber-950 space-y-2">
+          <div className="flex items-center justify-between font-bold">
+            <span className="flex items-center gap-1.5">🏛️ Money Out SLA (Bank / UPI Transfer)</span>
+            <span className="text-[10px] bg-amber-100/90 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full font-bold">Admin Verification</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-[11px]">
+            <div className="bg-white/80 p-2 rounded-lg border border-amber-100 shadow-2xs">
+              <span className="font-bold text-emerald-800 block">⚡ ₹100 – ₹5,000:</span>
+              <span className="text-gray-600 font-medium">24 ghante ke andar Admin Approval & Transfer</span>
+            </div>
+            <div className="bg-white/80 p-2 rounded-lg border border-amber-100 shadow-2xs">
+              <span className="font-bold text-indigo-800 block">🛡️ ₹5,000 se upar:</span>
+              <span className="text-gray-600 font-medium">72 ghante ke darmiyan Admin Approval & Transfer</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-amber-800/80 italic font-medium pt-0.5">
+            💡 Fintech ke andar (Send Money) bina kisi SLA ke instant transfer hota hai.
+          </p>
         </div>
         <div className="space-y-3">
           {/* Source Wallet Picker (Main Account vs Profit Account) */}
@@ -6976,6 +6999,16 @@ export default function Dashboard() {
               </span>
             </div>
             <input type="number" inputMode="numeric" placeholder="Amount (min ₹100)" min="100" value={wdForm.amount} onChange={e => setWdForm({ ...wdForm, amount: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm font-bold" />
+            {Number(wdForm.amount) > 0 && (
+              <div className={`mt-2 p-2 rounded-lg text-xs font-bold flex items-center justify-between transition ${
+                Number(wdForm.amount) <= 5000
+                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  : "bg-indigo-50 text-indigo-800 border border-indigo-200"
+              }`}>
+                <span>{Number(wdForm.amount) <= 5000 ? "⏱️ SLA: 24 Ghante ke andar processed" : "🛡️ SLA: 72 Ghante ke darmiyan processed (High-Value)"}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-white/70 uppercase tracking-wider">{Number(wdForm.amount) <= 5000 ? "Standard SLA" : "72h SLA"}</span>
+              </div>
+            )}
           </div>
           <select value={wdForm.method} onChange={e => setWdForm({ ...wdForm, method: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none text-base sm:text-sm">
             <option value="upi">UPI</option>

@@ -209,13 +209,14 @@ router.post('/transfer', protect, async (req, res) => {
   }
 });
 
-// Deposit Request
+// Deposit Request (Money In - Infinite Range, Evidence Attached)
 router.post('/deposit', protect, async (req, res) => {
   try {
     const { amount, method, utrNumber, proofUrl, screenshotUrl } = req.body;
 
-    if (!isValidAmount(amount, 100, 500000))
-      return res.status(400).json({ message: 'Amount must be between ₹100 and ₹5,00,000' });
+    const numAmount = Number(amount);
+    if (!amount || isNaN(numAmount) || numAmount < 1)
+      return res.status(400).json({ message: 'Amount kam se kam ₹1 hona chahiye (Koi maximum limit nahi hai - Infinite Range)' });
 
     if (!['upi', 'bank'].includes(method))
       return res.status(400).json({ message: 'Method must be upi or bank' });
@@ -227,21 +228,22 @@ router.post('/deposit', protect, async (req, res) => {
     const txn = await Transaction.create({
       userId: req.user._id,
       type: 'deposit',
-      amount,
+      amount: numAmount,
       method,
-      utrNumber,
+      utrNumber: utrNumber ? String(utrNumber).trim() : '',
       proofUrl: finalProof,
       screenshotUrl: finalProof,
-      status: 'pending'
+      status: 'pending',
+      remarks: `Deposit Request (UTR: ${utrNumber || 'Evidence attached'})`
     });
     
-    res.json({ message: 'Deposit request submitted. Awaiting admin approval.', txn });
+    res.json({ message: '✅ Deposit request with evidence submitted. Awaiting admin approval.', txn });
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
   }
 });
 
-// Withdrawal Request
+// Withdrawal Request (Money Out - 24 Hours SLA for <= ₹5000, 72 Hours SLA for > ₹5000)
 router.post('/withdraw', protect, async (req, res) => {
   const { amount, method, paymentDetails, sourceWallet = 'main' } = req.body;
 
@@ -254,8 +256,9 @@ router.post('/withdraw', protect, async (req, res) => {
     });
   }
 
-  if (!isValidAmount(amount, 100, 500000))
-    return res.status(400).json({ message: 'Amount must be between ₹100 and ₹5,00,000' });
+  const numAmount = Number(amount);
+  if (!amount || isNaN(numAmount) || numAmount < 1)
+    return res.status(400).json({ message: 'Withdrawal amount must be at least ₹1' });
 
   if (!['upi', 'bank'].includes(method))
     return res.status(400).json({ message: 'Method must be upi or bank' });
@@ -263,74 +266,74 @@ router.post('/withdraw', protect, async (req, res) => {
     return res.status(400).json({ message: 'Invalid payment details' });
 
   const isProfitSource = sourceWallet === 'profit';
-  const autoApprove = amount < 5000;
+  const field = isProfitSource ? 'profitBalance' : 'balance';
+  const available = user[field] || 0;
+  if (available < numAmount) {
+    return res.status(400).json({
+      message: `Insufficient balance in ${isProfitSource ? 'Profit Wallet' : 'Primary Wallet'}. Available: ₹${available}`
+    });
+  }
+
+  // SLA based on request amount:
+  // <= ₹5,000 => Admin processes within 24 hours
+  // > ₹5,000 => Admin processes within 72 hours
+  const isUnder5k = numAmount <= 5000;
+  const slaHours = isUnder5k ? 24 : 72;
+  const slaLabel = isUnder5k ? '24 Hours SLA (Under ₹5,000)' : '72 Hours SLA (Above ₹5,000)';
+
   const session = await mongoose.startSession();
 
   try {
     let txn, newBalance, newProfitBalance;
 
     await session.withTransaction(async () => {
-      const field = isProfitSource ? 'profitBalance' : 'balance';
-      const available = user[field] || 0;
-      if (available < amount) {
-        const e = new Error(`Insufficient balance in ${isProfitSource ? 'Profit Wallet' : 'Primary Wallet'}. Available: ₹${available}`);
+      // Hold/deduct balance atomically so user cannot double-spend
+      const updatedUser = await User.findOneAndUpdate(
+        { _id: req.user._id, [field]: { $gte: numAmount } },
+        { $inc: { [field]: -numAmount } },
+        { new: true, session }
+      );
+      if (!updatedUser) {
+        const e = new Error('Insufficient balance');
         e.status = 400;
         throw e;
       }
+      newBalance = updatedUser.balance;
+      newProfitBalance = updatedUser.profitBalance;
 
-      if (autoApprove) {
-        const updatedUser = await User.findOneAndUpdate(
-          { _id: req.user._id, [field]: { $gte: amount } },
-          { $inc: { [field]: -amount } },
-          { new: true, session }
-        );
-        if (!updatedUser) {
-          const e = new Error('Insufficient balance');
-          e.status = 400;
-          throw e;
-        }
-        newBalance = updatedUser.balance;
-        newProfitBalance = updatedUser.profitBalance;
-
-        if (!isProfitSource) {
-          // Track lowest balance for yield calculation (minimum-balance rule)
-          await User.findByIdAndUpdate(req.user._id, { $min: { lowestBalance24h: newBalance } }, { session });
-        }
-
-        const created = await Transaction.create(
-          [{
-            userId: req.user._id,
-            type: 'withdrawal',
-            amount,
-            method,
-            paymentDetails,
-            status: 'completed',
-            remarks: `Withdrawal from ${isProfitSource ? 'Profit Wallet' : 'Primary Wallet'}`
-          }],
-          { session }
-        );
-        txn = created[0];
-      } else {
-        const created = await Transaction.create(
-          [{
-            userId: req.user._id,
-            type: 'withdrawal',
-            amount,
-            method,
-            paymentDetails,
-            status: 'pending',
-            remarks: `Withdrawal from ${isProfitSource ? 'Profit Wallet' : 'Primary Wallet'}`
-          }],
-          { session }
-        );
-        txn = created[0];
+      if (!isProfitSource) {
+        await User.findByIdAndUpdate(req.user._id, { $min: { lowestBalance24h: newBalance } }, { session });
       }
+
+      const created = await Transaction.create(
+        [{
+          userId: req.user._id,
+          type: 'withdrawal',
+          amount: numAmount,
+          method,
+          paymentDetails,
+          sourceWallet: isProfitSource ? 'profit' : 'main',
+          slaHours,
+          slaLabel,
+          status: 'pending',
+          remarks: `Money Out to ${method.toUpperCase()} [${slaLabel}]`
+        }],
+        { session }
+      );
+      txn = created[0];
     });
 
-    if (autoApprove) {
-      return res.json({ message: '✅ Withdrawal processed automatically!', txn, newBalance, newProfitBalance });
-    }
-    res.json({ message: '⏳ Amount above ₹5000 requires admin approval.', txn });
+    const successMessage = isUnder5k
+      ? '✅ Withdrawal request submitted! ₹5,000 tak ki request 24 ghante ke andar Admin dwara approve aur transfer kar di jayegi.'
+      : '🛡️ High-value withdrawal request submitted! ₹5,000 se upar ki request verification ke baad 72 ghante ke darmiyan Admin dwara approve aur transfer kar di jayegi.';
+
+    res.json({
+      message: successMessage,
+      txn,
+      slaHours,
+      newBalance,
+      newProfitBalance
+    });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.status ? err.message : 'Something went wrong. Please try again.' });
   } finally {

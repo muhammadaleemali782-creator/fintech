@@ -660,9 +660,9 @@ export default function AdminPanel() {
 
   const baseAdminProfit = Math.max(totalProfitBase, adminCachedProfit);
   const adminElapsedMs = Math.max(0, adminLiveMs - adminAnchorTime);
-  // Clean Reserves: Strictly rounded integer, NEVER add profit decimals to reserves
-  const liveAdminReserves = Math.round(totalReservesBase);
   const liveAdminProfit = baseAdminProfit + (adminElapsedMs * adminPerMs);
+  // Fintech Reserves: Total Deposits + Live Accrued Profit Added
+  const liveAdminReserves = totalReservesBase + liveAdminProfit;
 
   useEffect(() => {
     if (liveAdminProfit > 0) {
@@ -673,7 +673,7 @@ export default function AdminPanel() {
   }, [liveAdminProfit]);
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-emerald-500 to-teal-600" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, loading: isReservesLoading, g: "from-emerald-500 to-teal-600" },
     { icon: "💰", label: "Total Deposits", value: `₹${Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 0).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-green-500 to-emerald-600" },
     { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, loading: isReservesLoading, g: "from-indigo-600 to-violet-600" },
     { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 0, loading: isStatsLoading, g: "from-blue-500 to-blue-600" },
@@ -887,7 +887,7 @@ export default function AdminPanel() {
                     {loadingAnalytics && !analytics ? (
                       <span className="inline-block h-8 w-44 bg-white/20 rounded-xl animate-pulse" />
                     ) : (
-                      <span className="font-mono text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN")}</span>
+                      <span className="font-mono text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
                     )}
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-300 mt-2 max-w-2xl">
@@ -922,7 +922,7 @@ export default function AdminPanel() {
                     <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
                   ) : (
                     <p className="text-2xl sm:text-3xl font-black font-display font-mono text-emerald-600 tracking-tight">
-                      ₹{Number(liveAdminReserves).toLocaleString("en-IN")}
+                      ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                     </p>
                   )}
                   <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
@@ -1429,10 +1429,31 @@ export default function AdminPanel() {
                         {pending.map(t => (
                           <tr key={t._id} className="border-b border-gray-50 hover:bg-gray-50 transition">
                             <td className="py-3 pr-4"><p className="font-semibold">{t.userId?.name}</p><p className="text-xs text-gray-400">{t.userId?.email}</p></td>
-                            <td className="py-3 pr-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${t.type === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{t.type}</span></td>
+                            <td className="py-3 pr-4">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${t.type === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{t.type}</span>
+                                {t.type === "withdrawal" && (
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.amount <= 5000 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-purple-100 text-purple-800 border border-purple-200"}`}>
+                                    {t.slaLabel || (t.amount <= 5000 ? "24h SLA" : "72h SLA")}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td className="py-3 pr-4 font-bold">₹{t.amount.toLocaleString("en-IN")}</td>
                             <td className="py-3 pr-4 uppercase text-xs text-gray-500">{t.method}</td>
-                            <td className="py-3 pr-4 text-xs text-gray-500 max-w-xs truncate">{t.utrNumber || JSON.stringify(t.paymentDetails || {})}</td>
+                            <td className="py-3 pr-4 text-xs text-gray-500 max-w-xs">
+                              {t.utrNumber && <div className="font-mono font-bold text-gray-800">UTR: {t.utrNumber}</div>}
+                              {(t.proofUrl || t.screenshotUrl) && (
+                                <a href={t.proofUrl || t.screenshotUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:underline font-bold mt-1">
+                                  📸 View Receipt / Evidence
+                                </a>
+                              )}
+                              {t.paymentDetails && (
+                                <div className="text-[11px] text-gray-500 truncate mt-0.5">
+                                  {t.paymentDetails.upiId ? `UPI: ${t.paymentDetails.upiId}` : (t.paymentDetails.accountNumber ? `A/C: ${t.paymentDetails.accountNumber}` : "")}
+                                </div>
+                              )}
+                            </td>
                             <td className="py-3">
                               <div className="flex gap-2">
                                 <button onClick={() => approve(t._id)} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600">✓ Approve</button>
@@ -1454,17 +1475,36 @@ export default function AdminPanel() {
                             <p className="font-semibold text-sm">{t.userId?.name}</p>
                             <p className="text-xs text-gray-400">{t.userId?.email}</p>
                           </div>
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold shrink-0 ${t.type === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{t.type}</span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold shrink-0 ${t.type === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{t.type}</span>
+                            {t.type === "withdrawal" && (
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.amount <= 5000 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-purple-100 text-purple-800 border border-purple-200"}`}>
+                                {t.slaLabel || (t.amount <= 5000 ? "24h SLA" : "72h SLA")}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-gray-400">Amount</span>
                           <span className="font-bold">₹{t.amount.toLocaleString("en-IN")}</span>
                         </div>
-                        <div className="flex justify-between text-sm mb-3">
+                        <div className="flex justify-between text-sm mb-2">
                           <span className="text-gray-400">Method</span>
                           <span className="uppercase text-xs text-gray-500">{t.method}</span>
                         </div>
-                        <p className="text-xs text-gray-500 mb-3 truncate">{t.utrNumber || JSON.stringify(t.paymentDetails || {})}</p>
+                        {t.utrNumber && <p className="text-xs font-mono font-bold text-gray-800 mb-1">UTR: {t.utrNumber}</p>}
+                        {(t.proofUrl || t.screenshotUrl) && (
+                          <div className="mb-2">
+                            <a href={t.proofUrl || t.screenshotUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline font-bold">
+                              📸 View Receipt / Evidence
+                            </a>
+                          </div>
+                        )}
+                        {t.paymentDetails && (
+                          <p className="text-xs text-gray-500 mb-3 truncate">
+                            {t.paymentDetails.upiId ? `UPI: ${t.paymentDetails.upiId}` : (t.paymentDetails.accountNumber ? `A/C: ${t.paymentDetails.accountNumber}` : JSON.stringify(t.paymentDetails))}
+                          </p>
+                        )}
                         <div className="flex gap-2">
                           <button onClick={() => approve(t._id)} className="flex-1 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 active:bg-green-700">✓ Approve</button>
                           <button onClick={() => reject(t._id)} className="flex-1 py-2 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 active:bg-red-700">✗ Reject</button>

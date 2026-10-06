@@ -61,17 +61,8 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
         }
         txn.status = 'approved';
       } else {
-        // balance sirf tabhi ghatao jab woh abhi bhi (atomically) sufficient ho
-        const user = await User.findOneAndUpdate(
-          { _id: txn.userId, balance: { $gte: txn.amount } },
-          { $inc: { balance: -txn.amount } },
-          { session, new: true }
-        );
-        if (!user) {
-          const e = new Error('User has insufficient balance');
-          e.status = 400;
-          throw e;
-        }
+        // Withdrawal: Amount was already atomically held/deducted at request time.
+        // Marking as completed finalizes the withdrawal.
         txn.status = 'completed';
       }
 
@@ -90,29 +81,42 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
 
 // Reject transaction
 router.post('/transaction/:id/reject', protect, admin, async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid transaction ID' });
+
+  const session = await mongoose.startSession();
   try {
-    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid transaction ID' });
-
-    // remarks ko string me convert karo -> object/array bhej ke DB corrupt
-    // karne ki koshish (NoSQL injection-style) block ho jaye
     const remarks = typeof req.body.remarks === 'string' ? req.body.remarks : 'Rejected by admin';
+    let resultTxn;
 
-    // BUG FIX: pehle ye kisi bhi status wali transaction ko 'rejected' bana deta
-    // tha -- agar koi transaction already 'approved'/'completed' ho chuki thi
-    // (balance already credit/debit ho gaya tha) aur uske baad reject call ho,
-    // to status 'rejected' ho jata tha PAR balance kabhi revert nahi hota --
-    // ledger aur real balance mismatch ho jata. Ab sirf 'pending' transaction
-    // hi reject ho sakti hai, atomic condition ke saath.
-    const txn = await Transaction.findOneAndUpdate(
-      { _id: req.params.id, status: 'pending' },
-      { $set: { status: 'rejected', remarks } },
-      { new: true }
-    );
-    if (!txn) return res.status(400).json({ message: 'Transaction not found or already processed' });
+    await session.withTransaction(async () => {
+      const txn = await Transaction.findOneAndUpdate(
+        { _id: req.params.id, status: 'pending' },
+        { $set: { status: 'rejected', remarks } },
+        { new: true, session }
+      );
+      if (!txn) {
+        const e = new Error('Transaction not found or already processed');
+        e.status = 400;
+        throw e;
+      }
 
-    res.json({ message: 'Transaction rejected', txn });
+      // If rejected transaction was a withdrawal, refund held funds back to the user
+      if (txn.type === 'withdrawal') {
+        const refundField = txn.sourceWallet === 'profit' ? 'profitBalance' : 'balance';
+        await User.findByIdAndUpdate(
+          txn.userId,
+          { $inc: { [refundField]: txn.amount } },
+          { session }
+        );
+      }
+      resultTxn = txn;
+    });
+
+    res.json({ message: 'Transaction rejected', txn: resultTxn });
   } catch (err) {
-    res.status(500).json({ message: 'Something went wrong. Please try again.' });
+    res.status(err.status || 500).json({ message: err.status ? err.message : 'Something went wrong. Please try again.' });
+  } finally {
+    session.endSession();
   }
 });
 

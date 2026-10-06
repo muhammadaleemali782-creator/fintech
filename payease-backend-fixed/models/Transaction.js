@@ -30,6 +30,9 @@ const transactionSchema = new mongoose.Schema({
   utrNumber: String,
   proofUrl: String,
   screenshotUrl: String,
+  slaHours: Number,
+  slaLabel: String,
+  sourceWallet: String,
   paymentDetails: {
     upiId: String,
     accountNumber: String,

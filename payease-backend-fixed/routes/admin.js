@@ -481,14 +481,23 @@ router.get('/analytics', protect, admin, async (req, res) => {
     const activeLoans = await Loan.find({ status: { $in: ['approved', 'active'] } });
     const totalLoansDisbursed = Number(activeLoans.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(2));
 
-    // 7. Group Daily Yields by Date for Profit Chart
+    // 7. Group Daily Yields by Date for Profit Chart (IST Calendar)
     const dailyMap = {};
     for (const yt of yieldTxns) {
-      const dateKey = new Date(yt.createdAt).toISOString().slice(0, 10);
+      let dateKey = yt.referenceId && yt.referenceId.startsWith('yield_')
+        ? yt.referenceId.split('_').slice(-1)[0]
+        : new Date(yt.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+        dateKey = new Date(yt.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      }
+
       if (!dailyMap[dateKey]) {
+        const [y, m, d] = dateKey.split('-').map(Number);
+        const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
         dailyMap[dateKey] = {
           date: dateKey,
-          displayDate: new Date(yt.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+          displayDate: dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' }),
           amount: 0,
           txnCount: 0,
           users: new Set()
@@ -501,9 +510,6 @@ router.get('/analytics', protect, admin, async (req, res) => {
 
     let runningYieldSum = 0;
     const sortedDailyList = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
-    if (sortedDailyList.length === 1 && totalYieldCredited > 0) {
-      sortedDailyList[0].amount = Number(totalYieldCredited.toFixed(2));
-    }
     const dailyProfitChart = sortedDailyList.map(d => {
       runningYieldSum = Number((runningYieldSum + d.amount).toFixed(2));
       return {

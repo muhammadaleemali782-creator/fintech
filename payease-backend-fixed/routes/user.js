@@ -8,7 +8,7 @@ const { sendNotification } = require('../utils/notifier');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const router = express.Router();
 
-// Helper to evaluate and credit daily profit on primary Savings Account balance
+// Helper to evaluate and credit daily profit on primary Savings Account balance (IST Calendar)
 async function processDailyYield(user) {
   if (!user || user.role === 'admin') return user;
 
@@ -28,31 +28,77 @@ async function processDailyYield(user) {
   const perMsRate = annualRate / (365 * 86400 * 1000);
 
   if (elapsedMs >= 100) {
-    const earned = Number((baseBal * perMsRate * elapsedMs).toFixed(4));
-    if (earned > 0) {
-      user.profitBalance = Number(((user.profitBalance || 0) + earned).toFixed(4));
+    const totalEarned = Number((baseBal * perMsRate * elapsedMs).toFixed(4));
+    if (totalEarned > 0) {
+      user.profitBalance = Number(((user.profitBalance || 0) + totalEarned).toFixed(4));
       user.lastYieldCalculatedAt = now;
       user.lowestBalance24h = user.balance;
       await user.save();
 
-      // Maintain daily aggregated transaction entry
-      const dateStr = now.toISOString().slice(0, 10);
-      const periodKey = `yield_${user._id}_${dateStr}`;
-      await Transaction.findOneAndUpdate(
-        { referenceId: periodKey },
-        {
-          $inc: { amount: earned },
-          $setOnInsert: {
-            userId: user._id,
-            type: 'daily_yield',
-            method: 'internal',
-            status: 'completed',
-            remarks: `Daily Savings Yield (${user.interestRate || 12}% p.a. on ₹${baseBal.toLocaleString('en-IN')})`,
-            createdAt: now
-          }
-        },
-        { upsert: true }
-      );
+      // IST calendar date boundaries (Asia/Kolkata)
+      const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      const startOfTodayIST = new Date(`${todayStr}T00:00:00+05:30`);
+
+      if (lastCalc < startOfTodayIST) {
+        // Split: part before midnight IST belongs to previous day, rest to today
+        const prevMs = Math.max(0, startOfTodayIST.getTime() - lastCalc.getTime());
+        const earnedPrev = Number((baseBal * perMsRate * prevMs).toFixed(4));
+        const prevStr = lastCalc.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+        if (earnedPrev > 0) {
+          await Transaction.findOneAndUpdate(
+            { referenceId: `yield_${user._id}_${prevStr}` },
+            {
+              $inc: { amount: earnedPrev },
+              $setOnInsert: {
+                userId: user._id,
+                type: 'daily_yield',
+                method: 'internal',
+                status: 'completed',
+                remarks: `Daily Savings Yield (${user.interestRate || 12}% p.a. on ₹${baseBal.toLocaleString('en-IN')})`,
+                createdAt: new Date(startOfTodayIST.getTime() - 1000)
+              }
+            },
+            { upsert: true }
+          );
+        }
+
+        const todayMs = Math.max(0, now.getTime() - startOfTodayIST.getTime());
+        const earnedToday = Number((baseBal * perMsRate * todayMs).toFixed(4));
+        if (earnedToday > 0) {
+          await Transaction.findOneAndUpdate(
+            { referenceId: `yield_${user._id}_${todayStr}` },
+            {
+              $inc: { amount: earnedToday },
+              $setOnInsert: {
+                userId: user._id,
+                type: 'daily_yield',
+                method: 'internal',
+                status: 'completed',
+                remarks: `Daily Savings Yield (${user.interestRate || 12}% p.a. on ₹${baseBal.toLocaleString('en-IN')})`,
+                createdAt: now
+              }
+            },
+            { upsert: true }
+          );
+        }
+      } else {
+        await Transaction.findOneAndUpdate(
+          { referenceId: `yield_${user._id}_${todayStr}` },
+          {
+            $inc: { amount: totalEarned },
+            $setOnInsert: {
+              userId: user._id,
+              type: 'daily_yield',
+              method: 'internal',
+              status: 'completed',
+              remarks: `Daily Savings Yield (${user.interestRate || 12}% p.a. on ₹${baseBal.toLocaleString('en-IN')})`,
+              createdAt: now
+            }
+          },
+          { upsert: true }
+        );
+      }
     }
   }
 

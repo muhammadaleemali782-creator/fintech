@@ -618,7 +618,7 @@ export default function AdminPanel() {
 
   const logout = () => { localStorage.clear(); window.location.href = "/"; };
 
-  const isReservesLoading = loadingAnalytics && !analytics;
+  const isReservesLoading = loadingAnalytics && !analytics && !totalReservesBase;
   const isStatsLoading = loadingStats && !stats.totalUsers;
 
   // Live Mini-Second Profit & Reserves Stream (Admin)
@@ -636,7 +636,7 @@ export default function AdminPanel() {
   useEffect(() => {
     const timer = setInterval(() => {
       setAdminLiveMs(Date.now());
-    }, 60);
+    }, 100);
     return () => clearInterval(timer);
   }, []);
 
@@ -814,7 +814,7 @@ export default function AdminPanel() {
         </div>
       </aside>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-x-hidden">
         {/* MOBILE / TABLET TOP NAV */}
         <nav className="lg:hidden bg-gradient-to-r from-gray-900 to-gray-800 shadow-lg sticky top-0 z-40 safe-top">
           <div className="px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center">
@@ -841,7 +841,7 @@ export default function AdminPanel() {
           </div>
         </nav>
 
-        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0">
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4 mb-4 sm:mb-8">
             {statCards.map(({ icon, label, value, loading, g }) => (
@@ -850,10 +850,10 @@ export default function AdminPanel() {
                   <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
                   <p className="text-white/80 text-[11px] sm:text-xs font-medium truncate">{label}</p>
                 </div>
-                {loading ? (
+                {loading && !value ? (
                   <div className="h-6 sm:h-8 w-24 sm:w-32 bg-white/30 rounded-lg animate-pulse mt-1" />
                 ) : (
-                  <p className="text-sm sm:text-base lg:text-lg xl:text-xl font-black font-display font-mono tracking-tight mt-1 truncate" title={String(value)}>
+                  <p className="text-sm sm:text-base lg:text-lg xl:text-xl font-black font-display font-mono tabular-nums tracking-tight mt-1 truncate" title={String(value)}>
                     {value}
                   </p>
                 )}
@@ -876,9 +876,9 @@ export default function AdminPanel() {
               PROFIT & RESERVES ANALYTICS VIEW
           ══════════════════════════════════════════════════════ */}
           {tab === "analytics" && (
-            <div className="space-y-6">
+            <div className="space-y-6 w-full min-w-0">
               {/* Header */}
-              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-2xl">📈</span>
@@ -888,10 +888,10 @@ export default function AdminPanel() {
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black font-display flex flex-wrap items-center">
                     <span>Total Fintech Reserves:&nbsp;</span>
-                    {loadingAnalytics && !analytics ? (
+                    {loadingAnalytics && !analytics && !liveAdminReserves ? (
                       <span className="inline-block h-8 w-44 bg-white/20 rounded-xl animate-pulse" />
                     ) : (
-                      <span className="font-mono text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
+                      <span className="font-mono tabular-nums text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
                     )}
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-300 mt-2 max-w-2xl">
@@ -918,56 +918,62 @@ export default function AdminPanel() {
               </div>
 
               {/* 3 Major Metric Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-xs relative overflow-hidden flex flex-col justify-between">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-0 pointer-events-none" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 w-full">
+                <div className="bg-white rounded-3xl p-5 border border-emerald-100/80 shadow-xs flex flex-col justify-between min-w-0">
                   <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 truncate">🏦 Total Fintech Reserves</p>
-                    {loadingAnalytics && !analytics ? (
+                    <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
+                      <span>🏦</span>
+                      <span>Total Fintech Reserves</span>
+                    </p>
+                    {loadingAnalytics && !analytics && !liveAdminReserves ? (
                       <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
                     ) : (
-                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono text-emerald-600 tracking-tight truncate">
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-emerald-600 tracking-tight truncate">
                         ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                       </p>
                     )}
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-2 flex items-center gap-1.5">
+                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
-                    <span className="truncate">Company-wide total capital pool (live)</span>
+                    <span className="truncate">Active capital reserve pool (live)</span>
                   </p>
                 </div>
 
-                <div className="bg-white rounded-2xl p-5 border border-blue-100 shadow-xs relative overflow-hidden flex flex-col justify-between">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0 pointer-events-none" />
+                <div className="bg-white rounded-3xl p-5 border border-blue-100/80 shadow-xs flex flex-col justify-between min-w-0">
                   <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 truncate">💰 Total Customer Deposits</p>
-                    {loadingAnalytics && !analytics ? (
+                    <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
+                      <span>💰</span>
+                      <span>Total Customer Deposits</span>
+                    </p>
+                    {loadingAnalytics && !analytics && !stats.totalDeposits ? (
                       <div className="h-9 w-40 bg-blue-100/70 rounded-xl animate-pulse my-1" />
                     ) : (
-                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono text-blue-600 tracking-tight truncate">
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-blue-600 tracking-tight truncate">
                         ₹{Number(analytics?.stats?.totalDeposits || 0).toLocaleString("en-IN")}
                       </p>
                     )}
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-2 flex items-center gap-1.5">
+                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
-                    <span className="truncate">{analytics?.stats?.approvedDepositCount ?? 0} Approved Deposit Transactions</span>
+                    <span className="truncate">{analytics?.stats?.approvedDepositCount ?? 0} Verified Deposits</span>
                   </p>
                 </div>
 
-                <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-xs relative overflow-hidden flex flex-col justify-between">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -z-0 pointer-events-none" />
+                <div className="bg-white rounded-3xl p-5 border border-indigo-100/80 shadow-xs flex flex-col justify-between min-w-0">
                   <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 truncate">⚡ Total Profit Credited</p>
-                    {loadingAnalytics && !analytics ? (
+                    <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
+                      <span>⚡</span>
+                      <span>Total Profit Credited</span>
+                    </p>
+                    {loadingAnalytics && !analytics && !liveAdminProfit ? (
                       <div className="h-9 w-40 bg-indigo-100/70 rounded-xl animate-pulse my-1" />
                     ) : (
-                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono text-indigo-600 tracking-tight truncate">
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-indigo-600 tracking-tight truncate">
                         ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                       </p>
                     )}
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-2 flex items-center gap-1.5">
+                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block shrink-0" />
                     <span className="truncate">12% p.a. Compounding Daily Yield</span>
                   </p>
@@ -1205,59 +1211,80 @@ export default function AdminPanel() {
                   GROWTH BREAKDOWN: "KAHAN SE KITNA BADHA KAISE BADHA"
               ══════════════════════════════════════════════════════ */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Capital Sources Breakdown */}
+                {/* Capital Sources Breakdown (Redesigned with Apple Design Craft) */}
                 <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-5">
                   <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                     <h3 className="text-base font-black font-display text-gray-900 flex items-center gap-2">
-                      <span>💎</span> Capital Sources (Kahan Se Aaya)
+                      <span className="text-lg">🏛️</span> Capital Allocation & Sources
                     </h3>
-                    <span className="text-xs font-bold text-gray-400">Total Pool: ₹{Number(analytics?.stats?.netFintechReserve || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                    <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2.5 py-1 rounded-xl border border-gray-200">
+                      Total Pool: ₹{Number(liveAdminReserves || analytics?.stats?.netFintechReserve || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                   </div>
 
-                  {/* Multi-colored Visual Bar */}
                   {(() => {
-                    const pool = Number(analytics?.stats?.netFintechReserve || 0);
-                    const dep = Number(analytics?.stats?.totalDeposits || 0);
-                    const yld = Number(analytics?.stats?.totalYieldCredited || 0);
-                    const depPct = pool > 0 ? Math.min(100, (dep / pool) * 100).toFixed(1) : "0";
-                    const yldPct = pool > 0 ? Math.min(100, (yld / pool) * 100).toFixed(1) : "0";
+                    const dep = Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 0);
+                    const yld = Number(liveAdminProfit || analytics?.stats?.totalYieldCredited || 0);
+                    const pool = dep + yld;
+                    const depPct = pool > 0 ? ((dep / pool) * 100).toFixed(2) : "100.00";
+                    const yldPct = pool > 0 ? Math.max(0.01, (yld / pool) * 100).toFixed(2) : "0.01";
+
                     return (
                       <>
-                        <div className="h-4 rounded-full bg-gray-100 flex overflow-hidden shadow-inner">
-                          <div style={{ width: `${depPct}%` }} className="bg-emerald-500 h-full transition-all duration-300" title={`Customer Deposits (${depPct}%)`} />
-                          <div style={{ width: `${yldPct}%` }} className="bg-indigo-600 h-full transition-all duration-300" title={`Yield Profit (${yldPct}%)`} />
+                        {/* Apple-style Multi-colored Segment Bar */}
+                        <div className="h-3 rounded-full bg-gray-100 flex overflow-hidden p-0.5 border border-gray-200/60 shadow-inner">
+                          <div
+                            style={{ width: `${depPct}%` }}
+                            className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                            title={`Customer Deposits (${depPct}%)`}
+                          />
+                          <div
+                            style={{ width: `${Math.max(2, parseFloat(yldPct))}%` }}
+                            className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                            title={`Yield Profit (${yldPct}%)`}
+                          />
                         </div>
 
                         <div className="space-y-3">
-                          <div className="p-3.5 rounded-2xl border border-emerald-100 bg-emerald-50/50 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-xs">
-                                {depPct}%
+                          {/* Principal Deposits Row */}
+                          <div className="p-4 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-gray-200 hover:shadow-xs transition-all flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center text-lg shrink-0">
+                                📥
                               </div>
-                              <div>
-                                <p className="font-extrabold text-xs text-gray-900">Direct Customer Deposits</p>
-                                <p className="text-[11px] text-gray-500">Self-funded capital via UPI / Bank Transfer</p>
+                              <div className="min-w-0">
+                                <p className="font-extrabold text-xs text-gray-900 truncate">Direct Customer Deposits</p>
+                                <p className="text-[11px] text-gray-500 truncate">Verified capital via UPI & Bank transfer</p>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="font-black text-sm text-gray-900">₹{dep.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                              <span className="text-[10px] font-bold text-emerald-600 uppercase">Principal Base</span>
+                            <div className="text-right shrink-0">
+                              <p className="font-black font-mono text-sm text-gray-900">
+                                ₹{dep.toLocaleString("en-IN")}
+                              </p>
+                              <span className="text-[10px] font-bold font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                                {depPct}% Principal
+                              </span>
                             </div>
                           </div>
 
-                          <div className="p-3.5 rounded-2xl border border-indigo-100 bg-indigo-50/50 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs">
-                                {yldPct}%
+                          {/* Accrued Profit Yield Row */}
+                          <div className="p-4 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-gray-200 hover:shadow-xs transition-all flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center text-lg shrink-0">
+                                📈
                               </div>
-                              <div>
-                                <p className="font-extrabold text-xs text-gray-900">12% p.a. Savings Compounding Yield</p>
-                                <p className="text-[11px] text-gray-500">Automated daily profit credited across active balances</p>
+                              <div className="min-w-0">
+                                <p className="font-extrabold text-xs text-gray-900 truncate">12% p.a. Savings Yield</p>
+                                <p className="text-[11px] text-gray-500 truncate">Automated daily compounding returns</p>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="font-black text-sm text-indigo-600">+₹{yld.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                              <span className="text-[10px] font-bold text-indigo-500 uppercase">Generated ROI</span>
+                            <div className="text-right shrink-0">
+                              <p className="font-black font-mono text-sm text-indigo-600">
+                                +₹{yld.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                              </p>
+                              <span className="text-[10px] font-bold font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                                {yldPct}% ROI Growth
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -1266,37 +1293,73 @@ export default function AdminPanel() {
                   })()}
                 </div>
 
-                {/* Narrative Audit: "Kaise Badha" */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+                {/* Capital Activity & Audit Trail (Redesigned with Apple Design Craft) */}
+                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4 flex flex-col justify-between">
                   <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                     <h3 className="text-base font-black font-display text-gray-900 flex items-center gap-2">
-                      <span>📘</span> Capital Growth Journey (Kaise Badha)
+                      <span className="text-lg">⏱️</span> Capital Growth Audit Trail
                     </h3>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700">Audit Trail</span>
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                      Real-Time Ledger
+                    </span>
                   </div>
 
-                  <div className="space-y-3.5 text-xs">
+                  <div className="space-y-2.5 text-xs max-h-[380px] overflow-y-auto pr-1 no-scrollbar">
                     {analytics?.timeline && analytics.timeline.length > 0 ? (
-                      analytics.timeline.map((item, idx) => (
-                        <div key={idx} className="flex gap-3">
-                          <div className="flex flex-col items-center">
-                            <span className={`w-6 h-6 rounded-full ${item.type === 'deposit' ? 'bg-emerald-600' : 'bg-indigo-600'} text-white flex items-center justify-center text-[10px] font-black shrink-0`}>
-                              {idx + 1}
-                            </span>
-                            {idx < analytics.timeline.length - 1 && <div className="w-0.5 flex-1 bg-gray-200 my-1" />}
+                      analytics.timeline.map((item, idx) => {
+                        const isDeposit = item.type === "deposit";
+                        const formattedAmt = Number(item.amount || 0).toLocaleString("en-IN", {
+                          minimumFractionDigits: isDeposit ? 0 : 2,
+                          maximumFractionDigits: 4
+                        });
+
+                        return (
+                          <div
+                            key={idx}
+                            className="p-3 sm:p-3.5 rounded-2xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 hover:shadow-xs transition-all flex items-start gap-3"
+                          >
+                            <div
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 border ${
+                                isDeposit
+                                  ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                  : "bg-indigo-50 text-indigo-600 border-indigo-100"
+                              }`}
+                            >
+                              {isDeposit ? "📥" : "⚡"}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <p className="font-extrabold text-gray-900 text-xs truncate">
+                                  {isDeposit ? "Customer Capital Deposit" : "Daily Savings Yield Added"}
+                                </p>
+                                <span
+                                  className={`font-mono font-bold text-xs px-2 py-0.5 rounded-lg shrink-0 border ${
+                                    isDeposit
+                                      ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                                      : "text-indigo-700 bg-indigo-50 border-indigo-200"
+                                  }`}
+                                >
+                                  +₹{formattedAmt}
+                                </span>
+                              </div>
+                              <p className="text-gray-500 text-[11px] truncate">
+                                {item.description}
+                              </p>
+                              <p className="text-[10px] text-gray-400 mt-1 font-medium">
+                                🗓️ {new Date(item.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                              </p>
+                            </div>
                           </div>
-                          <div className="pb-2">
-                            <p className="font-black text-gray-900 text-xs">
-                              {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} — {item.title}
-                            </p>
-                            <p className="text-gray-500 text-[11px] mt-0.5">{item.description}</p>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
-                      <div className="py-8 text-center text-gray-400">
-                        <p className="font-bold text-xs">Abhi koi capital activity record nahi hui hai</p>
-                        <p className="text-[11px] mt-1 text-gray-400">Naye deposits ya daily profit credit hote hi live audit trail yahan appear hoga.</p>
+                      <div className="py-12 text-center text-gray-400">
+                        <span className="text-3xl block mb-2">📋</span>
+                        <p className="font-bold text-xs text-gray-600">Abhi koi capital activity record nahi hui hai</p>
+                        <p className="text-[11px] mt-1 text-gray-400 max-w-xs mx-auto">
+                          Naye deposits ya daily profit credit hote hi live audit trail yahan appear hoga.
+                        </p>
                       </div>
                     )}
                   </div>

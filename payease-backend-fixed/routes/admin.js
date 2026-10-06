@@ -545,18 +545,19 @@ router.get('/analytics', protect, admin, async (req, res) => {
       timeline.push({
         date: d.createdAt,
         type: 'deposit',
-        title: `Capital Deposit Added (+₹${d.amount.toLocaleString('en-IN')})`,
-        description: `Deposit via ${d.method?.toUpperCase() || 'UPI'} approved (UTR: ${d.utrNumber || 'Direct'})`,
+        title: `Capital Deposit Added (+₹${Number(d.amount).toLocaleString('en-IN')})`,
+        description: `Approved via ${d.method?.toUpperCase() || 'UPI'} • UTR: ${d.utrNumber || 'Direct'}`,
         amount: d.amount
       });
     });
-    yieldTxns.slice(-8).forEach(y => {
+    yieldTxns.slice(-10).forEach(y => {
+      const cleanAmt = Number(y.amount || 0).toFixed(2);
       timeline.push({
         date: y.createdAt,
         type: 'yield',
-        title: `Daily Profit Credited (+₹${y.amount})`,
-        description: y.remarks || 'Daily savings yield credited',
-        amount: y.amount
+        title: `Daily Profit Credited (+₹${cleanAmt})`,
+        description: y.remarks || '12% p.a. daily compounding savings yield credited',
+        amount: Number(cleanAmt)
       });
     });
     timeline.sort((a, b) => new Date(b.date) - new Date(a.date));

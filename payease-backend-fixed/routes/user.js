@@ -535,6 +535,126 @@ router.get('/kyc', protect, async (req, res) => {
   }
 });
 
+// Transfer accrued profit to Primary Wallet for 12% compounding
+router.post('/transfer-profit-to-wallet', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const profit = Number((user.profitBalance || 0).toFixed(2));
+    if (profit <= 0) {
+      return res.status(400).json({ message: 'Transfer karne ke liye koi profit balance uplabdh nahi hai (₹0).' });
+    }
+
+    user.balance = Number((user.balance + profit).toFixed(2));
+    user.profitBalance = 0;
+    if (user.wallets?.savings) {
+      user.wallets.savings.balance = Number(((user.wallets.savings.balance || 0) + profit).toFixed(2));
+    }
+    await user.save();
+
+    const txn = await Transaction.create({
+      userId: user._id,
+      type: 'profit_transfer',
+      amount: profit,
+      method: 'wallet',
+      status: 'completed',
+      remarks: 'Profit transferred to Primary Wallet for 12% p.a. compounding'
+    });
+
+    res.json({
+      success: true,
+      message: `₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })} Primary Wallet me safaltapoorvak transfer ho gaya! Ab is poore balance par compounding profit milega.`,
+      transferredAmount: profit,
+      newBalance: user.balance,
+      newProfitBalance: 0,
+      txn
+    });
+  } catch (err) {
+    console.error('Profit transfer error:', err);
+    res.status(500).json({ message: 'Profit transfer karne me samasya aayi.' });
+  }
+});
+
+// Agent Performance Metrics & Portfolio Dashboard
+router.get('/agent/stats', protect, async (req, res) => {
+  try {
+    const agent = await User.findById(req.user._id);
+    if (!agent) return res.status(404).json({ message: 'User not found' });
+
+    const isAgent = agent.role === 'agent' || agent.agentProfile?.status === 'approved';
+    if (!isAgent) {
+      return res.status(403).json({ message: 'Agent access required' });
+    }
+
+    const Loan = require('../models/Loan');
+
+    // 1. Find all customers referred by this agent
+    const customers = await User.find({ referredBy: agent._id })
+      .select('name email phone balance duesBalance loansCount createdAt kycStatus');
+    const customerIds = customers.map(c => c._id);
+
+    // 2. Total Deposits from agent's customers
+    const depositTxns = await Transaction.find({
+      userId: { $in: customerIds },
+      type: 'deposit',
+      status: 'approved'
+    });
+    const totalDeposits = Number(depositTxns.reduce((sum, d) => sum + (d.amount || 0), 0).toFixed(2));
+
+    // 3. Total Disbursal to agent's customers
+    const disbursals = await Loan.find({
+      userId: { $in: customerIds },
+      status: { $in: ['approved', 'active', 'closed'] }
+    });
+    const totalDisbursal = Number(disbursals.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(2));
+
+    // 4. Total Collection from agent's customers
+    const totalCollection = Number(disbursals.reduce((sum, l) => sum + (l.collectedAmount || 0), 0).toFixed(2));
+
+    // 5. Total Pending Due of agent's customers
+    const totalDue = Number(customers.reduce((sum, c) => sum + (c.duesBalance || 0), 0).toFixed(2));
+
+    // 6. Pre-closing / Early closure loans
+    const preClosedLoans = disbursals.filter(l => l.earlyClosure || (l.status === 'closed' && (l.paidInstallments || 0) < (l.totalInstallments || 10)));
+    const preClosingCount = preClosedLoans.length;
+    const preClosingAmount = Number(preClosedLoans.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(2));
+
+    res.json({
+      success: true,
+      agentInfo: {
+        name: agent.name,
+        referralCode: agent.referralCode,
+        commissionModel: agent.agentProfile?.commissionModel || 'solo_2',
+        businessName: agent.agentProfile?.businessName || '',
+        city: agent.agentProfile?.city || ''
+      },
+      stats: {
+        totalDeposits,
+        totalDisbursal,
+        totalCollection,
+        totalDue,
+        preClosingCount,
+        preClosingAmount,
+        customerCount: customers.length
+      },
+      customers: customers.map(c => ({
+        id: c._id,
+        name: c.name,
+        phone: c.phone,
+        balance: c.balance || 0,
+        duesBalance: c.duesBalance || 0,
+        loansCount: c.loansCount || 0,
+        kycStatus: c.kycStatus || 'none',
+        joinedAt: c.createdAt
+      }))
+    });
+  } catch (err) {
+    console.error('Agent stats error:', err);
+    res.status(500).json({ message: 'Failed to fetch agent metrics' });
+  }
+});
+
 router.processDailyYield = processDailyYield;
 module.exports = router;
 module.exports.processDailyYield = processDailyYield;

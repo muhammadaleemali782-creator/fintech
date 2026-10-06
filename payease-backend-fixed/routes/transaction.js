@@ -190,7 +190,7 @@ router.post('/transfer', protect, async (req, res) => {
 // Deposit Request
 router.post('/deposit', protect, async (req, res) => {
   try {
-    const { amount, method, utrNumber } = req.body;
+    const { amount, method, utrNumber, proofUrl, screenshotUrl } = req.body;
 
     if (!isValidAmount(amount, 100, 500000))
       return res.status(400).json({ message: 'Amount must be between ₹100 and ₹5,00,000' });
@@ -201,12 +201,15 @@ router.post('/deposit', protect, async (req, res) => {
     if (utrNumber && typeof utrNumber !== 'string')
       return res.status(400).json({ message: 'Invalid UTR number' });
 
+    const finalProof = proofUrl || screenshotUrl || '';
     const txn = await Transaction.create({
       userId: req.user._id,
       type: 'deposit',
       amount,
       method,
       utrNumber,
+      proofUrl: finalProof,
+      screenshotUrl: finalProof,
       status: 'pending'
     });
     

@@ -15,7 +15,8 @@ const transactionSchema = new mongoose.Schema({
       'loan_installment',
       'loan_early_closure',
       'daily_yield',
-      'referral_bonus'
+      'referral_bonus',
+      'profit_transfer'
     ],
     required: true
   },
@@ -27,6 +28,8 @@ const transactionSchema = new mongoose.Schema({
     default: 'completed' 
   },
   utrNumber: String,
+  proofUrl: String,
+  screenshotUrl: String,
   paymentDetails: {
     upiId: String,
     accountNumber: String,

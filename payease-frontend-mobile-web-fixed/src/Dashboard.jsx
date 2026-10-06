@@ -429,6 +429,24 @@ export default function Dashboard() {
   const [appLockError, setAppLockError] = useState("");
   const [appLockLoading, setAppLockLoading] = useState(false);
 
+  // Profit Compounding & Transfer State
+  const [transferringProfit, setTransferringProfit] = useState(false);
+
+  // Agent Performance Dashboard State
+  const [agentMetrics, setAgentMetrics] = useState(null);
+  const [loadingAgentMetrics, setLoadingAgentMetrics] = useState(false);
+
+  // AI Financial Advisor Agent State ("Kya aap bhi unchaiyon pe jaana chahte hain?")
+  const [showAiAdvisor, setShowAiAdvisor] = useState(false);
+  const [advisorInput, setAdvisorInput] = useState("");
+  const [advisorMessages, setAdvisorMessages] = useState([
+    {
+      sender: "ai",
+      text: "Namaste! Main hoon aapka Educa Financial Advisor 🤖.\n\nKya aap bhi unchaiyon pe jaana chahte hain? 🚀\n\nAap mujhse platform, 12% p.a. Savings Interest, live profit growth, loan limits aur deposits ke baare me kuch bhi puch sakte hain!",
+      time: "Just now"
+    }
+  ]);
+
   // Profit Wallet Statement / History State
   const [profitHistory, setProfitHistory] = useState([]);
   const [loadingProfitHistory, setLoadingProfitHistory] = useState(false);
@@ -463,7 +481,7 @@ export default function Dashboard() {
 
   const txt = UI_TEXT[lang] || UI_TEXT.hinglish;
 
-  const [depForm, setDepForm] = useState({ amount: "", method: "upi", utrNumber: "" });
+  const [depForm, setDepForm] = useState({ amount: "", method: "upi", utrNumber: "", proofUrl: "", proofName: "" });
   const [depositDetails, setDepositDetails] = useState({
     upiId: "educafinance@upi",
     upiName: "Educa Finance & Payments",
@@ -1289,9 +1307,13 @@ export default function Dashboard() {
     }
   }, [modal]);
 
-  const userUniqueId = userProfile.phone
-    ? `EDUCA-${userProfile.referralCode || userProfile.phone}`
-    : `EDUCA-${referralCode || "USER"}`;
+  const userUniqueId = userProfile.accountNumber || (userProfile._id ? `EDUCA-${String(userProfile._id).slice(-8).toUpperCase()}` : (userStored._id || userStored.id ? `EDUCA-${String(userStored._id || userStored.id).slice(-8).toUpperCase()}` : "EDUCA-MEMBER"));
+
+  const isAgent = Boolean(
+    userProfile.role === "agent" ||
+    userStored.role === "agent" ||
+    userProfile.agentProfile?.status === "approved"
+  );
 
   const activeAccountNum = userProfile.accountNumber || "EFS0000001";
   const activeUpiId = userProfile.upiId || ((activeAccountNum).toLowerCase() + "@educa");
@@ -1338,6 +1360,20 @@ export default function Dashboard() {
     return () => clearTimeout(timer);
   }, [sendForm.recipient]);
 
+  const loadAgentMetrics = useCallback(async () => {
+    setLoadingAgentMetrics(true);
+    try {
+      const res = await fetch(`${API}/user/agent/stats`, { headers });
+      const data = await res.json();
+      if (res.ok && data) {
+        setAgentMetrics(data);
+      }
+    } catch {}
+    finally {
+      setLoadingAgentMetrics(false);
+    }
+  }, [headers]);
+
   const loadDashboard = useCallback(async () => {
     try {
       const res = await fetch(`${API}/user/me`, { headers });
@@ -1380,6 +1416,9 @@ export default function Dashboard() {
         setReferralEarnings(data.referralEarnings || 0);
         if (data.cardTier === "platinum" || data.cardStatus?.platinum?.unlocked) {
           setCardTab("platinum");
+        }
+        if (data.role === "agent" || data.agentProfile?.status === "approved") {
+          loadAgentMetrics();
         }
       }
       loadTransactions();
@@ -1511,10 +1550,12 @@ export default function Dashboard() {
     loadLoans();
     loadBonds();
 
-    // Auto-refresh live balances every 10 seconds
+    // Auto-refresh live balances every 15 seconds (only when app is in foreground to prevent Vivo Y20 crash)
     const interval = setInterval(() => {
-      loadDashboard();
-    }, 10000);
+      if (typeof document !== "undefined" && !document.hidden) {
+        loadDashboard();
+      }
+    }, 15000);
 
     // Check if new user guided feature tour should run
     const tourDone = localStorage.getItem("educa_tour_completed");
@@ -1537,18 +1578,39 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Live Mini-Second Profit Stream for Users
+  const activeCapital = Number(userProfile.balance ?? balance ?? 0);
+
+  // Live Mini-Second Profit Stream for Users (Optimized for Vivo Y20 & budget Android devices)
   const [liveMs, setLiveMs] = useState(Date.now());
   const [sessionStart] = useState(() => Date.now());
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setLiveMs(Date.now());
-    }, 60);
-    return () => clearInterval(timer);
-  }, []);
+    let timer = null;
+    const startTimer = () => {
+      if (timer) clearInterval(timer);
+      if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
+        timer = setInterval(() => {
+          setLiveMs(Date.now());
+        }, 120); // 120ms gives smooth 8fps ticks with 50% lower CPU/battery load
+      }
+    };
 
-  const activeCapital = Number(userProfile.balance ?? balance ?? 0);
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (timer) clearInterval(timer);
+      } else {
+        setLiveMs(Date.now());
+        startTimer();
+      }
+    };
+
+    startTimer();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [activeCapital]);
   // Dynamic calculation based on current balance (kam/zyada hone par auto-update)
   const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
   const perSecondYield = dailyYieldEst / 86400;
@@ -1640,6 +1702,253 @@ export default function Dashboard() {
       img.src = event.target.result;
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleDepositReceiptChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    handleLoanDocFile(file, setDepForm, "proofUrl");
+    setDepForm(prev => ({ ...prev, proofName: file.name }));
+    showToast("Receipt screenshot select ho gaya!", "success");
+    try { e.target.value = ""; } catch (_) {}
+  };
+
+  const handleTransferProfitToWallet = async () => {
+    if (transferringProfit) return;
+    const currentProfit = Number((userProfile.profitBalance || 0).toFixed(2));
+    if (currentProfit <= 0) {
+      showToast("Transfer karne ke liye profit balance hona zaroori hai (min ₹1)", "error");
+      return;
+    }
+    setTransferringProfit(true);
+    try {
+      const res = await fetch(`${API}/user/transfer-profit-to-wallet`, {
+        method: "POST",
+        headers
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || "Profit Main Wallet me transfer ho gaya! Ab poore balance par 12% compounding milega.", "success");
+        setUserProfile(prev => ({
+          ...prev,
+          balance: data.newBalance !== undefined ? data.newBalance : (prev.balance + currentProfit),
+          profitBalance: 0
+        }));
+        if (data.newBalance !== undefined) setBalance(data.newBalance);
+        loadDashboard();
+      } else {
+        showToast(data.message || "Profit transfer fail hua", "error");
+      }
+    } catch {
+      showToast("Network error profit transfer me", "error");
+    } finally {
+      setTransferringProfit(false);
+    }
+  };
+
+  const exportPdfStatement = (type = "passbook") => {
+    const isProfit = type === "profit";
+    const title = isProfit ? "PROFIT WALLET & DAILY YIELD STATEMENT" : "PRIMARY ACCOUNT PASSBOOK STATEMENT";
+    const acct = activeAccountNum;
+    const name = userProfile.name || userStored.name || "Educa Customer";
+    const phone = userProfile.phone || userStored.phone || "N/A";
+    const memId = userUniqueId;
+    const todayStr = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+    const records = isProfit
+      ? (profitHistory.length ? profitHistory : txns.filter(t => ["profit_transfer", "daily_yield", "interest", "bond_payout"].includes(t.type)))
+      : txns;
+
+    const rowsHtml = records.slice(0, 100).map((t, idx) => {
+      const dateStr = t.createdAt ? new Date(t.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+      const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal", "daily_yield", "profit_transfer", "referral_bonus"].includes(t.type);
+      const amtStr = `₹${Number(t.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+      return `
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 12px;">
+          <td style="padding: 8px 6px; text-align: center; color: #64748b;">${idx + 1}</td>
+          <td style="padding: 8px 6px; font-weight: 600;">${dateStr}</td>
+          <td style="padding: 8px 6px; text-transform: uppercase;">${t.type?.replace(/_/g, " ") || "-"}</td>
+          <td style="padding: 8px 6px; font-family: monospace; color: #475569;">${t.utrNumber || t.referenceId || "-"}</td>
+          <td style="padding: 8px 6px; color: #64748b;">${t.remarks || (isCredit ? "Credit transaction" : "Debit transaction")}</td>
+          <td style="padding: 8px 6px; text-align: right; font-weight: bold; color: ${isCredit ? '#16a34a' : '#dc2626'};">${isCredit ? '+' + amtStr : '-' + amtStr}</td>
+          <td style="padding: 8px 6px; text-align: center;"><span style="background: ${t.status === 'completed' || t.status === 'approved' ? '#dcfce7; color: #15803d' : '#fef9c3; color: #854d0e'}; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${t.status || 'completed'}</span></td>
+        </tr>
+      `;
+    }).join("");
+
+    const printHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Educa Fintech Statement - ${name}</title>
+        <meta charset="utf-8" />
+        <style>
+          @page { size: A4; margin: 15mm; }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 20px; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; }
+          .bank-title { font-size: 24px; font-weight: 900; color: #1e3a8a; letter-spacing: -0.5px; }
+          .bank-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+          .tag { font-size: 10px; background: #dbeafe; color: #1d4ed8; padding: 3px 8px; border-radius: 999px; font-weight: bold; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-bottom: 20px; }
+          .info-item { font-size: 12px; }
+          .info-label { color: #64748b; font-size: 10px; text-transform: uppercase; font-weight: bold; }
+          .info-val { font-weight: bold; color: #0f172a; margin-top: 2px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #1e293b; color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 8px 6px; text-align: left; }
+          .footer { margin-top: 30px; border-top: 1px dashed #cbd5e1; padding-top: 14px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #64748b; }
+          .seal { border: 2px solid #16a34a; color: #16a34a; font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; }
+          @media print {
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="bank-title">EDUCA FINTECH & SAVINGS</div>
+            <div class="bank-sub">Regd. Digital Microfinance & Compounding Savings • Jhalwa, Prayagraj</div>
+          </div>
+          <div style="text-align: right;">
+            <span class="tag">OFFICIAL E-STATEMENT</span>
+            <div style="font-size: 10px; color: #64748b; margin-top: 6px;">Generated: ${todayStr}</div>
+          </div>
+        </div>
+
+        <div style="font-size: 16px; font-weight: 800; color: #1e3a8a; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+          ${title}
+        </div>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Account Holder</div>
+            <div class="info-val">${name}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Permanent Member ID</div>
+            <div class="info-val" style="font-family: monospace;">${memId}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Account Number</div>
+            <div class="info-val" style="font-family: monospace;">${acct}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Registered Mobile</div>
+            <div class="info-val">${phone}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Primary Wallet Balance</div>
+            <div class="info-val" style="color: #2563eb;">₹${Number(userProfile.balance ?? balance ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Live Profit Balance (12% APY)</div>
+            <div class="info-val" style="color: #16a34a;">₹${Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 30px; text-align: center;">#</th>
+              <th style="width: 85px;">Date</th>
+              <th style="width: 100px;">Type</th>
+              <th style="width: 110px;">Ref / UTR</th>
+              <th>Particulars / Description</th>
+              <th style="width: 90px; text-align: right;">Amount</th>
+              <th style="width: 70px; text-align: center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml || '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #94a3b8;">Koi transaction record uplabdh nahi hai.</td></tr>'}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <div>
+            <div>Computer generated statement. Does not require physical signature.</div>
+            <div style="margin-top: 2px;">Educa Financial Services Support: support@educa.com | Helpline: 1800-EDUCA-FIN</div>
+          </div>
+          <div class="seal">
+            ✓ DIGITALLY VERIFIED
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWin = window.open("", "_blank", "width=850,height=750");
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(printHtml);
+      printWin.document.close();
+      setTimeout(() => {
+        try {
+          printWin.focus();
+          printWin.print();
+        } catch (e) {}
+      }, 500);
+    } else {
+      showToast("Pop-up blocked. Kripya browser pop-ups allow karein.", "error");
+    }
+  };
+
+  const handleAdvisorSend = (queryText) => {
+    const q = (queryText || advisorInput).trim();
+    if (!q) return;
+
+    const userMsg = {
+      sender: "user",
+      text: q,
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    };
+
+    setAdvisorMessages(prev => [...prev, userMsg]);
+    setAdvisorInput("");
+
+    const lower = q.toLowerCase();
+    let reply = "";
+
+    if (lower.includes("unchai") || lower.includes("unche") || lower.includes("growth") || lower.includes("safal") || lower.includes("vision")) {
+      reply = "Haan bilkul! 'Kya aap bhi unchaiyon pe jaana chahte hain? 🚀' — Educa Fintech isi maqsad se bana hai taaki har aam insaan ka paisa bank me idle pade rehne ke bajaye rozana 12% p.a. ki tezi se badhe aur emergency me instant ₹5,000 se ₹50,000 ka loan mile bina kisi paper chakkar ke!";
+    } else if (lower.includes("12") || lower.includes("interest") || lower.includes("byaj") || lower.includes("rate") || lower.includes("biyaj") || lower.includes("percentage")) {
+      reply = "Educa Savings Account me aapke poore balance par 12% p.a. (1% pratimaah) Compounding Interest milta hai! 📈\n\n• Calculation: Rozana per-second rate par hisaab hota hai.\n• 30 din wale mahine me: 1% ÷ 30 din per day.\n• 31 din wale mahine me: 1% ÷ 31 din per day.\n• Yeh profit aapke Profit Wallet me har second add hota rehta hai!";
+    } else if (lower.includes("tezi") || lower.includes("badhe") || lower.includes("speed") || lower.includes("second") || lower.includes("live")) {
+      reply = "Paisa kitni tezi se badhega? ⚡\n\n• Har Second: Aapke dashboard par live counter ticking hota hai.\n• Udaharan: Agar aapka balance ₹1,00,000 hai, to rozana lagbhag ₹32.87 se ₹33.33 profit judta hai, yaani har ghante ₹1.38 aur har minute lagbhag ₹0.023!\n• Aur jaise hi aap profit ko Main Wallet me transfer karte hain, compounding ki wajah se agle din se aur zyada tezi se badhta hai!";
+    } else if (lower.includes("transfer") || lower.includes("compound") || lower.includes("main wallet") || lower.includes("zero")) {
+      reply = "Profit Transfer & Compounding Feature: 🔄\n\nAap jab chahein, apne Profit Wallet ke 'Main Wallet me Bhejein' button par click kar sakte hain. Aisa karne par:\n1. Aapka sara profit Main Wallet me shift ho jayega.\n2. Profit account 0 se restart hoga.\n3. Ab aapke badhe hue total balance par 12% p.a. compounding shuru ho jayegi!";
+    } else if (lower.includes("loan") || lower.includes("udhar") || lower.includes("credit") || lower.includes("limit")) {
+      reply = "Educa Micro Loan Suvidha: 🤝\n\n• Pehli baar aane wale har user ke liye loan limit strict ₹5,000 hai (15 se 30 aasan installments me, sirf 1.34% per installment interest).\n• Jab pehla loan samay par chuka diya jata hai, to limit double hokar ₹10,000 se ₹50,000 tak badh jati hai!\n• Apply karne ke liye 'Quick Loan' par click karein.";
+    } else if (lower.includes("add") || lower.includes("deposit") || lower.includes("paisa dal") || lower.includes("money") || lower.includes("evidence") || lower.includes("utr")) {
+      reply = "Add Money / Deposit Kaise Karein? 💳\n\n1. Dashboard par 'Add Money' par click karein.\n2. Diye gaye QR code ya UPI ID par payment karein.\n3. Bank se prapt 12-digit UTR Number aur payment screenshot evidence attach karke submit karein.\n4. Admin approval ke baad turant balance add ho jata hai!";
+    } else if (lower.includes("pdf") || lower.includes("statement") || lower.includes("passbook") || lower.includes("download") || lower.includes("history")) {
+      reply = "PDF Statement & Passbook: 📄\n\nAap apne Passbook ya Profit History modal me jakar 'Export / Print PDF Statement' button daba sakte hain. Yeh instant digitally verified bank e-statement generate karta hai jise aap download ya print kar sakte hain!";
+    } else if (lower.includes("agent") || lower.includes("kamai") || lower.includes("commission") || lower.includes("referral")) {
+      reply = "Agent Business Model: 🏢\n\nAgents ko customer onboarding par commission milta hai. Agent portal me unka Total Deposit, Total Disbursal, Collection, Due amount aur Pre-closing analytics clear dikhayi dete hain!";
+    } else {
+      reply = "Dhanyawad aapke sawaal ke liye! Educa Platform par aapko milta hai:\n• 12% p.a. live compounding savings interest\n• ₹5,000 se ₹50,000 tak instant loans\n• Safe UPI/QR P2P transfers\n• Real-time passbook & PDF download.\n\nAgar aapka sawaal solve ho gaya ho to neeche diye gaye 'Aapka issue resolve hua' button par click kar sakte hain!";
+    }
+
+    setTimeout(() => {
+      setAdvisorMessages(prev => [
+        ...prev,
+        {
+          sender: "ai",
+          text: reply,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        }
+      ]);
+    }, 400);
+  };
+
+  const handleResolveAdvisorChat = () => {
+    setAdvisorMessages([
+      {
+        sender: "ai",
+        text: "Namaste! Main hoon aapka Educa Financial Advisor 🤖.\n\nKya aap bhi unchaiyon pe jaana chahte hain? 🚀\n\nAap mujhse platform, 12% p.a. Savings Interest, live profit growth, loan limits aur deposits ke baare me kuch bhi puch sakte hain!",
+        time: "Just now"
+      }
+    ]);
+    setShowAiAdvisor(false);
+    showToast("Aapka issue resolve ho gaya! Chat clear kar di gayi hai.", "success");
   };
 
   const copyText = (text) => {
@@ -1875,11 +2184,25 @@ export default function Dashboard() {
   };
 
   const submitDeposit = async () => {
-    if (!depForm.amount || !depForm.utrNumber) return showToast("Fill all fields", "error");
-    const res = await fetch(`${API}/transaction/deposit`, { method: "POST", headers, body: JSON.stringify({ amount: +depForm.amount, method: depForm.method, utrNumber: depForm.utrNumber }) });
+    if (!depForm.amount || !depForm.utrNumber) return showToast("Amount aur UTR number daalna zaroori hai", "error");
+    const res = await fetch(`${API}/transaction/deposit`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        amount: +depForm.amount,
+        method: depForm.method,
+        utrNumber: depForm.utrNumber.trim(),
+        proofUrl: depForm.proofUrl || "",
+        screenshotUrl: depForm.proofUrl || ""
+      })
+    });
     const data = await res.json();
     showToast(data.message, res.ok ? "success" : "error");
-    if (res.ok) { closeModal(); setDepForm({ amount: "", method: "upi", utrNumber: "" }); loadDashboard(); }
+    if (res.ok) {
+      closeModal();
+      setDepForm({ amount: "", method: "upi", utrNumber: "", proofUrl: "", proofName: "" });
+      loadDashboard();
+    }
   };
 
   const submitWithdraw = async () => {
@@ -2857,6 +3180,16 @@ export default function Dashboard() {
               </span>
             </button>
 
+            {/* Educa AI Financial Advisor */}
+            <button
+              onClick={() => setShowAiAdvisor(true)}
+              className="px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-black text-xs flex items-center gap-1.5 transition active:scale-95 shadow-2xs"
+              title="AI Financial Advisor: Kya aap bhi unchaiyon pe jaana chahte hain?"
+            >
+              <span className="text-sm">🤖</span>
+              <span className="hidden md:inline">AI Advisor 🚀</span>
+            </button>
+
             {/* Unified Settings Button (Language, Blind Voice Guide, & Tour) */}
             <button
               onClick={() => setModal("settings")}
@@ -2875,6 +3208,137 @@ export default function Dashboard() {
       </nav>
 
       <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-4 sm:py-8 overflow-x-hidden">
+
+        {/* ══════════════════════════════════════════════════════
+            0. AI ADVISOR BANNER: KYA AAP BHI UNCHAIYON PE JAANA CHAHTE HAIN?
+        ══════════════════════════════════════════════════════ */}
+        <div
+          onClick={() => setShowAiAdvisor(true)}
+          className="mb-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-2xl p-3 sm:p-3.5 text-white shadow-md flex items-center justify-between cursor-pointer active:scale-[0.99] transition hover:shadow-lg"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-xl shrink-0">
+              🚀
+            </div>
+            <div className="min-w-0">
+              <div className="font-black text-xs sm:text-sm tracking-tight flex items-center gap-1.5 flex-wrap">
+                <span>Kya aap bhi unchaiyon pe jaana chahte hain?</span>
+                <span className="px-1.5 py-0.5 bg-white/25 rounded text-[10px] font-mono uppercase font-bold">AI ADVISOR</span>
+              </div>
+              <p className="text-[11px] text-amber-100 truncate hidden sm:block">
+                Platform, 12% p.a. Savings Interest, loan rules aur live earnings ki har jaankari turant paayein!
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="px-3 py-1 bg-white text-orange-700 hover:bg-orange-50 rounded-xl font-extrabold text-xs shrink-0 transition shadow-2xs ml-2"
+          >
+            Poochhein →
+          </button>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════
+            0.1 AGENT EXECUTIVE PORTFOLIO (ONLY VISIBLE FOR AGENTS)
+        ══════════════════════════════════════════════════════ */}
+        {isAgent && (
+          <div className="mb-4 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 rounded-3xl p-4 sm:p-5 text-white shadow-xl border border-indigo-400/30 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-36 h-36 bg-blue-500/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-xl">
+                  🏢
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-sm sm:text-base text-white">Agent Executive Portfolio</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase">
+                      Agent Account
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-indigo-200">
+                    {agentMetrics?.agentInfo?.businessName || userProfile.name} • {agentMetrics?.stats?.customerCount ?? 0} Onboarded Customers
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={loadAgentMetrics}
+                className="text-[11px] font-bold text-indigo-300 hover:text-white flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg transition"
+              >
+                <span>🔄</span> {loadingAgentMetrics ? "Updating..." : "Refresh Stats"}
+              </button>
+            </div>
+
+            {/* 5 Core Agent Metrics requested by user */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              {/* 1. Total Deposit */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <span className="text-[10px] text-indigo-200 uppercase font-bold block mb-1">💰 Total Deposit</span>
+                <div className="text-lg sm:text-xl font-black font-mono text-emerald-400">
+                  ₹{(agentMetrics?.stats?.totalDeposits || 0).toLocaleString("en-IN")}
+                </div>
+                <span className="text-[9px] text-gray-400">Customer Deposits</span>
+              </div>
+
+              {/* 2. Total Disbursal */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <span className="text-[10px] text-indigo-200 uppercase font-bold block mb-1">📤 Total Disbursal</span>
+                <div className="text-lg sm:text-xl font-black font-mono text-blue-400">
+                  ₹{(agentMetrics?.stats?.totalDisbursal || 0).toLocaleString("en-IN")}
+                </div>
+                <span className="text-[9px] text-gray-400">Loans Disbursed</span>
+              </div>
+
+              {/* 3. Total Collection */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <span className="text-[10px] text-indigo-200 uppercase font-bold block mb-1">📥 Total Collection</span>
+                <div className="text-lg sm:text-xl font-black font-mono text-cyan-400">
+                  ₹{(agentMetrics?.stats?.totalCollection || 0).toLocaleString("en-IN")}
+                </div>
+                <span className="text-[9px] text-gray-400">Repayments Received</span>
+              </div>
+
+              {/* 4. Total Due */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <span className="text-[10px] text-indigo-200 uppercase font-bold block mb-1">⚠️ Total Due</span>
+                <div className="text-lg sm:text-xl font-black font-mono text-rose-400">
+                  ₹{(agentMetrics?.stats?.totalDue || 0).toLocaleString("en-IN")}
+                </div>
+                <span className="text-[9px] text-gray-400">Pending Customer Dues</span>
+              </div>
+
+              {/* 5. Pre-Closing */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 col-span-2 sm:col-span-1">
+                <span className="text-[10px] text-indigo-200 uppercase font-bold block mb-1">🔄 Pre-Closing</span>
+                <div className="text-lg sm:text-xl font-black font-mono text-amber-300">
+                  {agentMetrics?.stats?.preClosingCount || 0}
+                </div>
+                <span className="text-[9px] text-amber-200/80">₹{(agentMetrics?.stats?.preClosingAmount || 0).toLocaleString("en-IN")} Closed Early</span>
+              </div>
+            </div>
+
+            {/* Agent Referral Onboarding Section */}
+            <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-indigo-200 font-bold">Your Referral Code:</span>
+                <span className="font-mono font-black text-amber-300 bg-black/40 px-2 py-0.5 rounded border border-amber-400/30">
+                  {agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode || "AGENT"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const code = agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode;
+                  copyText(`${window.location.origin}/register?ref=${code}`);
+                }}
+                className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold transition active:scale-95 text-xs shadow-xs"
+              >
+                {copied ? "✓ Copied" : "📋 Copy Customer Referral Link"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════
             1. TOP ROW: PROFIT WALLET & DUES WALLET (SIDE-BY-SIDE)
@@ -2900,9 +3364,24 @@ export default function Dashboard() {
               </h3>
               <p className="text-emerald-100/90 text-[11px] hidden sm:block mt-1">1% Monthly Daily Yield & 365d Bonds</p>
             </div>
-            <div className="pt-2 border-t border-emerald-500/40 flex justify-between items-center text-[11px] text-emerald-100 relative z-10 mt-2">
+            <div className="pt-2 border-t border-emerald-500/40 flex flex-wrap justify-between items-center gap-1 text-[11px] text-emerald-100 relative z-10 mt-2">
               <span>{userProfile.interestRate || currentRate}% APY</span>
-              <span className="font-bold underline">History & Bonds →</span>
+              <div className="flex items-center gap-2">
+                {(userProfile.profitBalance || 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTransferProfitToWallet();
+                    }}
+                    disabled={transferringProfit}
+                    className="px-2 py-0.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold text-[10px] transition active:scale-95 cursor-pointer"
+                  >
+                    {transferringProfit ? "Transferring..." : "🔄 Compound"}
+                  </button>
+                )}
+                <span className="font-bold underline">History →</span>
+              </div>
             </div>
           </div>
 
@@ -3698,6 +4177,27 @@ export default function Dashboard() {
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-500/30 text-xs text-emerald-100">
               <span>Daily Profit Added to Savings Account (12% Annual Yield)</span>
             </div>
+          </div>
+
+          {/* Action Row: Transfer to Main Wallet for Compounding & Export PDF */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={handleTransferProfitToWallet}
+              disabled={transferringProfit || (userProfile.profitBalance || 0) <= 0}
+              className="py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition cursor-pointer"
+            >
+              <span>🔄</span>
+              <span>{transferringProfit ? "Transferring to Wallet..." : "Main Wallet me Bhejein (12% Compounding)"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => exportPdfStatement("profit")}
+              className="py-3 px-4 bg-white hover:bg-gray-50 border border-gray-200 text-slate-800 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs active:scale-[0.98] transition cursor-pointer"
+            >
+              <span>📄</span>
+              <span>Export / Print PDF Statement</span>
+            </button>
           </div>
 
           {/* Live Mini-Second Real-Time Ticker Stream */}
@@ -6063,7 +6563,7 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1">12-Digit UTR / Transaction ID</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">12-Digit UTR / Transaction ID <span className="text-rose-500">*</span></label>
             <input
               type="text"
               placeholder="Enter 12-digit UTR number from receipt"
@@ -6071,6 +6571,39 @@ export default function Dashboard() {
               onChange={e => setDepForm({ ...depForm, utrNumber: e.target.value })}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm font-mono"
             />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">
+              Payment Screenshot / Receipt Evidence <span className="text-gray-400 font-normal">(Proof)</span>
+            </label>
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-3 text-center bg-gray-50/60 hover:bg-gray-100/60 transition">
+              {depForm.proofUrl ? (
+                <div className="relative inline-block">
+                  <img src={depForm.proofUrl} alt="Receipt proof" className="max-h-36 rounded-lg shadow-sm border border-gray-200 mx-auto object-contain" />
+                  <button
+                    type="button"
+                    onClick={() => setDepForm(prev => ({ ...prev, proofUrl: "", proofName: "" }))}
+                    className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                  <p className="text-[10px] text-emerald-600 font-bold mt-1.5">✓ Screenshot attached</p>
+                </div>
+              ) : (
+                <label className="cursor-pointer flex flex-col items-center justify-center py-2.5">
+                  <span className="text-2xl mb-1">📸</span>
+                  <span className="text-xs font-bold text-blue-600">Payment Screenshot Attach Karein</span>
+                  <span className="text-[10px] text-gray-400 mt-0.5">JPG, PNG (Max 15MB)</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleDepositReceiptChange}
+                  />
+                </label>
+              )}
+            </div>
           </div>
         </div>
 
@@ -7595,6 +8128,21 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Export PDF Statement Action */}
+          <div className="flex justify-between items-center bg-blue-50/70 border border-blue-200/80 rounded-2xl p-3">
+            <div>
+              <p className="text-xs font-bold text-blue-950">Official Bank E-Statement</p>
+              <p className="text-[10px] text-blue-700">Digitally verified passbook report</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => exportPdfStatement("passbook")}
+              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+            >
+              <span>📄</span> Export / Print PDF
+            </button>
+          </div>
+
           {/* FILTER TABS */}
           <div className="flex gap-1.5 p-1 bg-gray-100 rounded-xl">
             {[
@@ -8075,6 +8623,105 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════
+          EDUCA AI FINANCIAL ADVISOR SHEET
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={showAiAdvisor} onClose={() => setShowAiAdvisor(false)} title="Educa AI Financial Advisor" icon="🤖">
+        <div className="space-y-4">
+          {/* Hero Banner: Kya aap bhi unchaiyon pe jaana chahte hain? */}
+          <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-2xl p-4 text-white shadow-md relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 pointer-events-none" />
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl">🚀</span>
+              <h4 className="font-black text-sm sm:text-base tracking-tight text-white">
+                Kya aap bhi unchaiyon pe jaana chahte hain?
+              </h4>
+            </div>
+            <p className="text-xs text-amber-100 leading-relaxed">
+              Educa Platform ke 12% p.a. Savings Interest, live per-second profit calculation, instant loan rules aur deposit suvidha ke baare me koi bhi sawaal poochein!
+            </p>
+          </div>
+
+          {/* Quick FAQ / Topic Chips */}
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              "12% Interest kaise milta hai?",
+              "Mera paisa kitni tezi se badhega?",
+              "Profit ko Main Wallet me kaise bhejein?",
+              "₹5,000 Loan kaise milega?",
+              "Add money par evidence kaise daalein?",
+              "PDF Statement kaise download karein?"
+            ].map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => handleAdvisorSend(chip)}
+                className="text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 px-2.5 py-1 rounded-full transition active:scale-95 cursor-pointer"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+
+          {/* Chat Messages Feed */}
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 max-h-72 overflow-y-auto space-y-3">
+            {advisorMessages.map((msg, index) => (
+              <div
+                key={index}
+                className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
+              >
+                <div
+                  className={`max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed whitespace-pre-line shadow-2xs ${
+                    msg.sender === "user"
+                      ? "bg-blue-600 text-white rounded-tr-none font-medium"
+                      : "bg-white text-gray-800 border border-gray-200/80 rounded-tl-none font-normal"
+                  }`}
+                >
+                  {msg.text}
+                </div>
+                <span className="text-[9px] text-gray-400 mt-0.5 px-1">{msg.time}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Input & Send Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAdvisorSend();
+            }}
+            className="flex gap-2"
+          >
+            <input
+              type="text"
+              value={advisorInput}
+              onChange={(e) => setAdvisorInput(e.target.value)}
+              placeholder="Apna sawaal likhein (e.g. 12% interest, loan limit...)"
+              className="flex-1 px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 bg-white"
+            />
+            <button
+              type="submit"
+              disabled={!advisorInput.trim()}
+              className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs rounded-xl transition active:scale-95 disabled:opacity-50 shadow-2xs cursor-pointer"
+            >
+              Poochhein
+            </button>
+          </form>
+
+          {/* Issue Resolved / Clear Chat Action Button requested by user */}
+          <div className="pt-2 border-t border-gray-100 flex justify-center">
+            <button
+              type="button"
+              onClick={handleResolveAdvisorChat}
+              className="w-full py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-2xs cursor-pointer"
+            >
+              <span>✅</span>
+              <span>Aapka issue resolve hua? (Chat Clear Karein)</span>
+            </button>
+          </div>
+        </div>
+      </Sheet>
 
       <Toast msg={toast} onHide={() => setToast({ text: "", type: "" })} />
 

@@ -645,6 +645,61 @@ router.get('/agent/stats', protect, async (req, res) => {
   }
 });
 
+// Agent Mass Broadcast Message to all referred customers in one click
+router.post('/agent/broadcast', protect, async (req, res) => {
+  try {
+    const agent = await User.findById(req.user._id);
+    if (!agent) return res.status(404).json({ message: 'User not found' });
+    const isAgent = agent.role === 'agent' || agent.agentProfile?.status === 'approved';
+    if (!isAgent) return res.status(403).json({ message: 'Agent access required' });
+
+    const { message, title } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: 'Message content is required' });
+    }
+
+    const Notification = require('../models/Notification');
+    const customers = await User.find({ referredBy: agent._id }).select('_id name phone email');
+    if (!customers || customers.length === 0) {
+      return res.status(400).json({ message: 'Aapke paas abhi koi registered customer nahi hai jinhe broadcast bheja ja sake.' });
+    }
+
+    const notifTitle = title && title.trim() ? title.trim() : `📢 Agent Broadcast (${agent.name})`;
+    const notifs = customers.map(c => ({
+      userId: c._id,
+      title: notifTitle,
+      message: message.trim(),
+      type: 'general',
+      createdAt: new Date()
+    }));
+
+    await Notification.insertMany(notifs);
+
+    // Real-time SSE alert
+    if (req.app.locals.sseClients) {
+      const payload = JSON.stringify({
+        type: 'agent_broadcast',
+        sender: agent.name,
+        title: notifTitle,
+        message: message.trim(),
+        recipientCount: customers.length
+      });
+      req.app.locals.sseClients.forEach(client => {
+        try { client.write(`data: ${payload}\n\n`); } catch (e) {}
+      });
+    }
+
+    res.json({
+      success: true,
+      sentCount: customers.length,
+      message: `Safaltapoorvak sabhi ${customers.length} customers ko mass message bhej diya gaya hai!`
+    });
+  } catch (err) {
+    console.error('Agent broadcast error:', err);
+    res.status(500).json({ message: 'Broadcast message send karne me error aaya' });
+  }
+});
+
 router.processDailyYield = processDailyYield;
 module.exports = router;
 module.exports.processDailyYield = processDailyYield;

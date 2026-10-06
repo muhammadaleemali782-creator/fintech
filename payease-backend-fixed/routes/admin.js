@@ -130,10 +130,16 @@ router.get('/users', protect, admin, async (req, res) => {
   }
 });
 
-// Agent Applications: List, Approve, Reject
+// Agent Applications & Registered Agents List
 router.get('/agent-applications', protect, admin, async (req, res) => {
   try {
-    const applicants = await User.find({ 'agentProfile.applied': true })
+    const applicants = await User.find({
+      $or: [
+        { 'agentProfile.applied': true },
+        { role: 'agent' },
+        { 'agentProfile.status': { $in: ['pending', 'approved', 'rejected'] } }
+      ]
+    })
       .select('-password')
       .sort({ 'agentProfile.appliedAt': -1, createdAt: -1 });
     res.json(applicants);

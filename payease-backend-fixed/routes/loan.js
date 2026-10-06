@@ -649,15 +649,25 @@ router.post('/:id/close-early', protect, async (req, res) => {
     await session.withTransaction(async () => {
       const loan = await Loan.findById(req.params.id).session(session);
       if (!loan) throw Object.assign(new Error('Loan not found'), { status: 404 });
-      if (loan.userId.toString() !== req.user._id.toString()) throw Object.assign(new Error('Unauthorized'), { status: 403 });
+
+      const borrower = await User.findById(loan.userId).session(session);
+      if (!borrower) throw Object.assign(new Error('Borrower not found'), { status: 404 });
+
+      const isBorrower = loan.userId.toString() === req.user._id.toString();
+      const isAgentOfBorrower = borrower.referredBy && borrower.referredBy.toString() === req.user._id.toString();
+      const isAdmin = req.user.role === 'admin';
+      if (!isBorrower && !isAgentOfBorrower && !isAdmin) {
+        throw Object.assign(new Error('Unauthorized to close this loan'), { status: 403 });
+      }
+
       if (loan.status !== 'active') throw Object.assign(new Error('Loan is not active'), { status: 400 });
 
       const payoffAmount = loan.remainingAmount || (loan.totalPayable - (loan.paidAmount || 0));
       if (payoffAmount <= 0) throw Object.assign(new Error('Loan has no outstanding balance'), { status: 400 });
 
-      // Atomic balance deduction
+      // Atomic balance deduction from borrower
       const updatedUser = await User.findOneAndUpdate(
-        { _id: req.user._id, balance: { $gte: payoffAmount } },
+        { _id: borrower._id, balance: { $gte: payoffAmount } },
         {
           $inc: {
             balance: -payoffAmount,
@@ -666,10 +676,11 @@ router.post('/:id/close-early', protect, async (req, res) => {
         },
         { new: true, session }
       );
-      if (!updatedUser) throw Object.assign(new Error(`Insufficient balance. Payoff requires ₹${payoffAmount.toLocaleString('en-IN')}`), { status: 400 });
+      if (!updatedUser) throw Object.assign(new Error(`Borrower wallet me paryapt balance nahi hai. Payoff ke liye ₹${payoffAmount.toLocaleString('en-IN')} zaroori hai.`), { status: 400 });
 
       // Count installments paid before closure
-      const paidInstallmentsCount = loan.installmentSchedule.filter(s => s.status === 'paid').length;
+      const paidInstallmentsCount = (loan.installmentSchedule || []).filter(s => s.status === 'paid').length;
+      const totalTenure = loan.installmentsCount || loan.tenure || (loan.installmentSchedule || []).length || 0;
 
       // Mark all schedule entries as paid
       loan.installmentSchedule.forEach(s => {
@@ -691,12 +702,36 @@ router.post('/:id/close-early', protect, async (req, res) => {
       loan.earlyClosed = true;
       loan.earlyClosedAt = new Date();
 
-      // Agent 1:1 profit bonus if closed before 9th installment
-      if (paidInstallmentsCount < 9 && updatedUser.referredBy) {
-        // Agent 1:1 bonus equivalent to 1 full installment amount
+      // Agent Pre-Closure Commission Rules:
+      // 18 EMI tenure: min 15 paid -> 3% commission on loan amount
+      // 21 EMI tenure: 6% commission on loan amount
+      // 24 EMI tenure: 9% commission on loan amount
+      let preCloseCommissionPct = 0;
+      if (totalTenure === 18 && paidInstallmentsCount >= 15) {
+        preCloseCommissionPct = 3;
+      } else if (totalTenure === 21) {
+        preCloseCommissionPct = 6;
+      } else if (totalTenure === 24) {
+        preCloseCommissionPct = 9;
+      } else if (totalTenure > 21) {
+        preCloseCommissionPct = 9;
+      } else if (totalTenure > 18) {
+        preCloseCommissionPct = 6;
+      } else if (totalTenure >= 18 && paidInstallmentsCount >= 15) {
+        preCloseCommissionPct = 3;
+      }
+
+      if (preCloseCommissionPct > 0) {
+        agentBonus = Math.round((loan.amount * preCloseCommissionPct) / 100);
+      } else if (paidInstallmentsCount < 9) {
+        // Fallback early close profit
         agentBonus = loan.installmentAmount || Math.round(loan.amount * 0.05);
+      }
+
+      const agentId = updatedUser.referredBy;
+      if (agentBonus > 0 && agentId) {
         await User.findByIdAndUpdate(
-          updatedUser.referredBy,
+          agentId,
           {
             $inc: {
               balance: agentBonus,
@@ -709,20 +744,24 @@ router.post('/:id/close-early', protect, async (req, res) => {
         loan.agentProfitPaid = true;
         loan.agentProfitAmount = agentBonus;
 
+        const commissionRemarks = preCloseCommissionPct > 0
+          ? `Agent Pre-Closure ${preCloseCommissionPct}% Commission for loan ${loan.accountNumber || loan._id} (${totalTenure} EMIs tenure, ${paidInstallmentsCount} paid)`
+          : `Agent Early Closure Profit for loan ${loan.accountNumber || loan._id}`;
+
         await Transaction.create([{
-          userId: updatedUser.referredBy,
+          userId: agentId,
           type: 'bond_payout',
           amount: agentBonus,
           method: 'wallet',
           status: 'completed',
           referenceId: loan._id.toString(),
-          remarks: `Agent 1:1 Early Closure Profit for loan ${loan.accountNumber} (Closed before 9th installment)`
+          remarks: commissionRemarks
         }], { session });
       }
 
       // Upgrade user loan limit (doubles up to 50k)
       const newLimit = Math.min((updatedUser.loanLimit || 10000) * 2, 50000);
-      await User.findByIdAndUpdate(req.user._id, { $set: { loanLimit: newLimit } }, { session });
+      await User.findByIdAndUpdate(borrower._id, { $set: { loanLimit: newLimit } }, { session });
 
       await loan.save({ session });
 

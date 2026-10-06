@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
@@ -59,8 +59,28 @@ export default function AdminPanel() {
   });
   const [savingDepositDetails, setSavingDepositDetails] = useState(false);
   const [previewKycUser, setPreviewKycUser] = useState(null);
-  const [kycReviewRemarks, setKycReviewRemarks] = useState("");
   const [kycFilter, setKycFilter] = useState("all");
+  const [userFilter, setUserFilter] = useState("all"); // 'all' | 'customers' | 'agents'
+  const [agentFilter, setAgentFilter] = useState("all"); // 'all' | 'approved' | 'pending'
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      const isAgent = u.role === "agent" || u.agentProfile?.status === "approved";
+      if (userFilter === "agents") return isAgent;
+      if (userFilter === "customers") return !isAgent;
+      return true;
+    });
+  }, [users, userFilter]);
+
+  const filteredAgents = useMemo(() => {
+    return agents.filter(a => {
+      const isApproved = a.role === "agent" || a.agentProfile?.status === "approved";
+      const isPending = a.agentProfile?.status === "pending";
+      if (agentFilter === "approved") return isApproved;
+      if (agentFilter === "pending") return isPending;
+      return true;
+    });
+  }, [agents, agentFilter]);
   const [lightboxImg, setLightboxImg] = useState(null); // fullscreen doc viewer
   const [zoomLevel, setZoomLevel] = useState(1);
   const [expandedLoanId, setExpandedLoanId] = useState(null);
@@ -175,7 +195,11 @@ export default function AdminPanel() {
   }, []); // eslint-disable-line
 
   const loadUsers = useCallback(async () => {
-    try { const res = await fetch(`${API}/admin/users`, { headers }); const d = await res.json(); setUsers(Array.isArray(d) ? d.filter(u => u.role === "user") : []); } catch {}
+    try {
+      const res = await fetch(`${API}/admin/users`, { headers });
+      const d = await res.json();
+      setUsers(Array.isArray(d) ? d.filter(u => u.role !== "admin") : []);
+    } catch {}
   }, []); // eslint-disable-line
 
   const loadLoans = useCallback(async () => {
@@ -1837,21 +1861,96 @@ export default function AdminPanel() {
           {/* AGENT PARTNERS */}
           {tab === "agents" && (
             <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-              <div className="flex justify-between items-center mb-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div>
-                  <h3 className="text-lg font-bold font-display text-gray-900">Agent Partner Applications</h3>
-                  <p className="text-xs text-gray-500">Contact applicants, verify shop & details, and approve agent status</p>
+                  <h3 className="text-lg font-bold font-display text-gray-900">Agent Partner Applications & Directory</h3>
+                  <p className="text-xs text-gray-500">Contact applicants, verify shop & details, approve status, and manage commission tiers</p>
                 </div>
-                <span className="px-3 py-1 bg-amber-100 text-amber-900 text-xs font-bold rounded-full">
-                  {agents.filter(a => a.agentProfile?.status === "pending").length} Pending
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 bg-amber-100 text-amber-900 text-xs font-bold rounded-full">
+                    {agents.filter(a => a.agentProfile?.status === "pending").length} Pending
+                  </span>
+                  <span className="px-3 py-1 bg-emerald-100 text-emerald-900 text-xs font-bold rounded-full">
+                    {agents.filter(a => a.role === "agent" || a.agentProfile?.status === "approved").length} Approved
+                  </span>
+                </div>
               </div>
 
-              {agents.length === 0 ? (
-                <p className="py-12 text-center text-gray-400 text-sm">No agent applications yet 🤝</p>
+              {/* Agent Foreclosure Commission Structure Guide Card */}
+              <div className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50 to-amber-50 border border-blue-200/70">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-base">⚡</span>
+                  <h4 className="text-xs sm:text-sm font-extrabold text-blue-950">
+                    Agent Loan Foreclosure Commission Slabs (Pre-Close / Early Settlement)
+                  </h4>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-black bg-blue-600 text-white uppercase">
+                    Auto-Credited
+                  </span>
+                </div>
+                <p className="text-[11px] sm:text-xs text-blue-900/80 mb-3">
+                  Jab koi agent kisi bhi borrower ka loan samay se pehle pre-close karwata hai, toh agent ke wallet me direct commission add hota hai:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div className="p-3 bg-white rounded-xl border border-blue-100 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">18 EMI Tenure</span>
+                    <span className="text-base font-black text-blue-700">3% Commission</span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Minimum 15 installments paid required</p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">21 EMI Tenure</span>
+                    <span className="text-base font-black text-indigo-700">6% Commission</span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Direct 6% on loan pre-closure</p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-amber-100 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">24 EMI Tenure</span>
+                    <span className="text-base font-black text-amber-700">9% Commission</span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Maximum tenure 9% bonus on pre-closure</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Agent Filter Pills */}
+              <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setAgentFilter("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 ${
+                    agentFilter === "all"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  All Agents ({agents.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAgentFilter("approved")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-1.5 ${
+                    agentFilter === "approved"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200"
+                  }`}
+                >
+                  ✓ Approved Agents ({agents.filter(a => a.role === "agent" || a.agentProfile?.status === "approved").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAgentFilter("pending")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-1.5 ${
+                    agentFilter === "pending"
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200"
+                  }`}
+                >
+                  ⏳ Pending Applications ({agents.filter(a => a.agentProfile?.status === "pending").length})
+                </button>
+              </div>
+
+              {filteredAgents.length === 0 ? (
+                <p className="py-12 text-center text-gray-400 text-sm">No agent records found for this filter 🤝</p>
               ) : (
                 <div className="space-y-4">
-                  {agents.map(a => {
+                  {filteredAgents.map(a => {
                     const prof = a.agentProfile || {};
                     const isPending = prof.status === "pending";
                     const isApproved = prof.status === "approved" || a.role === "agent";
@@ -1948,7 +2047,7 @@ export default function AdminPanel() {
           {/* USERS */}
           {tab === "users" && (
             <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div>
                   <h3 className="text-lg font-bold font-display">All Users & Verification</h3>
                   <p className="text-xs text-gray-500">Manage KYC documents, card tiers, custom interest rates and accounts</p>
@@ -1960,8 +2059,45 @@ export default function AdminPanel() {
                 )}
               </div>
 
-              {users.length === 0 ? (
-                <p className="py-10 text-center text-gray-300 text-sm">No users found</p>
+              {/* User filter pills */}
+              <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setUserFilter("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 ${
+                    userFilter === "all"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  All Users ({users.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserFilter("customers")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-1.5 ${
+                    userFilter === "customers"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                  }`}
+                >
+                  👤 Regular Customers ({users.filter(u => u.role !== "agent" && u.agentProfile?.status !== "approved").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserFilter("agents")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-1.5 ${
+                    userFilter === "agents"
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
+                  }`}
+                >
+                  🤝 Agents Only ({users.filter(u => u.role === "agent" || u.agentProfile?.status === "approved").length})
+                </button>
+              </div>
+
+              {filteredUsers.length === 0 ? (
+                <p className="py-10 text-center text-gray-400 text-sm">No users found for this filter</p>
               ) : (
                 <>
                   <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-100 shadow-xs">
@@ -1980,11 +2116,18 @@ export default function AdminPanel() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-xs">
-                        {users.map(u => (
+                        {filteredUsers.map(u => (
                           <tr key={u._id} className="hover:bg-slate-50/60 transition-colors">
                             {/* USER */}
                             <td className="py-4 px-4 align-top">
-                              <p className="font-bold text-sm text-gray-900 leading-tight">{u.name}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-bold text-sm text-gray-900 leading-tight">{u.name}</p>
+                                {(u.role === "agent" || u.agentProfile?.status === "approved") && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                                    🤝 Agent
+                                  </span>
+                                )}
+                              </div>
                               <div className="mt-1 flex flex-wrap items-center gap-1">
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200" title="Account Number">
                                   A/C: {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
@@ -2191,11 +2334,18 @@ export default function AdminPanel() {
 
                   {/* MOBILE CARDS */}
                   <div className="md:hidden space-y-3">
-                    {users.map(u => (
+                    {filteredUsers.map(u => (
                       <div key={u._id} className="border border-gray-100 rounded-2xl p-4 bg-white shadow-xs">
                         <div className="flex justify-between items-start mb-2.5">
                           <div>
-                            <p className="font-bold text-sm text-gray-900">{u.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-bold text-sm text-gray-900">{u.name}</p>
+                              {(u.role === "agent" || u.agentProfile?.status === "approved") && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                                  🤝 Agent
+                                </span>
+                              )}
+                            </div>
                             <div className="flex flex-wrap items-center gap-1 mt-1 mb-1">
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                                 A/C: {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}

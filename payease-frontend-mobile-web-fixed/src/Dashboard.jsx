@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import QRCode from "qrcode";
 import { Html5Qrcode } from "html5-qrcode";
 import Sheet from "./components/Sheet";
@@ -440,6 +440,10 @@ export default function Dashboard() {
   const [agentMetrics, setAgentMetrics] = useState(null);
   const [loadingAgentMetrics, setLoadingAgentMetrics] = useState(false);
   const [agentCustomerSearch, setAgentCustomerSearch] = useState("");
+  const [agentBroadcastModalOpen, setAgentBroadcastModalOpen] = useState(false);
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastSending, setBroadcastSending] = useState(false);
 
   // AI Financial Advisor Agent State ("Kya aap bhi unchaiyon pe jaana chahte hain?")
   const [showAiAdvisor, setShowAiAdvisor] = useState(false);
@@ -744,13 +748,14 @@ export default function Dashboard() {
     setAccountModal(null);
     setLightboxImg(null);
     setSubmitInstallmentModal(null);
+    setAgentBroadcastModalOpen(false);
     setShowLoans(false);
   };
 
   // Intercept Android Hardware Back Button & Mobile Browser Back navigation
   useEffect(() => {
     window.handleAndroidBackPressed = () => {
-      if (modal || accountModal || showLoans || showTour || lightboxImg || submitInstallmentModal) {
+      if (modal || accountModal || showLoans || showTour || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen) {
         closeModal();
         setShowTour(false);
         return true;
@@ -760,10 +765,10 @@ export default function Dashboard() {
     return () => {
       window.handleAndroidBackPressed = null;
     };
-  }, [modal, accountModal, showLoans, showTour, lightboxImg, submitInstallmentModal]);
+  }, [modal, accountModal, showLoans, showTour, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen]);
 
   useEffect(() => {
-    const isOverlayOpen = Boolean(modal || accountModal || showLoans || lightboxImg || submitInstallmentModal);
+    const isOverlayOpen = Boolean(modal || accountModal || showLoans || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen);
     if (isOverlayOpen) {
       window.history.pushState({ educaSheetOpen: true }, "");
       const onPopState = () => {
@@ -1337,6 +1342,72 @@ export default function Dashboard() {
     userStored.role === "agent" ||
     userProfile.agentProfile?.status === "approved"
   );
+
+  // 5-Day Due Date Alert Calculation: checks active loans for any installment with daysLeft <= 5
+  const upcomingDueInstallment = useMemo(() => {
+    if (!loans || loans.length === 0) return null;
+    const now = Date.now();
+    let soonest = null;
+
+    for (const l of loans) {
+      if (l.status !== "active") continue;
+      const schedule = (l.installmentSchedule && l.installmentSchedule.length > 0) ? l.installmentSchedule : (l.emiSchedule || []);
+      for (const inst of schedule) {
+        if (inst.status === "pending" || inst.status === "overdue") {
+          const dueDate = inst.dueDate ? new Date(inst.dueDate).getTime() : null;
+          if (!dueDate) continue;
+          const diffDays = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+          // If due within 5 days or overdue (diffDays <= 5)
+          if (diffDays <= 5) {
+            if (!soonest || diffDays < soonest.daysLeft) {
+              soonest = {
+                loan: l,
+                installment: inst,
+                daysLeft: diffDays,
+                isOverdue: diffDays < 0,
+                amount: inst.amount || l.installmentAmount || 0,
+                dueDate: inst.dueDate,
+                installmentNo: inst.installmentNo
+              };
+            }
+          }
+        }
+      }
+    }
+    return soonest;
+  }, [loans]);
+
+  // Agent 1-Click Mass Broadcast Message
+  const handleSendAgentBroadcast = async () => {
+    if (!broadcastMessage.trim()) {
+      setToast({ text: "Kripya broadcast message type karein", type: "error" });
+      return;
+    }
+    setBroadcastSending(true);
+    try {
+      const res = await fetch(`${API}/user/agent/broadcast`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          title: broadcastTitle.trim() || undefined,
+          message: broadcastMessage.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setToast({ text: data.message || "Mass broadcast sabhi customers ko bhej diya gaya!", type: "success" });
+        setAgentBroadcastModalOpen(false);
+        setBroadcastMessage("");
+        setBroadcastTitle("");
+      } else {
+        setToast({ text: data.message || "Broadcast bhejne me error aaya", type: "error" });
+      }
+    } catch {
+      setToast({ text: "Network issue: Broadcast message send nahi ho saka", type: "error" });
+    } finally {
+      setBroadcastSending(false);
+    }
+  };
 
   const activeAccountNum = userProfile.accountNumber || "EFS0000001";
   const activeUpiId = userProfile.upiId || ((activeAccountNum).toLowerCase() + "@educa");
@@ -3469,16 +3540,51 @@ export default function Dashboard() {
                   {agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode || "AGENT"}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const code = agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode;
-                  copyText(`${window.location.origin}/register?ref=${code}`);
-                }}
-                className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold transition active:scale-95 text-xs shadow-xs"
-              >
-                {copied ? "✓ Copied" : "📋 Copy Customer Referral Link"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAgentBroadcastModalOpen(true)}
+                  className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black rounded-xl transition active:scale-95 text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>📢</span> Send Mass Message
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const code = agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode;
+                    copyText(`${window.location.origin}/register?ref=${code}`);
+                  }}
+                  className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold transition active:scale-95 text-xs shadow-xs cursor-pointer"
+                >
+                  {copied ? "✓ Copied" : "📋 Copy Link"}
+                </button>
+              </div>
+            </div>
+
+            {/* Foreclosure / Early Settlement Commission Slabs Guide */}
+            <div className="mt-3 p-3 bg-white/5 border border-amber-400/25 rounded-2xl text-xs">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                  <span>⚡</span> Loan Foreclosure Commission (Pre-Close Slabs)
+                </span>
+                <span className="text-[10px] bg-amber-400/20 text-amber-200 border border-amber-400/30 px-2 py-0.5 rounded-full font-bold">
+                  Direct Wallet Credit
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-[11px] pt-1">
+                <div className="p-2 bg-black/30 rounded-xl border border-white/5">
+                  <span className="text-gray-400 block text-[10px]">18 EMI (Min 15 paid)</span>
+                  <span className="font-black text-amber-300 text-xs">3% Commission</span>
+                </div>
+                <div className="p-2 bg-black/30 rounded-xl border border-white/5">
+                  <span className="text-gray-400 block text-[10px]">21 EMI Tenure</span>
+                  <span className="font-black text-amber-300 text-xs">6% Commission</span>
+                </div>
+                <div className="p-2 bg-black/30 rounded-xl border border-white/5">
+                  <span className="text-gray-400 block text-[10px]">24 EMI Tenure</span>
+                  <span className="font-black text-amber-300 text-xs">9% Commission</span>
+                </div>
+              </div>
             </div>
 
             {/* Agent Referred Customers Breakdown Section */}
@@ -3680,6 +3786,18 @@ export default function Dashboard() {
                   ? "Pending Easy Installments & upcoming collections"
                   : "No Active Dues • All Clear (₹0)"}
               </p>
+              {upcomingDueInstallment && (
+                <div className="mt-2 p-1.5 px-2 bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-950 rounded-xl text-[10px] font-black flex items-center gap-1.5 shadow-md animate-pulse">
+                  <span className="text-xs">⏰</span>
+                  <div className="truncate leading-tight">
+                    <span>
+                      {upcomingDueInstallment.daysLeft <= 0
+                        ? `Aaj kist ka din hai! (₹${upcomingDueInstallment.amount})`
+                        : `${upcomingDueInstallment.daysLeft} din bache hain (₹${upcomingDueInstallment.amount}) - Bhar dijiye`}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="pt-2 border-t border-red-400/30 flex justify-between items-center text-[11px] text-red-100 relative z-10 mt-2">
               <span>{(userProfile.duesBalance || 0) > 0 ? "10-Day Cycle (1st, 11th, 21st)" : "All Clear"}</span>
@@ -6442,39 +6560,51 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 5-DAY UPCOMING DUE ALERT BANNER */}
-          {activeLoanDetails?.isUpcomingSoon && activeLoanDetails?.nextInstallment && (
-            <div className="p-3.5 bg-amber-50 border-2 border-amber-400 rounded-2xl space-y-2 text-amber-950 shadow-xs animate-pulse">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🔔</span>
-                <span className="font-black text-xs uppercase tracking-wide text-amber-900">
-                  Upcoming Due Alert (#{activeLoanDetails.nextInstallment.installmentNo})
-                </span>
+          {/* 5-DAY UPCOMING DUE ALERT BANNER (FROM ACTIVE DETAILS OR LOANS SCHEDULE) */}
+          {(upcomingDueInstallment || (activeLoanDetails?.isUpcomingSoon && activeLoanDetails?.nextInstallment)) && (() => {
+            const dueLoanId = upcomingDueInstallment?.loan?._id || activeLoanDetails?.loan?._id || loans[0]?._id;
+            const dueInstNo = upcomingDueInstallment?.installmentNo || activeLoanDetails?.nextInstallment?.installmentNo || 1;
+            const dueAmt = upcomingDueInstallment?.amount || activeLoanDetails?.nextInstallment?.amount || 0;
+            const dueDays = upcomingDueInstallment ? upcomingDueInstallment.daysLeft : activeLoanDetails?.daysUntilDue;
+            const dueDate = upcomingDueInstallment?.dueDate || activeLoanDetails?.nextInstallment?.dueDate;
+
+            return (
+              <div className="p-3.5 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 border border-amber-500 rounded-2xl space-y-2 text-slate-950 shadow-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl animate-bounce">⏰</span>
+                    <span className="font-black text-xs uppercase tracking-wide text-slate-950">
+                      Installment Due Alert (#{dueInstNo})
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-950 text-amber-300 uppercase">
+                    Due Alert
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-slate-900 leading-snug">
+                  {dueDays <= 0
+                    ? `Aapki kist (₹${dueAmt}) ka din aa gaya hai! Kripya abhi bhar dijiye.`
+                    : `Aapki kist (₹${dueAmt}) bharne me sirf ${dueDays} din bache hain (${dueDate ? new Date(dueDate).toLocaleDateString("en-IN") : "Upcoming"}). Kripya time par bhar dijiye!`
+                  }
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHeroFly("pay_upcoming");
+                    setSubmitInstallmentModal({
+                      loanId: dueLoanId,
+                      installmentNo: dueInstNo,
+                      amount: dueAmt
+                    });
+                  }}
+                  className="relative overflow-visible w-full py-2.5 bg-slate-950 hover:bg-slate-900 text-amber-300 rounded-xl text-xs font-black shadow-md active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {heroFlyId === "pay_upcoming" && <LoanHeroFlyBadge />}
+                  <span>Pay Installment Now (₹{dueAmt}) →</span>
+                </button>
               </div>
-              <p className="text-xs font-medium text-amber-900">
-                Aapki agli kist <strong>₹{activeLoanDetails.nextInstallment.amount}</strong> {
-                  activeLoanDetails.daysUntilDue === 0 ? "aaj hi due hai!" :
-                  activeLoanDetails.daysUntilDue < 0 ? `${Math.abs(activeLoanDetails.daysUntilDue)} din pehle overdue ho chuki hai!` :
-                  `${activeLoanDetails.daysUntilDue} din me due hone wali hai (${activeLoanDetails.nextInstallment.dueDate ? new Date(activeLoanDetails.nextInstallment.dueDate).toLocaleDateString("en-IN") : "Upcoming"})`
-                }
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHeroFly("pay_upcoming");
-                  setSubmitInstallmentModal({
-                    loanId: activeLoanDetails.loan?._id || loans[0]?._id,
-                    installmentNo: activeLoanDetails.nextInstallment.installmentNo,
-                    amount: activeLoanDetails.nextInstallment.amount
-                  });
-                }}
-                className="relative overflow-visible w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                {heroFlyId === "pay_upcoming" && <LoanHeroFlyBadge />}
-                <span>Pay Now (₹{activeLoanDetails.nextInstallment.amount}) →</span>
-              </button>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ACTIVE & APPLIED LOANS LIST */}
           <div>
@@ -9112,6 +9242,115 @@ export default function Dashboard() {
           </div>
         </div>
       </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
+          AGENT 1-CLICK MASS BROADCAST MESSAGE SHEET
+      ══════════════════════════════════════════════════════ */}
+      {agentBroadcastModalOpen && (
+        <Sheet
+          open={agentBroadcastModalOpen}
+          onClose={() => setAgentBroadcastModalOpen(false)}
+          title="Send Mass Broadcast Message"
+          icon="📢"
+        >
+          <div className="space-y-4">
+            <div className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-300 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-amber-800 uppercase font-black tracking-wider">Recipients</span>
+                <h4 className="text-base font-black text-amber-950">
+                  {agentMetrics?.stats?.customerCount || agentMetrics?.customers?.length || 0} Registered Customers
+                </h4>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-500 text-slate-950 uppercase shadow-2xs">
+                1-Click Mass Send
+              </span>
+            </div>
+
+            {/* Quick Templates */}
+            <div>
+              <span className="text-[11px] font-bold text-gray-500 block mb-1.5">Quick Message Templates:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  {
+                    label: "⏰ Kist Due Date Reminder",
+                    title: "⏰ Installment Due Reminder",
+                    msg: "Namaste! Aapke loan ki installment date najdeek hai. Kripya samay par kist jama karein taaki aapka credit score aur card limit dono secure rahein."
+                  },
+                  {
+                    label: "⚡ Early Settlement Offer",
+                    title: "⚡ Pre-Closure Discount Offer",
+                    msg: "Special Notice: Aap apna loan samay se pehle pre-close kar sakte hain aur extra interest bacha sakte hain. Loan pre-close karne ke liye abhi sampark karein."
+                  },
+                  {
+                    label: "📢 Important Notice",
+                    title: "📢 Official Notice from Agent",
+                    msg: "Namaste! Educa Fintech account aur loan payments ke sambandh me kisi bhi jaankari ya sahayata ke liye aap mujhse sidhe sampark kar sakte hain."
+                  }
+                ].map((tmpl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setBroadcastTitle(tmpl.title);
+                      setBroadcastMessage(tmpl.msg);
+                    }}
+                    className="text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-xl transition active:scale-95 cursor-pointer"
+                  >
+                    {tmpl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Message Title */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Notice Title (Optional)
+              </label>
+              <input
+                type="text"
+                value={broadcastTitle}
+                onChange={(e) => setBroadcastTitle(e.target.value)}
+                placeholder="e.g. ⏰ Loan Installment Alert"
+                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 bg-white"
+              />
+            </div>
+
+            {/* Message Body */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Broadcast Message Content <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                rows={4}
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                placeholder="Sabhi referred customers ko bhejne ke liye sandesh yahan likhein..."
+                className="w-full p-3 border border-gray-300 rounded-xl text-xs outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 bg-white resize-none"
+              />
+            </div>
+
+            {/* Send Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleSendAgentBroadcast}
+                disabled={broadcastSending || !broadcastMessage.trim()}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black rounded-xl text-xs shadow-md transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+              >
+                {broadcastSending ? (
+                  <span>Sending broadcast to all customers...</span>
+                ) : (
+                  <>
+                    <span>📢</span>
+                    <span>Send to All {agentMetrics?.stats?.customerCount || agentMetrics?.customers?.length || 0} Customers (1-Click)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </Sheet>
+      )}
 
       <Toast msg={toast} onHide={() => setToast({ text: "", type: "" })} />
 

@@ -494,7 +494,11 @@ router.get('/analytics', protect, admin, async (req, res) => {
     }
 
     let runningYieldSum = 0;
-    const dailyProfitChart = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date)).map(d => {
+    const sortedDailyList = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+    if (sortedDailyList.length === 1 && totalYieldCredited > 0) {
+      sortedDailyList[0].amount = Number(totalYieldCredited.toFixed(2));
+    }
+    const dailyProfitChart = sortedDailyList.map(d => {
       runningYieldSum = Number((runningYieldSum + d.amount).toFixed(2));
       return {
         date: d.date,

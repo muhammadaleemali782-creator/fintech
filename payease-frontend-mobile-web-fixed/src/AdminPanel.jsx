@@ -845,13 +845,17 @@ export default function AdminPanel() {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4 mb-4 sm:mb-8">
             {statCards.map(({ icon, label, value, loading, g }) => (
-              <div key={label} className={`bg-gradient-to-br ${g} text-white p-3.5 sm:p-5 rounded-2xl shadow-md`}>
-                <div className="text-xl sm:text-3xl mb-1 sm:mb-2">{icon}</div>
-                <p className="text-white/80 text-[11px] sm:text-xs font-medium">{label}</p>
+              <div key={label} className={`bg-gradient-to-br ${g} text-white p-3.5 sm:p-5 rounded-2xl shadow-md min-w-0 flex flex-col justify-between`}>
+                <div>
+                  <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
+                  <p className="text-white/80 text-[11px] sm:text-xs font-medium truncate">{label}</p>
+                </div>
                 {loading ? (
                   <div className="h-6 sm:h-8 w-24 sm:w-32 bg-white/30 rounded-lg animate-pulse mt-1" />
                 ) : (
-                  <p className="text-lg sm:text-2xl font-black font-display mt-0.5">{value}</p>
+                  <p className="text-sm sm:text-base lg:text-lg xl:text-xl font-black font-display font-mono tracking-tight mt-1 truncate" title={String(value)}>
+                    {value}
+                  </p>
                 )}
               </div>
             ))}
@@ -914,52 +918,58 @@ export default function AdminPanel() {
               </div>
 
               {/* 3 Major Metric Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-xs relative overflow-hidden">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-xs relative overflow-hidden flex flex-col justify-between">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-0 pointer-events-none" />
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">🏦 Total Fintech Reserves</p>
-                  {loadingAnalytics && !analytics ? (
-                    <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
-                  ) : (
-                    <p className="text-2xl sm:text-3xl font-black font-display font-mono text-emerald-600 tracking-tight">
-                      ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    <span>Company-wide total capital pool (live)</span>
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 truncate">🏦 Total Fintech Reserves</p>
+                    {loadingAnalytics && !analytics ? (
+                      <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
+                    ) : (
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono text-emerald-600 tracking-tight truncate">
+                        ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
+                    <span className="truncate">Company-wide total capital pool (live)</span>
                   </p>
                 </div>
 
-                <div className="bg-white rounded-2xl p-5 border border-blue-100 shadow-xs relative overflow-hidden">
+                <div className="bg-white rounded-2xl p-5 border border-blue-100 shadow-xs relative overflow-hidden flex flex-col justify-between">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0 pointer-events-none" />
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">💰 Verified Customer Deposits</p>
-                  {loadingAnalytics && !analytics ? (
-                    <div className="h-9 w-40 bg-blue-100/70 rounded-xl animate-pulse my-1" />
-                  ) : (
-                    <p className="text-2xl sm:text-3xl font-black font-display text-blue-600">
-                      ₹{Number(analytics?.stats?.totalDeposits || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-                    <span>{analytics?.stats?.approvedDepositCount ?? 0} Approved Deposit Transactions</span>
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 truncate">💰 Total Customer Deposits</p>
+                    {loadingAnalytics && !analytics ? (
+                      <div className="h-9 w-40 bg-blue-100/70 rounded-xl animate-pulse my-1" />
+                    ) : (
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono text-blue-600 tracking-tight truncate">
+                        ₹{Number(analytics?.stats?.totalDeposits || 0).toLocaleString("en-IN")}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
+                    <span className="truncate">{analytics?.stats?.approvedDepositCount ?? 0} Approved Deposit Transactions</span>
                   </p>
                 </div>
 
-                <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-xs relative overflow-hidden">
+                <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-xs relative overflow-hidden flex flex-col justify-between">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -z-0 pointer-events-none" />
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">⚡ Total Profit Credited</p>
-                  {loadingAnalytics && !analytics ? (
-                    <div className="h-9 w-40 bg-indigo-100/70 rounded-xl animate-pulse my-1" />
-                  ) : (
-                    <p className="text-2xl sm:text-3xl font-black font-display font-mono text-indigo-600 tracking-tight">
-                      ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
-                    <span>12% p.a. ROI across 9 Consecutive Days</span>
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 truncate">⚡ Total Profit Credited</p>
+                    {loadingAnalytics && !analytics ? (
+                      <div className="h-9 w-40 bg-indigo-100/70 rounded-xl animate-pulse my-1" />
+                    ) : (
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono text-indigo-600 tracking-tight truncate">
+                        ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block shrink-0" />
+                    <span className="truncate">12% p.a. Compounding Daily Yield</span>
                   </p>
                 </div>
               </div>
@@ -972,7 +982,7 @@ export default function AdminPanel() {
                       <span>📊</span> Daily Profit & Capital Growth Chart
                     </h3>
                     <p className="text-xs text-gray-500">
-                      Compounding savings yield credited daily to user accounts (Sep: ₹200/day • Oct: ₹193.55/day)
+                      Compounding 12% p.a. savings yield credited daily to active customer accounts (1% monthly ÷ calendar days)
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl shrink-0">

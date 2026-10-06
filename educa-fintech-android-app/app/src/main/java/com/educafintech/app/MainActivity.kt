@@ -17,6 +17,7 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.FrameLayout
 import android.speech.tts.TextToSpeech
@@ -183,30 +184,81 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Setup Android back navigation with modal/sheet dismissal guard
+        // Setup Android back navigation with bulletproof form protection & double-tap guard
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 try {
-                    // 1. Check if React web frontend has an active modal/sheet to dismiss
-                    webView.evaluateJavascript(
-                        "typeof window.handleAndroidBackPressed === 'function' ? window.handleAndroidBackPressed() : false"
-                    ) { result ->
-                        val handled = result?.trim()?.equals("true", ignoreCase = true) == true
-                        if (handled) {
+                    // Inject smart detection: active keyboard/input, filled form data, and modal sheets
+                    val jsDetect = """
+                        (function() {
+                            var active = document.activeElement;
+                            if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                                active.blur();
+                                return 'keyboard_dismissed';
+                            }
+                            var hasDirtyInputs = false;
+                            var formInputs = document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea');
+                            for (var i = 0; i < formInputs.length; i++) {
+                                if (formInputs[i].value && formInputs[i].value.trim().length > 0) {
+                                    hasDirtyInputs = true;
+                                    break;
+                                }
+                            }
+                            if (typeof window.handleAndroidBackPressed === 'function') {
+                                var r = window.handleAndroidBackPressed(hasDirtyInputs);
+                                if (r === true || r === 'handled') return 'handled';
+                                if (r === 'dirty_prevented' || r === 'keyboard_dismissed') return r;
+                            }
+                            if (hasDirtyInputs) return 'form_dirty';
+                            return 'default';
+                        })()
+                    """.trimIndent()
+
+                    webView.evaluateJavascript(jsDetect) { rawResult ->
+                        val res = rawResult?.trim()?.replace("\"", "") ?: "default"
+
+                        // 1. If an input was active, keyboard was dismissed and input blurred. User stays on screen!
+                        if (res == "keyboard_dismissed") {
+                            try {
+                                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                                imm?.hideSoftInputFromWindow(webView.windowToken, 0)
+                            } catch (_: Exception) {}
                             return@evaluateJavascript
                         }
 
-                        // 2. If no modal is open, check if WebView browser history can navigate back
+                        // 2. If a form has user data entered, guard against accidental dismissal
+                        if (res == "dirty_prevented" || res == "form_dirty") {
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - backPressedTime < 2500) {
+                                // User confirmed exit with second tap
+                                backPressedTime = 0
+                                webView.evaluateJavascript("if (typeof window.forceDismissActiveModal === 'function') window.forceDismissActiveModal();", null)
+                                if (webView.canGoBack()) {
+                                    webView.goBack()
+                                }
+                            } else {
+                                backPressedTime = currentTime
+                                Toast.makeText(this@MainActivity, "⚠️ Form me details bhari hui hain. Dobara back dabayein band karne ke liye.", Toast.LENGTH_SHORT).show()
+                            }
+                            return@evaluateJavascript
+                        }
+
+                        // 3. If React handled closing an empty overlay cleanly
+                        if (res == "handled") {
+                            return@evaluateJavascript
+                        }
+
+                        // 4. If WebView browser history can navigate back
                         if (::webView.isInitialized && webView.canGoBack()) {
                             webView.goBack()
                         } else {
-                            // 3. Double-tap back within 2 seconds to confirm exiting the application
+                            // 5. Double-tap back within 2.5 seconds to confirm exiting the application
                             val currentTime = System.currentTimeMillis()
-                            if (currentTime - backPressedTime < 2000) {
+                            if (currentTime - backPressedTime < 2500) {
                                 finish()
                             } else {
                                 backPressedTime = currentTime
-                                Toast.makeText(this@MainActivity, "Press back again to exit Educa Fintech", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this@MainActivity, "Dobara back dabayein app band karne ke liye", Toast.LENGTH_SHORT).show()
                             }
                         }
                     }

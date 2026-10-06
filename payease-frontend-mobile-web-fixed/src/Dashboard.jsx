@@ -754,16 +754,53 @@ export default function Dashboard() {
 
   // Intercept Android Hardware Back Button & Mobile Browser Back navigation
   useEffect(() => {
-    window.handleAndroidBackPressed = () => {
-      if (modal || accountModal || showLoans || showTour || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen) {
+    let lastTap = 0;
+    window.handleAndroidBackPressed = (hasDirtyInputs) => {
+      // 1. If an input or textarea is currently focused, blur it and dismiss keyboard without closing modal!
+      const active = document.activeElement;
+      if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
+        active.blur();
+        return "keyboard_dismissed";
+      }
+
+      // Check if modal has any text inputs filled
+      const modalContainer = document.querySelector(".fixed.inset-0, [role='dialog']");
+      let inputsFilled = hasDirtyInputs;
+      if (modalContainer) {
+        const inputs = modalContainer.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea");
+        for (const input of inputs) {
+          if (input.value && input.value.trim().length > 0) {
+            inputsFilled = true;
+            break;
+          }
+        }
+      }
+
+      const isOverlayOpen = Boolean(modal || accountModal || showLoans || showTour || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen);
+      if (isOverlayOpen) {
+        if (inputsFilled) {
+          const now = Date.now();
+          if (now - lastTap > 2500) {
+            lastTap = now;
+            setToast({ text: "⚠️ Form me details bhari hui hain. Dobara back dabayein band karne ke liye.", type: "info" });
+            return "dirty_prevented";
+          }
+        }
         closeModal();
         setShowTour(false);
         return true;
       }
       return false;
     };
+
+    window.forceDismissActiveModal = () => {
+      closeModal();
+      setShowTour(false);
+    };
+
     return () => {
       window.handleAndroidBackPressed = null;
+      window.forceDismissActiveModal = null;
     };
   }, [modal, accountModal, showLoans, showTour, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen]);
 
@@ -772,6 +809,24 @@ export default function Dashboard() {
     if (isOverlayOpen) {
       window.history.pushState({ educaSheetOpen: true }, "");
       const onPopState = () => {
+        // Guard against losing dirty form on popstate
+        const modalContainer = document.querySelector(".fixed.inset-0, [role='dialog']");
+        let inputsFilled = false;
+        if (modalContainer) {
+          const inputs = modalContainer.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea");
+          for (const input of inputs) {
+            if (input.value && input.value.trim().length > 0) {
+              inputsFilled = true;
+              break;
+            }
+          }
+        }
+        if (inputsFilled) {
+          // Re-push state so user doesn't get evicted, show warning
+          window.history.pushState({ educaSheetOpen: true }, "");
+          setToast({ text: "⚠️ Form me details bhari hui hain. Band karne ke liye Cancel button dabayein.", type: "info" });
+          return;
+        }
         closeModal();
       };
       window.addEventListener("popstate", onPopState);
@@ -779,7 +834,7 @@ export default function Dashboard() {
         window.removeEventListener("popstate", onPopState);
       };
     }
-  }, [modal, accountModal, showLoans, lightboxImg, submitInstallmentModal]);
+  }, [modal, accountModal, showLoans, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen]);
 
   const [hasBiometric, setHasBiometric] = useState(false);
 

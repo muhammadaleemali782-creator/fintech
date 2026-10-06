@@ -823,7 +823,8 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       }
 
       loan.disbursalAmount = payout;
-      user.balance = (user.balance || 0) + payout;
+      // Loan disbursal money is credited directly to Profit Wallet as requested
+      user.profitBalance = Number(((user.profitBalance || 0) + payout).toFixed(2));
       user.loansCount = (user.loansCount || 0) + 1;
       user.duesBalance = (user.duesBalance || 0) + loan.remainingAmount;
 
@@ -836,10 +837,10 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
         userId: user._id,
         type: 'loan_disbursal',
         amount: payout,
-        method: 'wallet',
+        method: 'profit_wallet',
         status: 'completed',
         referenceId: loan._id.toString(),
-        remarks: `Disbursal for ${loan.accountNumber || 'Loan'} (Net ₹${payout})`
+        remarks: `Disbursal for ${loan.accountNumber || 'Loan'} (Net ₹${payout}) credited to Profit Wallet`
       }], { session });
 
       resultLoan = loan;

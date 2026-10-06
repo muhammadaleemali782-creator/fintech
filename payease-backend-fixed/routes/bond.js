@@ -384,8 +384,9 @@ router.get('/my', protect, async (req, res) => {
             b.nextPayoutDate = nextDate;
           }
 
+          // Lending payout credited to user's Profit Wallet
           await User.findByIdAndUpdate(req.user._id, {
-            $inc: { balance: b.monthlyPayout, profitBalance: b.monthlyPayout }
+            $inc: { profitBalance: b.monthlyPayout }
           });
           await Transaction.create({
             userId: req.user._id,

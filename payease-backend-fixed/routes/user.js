@@ -57,8 +57,8 @@ async function processDailyYield(user) {
       const dayYield = Number((currentCapital * dailyRate).toFixed(2));
 
       if (dayYield > 0) {
-        // Daily yield is added to primary balance (total money available) and tracked in profitBalance
-        user.balance = Number(((user.balance || 0) + dayYield).toFixed(2));
+        // Daily yield is added ONLY to profitBalance (Profit Wallet).
+        // Primary balance stays untouched (e.g. fixed 6 Lakh) until user explicitly transfers!
         user.profitBalance = Number(((user.profitBalance || 0) + dayYield).toFixed(2));
 
         const formattedDateStr = curr.toLocaleDateString('en-IN', {

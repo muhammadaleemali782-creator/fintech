@@ -1582,7 +1582,7 @@ export default function Dashboard() {
 
   // Live Mini-Second Profit Stream for Users (Optimized for Vivo Y20 & budget Android devices)
   const [liveMs, setLiveMs] = useState(Date.now());
-  const [sessionStart] = useState(() => Date.now());
+  const [sessionStart, setSessionStart] = useState(() => Date.now());
 
   useEffect(() => {
     let timer = null;
@@ -1729,6 +1729,8 @@ export default function Dashboard() {
       const data = await res.json();
       if (res.ok) {
         showToast(data.message || "Profit Main Wallet me transfer ho gaya!", "success");
+        setSessionStart(Date.now());
+        setLiveMs(Date.now());
         setUserProfile(prev => ({
           ...prev,
           balance: data.newBalance !== undefined ? data.newBalance : (prev.balance + currentProfit),
@@ -1913,8 +1915,8 @@ export default function Dashboard() {
       reply = "Educa Savings Account me aapke poore balance par 12% p.a. (1% pratimaah) Compounding Interest milta hai! 📈\n\n• Calculation: Rozana per-second rate par hisaab hota hai.\n• 30 din wale mahine me: 1% ÷ 30 din per day.\n• 31 din wale mahine me: 1% ÷ 31 din per day.\n• Yeh profit aapke Profit Wallet me har second add hota rehta hai!";
     } else if (lower.includes("tezi") || lower.includes("badhe") || lower.includes("speed") || lower.includes("second") || lower.includes("live")) {
       reply = "Paisa kitni tezi se badhega? ⚡\n\n• Har Second: Aapke dashboard par live counter ticking hota hai.\n• Udaharan: Agar aapka balance ₹1,00,000 hai, to rozana lagbhag ₹32.87 se ₹33.33 profit judta hai, yaani har ghante ₹1.38 aur har minute lagbhag ₹0.023!\n• Aur jaise hi aap profit ko Main Wallet me transfer karte hain, compounding ki wajah se agle din se aur zyada tezi se badhta hai!";
-    } else if (lower.includes("transfer") || lower.includes("compound") || lower.includes("main wallet") || lower.includes("zero")) {
-      reply = "Profit Transfer & Compounding Feature: 🔄\n\nAap jab chahein, apne Profit Wallet ke 'Main Wallet me Bhejein' button par click kar sakte hain. Aisa karne par:\n1. Aapka sara profit Main Wallet me shift ho jayega.\n2. Profit account 0 se restart hoga.\n3. Ab aapke badhe hue total balance par 12% p.a. compounding shuru ho jayegi!";
+    } else if (lower.includes("transfer") || lower.includes("main wallet") || lower.includes("zero") || lower.includes("profit wallet") || lower.includes("lending") || lower.includes("loan ka paisa")) {
+      reply = "Profit Wallet & Transfer Ka Niyam: 🔄\n\n1. Base Balance: Jab tak aap profit ko transfer nahi karte, tab tak aapke Main Balance (jaise ₹6 Lakh) ke hisaab se hi rozana profit banta rahega.\n2. Manual Transfer: Jaise hi aap 'Main Wallet me Bhejein' dabayenge, pura profit Main Wallet me jud jayega, Profit Wallet wapas ₹0 ho jayega, aur agle second se badhe hue naye total balance par munafa calculate hoga!\n3. Lending & Loan: Aapka Lending returns aur Loan disbursal ka paisa bhi seedha isi Profit Wallet me aayega.";
     } else if (lower.includes("loan") || lower.includes("udhar") || lower.includes("credit") || lower.includes("limit")) {
       reply = "Educa Micro Loan Suvidha: 🤝\n\n• Pehli baar aane wale har user ke liye loan limit strict ₹5,000 hai (15 se 30 aasan installments me, sirf 1.34% per installment interest).\n• Jab pehla loan samay par chuka diya jata hai, to limit double hokar ₹10,000 se ₹50,000 tak badh jati hai!\n• Apply karne ke liye 'Quick Loan' par click karein.";
     } else if (lower.includes("add") || lower.includes("deposit") || lower.includes("paisa dal") || lower.includes("money") || lower.includes("evidence") || lower.includes("utr")) {
@@ -4252,34 +4254,22 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Collapsible Daily Yield Formula / Reason for ₹200 vs ₹193.55 */}
+          {/* Collapsible Profit Rules & Lending/Loan Returns Explanation */}
           <details className="group bg-indigo-50/80 border border-indigo-200/80 rounded-2xl p-3.5 text-xs text-indigo-950 transition shadow-xs">
             <summary className="font-extrabold flex items-center justify-between cursor-pointer list-none select-none">
               <span className="flex items-center gap-2">
                 <span className="text-sm">💡</span>
-                <span>Kyun badla daily profit? (₹200 ➔ ₹193.55)</span>
+                <span>Profit Wallet & Transfer Ka Niyam</span>
               </span>
               <span className="text-[11px] font-bold text-indigo-600 group-open:rotate-180 transition-transform">▼</span>
             </summary>
             <div className="mt-3 pt-3 border-t border-indigo-200/60 space-y-2.5 text-[11px] text-indigo-900 leading-relaxed">
               <p>
-                Educa Savings Account me <strong>Compounding Interest (1% Mahina / 12% Saal)</strong> milta hai jo aapke <strong>pure updated balance</strong> (Deposit + Judta hua Profit) par calculate hota hai:
+                <strong>📌 Base Balance Rule:</strong> Jab tak aap apne profit ko transfer nahi karte, tab tak aapke Main Account me mojud balance (jaise ₹6 Lakh) ke hisaab se hi rozana profit banta rahega.
               </p>
-              <div className="grid grid-cols-2 gap-2 font-mono">
-                <div className="bg-white/90 p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
-                  <span className="text-gray-500 block text-[10px]">🗓️ 30 Din Wale Mahine (e.g. Sep/Nov):</span>
-                  <strong className="text-emerald-700 text-xs">1% ÷ 30 Din</strong>
-                  <span className="text-[9px] text-gray-400 block mt-0.5">₹1,00,000 par ₹33.33/din</span>
-                </div>
-                <div className="bg-white/90 p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
-                  <span className="text-gray-500 block text-[10px]">🗓️ 31 Din Wale Mahine (e.g. Oct/Dec):</span>
-                  <strong className="text-indigo-700 text-xs">1% ÷ 31 Din</strong>
-                  <span className="text-[9px] text-gray-400 block mt-0.5">₹1,00,000 par ₹32.26/din</span>
-                </div>
-              </div>
-              <div className="p-2 rounded-xl bg-white/70 border border-indigo-100/70 text-[10px] text-indigo-800 space-y-1">
-                <p>✅ <strong>Full Balance Par 1%:</strong> Jaise-jaise roz ka profit aapke balance me plus hota hai, agle din ka 1% interest usi badhe hue total balance par calculate hota hai.</p>
-                <p>📅 30 din wale mahine me 30 se divide aur 31 din wale mahine me 31 se divide hota hai.</p>
+              <div className="p-2 rounded-xl bg-white/80 border border-indigo-100 text-[10px] text-indigo-900 space-y-1">
+                <p>✅ <strong>Manual Transfer:</strong> Jaise hi aap 'Main Wallet me Bhejein' dabayenge, pura profit Main Wallet me jud jayega, Profit Wallet wapas ₹0 ho jayega, aur agle second se badhe hue naye total balance par profit calculate hoga.</p>
+                <p>🤝 <strong>Lending & Loan Returns:</strong> Aapka Lending Bond ka payout aur Loan disbursal ka paisa bhi seedha isi Profit Wallet me aayega.</p>
               </div>
             </div>
           </details>

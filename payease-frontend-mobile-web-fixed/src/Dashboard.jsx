@@ -322,6 +322,10 @@ export default function Dashboard() {
     const cached = localStorage.getItem("educa_cached_balance");
     return cached !== null ? Number(cached) : (userStored.balance || 0);
   });
+  const [cachedProfitBalance, setCachedProfitBalance] = useState(() => {
+    const cached = localStorage.getItem("educa_cached_profit_balance");
+    return cached !== null ? Number(cached) : Number(userStored.profitBalance || 0);
+  });
   const [loadingDashboard, setLoadingDashboard] = useState(!localStorage.getItem("educa_cached_profile"));
   const [txns, setTxns] = useState(() => {
     try {
@@ -435,6 +439,7 @@ export default function Dashboard() {
   // Agent Performance Dashboard State
   const [agentMetrics, setAgentMetrics] = useState(null);
   const [loadingAgentMetrics, setLoadingAgentMetrics] = useState(false);
+  const [agentCustomerSearch, setAgentCustomerSearch] = useState("");
 
   // AI Financial Advisor Agent State ("Kya aap bhi unchaiyon pe jaana chahte hain?")
   const [showAiAdvisor, setShowAiAdvisor] = useState(false);
@@ -473,7 +478,25 @@ export default function Dashboard() {
 
   // Language & Voice Guide State
   const [lang, setLang] = useState(() => localStorage.getItem("educa_lang") || "hinglish");
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  const langDropdownRef = useRef(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(e.target)) {
+        setLangDropdownOpen(false);
+      }
+    };
+    if (langDropdownOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
+      document.addEventListener("touchstart", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+    };
+  }, [langDropdownOpen]);
 
   // Guided Feature Tour State
   const [showTour, setShowTour] = useState(false);
@@ -493,10 +516,10 @@ export default function Dashboard() {
     instructions: "Payment complete karne ke baad 12-digit UTR / Ref Number enter karke Submit karein."
   });
   const [copiedDepField, setCopiedDepField] = useState("");
-  const [wdForm, setWdForm] = useState({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "" });
+  const [wdForm, setWdForm] = useState({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "", sourceWallet: "main" });
   
   // P2P Transfer & 6-Digit UPI PIN Intercept State
-  const [sendForm, setSendForm] = useState({ recipient: "", amount: "", notes: "", pin: "" });
+  const [sendForm, setSendForm] = useState({ recipient: "", amount: "", notes: "", pin: "", sourceWallet: "main" });
   const [recipientInfo, setRecipientInfo] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState("");
@@ -1393,6 +1416,10 @@ export default function Dashboard() {
         localStorage.setItem("user", JSON.stringify({ ...currentUser, ...data, role: data.role || currentUser.role }));
         setBalance(data.balance || 0);
         localStorage.setItem("educa_cached_balance", String(data.balance || 0));
+        if (data.profitBalance !== undefined) {
+          setCachedProfitBalance(Number(data.profitBalance));
+          localStorage.setItem("educa_cached_profit_balance", String(data.profitBalance));
+        }
 
         // Native Android App: Register device silently in background without intrusive prompts
         if (window.AndroidDevice) {
@@ -1434,6 +1461,12 @@ export default function Dashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (isAgent) {
+      loadAgentMetrics();
+    }
+  }, [isAgent, loadAgentMetrics]);
 
   const activateWallet = async (walletType) => {
     setActivatingWallet(walletType);
@@ -1582,7 +1615,7 @@ export default function Dashboard() {
 
   // Live Mini-Second Profit Stream for Users (Optimized for Vivo Y20 & budget Android devices)
   const [liveMs, setLiveMs] = useState(Date.now());
-  const [sessionStart, setSessionStart] = useState(() => Date.now());
+  const [userAnchorTime, setUserAnchorTime] = useState(() => Date.now());
 
   useEffect(() => {
     let timer = null;
@@ -1618,10 +1651,33 @@ export default function Dashboard() {
   const perHourYield = perMinuteYield * 60;
   const perMsYield = perSecondYield / 1000;
 
-  // Real-time ticking profit balance
-  const baseProfit = Number(userProfile.profitBalance || 0);
-  const elapsedSessionMs = liveMs - sessionStart;
-  const liveProfitBalance = baseProfit + (elapsedSessionMs * perMsYield);
+  useEffect(() => {
+    if (userProfile?.profitBalance !== undefined) {
+      const serverVal = Number(userProfile.profitBalance);
+      setCachedProfitBalance(prev => Math.max(prev || 0, serverVal));
+      try {
+        localStorage.setItem("educa_cached_profit_balance", String(Math.max(cachedProfitBalance || 0, serverVal)));
+      } catch {}
+      const sTime = userProfile.serverTime || userProfile.lastYieldCalculatedAt;
+      if (sTime) {
+        const parsed = new Date(sTime).getTime();
+        if (!isNaN(parsed)) setUserAnchorTime(parsed);
+      }
+    }
+  }, [userProfile?.profitBalance, userProfile?.serverTime, userProfile?.lastYieldCalculatedAt]);
+
+  // Real-time ticking profit balance (monotonically increasing, NEVER resets or drops to old value on refresh)
+  const baseProfit = Math.max(Number(userProfile?.profitBalance || 0), Number(cachedProfitBalance || 0));
+  const elapsedUserMs = Math.max(0, liveMs - userAnchorTime);
+  const liveProfitBalance = baseProfit + (elapsedUserMs * perMsYield);
+
+  useEffect(() => {
+    if (liveProfitBalance > 0) {
+      try {
+        localStorage.setItem("educa_cached_profit_balance", String(liveProfitBalance));
+      } catch {}
+    }
+  }, [liveProfitBalance]);
 
   // Today's accrued profit since midnight
   const startOfToday = new Date().setHours(0, 0, 0, 0);
@@ -1729,8 +1785,10 @@ export default function Dashboard() {
       const data = await res.json();
       if (res.ok) {
         showToast(data.message || "Profit Main Wallet me transfer ho gaya!", "success");
-        setSessionStart(Date.now());
+        setUserAnchorTime(Date.now());
         setLiveMs(Date.now());
+        setCachedProfitBalance(0);
+        localStorage.setItem("educa_cached_profit_balance", "0");
         setUserProfile(prev => ({
           ...prev,
           balance: data.newBalance !== undefined ? data.newBalance : (prev.balance + currentProfit),
@@ -2208,12 +2266,36 @@ export default function Dashboard() {
   };
 
   const submitWithdraw = async () => {
-    if (!wdForm.amount) return showToast("Enter amount", "error");
+    const amt = Number(wdForm.amount);
+    if (!amt || amt < 100) return showToast("Amount kam se kam ₹100 hona chahiye", "error");
+    const isProfit = wdForm.sourceWallet === "profit";
+    const availableFunds = isProfit ? (userProfile.profitBalance || 0) : balance;
+    if (amt > availableFunds) {
+      return showToast(
+        isProfit
+          ? `Profit Wallet me paryapt balance nahi hai. Available: ₹${Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+          : `Main Wallet me paryapt balance nahi hai. Available: ₹${balance.toLocaleString("en-IN")}`,
+        "error"
+      );
+    }
     const paymentDetails = wdForm.method === "upi" ? { upiId: wdForm.upiId } : { accountNumber: wdForm.accountNumber, ifsc: wdForm.ifsc };
-    const res = await fetch(`${API}/transaction/withdraw`, { method: "POST", headers, body: JSON.stringify({ amount: +wdForm.amount, method: wdForm.method, paymentDetails }) });
+    const res = await fetch(`${API}/transaction/withdraw`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        amount: amt,
+        method: wdForm.method,
+        paymentDetails,
+        sourceWallet: wdForm.sourceWallet || "main"
+      })
+    });
     const data = await res.json();
     showToast(data.message, res.ok ? "success" : "error");
-    if (res.ok) { closeModal(); setWdForm({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "" }); loadDashboard(); }
+    if (res.ok) {
+      closeModal();
+      setWdForm({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "", sourceWallet: "main" });
+      loadDashboard();
+    }
   };
 
   // Submit P2P Transfer (App-to-App)
@@ -2222,8 +2304,15 @@ export default function Dashboard() {
     if (!amt || amt < 1 || !Number.isInteger(amt)) {
       return showToast("Valid amount daalein (minimum ₹1, bina decimals)", "error");
     }
-    if (amt > balance) {
-      return showToast(`Wallet me paryapt balance nahi hai. Available: ₹${balance.toLocaleString("en-IN")}`, "error");
+    const isProfit = sendForm.sourceWallet === "profit";
+    const availableFunds = isProfit ? (userProfile.profitBalance || 0) : balance;
+    if (amt > availableFunds) {
+      return showToast(
+        isProfit
+          ? `Profit Wallet me paryapt balance nahi hai. Available: ₹${Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+          : `Main Wallet me paryapt balance nahi hai. Available: ₹${balance.toLocaleString("en-IN")}`,
+        "error"
+      );
     }
     if (!sendForm.recipient) {
       return showToast("Recipient Phone, Email ya Unique ID daalein", "error");
@@ -2249,14 +2338,15 @@ export default function Dashboard() {
           recipient: sendForm.recipient.trim(),
           amount: amt,
           notes: sendForm.notes.trim(),
-          pin: sendForm.pin
+          pin: sendForm.pin,
+          sourceWallet: sendForm.sourceWallet || "main"
         })
       });
       const data = await res.json();
       if (res.ok) {
         showToast(data.message || "🎉 Transfer successful!", "success");
         closeModal();
-        setSendForm({ recipient: "", amount: "", notes: "", pin: "" });
+        setSendForm({ recipient: "", amount: "", notes: "", pin: "", sourceWallet: "main" });
         setRecipientInfo(null);
         loadDashboard();
       } else {
@@ -3167,20 +3257,69 @@ export default function Dashboard() {
               </a>
             )}
 
-            {/* Quick 1-Tap Language Switch Button */}
-            <button
-              onClick={() => {
-                const nextLang = lang === "hinglish" ? "hindi" : lang === "hindi" ? "english" : "hinglish";
-                handleLanguageChange(nextLang);
-              }}
-              className="px-2 sm:px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
-              title="Switch Language: Hinglish / हिंदी / English"
-            >
-              <span>🌐</span>
-              <span className="font-extrabold">
-                {lang === "hindi" ? "हिंदी" : lang === "english" ? "EN" : "Hinglish"}
-              </span>
-            </button>
+            {/* Collapsible Language Selector */}
+            <div className="relative" ref={langDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setLangDropdownOpen(prev => !prev)}
+                className="px-2 sm:px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
+                title="Select Language / भाषा चुनें"
+                aria-haspopup="true"
+                aria-expanded={langDropdownOpen}
+              >
+                <span>🌐</span>
+                <span className="font-extrabold uppercase">
+                  {lang === "hindi" ? "हिंदी" : lang === "english" ? "English" : "Hinglish"}
+                </span>
+                <svg
+                  className={`w-3 h-3 text-blue-600 transition-transform duration-200 ${langDropdownOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {langDropdownOpen && (
+                <div className="absolute right-0 mt-1.5 w-44 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 mb-1">
+                    {lang === "hindi" ? "भाषा चुनें" : lang === "english" ? "Choose Language" : "Bhasha Chunein"}
+                  </div>
+                  {[
+                    { code: "english", label: "English", flag: "🇬🇧", sub: "Global English" },
+                    { code: "hindi", label: "हिंदी", flag: "🇮🇳", sub: "शुद्ध हिंदी" },
+                    { code: "hinglish", label: "Hinglish", flag: "🗣️", sub: "Hindi + English" },
+                  ].map(item => {
+                    const isSelected = lang === item.code;
+                    return (
+                      <button
+                        key={item.code}
+                        type="button"
+                        onClick={() => {
+                          handleLanguageChange(item.code);
+                          setLangDropdownOpen(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left flex items-center justify-between transition cursor-pointer ${
+                          isSelected ? "bg-blue-50 text-blue-700 font-bold" : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{item.flag}</span>
+                          <div>
+                            <div className="text-xs font-semibold leading-tight">{item.label}</div>
+                            <div className="text-[10px] text-gray-400 leading-none mt-0.5">{item.sub}</div>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <span className="text-blue-600 text-xs font-bold">✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Educa AI Financial Advisor */}
             <button
@@ -3338,6 +3477,128 @@ export default function Dashboard() {
               >
                 {copied ? "✓ Copied" : "📋 Copy Customer Referral Link"}
               </button>
+            </div>
+
+            {/* Agent Referred Customers Breakdown Section */}
+            <div className="mt-4 pt-3 border-t border-white/10">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5">
+                    <span>👥</span> Referred Customers Portfolio ({agentMetrics?.customers?.length || 0})
+                  </span>
+                  <span className="text-[10px] text-indigo-300 bg-white/10 px-2 py-0.5 rounded-full font-medium">
+                    Individual Breakdown
+                  </span>
+                </div>
+                {agentMetrics?.customers && agentMetrics.customers.length > 2 && (
+                  <input
+                    type="text"
+                    value={agentCustomerSearch}
+                    onChange={(e) => setAgentCustomerSearch(e.target.value)}
+                    placeholder="Search name or phone..."
+                    className="bg-black/30 border border-white/15 rounded-xl px-2.5 py-1 text-xs text-white placeholder-gray-400 focus:outline-hidden focus:border-indigo-400 w-full sm:w-48"
+                  />
+                )}
+              </div>
+
+              {/* Customer Cards List */}
+              {agentMetrics?.customers && agentMetrics.customers.length > 0 ? (
+                <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+                  {agentMetrics.customers
+                    .filter((c) => {
+                      if (!agentCustomerSearch) return true;
+                      const q = agentCustomerSearch.toLowerCase();
+                      return (
+                        (c.name && c.name.toLowerCase().includes(q)) ||
+                        (c.phone && c.phone.includes(q))
+                      );
+                    })
+                    .map((c, idx) => (
+                      <div
+                        key={c.id || idx}
+                        className="bg-white/5 hover:bg-white/[0.08] border border-white/10 rounded-2xl p-3 transition"
+                      >
+                        {/* Customer Header */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2.5 border-b border-white/5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-blue-500 text-white font-extrabold flex items-center justify-center text-xs shadow-xs">
+                              {c.name ? c.name[0].toUpperCase() : "U"}
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                                <span>{c.name}</span>
+                                {c.phone && (
+                                  <span className="text-[10px] text-gray-300 font-mono">({c.phone})</span>
+                                )}
+                              </div>
+                              <div className="text-[9px] text-indigo-200/80">
+                                Joined: {c.joinedAt ? new Date(c.joinedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "-"}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold font-mono">
+                              Wallet: ₹{Number(c.balance || 0).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Customer's 5 Metrics Breakdown */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-[11px]">
+                          {/* 1. Deposit */}
+                          <div className="bg-black/25 rounded-xl p-2 border border-white/5">
+                            <span className="text-[9px] text-indigo-200 uppercase font-bold block mb-0.5">💰 Total Deposit</span>
+                            <span className="font-mono font-bold text-emerald-400">
+                              ₹{(c.totalDeposit || 0).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+
+                          {/* 2. Disbursal */}
+                          <div className="bg-black/25 rounded-xl p-2 border border-white/5">
+                            <span className="text-[9px] text-indigo-200 uppercase font-bold block mb-0.5">📤 Total Disbursal</span>
+                            <span className="font-mono font-bold text-blue-400">
+                              ₹{(c.totalDisbursal || 0).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+
+                          {/* 3. Collection */}
+                          <div className="bg-black/25 rounded-xl p-2 border border-white/5">
+                            <span className="text-[9px] text-indigo-200 uppercase font-bold block mb-0.5">📥 Total Collection</span>
+                            <span className="font-mono font-bold text-cyan-400">
+                              ₹{(c.totalCollection || 0).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+
+                          {/* 4. Due */}
+                          <div className="bg-black/25 rounded-xl p-2 border border-white/5">
+                            <span className="text-[9px] text-indigo-200 uppercase font-bold block mb-0.5">⚠️ Total Due</span>
+                            <span className="font-mono font-bold text-rose-400">
+                              ₹{(c.totalDue || 0).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+
+                          {/* 5. Pre-Closing */}
+                          <div className="bg-black/25 rounded-xl p-2 border border-white/5 col-span-2 sm:col-span-1">
+                            <span className="text-[9px] text-indigo-200 uppercase font-bold block mb-0.5">🔄 Pre-Closing</span>
+                            <span className="font-mono font-bold text-amber-300">
+                              {c.preClosingCount || 0}
+                            </span>
+                            <span className="text-[9px] text-amber-200/80 block">
+                              ₹{(c.preClosingAmount || 0).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 px-3 bg-white/5 rounded-2xl border border-white/10 text-xs text-indigo-200/90">
+                  {loadingAgentMetrics
+                    ? "Customer data load ho raha hai..."
+                    : "Abhi tak koi referred customer onboard nahi hua hai. Upar diye gaye link se customers ko onboard karein."}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -4412,10 +4673,60 @@ export default function Dashboard() {
             {lookupError && <p className="text-[11px] text-red-500 mt-1">{lookupError}</p>}
           </div>
 
+          {/* Source Wallet Picker (Main Account vs Profit Account) */}
+          <div>
+            <label className="text-xs font-bold text-gray-700 mb-1.5 block">
+              {lang === "hindi" ? "पैसे कहाँ से भेजें? (Wallet चुनें):" : "Send From (Source Wallet):"}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSendForm({ ...sendForm, sourceWallet: "main" })}
+                className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                  (sendForm.sourceWallet || "main") === "main"
+                    ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-950 font-bold"
+                    : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span>🏛️ {lang === "hindi" ? "प्राइमरी वॉलेट" : "Main Wallet"}</span>
+                  {(sendForm.sourceWallet || "main") === "main" && <span className="text-emerald-600 text-xs">✓</span>}
+                </div>
+                <div className="text-sm font-black mt-1 text-emerald-700">
+                  ₹{balance.toLocaleString("en-IN")}
+                </div>
+                <span className="text-[10px] text-gray-500">{lang === "hindi" ? "मुख्य बैलेंस" : "Primary Balance"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSendForm({ ...sendForm, sourceWallet: "profit" })}
+                className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                  sendForm.sourceWallet === "profit"
+                    ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-950 font-bold"
+                    : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span>📈 {lang === "hindi" ? "प्रॉफ़िट वॉलेट" : "Profit Wallet"}</span>
+                  {sendForm.sourceWallet === "profit" && <span className="text-emerald-600 text-xs">✓</span>}
+                </div>
+                <div className="text-sm font-black mt-1 text-emerald-700">
+                  ₹{Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </div>
+                <span className="text-[10px] text-gray-500">{lang === "hindi" ? "जमा मुनाफ़ा" : "Accrued Profit"}</span>
+              </button>
+            </div>
+          </div>
+
           <div>
             <div className="flex justify-between text-xs font-bold mb-1">
               <span className="text-gray-700">Amount (₹)</span>
-              <span className="text-gray-400">Available: ₹{balance.toLocaleString("en-IN")}</span>
+              <span className="text-gray-500 font-semibold">
+                Available: ₹{sendForm.sourceWallet === "profit"
+                  ? Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                  : balance.toLocaleString("en-IN")}
+              </span>
             </div>
             <input
               type="number"
@@ -6609,7 +6920,63 @@ export default function Dashboard() {
           ⚡ Below ₹5000 = <strong>Auto-processed</strong> | Above ₹5000 = <strong>Admin approval</strong>
         </div>
         <div className="space-y-3">
-          <input type="number" inputMode="numeric" placeholder="Amount" min="100" value={wdForm.amount} onChange={e => setWdForm({ ...wdForm, amount: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm" />
+          {/* Source Wallet Picker (Main Account vs Profit Account) */}
+          <div>
+            <label className="text-xs font-bold text-gray-700 mb-1.5 block">
+              {lang === "hindi" ? "पैसे कहाँ से निकालें? (Wallet चुनें):" : "Withdraw From (Source Wallet):"}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setWdForm({ ...wdForm, sourceWallet: "main" })}
+                className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                  (wdForm.sourceWallet || "main") === "main"
+                    ? "bg-blue-50 border-blue-500 ring-2 ring-blue-500/30 text-blue-950 font-bold"
+                    : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span>🏛️ {lang === "hindi" ? "प्राइमरी वॉलेट" : "Main Wallet"}</span>
+                  {(wdForm.sourceWallet || "main") === "main" && <span className="text-blue-600 text-xs">✓</span>}
+                </div>
+                <div className="text-sm font-black mt-1 text-blue-700">
+                  ₹{balance.toLocaleString("en-IN")}
+                </div>
+                <span className="text-[10px] text-gray-500">{lang === "hindi" ? "मुख्य बैलेंस" : "Primary Balance"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWdForm({ ...wdForm, sourceWallet: "profit" })}
+                className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                  wdForm.sourceWallet === "profit"
+                    ? "bg-blue-50 border-blue-500 ring-2 ring-blue-500/30 text-blue-950 font-bold"
+                    : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span>📈 {lang === "hindi" ? "प्रॉफ़िट वॉलेट" : "Profit Wallet"}</span>
+                  {wdForm.sourceWallet === "profit" && <span className="text-blue-600 text-xs">✓</span>}
+                </div>
+                <div className="text-sm font-black mt-1 text-blue-700">
+                  ₹{Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </div>
+                <span className="text-[10px] text-gray-500">{lang === "hindi" ? "जमा मुनाफ़ा" : "Accrued Profit"}</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between text-xs font-bold mb-1">
+              <span className="text-gray-700">Amount (₹)</span>
+              <span className="text-gray-500 font-semibold">
+                Available: ₹{wdForm.sourceWallet === "profit"
+                  ? Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                  : balance.toLocaleString("en-IN")}
+              </span>
+            </div>
+            <input type="number" inputMode="numeric" placeholder="Amount (min ₹100)" min="100" value={wdForm.amount} onChange={e => setWdForm({ ...wdForm, amount: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm font-bold" />
+          </div>
           <select value={wdForm.method} onChange={e => setWdForm({ ...wdForm, method: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none text-base sm:text-sm">
             <option value="upi">UPI</option>
             <option value="bank">Bank Transfer</option>

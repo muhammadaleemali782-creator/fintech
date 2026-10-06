@@ -50,7 +50,7 @@ router.get('/lookup/:identifier', protect, async (req, res) => {
 
 // 2. Instant App-to-App P2P Wallet Transfer (Anti-Burp / Anti-Tamper Security)
 router.post('/transfer', protect, async (req, res) => {
-  const { recipient: rawRecipient, amount: rawAmount, notes, pin } = req.body;
+  const { recipient: rawRecipient, amount: rawAmount, notes, pin, sourceWallet = 'main' } = req.body;
 
   const senderUser = await User.findById(req.user._id);
   if (!senderUser) return res.status(404).json({ message: 'User not found' });
@@ -107,31 +107,51 @@ router.post('/transfer', protect, async (req, res) => {
     return res.status(400).json({ message: 'Aap khud ke account me transfer nahi kar sakte.' });
   }
 
+  const isProfitSource = sourceWallet === 'profit';
   const session = await mongoose.startSession();
   try {
-    let senderTxn, receiverTxn, senderNewBalance;
+    let senderTxn, receiverTxn, senderNewBalance, senderNewProfitBalance;
 
     await session.withTransaction(async () => {
-      // Atomic deduction with balance guard on sender
-      const updatedSender = await User.findOneAndUpdate(
-        { _id: req.user._id, balance: { $gte: amount } },
-        { $inc: { balance: -amount } },
-        { new: true, session }
-      );
+      let updatedSender;
 
-      if (!updatedSender) {
-        throw Object.assign(
-          new Error(`Aapke wallet me paryapt balance nahi hai. Available: ₹${req.user.balance || 0}`),
-          { status: 400 }
+      if (isProfitSource) {
+        updatedSender = await User.findOneAndUpdate(
+          { _id: req.user._id, profitBalance: { $gte: amount } },
+          { $inc: { profitBalance: -amount } },
+          { new: true, session }
         );
-      }
-      senderNewBalance = updatedSender.balance;
 
-      // Track lowest balance in 24h window for yield calculation (minimum-balance rule)
-      if (updatedSender.lowestBalance24h === undefined || updatedSender.lowestBalance24h === null ||
-          senderNewBalance < updatedSender.lowestBalance24h) {
-        await User.findByIdAndUpdate(req.user._id, { $min: { lowestBalance24h: senderNewBalance } }, { session });
+        if (!updatedSender) {
+          throw Object.assign(
+            new Error(`Aapke Profit Wallet me paryapt balance nahi hai. Available: ₹${(req.user.profitBalance || 0).toFixed(2)}`),
+            { status: 400 }
+          );
+        }
+      } else {
+        // Atomic deduction with balance guard on sender
+        updatedSender = await User.findOneAndUpdate(
+          { _id: req.user._id, balance: { $gte: amount } },
+          { $inc: { balance: -amount } },
+          { new: true, session }
+        );
+
+        if (!updatedSender) {
+          throw Object.assign(
+            new Error(`Aapke Primary Wallet me paryapt balance nahi hai. Available: ₹${req.user.balance || 0}`),
+            { status: 400 }
+          );
+        }
+
+        // Track lowest balance in 24h window for yield calculation (minimum-balance rule)
+        if (updatedSender.lowestBalance24h === undefined || updatedSender.lowestBalance24h === null ||
+            updatedSender.balance < updatedSender.lowestBalance24h) {
+          await User.findByIdAndUpdate(req.user._id, { $min: { lowestBalance24h: updatedSender.balance } }, { session });
+        }
       }
+
+      senderNewBalance = updatedSender.balance;
+      senderNewProfitBalance = updatedSender.profitBalance;
 
       // Atomic addition to receiver
       const updatedReceiver = await User.findByIdAndUpdate(
@@ -145,6 +165,7 @@ router.post('/transfer', protect, async (req, res) => {
 
       const senderIdStr = `EDUCA-${updatedSender.referralCode || updatedSender.phone}`;
       const receiverIdStr = `EDUCA-${recipientUser.referralCode || recipientUser.phone}`;
+      const sourceName = isProfitSource ? 'Profit Wallet' : 'Primary Wallet';
 
       // 1. Transaction record for SENDER
       const sTxnArr = await Transaction.create([{
@@ -156,7 +177,7 @@ router.post('/transfer', protect, async (req, res) => {
         receiverUserId: recipientUser._id,
         receiverName: recipientUser.name,
         recipientIdentifier: receiverIdStr,
-        remarks: notes ? `Transfer to ${recipientUser.name}: ${notes}` : `Sent to ${recipientUser.name} (${receiverIdStr})`
+        remarks: notes ? `Transfer from ${sourceName} to ${recipientUser.name}: ${notes}` : `Sent from ${sourceName} to ${recipientUser.name} (${receiverIdStr})`
       }], { session });
       senderTxn = sTxnArr[0];
 
@@ -178,7 +199,8 @@ router.post('/transfer', protect, async (req, res) => {
     res.json({
       message: `🎉 ₹${amount.toLocaleString('en-IN')} successfully sent to ${recipientUser.name}!`,
       txn: senderTxn,
-      newBalance: senderNewBalance
+      newBalance: senderNewBalance,
+      newProfitBalance: senderNewProfitBalance
     });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message || 'Transfer failed' });
@@ -221,7 +243,7 @@ router.post('/deposit', protect, async (req, res) => {
 
 // Withdrawal Request
 router.post('/withdraw', protect, async (req, res) => {
-  const { amount, method, paymentDetails } = req.body;
+  const { amount, method, paymentDetails, sourceWallet = 'main' } = req.body;
 
   const user = await User.findById(req.user._id);
   if (!user) return res.status(404).json({ message: 'User not found' });
@@ -240,17 +262,26 @@ router.post('/withdraw', protect, async (req, res) => {
   if (paymentDetails && typeof paymentDetails !== 'object')
     return res.status(400).json({ message: 'Invalid payment details' });
 
+  const isProfitSource = sourceWallet === 'profit';
   const autoApprove = amount < 5000;
   const session = await mongoose.startSession();
 
   try {
-    let txn, newBalance;
+    let txn, newBalance, newProfitBalance;
 
     await session.withTransaction(async () => {
+      const field = isProfitSource ? 'profitBalance' : 'balance';
+      const available = user[field] || 0;
+      if (available < amount) {
+        const e = new Error(`Insufficient balance in ${isProfitSource ? 'Profit Wallet' : 'Primary Wallet'}. Available: ₹${available}`);
+        e.status = 400;
+        throw e;
+      }
+
       if (autoApprove) {
         const updatedUser = await User.findOneAndUpdate(
-          { _id: req.user._id, balance: { $gte: amount } },
-          { $inc: { balance: -amount } },
+          { _id: req.user._id, [field]: { $gte: amount } },
+          { $inc: { [field]: -amount } },
           { new: true, session }
         );
         if (!updatedUser) {
@@ -259,25 +290,37 @@ router.post('/withdraw', protect, async (req, res) => {
           throw e;
         }
         newBalance = updatedUser.balance;
+        newProfitBalance = updatedUser.profitBalance;
 
-        // Track lowest balance for yield calculation (minimum-balance rule)
-        await User.findByIdAndUpdate(req.user._id, { $min: { lowestBalance24h: newBalance } }, { session });
+        if (!isProfitSource) {
+          // Track lowest balance for yield calculation (minimum-balance rule)
+          await User.findByIdAndUpdate(req.user._id, { $min: { lowestBalance24h: newBalance } }, { session });
+        }
 
         const created = await Transaction.create(
-          [{ userId: req.user._id, type: 'withdrawal', amount, method, paymentDetails, status: 'completed' }],
+          [{
+            userId: req.user._id,
+            type: 'withdrawal',
+            amount,
+            method,
+            paymentDetails,
+            status: 'completed',
+            remarks: `Withdrawal from ${isProfitSource ? 'Profit Wallet' : 'Primary Wallet'}`
+          }],
           { session }
         );
         txn = created[0];
       } else {
-        const user = await User.findById(req.user._id).session(session);
-        if (user.balance < amount) {
-          const e = new Error('Insufficient balance');
-          e.status = 400;
-          throw e;
-        }
-
         const created = await Transaction.create(
-          [{ userId: req.user._id, type: 'withdrawal', amount, method, paymentDetails, status: 'pending' }],
+          [{
+            userId: req.user._id,
+            type: 'withdrawal',
+            amount,
+            method,
+            paymentDetails,
+            status: 'pending',
+            remarks: `Withdrawal from ${isProfitSource ? 'Profit Wallet' : 'Primary Wallet'}`
+          }],
           { session }
         );
         txn = created[0];
@@ -285,7 +328,7 @@ router.post('/withdraw', protect, async (req, res) => {
     });
 
     if (autoApprove) {
-      return res.json({ message: '✅ Withdrawal processed automatically!', txn, newBalance });
+      return res.json({ message: '✅ Withdrawal processed automatically!', txn, newBalance, newProfitBalance });
     }
     res.json({ message: '⏳ Amount above ₹5000 requires admin approval.', txn });
   } catch (err) {

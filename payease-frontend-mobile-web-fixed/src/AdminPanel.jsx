@@ -623,7 +623,15 @@ export default function AdminPanel() {
 
   // Live Mini-Second Profit & Reserves Stream (Admin)
   const [adminLiveMs, setAdminLiveMs] = useState(Date.now());
-  const [adminSessionStart] = useState(() => Date.now());
+  const [adminAnchorTime, setAdminAnchorTime] = useState(() => Date.now());
+  const [adminCachedProfit, setAdminCachedProfit] = useState(() => {
+    try {
+      const saved = localStorage.getItem("educa_admin_cached_profit");
+      return saved ? Number(saved) : 0;
+    } catch {
+      return 0;
+    }
+  });
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -633,17 +641,39 @@ export default function AdminPanel() {
   }, []);
 
   const totalReservesBase = Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 0);
-  const totalProfitBase = Number(analytics?.stats?.totalYieldCredited || stats.totalYield || 0);
+  const totalProfitBase = Number(analytics?.stats?.totalUserProfits || stats?.totalUserProfits || analytics?.stats?.totalYieldCredited || stats?.totalYield || 0);
+
+  useEffect(() => {
+    const sTime = analytics?.stats?.serverTime || stats?.serverTime;
+    if (sTime) {
+      const parsed = new Date(sTime).getTime();
+      if (!isNaN(parsed)) setAdminAnchorTime(parsed);
+    }
+    if (totalProfitBase > 0) {
+      setAdminCachedProfit(prev => Math.max(prev, totalProfitBase));
+    }
+  }, [analytics?.stats?.serverTime, stats?.serverTime, totalProfitBase]);
+
   const adminDailyRate = totalReservesBase > 0 ? (totalReservesBase * 0.12) / 365 : 0;
   const adminPerSec = adminDailyRate / 86400;
   const adminPerMs = adminPerSec / 1000;
 
-  const adminElapsedMs = adminLiveMs - adminSessionStart;
-  const liveAdminReserves = totalReservesBase + (adminElapsedMs * adminPerMs);
-  const liveAdminProfit = totalProfitBase + (adminElapsedMs * adminPerMs);
+  const baseAdminProfit = Math.max(totalProfitBase, adminCachedProfit);
+  const adminElapsedMs = Math.max(0, adminLiveMs - adminAnchorTime);
+  // Clean Reserves: Strictly rounded integer, NEVER add profit decimals to reserves
+  const liveAdminReserves = Math.round(totalReservesBase);
+  const liveAdminProfit = baseAdminProfit + (adminElapsedMs * adminPerMs);
+
+  useEffect(() => {
+    if (liveAdminProfit > 0) {
+      try {
+        localStorage.setItem("educa_admin_cached_profit", String(liveAdminProfit));
+      } catch {}
+    }
+  }, [liveAdminProfit]);
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, loading: isReservesLoading, g: "from-emerald-500 to-teal-600" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-emerald-500 to-teal-600" },
     { icon: "💰", label: "Total Deposits", value: `₹${Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 0).toLocaleString("en-IN")}`, loading: isReservesLoading, g: "from-green-500 to-emerald-600" },
     { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, loading: isReservesLoading, g: "from-indigo-600 to-violet-600" },
     { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 0, loading: isStatsLoading, g: "from-blue-500 to-blue-600" },
@@ -857,7 +887,7 @@ export default function AdminPanel() {
                     {loadingAnalytics && !analytics ? (
                       <span className="inline-block h-8 w-44 bg-white/20 rounded-xl animate-pulse" />
                     ) : (
-                      <span className="font-mono text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
+                      <span className="font-mono text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN")}</span>
                     )}
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-300 mt-2 max-w-2xl">
@@ -892,7 +922,7 @@ export default function AdminPanel() {
                     <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
                   ) : (
                     <p className="text-2xl sm:text-3xl font-black font-display font-mono text-emerald-600 tracking-tight">
-                      ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                      ₹{Number(liveAdminReserves).toLocaleString("en-IN")}
                     </p>
                   )}
                   <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">

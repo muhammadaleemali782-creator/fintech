@@ -381,7 +381,15 @@ router.post('/kyc/:id/reject', protect, admin, async (req, res) => {
 // Dashboard stats
 router.get('/stats', protect, admin, async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments({ role: 'user' });
+    const { processDailyYield } = require('./user');
+    const users = await User.find({ role: { $ne: 'admin' } });
+    if (processDailyYield) {
+      for (const u of users) {
+        await processDailyYield(u);
+      }
+    }
+
+    const totalUsers = users.length;
     const pendingTxns = await Transaction.countDocuments({ status: 'pending' });
     const totalDeposits = await Transaction.aggregate([
       { $match: { type: 'deposit', status: 'approved' } },
@@ -391,26 +399,27 @@ router.get('/stats', protect, admin, async (req, res) => {
       { $match: { type: 'daily_yield' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-    const users = await User.find({ role: 'user' }).select('balance profitBalance');
-    const totalUserBalances = users.reduce((sum, u) => sum + (u.balance || 0), 0);
-    const totalUserProfits = users.reduce((sum, u) => sum + (u.profitBalance || 0), 0);
+    const totalUserBalances = Number(users.reduce((sum, u) => sum + (u.balance || 0), 0).toFixed(2));
+    const totalUserProfits = Number(users.reduce((sum, u) => sum + (u.profitBalance || 0), 0).toFixed(4));
     const Bond = require('../models/Bond');
     const activeBonds = await Bond.find({ status: 'active' });
     const totalActiveBonds = Number(activeBonds.reduce((sum, b) => sum + (b.principalAmount || 0), 0).toFixed(2));
-    // totalUserBalances already contains total funds (deposits + profits), so do not add profits twice
-    const netFintechReserve = Number((totalUserBalances + totalActiveBonds).toFixed(2));
+    
+    // Clean Fintech Reserves: Total user deposits/balances (+ active bonds). Strictly clean integer, NO PROFIT ADDED.
+    const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds);
     const pendingLoans = await Loan.countDocuments({ status: 'pending' });
 
     res.json({
       totalUsers,
       pendingTxns,
       totalDeposits: totalDeposits[0]?.total || 0,
-      totalYield: totalYield[0]?.total || 0,
+      totalYield: totalUserProfits || totalYield[0]?.total || 0,
       totalUserBalances,
       totalUserProfits,
       totalActiveBonds,
       netFintechReserve,
-      pendingLoans
+      pendingLoans,
+      serverTime: new Date().toISOString()
     });
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
@@ -420,20 +429,27 @@ router.get('/stats', protect, admin, async (req, res) => {
 // Detailed Fintech Analytics & Daily Profit Growth
 router.get('/analytics', protect, admin, async (req, res) => {
   try {
+    const { processDailyYield } = require('./user');
+    const allUsers = await User.find({ role: { $ne: 'admin' } });
+    if (processDailyYield) {
+      for (const u of allUsers) {
+        await processDailyYield(u);
+      }
+    }
+
     // 1. Users & Balances
-    const users = await User.find({ role: 'user' }).select('name email phone balance profitBalance lowestBalance24h createdAt');
+    const users = await User.find({ role: { $ne: 'admin' } }).select('name email phone balance profitBalance lowestBalance24h createdAt');
     const totalUsers = users.length;
     const totalUserBalances = Number(users.reduce((sum, u) => sum + (u.balance || 0), 0).toFixed(2));
-    const totalUserProfits = Number(users.reduce((sum, u) => sum + (u.profitBalance || 0), 0).toFixed(2));
+    const totalUserProfits = Number(users.reduce((sum, u) => sum + (u.profitBalance || 0), 0).toFixed(4));
 
     // Active Bonds in company
     const Bond = require('../models/Bond');
     const activeBonds = await Bond.find({ status: 'active' });
     const totalActiveBonds = Number(activeBonds.reduce((sum, b) => sum + (b.principalAmount || 0), 0).toFixed(2));
 
-    // Poore company ka total liquid reserve:
-    // totalUserBalances already includes deposits and profits, plus any active bonds
-    const netFintechReserve = Number((totalUserBalances + totalActiveBonds).toFixed(2));
+    // Clean Fintech Reserves: Pure capital pool without profit decimals added. Strictly rounded integer.
+    const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds);
 
     // 2. Deposits
     const depositTxns = await Transaction.find({ type: 'deposit', status: 'approved' }).sort({ createdAt: 1 });
@@ -441,7 +457,7 @@ router.get('/analytics', protect, admin, async (req, res) => {
 
     // 3. Daily Yield / Profits
     const yieldTxns = await Transaction.find({ type: 'daily_yield' }).sort({ createdAt: 1 }).populate('userId', 'name email');
-    const totalYieldCredited = Number(yieldTxns.reduce((sum, y) => sum + (y.amount || 0), 0).toFixed(2));
+    const totalYieldCredited = totalUserProfits || Number(yieldTxns.reduce((sum, y) => sum + (y.amount || 0), 0).toFixed(4));
 
     // 4. Pending Txns & Pending Loans
     const pendingTxnsCount = await Transaction.countDocuments({ status: 'pending' });
@@ -565,7 +581,8 @@ router.get('/analytics', protect, admin, async (req, res) => {
         totalLoansDisbursed,
         pendingTxnsCount,
         pendingLoansCount,
-        netFintechReserve
+        netFintechReserve,
+        serverTime: new Date().toISOString()
       },
       dailyProfitChart,
       sources,

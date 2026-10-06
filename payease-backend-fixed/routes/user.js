@@ -8,82 +8,53 @@ const { sendNotification } = require('../utils/notifier');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const router = express.Router();
 
-// Helper to evaluate and credit daily profit on lowest 24h primary Savings Account balance
+// Helper to evaluate and credit daily profit on primary Savings Account balance
 async function processDailyYield(user) {
   if (!user || user.role === 'admin') return user;
 
-  // Get current date string in Indian Standard Time (Asia/Kolkata) e.g. '2026-10-05'
-  const todayISTStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-
-  // Find the latest daily_yield transaction to determine the next calendar day
-  const lastYieldTxn = await Transaction.findOne({ userId: user._id, type: 'daily_yield' }).sort({ createdAt: -1 });
-
-  let startDate;
-  if (lastYieldTxn) {
-    startDate = new Date(lastYieldTxn.createdAt);
-  } else {
-    const firstDeposit = await Transaction.findOne({ userId: user._id, type: 'deposit', status: 'approved' }).sort({ createdAt: 1 });
-    if (!firstDeposit) return user;
-    startDate = new Date(firstDeposit.createdAt);
-  }
-
-  // Ensure lowestBalance24h is active
-  if (!user.lowestBalance24h || user.lowestBalance24h <= 0) {
-    user.lowestBalance24h = user.balance || 0;
-  }
-
-  const baseBal = Math.max(0, user.lowestBalance24h || user.balance || 0);
+  const baseBal = Math.max(0, user.balance || 0);
   if (baseBal <= 0) return user;
 
+  const firstDeposit = await Transaction.findOne({ userId: user._id, type: 'deposit', status: 'approved' }).sort({ createdAt: 1 });
+  if (!firstDeposit) return user;
+
+  const now = new Date();
+  
+  // Single source of truth: user.lastYieldCalculatedAt or firstDeposit.createdAt
+  const lastCalc = user.lastYieldCalculatedAt ? new Date(user.lastYieldCalculatedAt) : new Date(firstDeposit.createdAt);
+
+  const elapsedMs = Math.max(0, now.getTime() - lastCalc.getTime());
   const annualRate = (user.interestRate || 12) / 100; // default 12% p.a.
-  const monthlyRate = annualRate / 12;
+  const perMsRate = annualRate / (365 * 86400 * 1000);
 
-  let curr = new Date(startDate);
-  curr.setUTCHours(12, 0, 0, 0);
+  if (elapsedMs >= 100) {
+    const earned = Number((baseBal * perMsRate * elapsedMs).toFixed(4));
+    if (earned > 0) {
+      user.profitBalance = Number(((user.profitBalance || 0) + earned).toFixed(4));
+      user.lastYieldCalculatedAt = now;
+      user.lowestBalance24h = user.balance;
+      await user.save();
 
-  // Credit missing calendar days up to todayISTStr
-  for (let i = 0; i < 60; i++) {
-    curr.setUTCDate(curr.getUTCDate() + 1);
-    const dateStr = curr.toISOString().slice(0, 10);
-    if (dateStr > todayISTStr) break;
-
-    const periodKey = `yield_${user._id}_${dateStr}`;
-    const alreadyCredited = await Transaction.findOne({ referenceId: periodKey });
-
-    if (!alreadyCredited) {
-      const daysInMonth = new Date(curr.getFullYear(), curr.getMonth() + 1, 0).getDate();
-      const dailyRate = monthlyRate / daysInMonth;
-      const currentCapital = Number((user.balance || 0).toFixed(2));
-      const dayYield = Number((currentCapital * dailyRate).toFixed(2));
-
-      if (dayYield > 0) {
-        // Daily yield is added ONLY to profitBalance (Profit Wallet).
-        // Primary balance stays untouched (e.g. fixed 6 Lakh) until user explicitly transfers!
-        user.profitBalance = Number(((user.profitBalance || 0) + dayYield).toFixed(2));
-
-        const formattedDateStr = curr.toLocaleDateString('en-IN', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
-        });
-
-        await Transaction.create({
-          userId: user._id,
-          type: 'daily_yield',
-          amount: dayYield,
-          method: 'internal',
-          status: 'completed',
-          referenceId: periodKey,
-          remarks: `Daily Savings Yield: ₹${dayYield.toFixed(2)} profit for ${formattedDateStr} (12% p.a. on ₹${currentCapital.toLocaleString('en-IN')})`,
-          createdAt: new Date(curr)
-        });
-      }
+      // Maintain daily aggregated transaction entry
+      const dateStr = now.toISOString().slice(0, 10);
+      const periodKey = `yield_${user._id}_${dateStr}`;
+      await Transaction.findOneAndUpdate(
+        { referenceId: periodKey },
+        {
+          $inc: { amount: earned },
+          $setOnInsert: {
+            userId: user._id,
+            type: 'daily_yield',
+            method: 'internal',
+            status: 'completed',
+            remarks: `Daily Savings Yield (${user.interestRate || 12}% p.a. on ₹${baseBal.toLocaleString('en-IN')})`,
+            createdAt: now
+          }
+        },
+        { upsert: true }
+      );
     }
   }
-
-  user.lastYieldCalculatedAt = new Date();
-  user.lowestBalance24h = user.balance || 0;
-  await user.save();
 
   return user;
 }
@@ -104,6 +75,7 @@ router.get('/me', protect, async (req, res) => {
     user = await processDailyYield(user);
     const userObj = user.toObject();
     userObj.hasWalletPin = !!user.walletPin;
+    userObj.serverTime = new Date().toISOString();
     delete userObj.walletPin;
     res.json(userObj);
   } catch (err) {
@@ -548,6 +520,7 @@ router.post('/transfer-profit-to-wallet', protect, async (req, res) => {
 
     user.balance = Number((user.balance + profit).toFixed(2));
     user.profitBalance = 0;
+    user.lastYieldCalculatedAt = new Date();
     if (user.wallets?.savings) {
       user.wallets.savings.balance = Number(((user.wallets.savings.balance || 0) + profit).toFixed(2));
     }
@@ -607,16 +580,16 @@ router.get('/agent/stats', protect, async (req, res) => {
       userId: { $in: customerIds },
       status: { $in: ['approved', 'active', 'closed'] }
     });
-    const totalDisbursal = Number(disbursals.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(2));
+    const totalDisbursal = Number(disbursals.reduce((sum, l) => sum + (l.disbursalAmount || l.amount || 0), 0).toFixed(2));
 
     // 4. Total Collection from agent's customers
-    const totalCollection = Number(disbursals.reduce((sum, l) => sum + (l.collectedAmount || 0), 0).toFixed(2));
+    const totalCollection = Number(disbursals.reduce((sum, l) => sum + (l.paidAmount || l.collectedAmount || 0), 0).toFixed(2));
 
     // 5. Total Pending Due of agent's customers
     const totalDue = Number(customers.reduce((sum, c) => sum + (c.duesBalance || 0), 0).toFixed(2));
 
     // 6. Pre-closing / Early closure loans
-    const preClosedLoans = disbursals.filter(l => l.earlyClosure || (l.status === 'closed' && (l.paidInstallments || 0) < (l.totalInstallments || 10)));
+    const preClosedLoans = disbursals.filter(l => l.earlyClosed || l.earlyClosure || (l.status === 'closed' && (l.paidInstallments || 0) < (l.installmentsCount || 10)));
     const preClosingCount = preClosedLoans.length;
     const preClosingAmount = Number(preClosedLoans.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(2));
 
@@ -638,16 +611,33 @@ router.get('/agent/stats', protect, async (req, res) => {
         preClosingAmount,
         customerCount: customers.length
       },
-      customers: customers.map(c => ({
-        id: c._id,
-        name: c.name,
-        phone: c.phone,
-        balance: c.balance || 0,
-        duesBalance: c.duesBalance || 0,
-        loansCount: c.loansCount || 0,
-        kycStatus: c.kycStatus || 'none',
-        joinedAt: c.createdAt
-      }))
+      customers: customers.map(c => {
+        const cDeposits = depositTxns
+          .filter(d => d.userId.toString() === c._id.toString())
+          .reduce((sum, d) => sum + (d.amount || 0), 0);
+        const cLoans = disbursals.filter(l => l.userId.toString() === c._id.toString());
+        const cDisbursed = cLoans.reduce((sum, l) => sum + (l.disbursalAmount || l.amount || 0), 0);
+        const cCollected = cLoans.reduce((sum, l) => sum + (l.paidAmount || l.collectedAmount || 0), 0);
+        const cPre = cLoans.filter(l => l.earlyClosed || l.earlyClosure || (l.status === 'closed' && (l.paidInstallments || 0) < (l.installmentsCount || 10)));
+        const cPreCount = cPre.length;
+        const cPreAmount = cPre.reduce((sum, l) => sum + (l.amount || 0), 0);
+
+        return {
+          id: c._id,
+          name: c.name,
+          phone: c.phone,
+          balance: c.balance || 0,
+          totalDeposit: Number(cDeposits.toFixed(2)),
+          totalDisbursal: Number(cDisbursed.toFixed(2)),
+          totalCollection: Number(cCollected.toFixed(2)),
+          totalDue: Number((c.duesBalance || 0).toFixed(2)),
+          preClosingCount: cPreCount,
+          preClosingAmount: Number(cPreAmount.toFixed(2)),
+          loansCount: c.loansCount || 0,
+          kycStatus: c.kycStatus || 'none',
+          joinedAt: c.createdAt
+        };
+      })
     });
   } catch (err) {
     console.error('Agent stats error:', err);

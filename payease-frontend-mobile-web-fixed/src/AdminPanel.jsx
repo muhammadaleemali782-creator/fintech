@@ -1455,28 +1455,60 @@ export default function AdminPanel() {
         </nav>
 
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0">
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
-            {statCards.map(({ icon, label, value, g, isWhite }) => {
-              const valStr = String(value);
-              const isLong = valStr.length > 11;
-              const isLive = label === "Fintech Reserves" || label === "Profit Credited";
+          {/* Stats — Only in Profit & Reserves View */}
+          {tab === "analytics" && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
+              {statCards.map(({ icon, label, value, g, isWhite }) => {
+                const valStr = String(value);
+                const isLong = valStr.length > 11;
+                const isLive = label === "Fintech Reserves" || label === "Profit Credited";
 
-              if (isWhite) {
+                if (isWhite) {
+                  return (
+                    <div
+                      key={label}
+                      className="bg-white border-2 border-slate-200/90 hover:border-slate-300 p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
+                          <p className="text-slate-500 text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</p>
+                        </div>
+                      </div>
+                      <div className="mt-1">
+                        <p
+                          className={`font-black font-mono tabular-nums tracking-tight text-slate-900 truncate ${
+                            isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
+                          }`}
+                          title={valStr}
+                        >
+                          {value}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={label}
-                    className="bg-white border-2 border-slate-200/90 hover:border-slate-300 p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5"
+                    className={`bg-gradient-to-br ${g} text-white p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5`}
                   >
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
-                        <p className="text-slate-500 text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</p>
+                        <p className="text-white/85 text-[11px] sm:text-xs font-medium truncate">{label}</p>
                       </div>
+                      {isLive && (
+                        <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
+                          Live
+                        </span>
+                      )}
                     </div>
                     <div className="mt-1">
                       <p
-                        className={`font-black font-mono tabular-nums tracking-tight text-slate-900 truncate ${
+                        className={`font-black font-mono tabular-nums tracking-tight whitespace-nowrap overflow-visible ${
                           isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
                         }`}
                         title={valStr}
@@ -1486,39 +1518,9 @@ export default function AdminPanel() {
                     </div>
                   </div>
                 );
-              }
-
-              return (
-                <div
-                  key={label}
-                  className={`bg-gradient-to-br ${g} text-white p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
-                      <p className="text-white/85 text-[11px] sm:text-xs font-medium truncate">{label}</p>
-                    </div>
-                    {isLive && (
-                      <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
-                        Live
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1">
-                    <p
-                      className={`font-black font-mono tabular-nums tracking-tight whitespace-nowrap overflow-visible ${
-                        isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
-                      }`}
-                      title={valStr}
-                    >
-                      {value}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+              })}
+            </div>
+          )}
 
           {/* Tabs — mobile/tablet (Custom Executive Navigation Desk) */}
           <div className="lg:hidden mb-4 bg-white p-3 rounded-2xl shadow-2xs border border-slate-200/90">

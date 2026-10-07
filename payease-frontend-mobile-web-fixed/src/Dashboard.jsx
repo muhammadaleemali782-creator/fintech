@@ -3544,7 +3544,7 @@ export default function Dashboard() {
   // Settle & Close Loan Early in Full (With 3-Part Pre-Close Discount Calculation)
   const closeLoanEarly = async (id, payoffAmount, userDiscount = 0, xPercent = 0) => {
     const confirmMsg = userDiscount > 0
-      ? `Kya aap loan ko ₹${payoffAmount.toLocaleString("en-IN")} me early payoff karke close karna chahte hain?\n\n🎉 Pre-Closure Offer Active:\nTenure 15 kiston se upar hone par ${xPercent}% discount pool me se aapko ₹${userDiscount.toLocaleString("en-IN")} ki chhoot (discount) mili hai!`
+      ? `Kya aap loan ko ₹${payoffAmount.toLocaleString("en-IN")} me early payoff karke close karna chahte hain?\n\n🎉 Early Settlement Fayda:\nAapko samay se pehle loan payoff karne par ₹${userDiscount.toLocaleString("en-IN")} ki chhoot (fayda) milegi!`
       : `Kya aap loan ko ₹${payoffAmount.toLocaleString("en-IN")} me early payoff karke close karna chahte hain?`;
     if (!window.confirm(confirmMsg)) return;
     try {
@@ -4021,49 +4021,22 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Foreclosure / Early Settlement Commission Slabs Guide */}
-            <div className="mt-3 p-3.5 bg-white/5 border border-amber-400/25 rounded-2xl text-xs space-y-2.5">
+            {/* Early Settlement Commission Benefit Guide */}
+            <div className="mt-3 p-3.5 bg-white/5 border border-amber-400/25 rounded-2xl text-xs space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                  <span>⚡</span> Loan Pre-Closure Benefits (9 Kist Se Pehle Close Hone Par)
+                  <span>⚡</span> Early Loan Pre-Closure Benefits
                 </span>
                 <span className="text-[10px] bg-amber-400/20 text-amber-200 border border-amber-400/30 px-2 py-0.5 rounded-full font-bold">
-                  1:1:1 Equal Share
+                  Extra Commission
                 </span>
               </div>
-              <p className="text-[11px] text-amber-100/80 leading-relaxed">
-                Agar loan <strong>9th installment se pehle</strong> pre-close hota hai, to 15 ke upar jitni kistein hain utna percent (<code className="font-mono text-amber-300 font-bold">Total Kist - 15 = x%</code>) discount pool banta hai aur uske <strong>3 barabar hisse</strong> hote hain:
+              <p className="text-[11px] text-amber-100/90 leading-relaxed">
+                Agar aapka referred borrower loan ko <strong>samay se pehle (9 kiston se pehle)</strong> close karta hai, to borrower ko loan me vishesh chhoot (fayda) milta hai aur aapko bhi instant early settlement bonus credit hota hai!
               </p>
-              <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
-                <div className="p-2 bg-black/40 rounded-xl border border-white/10">
-                  <span className="text-emerald-400 font-bold block text-[10px]">1️⃣ User Chhoot</span>
-                  <span className="font-black text-white text-xs">x / 3 % Discount</span>
-                  <p className="text-[9px] text-gray-400 mt-0.5">Payoff se minus</p>
-                </div>
-                <div className="p-2 bg-black/40 rounded-xl border border-amber-400/40">
-                  <span className="text-amber-400 font-bold block text-[10px]">2️⃣ Agent Benefit</span>
-                  <span className="font-black text-amber-300 text-xs">x / 3 % Bonus</span>
-                  <p className="text-[9px] text-amber-200/80 mt-0.5">Wallet me credit</p>
-                </div>
-                <div className="p-2 bg-black/40 rounded-xl border border-white/10">
-                  <span className="text-blue-400 font-bold block text-[10px]">3️⃣ Company Profit</span>
-                  <span className="font-black text-white text-xs">x / 3 % Profit</span>
-                  <p className="text-[9px] text-gray-400 mt-0.5">Reserves me add</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center text-[10px] pt-1 border-t border-white/10 text-gray-300 font-medium">
-                <div className="bg-white/5 py-1 px-1.5 rounded-lg">
-                  <span className="font-mono text-amber-200 font-bold block">18 Kist (x=3%)</span>
-                  <span>1% User | 1% Agent | 1% Co.</span>
-                </div>
-                <div className="bg-white/5 py-1 px-1.5 rounded-lg">
-                  <span className="font-mono text-amber-200 font-bold block">21 Kist (x=6%)</span>
-                  <span>2% User | 2% Agent | 2% Co.</span>
-                </div>
-                <div className="bg-white/5 py-1 px-1.5 rounded-lg">
-                  <span className="font-mono text-amber-200 font-bold block">24 Kist (x=9%)</span>
-                  <span>3% User | 3% Agent | 3% Co.</span>
-                </div>
+              <div className="p-2.5 bg-black/40 rounded-xl border border-amber-400/30 text-[11px] text-amber-200 flex items-center justify-between">
+                <span>💡 Jitna jaldi pre-close hoga, borrower aur aap dono ko utna fayda milega!</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">Auto Payout</span>
               </div>
             </div>
 
@@ -4806,8 +4779,8 @@ export default function Dashboard() {
                       )}
                       {userDiscount > 0 && (
                         <div className="mb-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium flex items-center justify-between">
-                          <span>🎉 Pre-Close Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} Chhoot</strong> (1/3rd of {xPercent}% Pool)</span>
-                          <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">Eligible</span>
+                          <span>🎉 Early Settlement Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} ki Chhoot (Fayda)</strong></span>
+                          <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">Fayda Active</span>
                         </div>
                       )}
                       <div className="grid grid-cols-3 gap-2 sm:gap-3 text-sm mb-3">
@@ -4824,7 +4797,7 @@ export default function Dashboard() {
                             Pay Kist ₹{nextDueAmt}{penaltyAmt > 0 ? ` (incl ₹${penaltyAmt} penalty)` : ""}
                           </button>
                           <button onClick={() => closeLoanEarly(l._id, payoffAmt, userDiscount, xPercent)} className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs border border-emerald-300 transition active:scale-[0.98]">
-                            ⚡ 15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Chhoot!]` : ""}
+                            ⚡ 15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Fayda]` : ""}
                           </button>
                         </div>
                       )}
@@ -5769,10 +5742,10 @@ export default function Dashboard() {
                     <p>⚡ <strong>15-Installment Early Pre-Closure Rule:</strong> Minimum 15 kiston ka bhugtan karke loan samay se pehle band kiya ja sakta hai.</p>
                     {userDiscount > 0 ? (
                       <p className="text-emerald-800 font-bold">
-                        🎉 9 kiston se pehle close karne par {xPercent}% discount pool me se aapko ₹{userDiscount.toLocaleString("en-IN")} ki chhoot mili hai! (Payoff: ₹{payoffAmount.toLocaleString("en-IN")})
+                        🎉 Samay se pehle (9 kiston se pehle) loan payoff karne par aapko ₹{userDiscount.toLocaleString("en-IN")} ka vishesh fayda (chhoot) mila hai! (Payoff: ₹{payoffAmount.toLocaleString("en-IN")})
                       </p>
                     ) : (
-                      paidCount >= 9 && <p className="text-gray-500">Notice: 9 kist ke baad pre-close discount lagu nahi hota hai.</p>
+                      paidCount >= 9 && <p className="text-gray-500">Notice: 9 kist ke baad early settlement discount lagu nahi hota hai.</p>
                     )}
                   </div>
                   <button
@@ -5780,7 +5753,7 @@ export default function Dashboard() {
                     onClick={() => closeLoanEarly(activePersonalLoan._id, payoffAmount, userDiscount, xPercent)}
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm active:scale-95 transition cursor-pointer"
                   >
-                    Close Loan Early (15-Kist Payoff ₹{payoffAmount.toLocaleString("en-IN")}{userDiscount > 0 ? ` • ₹${userDiscount} Chhoot` : ""}) →
+                    Close Loan Early (15-Kist Payoff ₹{payoffAmount.toLocaleString("en-IN")}{userDiscount > 0 ? ` • ₹${userDiscount} Fayda` : ""}) →
                   </button>
                 </div>
               );
@@ -7066,7 +7039,7 @@ export default function Dashboard() {
                   )}
                   {userDiscount > 0 && (
                     <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium">
-                      🎉 Pre-Close Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} Chhoot</strong> (1/3rd of {xPercent}% Pool)
+                      🎉 Early Settlement Offer: Samay se pehle band karne par <strong>₹{userDiscount.toLocaleString("en-IN")} ka fayda (chhoot)</strong> milega!
                     </div>
                   )}
                   <button
@@ -7085,7 +7058,7 @@ export default function Dashboard() {
                     onClick={() => closeLoanEarly(activeStudentLoan._id, studentPayoff, userDiscount, xPercent)}
                     className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs transition cursor-pointer"
                   >
-                    ⚡ Close Loan Early (15-Kist Payoff ₹{studentPayoff.toLocaleString("en-IN")}{userDiscount > 0 ? ` • ₹${userDiscount} Chhoot` : ""})
+                    ⚡ Close Loan Early (15-Kist Payoff ₹{studentPayoff.toLocaleString("en-IN")}{userDiscount > 0 ? ` • ₹${userDiscount} Fayda` : ""})
                   </button>
                 </div>
               );
@@ -7584,8 +7557,8 @@ export default function Dashboard() {
                             )}
                             {userDiscount > 0 && (
                               <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium flex items-center justify-between">
-                                <span>🎉 Pre-Close Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} Chhoot</strong> (1/3rd of {xPercent}% Pool)</span>
-                                <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">Eligible</span>
+                                <span>🎉 Early Settlement Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} ki Chhoot (Fayda)</strong></span>
+                                <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">Fayda Active</span>
                               </div>
                             )}
                             <div className="flex gap-2">
@@ -7610,7 +7583,7 @@ export default function Dashboard() {
                                 className="px-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs active:scale-95 transition cursor-pointer"
                                 title="Close loan early with 15-installment payoff"
                               >
-                                ⚡ 15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Chhoot]` : ""}
+                                ⚡ 15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Fayda]` : ""}
                               </button>
                             </div>
                           </div>

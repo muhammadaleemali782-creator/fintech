@@ -855,7 +855,7 @@ router.post('/:id/close-early', protect, async (req, res) => {
         loan.agentProfitPaid = true;
         loan.agentProfitAmount = agentBonus;
 
-        const commissionRemarks = `Agent Pre-Closure Benefit (${(xPercent / 3).toFixed(2)}% of ₹${loan.amount.toLocaleString('en-IN')} from 1/3rd of ${xPercent}% Pool) for loan ${loan.accountNumber || loan._id}`;
+        const commissionRemarks = `Early Loan Settlement Bonus for loan ${loan.accountNumber || loan._id}`;
 
         await Transaction.create([{
           userId: agentId,
@@ -874,6 +874,9 @@ router.post('/:id/close-early', protect, async (req, res) => {
 
       await loan.save({ session });
 
+      // Borrower transaction remarks - clean and simple, no confidential internal splits
+      const borrowerRemarks = `Full Early Closure Payoff for loan ${loan.accountNumber || 'Loan'}${userDiscount > 0 ? ` (Early Closure Discount: -₹${userDiscount.toLocaleString('en-IN')})` : ''}${penaltyAmt > 0 ? ` (Penalty: +₹${penaltyAmt.toLocaleString('en-IN')})` : ''}`;
+
       await Transaction.create([{
         userId: req.user._id,
         type: 'loan_early_closure',
@@ -881,21 +884,24 @@ router.post('/:id/close-early', protect, async (req, res) => {
         method: 'wallet',
         status: 'completed',
         referenceId: loan._id.toString(),
-        remarks: `Full Early Closure Payoff for loan ${loan.accountNumber || 'Loan'} (Base: ₹${basePayoffAmount}, User Discount: -₹${userDiscount}, Agent Benefit: ₹${agentBonus}, Company Profit: ₹${companyProfit}, Penalty: +₹${penaltyAmt})`
+        remarks: borrowerRemarks
       }], { session });
 
       resultLoan = loan;
     });
 
+    const isAdmin = req.user.role === 'admin';
     res.json({
       message: 'Loan successfully closed in full! Limit upgraded.',
       loan: resultLoan,
-      xPercent,
-      totalDiscountPool,
       userDiscount,
-      agentBonus,
-      companyProfit,
-      payoffAmount
+      payoffAmount,
+      ...(isAdmin ? {
+        xPercent,
+        totalDiscountPool,
+        agentBonus,
+        companyProfit
+      } : {})
     });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message || 'Early closure failed' });
@@ -933,6 +939,7 @@ router.get('/:id/preclose-quote', protect, async (req, res) => {
     const companyProfit = isEligible ? (totalDiscountPool - userDiscount - agentBenefit) : 0;
 
     const finalPayoff = Math.max(0, basePayoff - userDiscount) + penaltyAmt;
+    const isAdmin = req.user.role === 'admin';
 
     res.json({
       success: true,
@@ -941,17 +948,20 @@ router.get('/:id/preclose-quote', protect, async (req, res) => {
       totalTenure,
       paidCount,
       isEligibleForDiscount: isEligible,
-      reason: paidCount >= 9
-        ? '9 ya usse zyada kiste bhar chuke hain, isiliye pre-close discount lagu nahi hoga'
-        : (totalTenure <= 15 ? '15 kisto ke loan me discount lagu nahi hota' : 'Eligible for 3-part pre-close discount!'),
-      xPercent,
-      totalDiscountPool,
+      reason: isEligible
+        ? 'Early settlement par vishesh fayda uplabdh hai'
+        : (paidCount >= 9 ? '9 ya usse zyada kiste bhar chuke hain, isiliye early discount lagu nahi hai' : 'Standard loan payoff rules'),
       userDiscount,
-      agentBenefit,
-      companyProfit,
       basePayoff,
       penaltyAmt,
-      finalPayoff
+      finalPayoff,
+      // Only Admin gets to see confidential 3-part split and company profit metrics
+      ...(isAdmin ? {
+        xPercent,
+        totalDiscountPool,
+        agentBenefit,
+        companyProfit
+      } : {})
     });
   } catch (err) {
     res.status(500).json({ message: 'Failed to calculate pre-close quote' });

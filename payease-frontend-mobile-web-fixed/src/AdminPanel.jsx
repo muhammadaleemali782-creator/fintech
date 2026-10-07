@@ -934,6 +934,31 @@ export default function AdminPanel() {
   const [historyCategory, setHistoryCategory] = useState("all");
   const [historyStatus, setHistoryStatus] = useState("all");
   const [historySearch, setHistorySearch] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [historyFilterOpen, setHistoryFilterOpen] = useState(false);
+  const [sendingYieldAlert, setSendingYieldAlert] = useState(false);
+
+  const triggerYieldNotifications = async () => {
+    if (!window.confirm("Sabhi active depositors ko 24-hour daily profit alert notification send karein unke phones pe?")) return;
+    setSendingYieldAlert(true);
+    try {
+      const res = await fetch(`${API}/admin/distribute-yield-notifications`, {
+        method: "POST",
+        headers
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setToast({ text: `✅ ${data.message || "24h Profit alerts sent to depositors!"}`, type: "success" });
+        loadAuditHistory();
+      } else {
+        setToast({ text: data.message || "Failed to dispatch alerts", type: "error" });
+      }
+    } catch (e) {
+      setToast({ text: "Error connecting to server", type: "error" });
+    } finally {
+      setSendingYieldAlert(false);
+    }
+  };
 
   const loadAuditHistory = async () => {
     setHistoryLoading(true);
@@ -1449,32 +1474,37 @@ export default function AdminPanel() {
             })}
           </div>
 
-          {/* Tabs — mobile/tablet (No left-right scroll required) */}
-          <div className="lg:hidden mb-4 bg-white p-2.5 rounded-2xl shadow-2xs border border-slate-200/90">
-            <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                Navigation Desk
-              </span>
-              <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
-                {tabs.find(t => t.key === tab)?.icon} {tabs.find(t => t.key === tab)?.label}
-              </span>
+          {/* Tabs — mobile/tablet (Custom Executive Navigation Desk) */}
+          <div className="lg:hidden mb-4 bg-white p-3 rounded-2xl shadow-2xs border border-slate-200/90">
+            {/* Header: Active Section + Sheet Launcher (NO UGLY NATIVE SELECT) */}
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center text-sm shrink-0">
+                  {tabs.find(t => t.key === tab)?.icon || "⚡"}
+                </span>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block leading-tight">
+                    Active Desk
+                  </span>
+                  <span className="text-xs font-black text-slate-900 truncate block leading-tight">
+                    {tabs.find(t => t.key === tab)?.label}
+                  </span>
+                </div>
+              </div>
+
+              {/* Custom Bottom Sheet Opener */}
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer shrink-0"
+              >
+                <span>Switch Desk</span>
+                <span className="text-slate-400 text-[10px]">▼</span>
+              </button>
             </div>
 
-            {/* Instant Dropdown for all 12 sections */}
-            <select
-              value={tab}
-              onChange={(e) => setTab(e.target.value)}
-              className="w-full py-2 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer mb-2"
-            >
-              {tabs.map(({ key, label, icon, badge }) => (
-                <option key={key} value={key}>
-                  {icon} {label} {badge ? `(${badge})` : ""}
-                </option>
-              ))}
-            </select>
-
-            {/* 4 Primary Action Pills in a grid that spans 100% of mobile screen */}
-            <div className="grid grid-cols-4 gap-1.5">
+            {/* 4 Primary Action Quick-Access Pills */}
+            <div className="grid grid-cols-4 gap-1.5 pt-1 border-t border-slate-100">
               {[
                 { key: "analytics", label: "Reserves", icon: "📊" },
                 { key: "pending", label: "Pending", icon: "⏳", badge: pending.length },
@@ -1483,6 +1513,7 @@ export default function AdminPanel() {
               ].map(({ key, label, icon, badge }) => (
                 <button
                   key={key}
+                  type="button"
                   onClick={() => setTab(key)}
                   className={`py-2 px-1 rounded-xl text-[11px] font-bold text-center flex flex-col items-center justify-center gap-0.5 transition active:scale-95 cursor-pointer relative ${
                     tab === key
@@ -1503,6 +1534,90 @@ export default function AdminPanel() {
               ))}
             </div>
           </div>
+
+          {/* Custom iOS/Executive Mobile Navigation Drawer / Bottom Sheet */}
+          {mobileNavOpen && (
+            <div className="fixed inset-0 z-50 flex flex-col justify-end lg:hidden">
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+                onClick={() => setMobileNavOpen(false)}
+              />
+
+              {/* Bottom Sheet Modal */}
+              <div className="relative bg-white rounded-t-3xl border-t border-slate-200 max-h-[85vh] flex flex-col shadow-2xl z-10 animate-in slide-in-from-bottom duration-200">
+                {/* Drag Handle */}
+                <div className="pt-3 pb-1 flex justify-center">
+                  <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
+                </div>
+
+                {/* Sheet Header */}
+                <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900 leading-tight">
+                      Admin Operations Desks
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Tap any desk to switch workspace immediately
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMobileNavOpen(false)}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 text-sm font-bold transition active:scale-90 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Desk Items Grid */}
+                <div className="overflow-y-auto p-4 space-y-1.5 no-scrollbar">
+                  {tabs.map(({ key, label, icon, badge }) => {
+                    const isActive = tab === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          setTab(key);
+                          setMobileNavOpen(false);
+                        }}
+                        className={`w-full p-3 rounded-2xl flex items-center justify-between transition active:scale-[0.98] cursor-pointer border ${
+                          isActive
+                            ? "bg-blue-50/80 border-blue-400 text-blue-900 shadow-2xs font-extrabold"
+                            : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-lg shrink-0">
+                            {icon}
+                          </span>
+                          <span className="text-sm font-bold truncate">
+                            {label}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {!!badge && (
+                            <span className="text-xs font-black px-2 py-0.5 rounded-full bg-rose-500 text-white">
+                              {badge}
+                            </span>
+                          )}
+                          {isActive ? (
+                            <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-black">
+                              ✓
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 text-xs">›</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ══════════════════════════════════════════════════════
               PROFIT & RESERVES ANALYTICS VIEW
@@ -2994,87 +3109,36 @@ export default function AdminPanel() {
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={loadAuditHistory}
-                  disabled={historyLoading}
-                  className="self-start sm:self-auto px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 disabled:opacity-50 shadow-xs shrink-0"
-                >
-                  <span className={historyLoading ? "animate-spin" : ""}>🔄</span>
-                  <span>{historyLoading ? "Refreshing..." : "Refresh Logs"}</span>
-                </button>
-              </div>
 
-              {/* Tier 1: Category Navigation Tabs (with Mouse Wheel Vertical Scroll & Arrow Controls) */}
-              <div className="relative group/pillbar">
-                {/* Scroll Left Button (Desktop) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const el = document.getElementById("admin-audit-cat-scroll");
-                    if (el) el.scrollBy({ left: -220, behavior: "smooth" });
-                  }}
-                  className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 z-10 w-6 h-6 items-center justify-center bg-white/95 hover:bg-white text-slate-600 hover:text-slate-900 rounded-full border border-slate-200 shadow-xs text-xs font-bold transition active:scale-90 cursor-pointer opacity-80 hover:opacity-100"
-                  title="Scroll left"
-                >
-                  ‹
-                </button>
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
+                  {/* 24h Daily Profit Notification Dispatch Button */}
+                  <button
+                    type="button"
+                    onClick={triggerYieldNotifications}
+                    disabled={sendingYieldAlert}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 disabled:opacity-50 shadow-xs"
+                    title="Send 24h Daily Profit notification to depositors' phones"
+                  >
+                    <span>🔔</span>
+                    <span>{sendingYieldAlert ? "Dispatching..." : "Send 24h Profit Alert"}</span>
+                  </button>
 
-                {/* Horizontal Category Strip with Vertical Mouse Wheel Support */}
-                <div
-                  id="admin-audit-cat-scroll"
-                  onWheel={(e) => {
-                    if (e.deltaY !== 0) {
-                      e.currentTarget.scrollLeft += e.deltaY;
-                    }
-                  }}
-                  className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-0.5 scroll-smooth"
-                >
-                  {[
-                    { key: "all", label: "All History", icon: "🌐" },
-                    { key: "deposit", label: "Deposits", icon: "💰" },
-                    { key: "withdrawal", label: "Withdrawals", icon: "💸" },
-                    { key: "transfer", label: "P2P Transfers", icon: "🔄" },
-                    { key: "kyc", label: "All KYC", icon: "📄" },
-                    { key: "normal_kyc", label: "Normal KYC", icon: "👤" },
-                    { key: "loan_kyc", label: "Loan KYC", icon: "🏦" },
-                    { key: "loan", label: "Loans", icon: "📑" },
-                    { key: "agent", label: "Agents", icon: "🤝" },
-                    { key: "yield", label: "12% Yield", icon: "📈" },
-                  ].map(c => (
-                    <button
-                      key={c.key}
-                      type="button"
-                      onClick={() => setHistoryCategory(c.key)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95 ${
-                        historyCategory === c.key
-                          ? "bg-blue-600 text-white shadow-xs font-black ring-2 ring-blue-400/40"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 border border-slate-200/80"
-                      }`}
-                    >
-                      <span>{c.icon}</span>
-                      <span>{c.label}</span>
-                    </button>
-                  ))}
+                  {/* Refresh Button */}
+                  <button
+                    type="button"
+                    onClick={loadAuditHistory}
+                    disabled={historyLoading}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 disabled:opacity-50 border border-slate-200 shadow-2xs"
+                  >
+                    <span className={historyLoading ? "animate-spin" : ""}>🔄</span>
+                    <span className="hidden sm:inline">Refresh</span>
+                  </button>
                 </div>
-
-                {/* Scroll Right Button (Desktop) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const el = document.getElementById("admin-audit-cat-scroll");
-                    if (el) el.scrollBy({ left: 220, behavior: "smooth" });
-                  }}
-                  className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 z-10 w-6 h-6 items-center justify-center bg-white/95 hover:bg-white text-slate-600 hover:text-slate-900 rounded-full border border-slate-200 shadow-xs text-xs font-bold transition active:scale-90 cursor-pointer opacity-80 hover:opacity-100"
-                  title="Scroll right"
-                >
-                  ›
-                </button>
               </div>
 
-              {/* Tier 2: Search, Category Dropdown & Status Filter Toolbar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
-                <div className="relative flex-1 max-w-md">
+              {/* Unified Toolbar: Search + Filter Hub Toggle + Count Badge */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="relative flex-1 max-w-lg">
                   <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
                     🔍
                   </span>
@@ -3083,7 +3147,7 @@ export default function AdminPanel() {
                     value={historySearch}
                     onChange={(e) => setHistorySearch(e.target.value)}
                     placeholder="Search by user, email, phone, UTR, reference..."
-                    className="w-full pl-8 pr-7 py-2 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus:bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                    className="w-full pl-8 pr-7 py-2 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus:bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-2xs"
                   />
                   {historySearch && (
                     <button
@@ -3096,53 +3160,217 @@ export default function AdminPanel() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
-                  {/* Category Dropdown (Native Vertical Scroll Menu) */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden md:inline">
-                      Category:
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                  {/* Single Unified Filter Button (Opens All Categories & Statuses in One Clean Desk) */}
+                  <button
+                    type="button"
+                    onClick={() => setHistoryFilterOpen(!historyFilterOpen)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 ${
+                      historyFilterOpen || historyCategory !== "all" || historyStatus !== "all"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-xs font-black ring-2 ring-blue-300"
+                        : "bg-white hover:bg-slate-50 border-slate-200 text-slate-800"
+                    }`}
+                  >
+                    <span>⚡</span>
+                    <span>Filter & Categories</span>
+                    {(historyCategory !== "all" || historyStatus !== "all") && (
+                      <span className="w-2 h-2 rounded-full bg-amber-300 animate-pulse" />
+                    )}
+                    <span className={`text-[10px] opacity-70 transition-transform ${historyFilterOpen ? "rotate-180" : ""}`}>
+                      ▼
                     </span>
-                    <select
-                      value={historyCategory}
-                      onChange={(e) => setHistoryCategory(e.target.value)}
-                      className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs"
-                      title="Filter category via vertical scroll menu"
-                    >
-                      <option value="all">🌐 All History</option>
-                      <option value="deposit">💰 Deposits</option>
-                      <option value="withdrawal">💸 Withdrawals</option>
-                      <option value="transfer">🔄 P2P Transfers</option>
-                      <option value="kyc">📄 All KYC</option>
-                      <option value="normal_kyc">👤 Normal KYC</option>
-                      <option value="loan_kyc">🏦 Loan KYC</option>
-                      <option value="loan">📑 Loans</option>
-                      <option value="agent">🤝 Agents</option>
-                      <option value="yield">📈 12% Yield</option>
-                    </select>
-                  </div>
-
-                  {/* Status Dropdown */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden md:inline">
-                      Status:
-                    </span>
-                    <select
-                      value={historyStatus}
-                      onChange={(e) => setHistoryStatus(e.target.value)}
-                      className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs"
-                    >
-                      <option value="all">All Statuses</option>
-                      <option value="approved">Approved / Done</option>
-                      <option value="pending">Pending</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </div>
+                  </button>
 
                   <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-2 rounded-xl border border-slate-200 shrink-0">
                     {auditHistory.length} Record{auditHistory.length === 1 ? "" : "s"}
                   </span>
                 </div>
               </div>
+
+              {/* Active Filter Dismissible Chips */}
+              {(historyCategory !== "all" || historyStatus !== "all" || historySearch) && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-xs">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Active Filters:
+                  </span>
+                  {historyCategory !== "all" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold">
+                      <span>Category: {historyCategory}</span>
+                      <button
+                        type="button"
+                        onClick={() => setHistoryCategory("all")}
+                        className="hover:text-blue-900 cursor-pointer ml-1 font-black"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  )}
+                  {historyStatus !== "all" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                      <span>Status: {historyStatus}</span>
+                      <button
+                        type="button"
+                        onClick={() => setHistoryStatus("all")}
+                        className="hover:text-emerald-900 cursor-pointer ml-1 font-black"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  )}
+                  {historySearch && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold">
+                      <span>Search: "{historySearch}"</span>
+                      <button
+                        type="button"
+                        onClick={() => setHistorySearch("")}
+                        className="hover:text-slate-900 cursor-pointer ml-1 font-black"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHistoryCategory("all");
+                      setHistoryStatus("all");
+                      setHistorySearch("");
+                    }}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer ml-1"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
+
+              {/* Unified Filter Hub Desk ("Ek me khole or ek ek open kr ke dhek le") */}
+              {historyFilterOpen && (
+                <div className="bg-slate-50/95 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm animate-in fade-in duration-150">
+                  {/* Hub Header */}
+                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
+                    <div>
+                      <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                        <span>⚡</span>
+                        <span>Audit History Filter Hub</span>
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Select a category and transaction lifecycle to inspect matching audit logs
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {(historyCategory !== "all" || historyStatus !== "all") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHistoryCategory("all");
+                            setHistoryStatus("all");
+                          }}
+                          className="text-xs font-bold text-slate-600 hover:text-rose-600 px-2.5 py-1 rounded-lg hover:bg-slate-200/60 transition cursor-pointer"
+                        >
+                          Reset Filters
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setHistoryFilterOpen(false)}
+                        className="w-7 h-7 rounded-lg bg-white hover:bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold transition cursor-pointer border border-slate-200 shadow-2xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 1. Category Selection (All 10 Categories as Rich Tiles) */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 block">
+                      📂 1. Select Event Category:
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                      {[
+                        { key: "all", label: "All History", icon: "🌐", desc: "All system activities" },
+                        { key: "deposit", label: "Deposits", icon: "💰", desc: "Added capital" },
+                        { key: "withdrawal", label: "Withdrawals", icon: "💸", desc: "Payouts / debits" },
+                        { key: "transfer", label: "P2P Transfers", icon: "🔄", desc: "Internal user transfers" },
+                        { key: "kyc", label: "All KYC", icon: "📄", desc: "Identity checks" },
+                        { key: "normal_kyc", label: "Normal KYC", icon: "👤", desc: "Standard borrowers" },
+                        { key: "loan_kyc", label: "Loan KYC", icon: "🏦", desc: "Credit / Lending KYC" },
+                        { key: "loan", label: "Loans", icon: "📑", desc: "EMI & principal" },
+                        { key: "agent", label: "Agents", icon: "🤝", desc: "Partner networks" },
+                        { key: "yield", label: "12% Daily Yield", icon: "📈", desc: "Automatic daily ROI" },
+                      ].map(c => {
+                        const isSelected = historyCategory === c.key;
+                        return (
+                          <button
+                            key={c.key}
+                            type="button"
+                            onClick={() => setHistoryCategory(c.key)}
+                            className={`p-2.5 rounded-xl text-left transition active:scale-95 cursor-pointer border ${
+                              isSelected
+                                ? "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-400/40"
+                                : "bg-white hover:bg-slate-100 border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-base">{c.icon}</span>
+                              {isSelected && <span className="text-xs font-black">✓</span>}
+                            </div>
+                            <div className="text-xs font-bold leading-tight truncate">{c.label}</div>
+                            <div className={`text-[10px] mt-0.5 leading-tight truncate ${isSelected ? "text-blue-100" : "text-slate-400"}`}>
+                              {c.desc}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 2. Status Lifecycle Selection */}
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 block">
+                      🚦 2. Transaction / Event Status:
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {[
+                        { key: "all", label: "All Statuses", icon: "🌐" },
+                        { key: "approved", label: "Approved / Done", icon: "✅" },
+                        { key: "pending", label: "Pending", icon: "⏳" },
+                        { key: "rejected", label: "Rejected", icon: "❌" },
+                      ].map(s => {
+                        const isSelected = historyStatus === s.key;
+                        return (
+                          <button
+                            key={s.key}
+                            type="button"
+                            onClick={() => setHistoryStatus(s.key)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer border ${
+                              isSelected
+                                ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                                : "bg-white hover:bg-slate-100 border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            <span>{s.icon}</span>
+                            <span>{s.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Done & Summary Footer */}
+                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                    <span className="text-xs text-slate-500 font-bold">
+                      Showing results for <span className="text-slate-900 font-extrabold">{historyCategory}</span> • <span className="text-slate-900 font-extrabold">{historyStatus}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryFilterOpen(false)}
+                      className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold shadow-xs active:scale-95 transition cursor-pointer"
+                    >
+                      Done / View Results
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Audit History Records Table */}
               {historyLoading ? (

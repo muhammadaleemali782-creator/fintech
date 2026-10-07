@@ -161,22 +161,11 @@ function scheduleDailyYield() {
   const { processDailyYield } = require('./routes/user');
 
   async function runYieldForAllUsers() {
-    console.log('⏰ Daily yield run started:', new Date().toISOString());
+    console.log('⏰ Daily 24h yield & phone notification run started:', new Date().toISOString());
     try {
-      // Only process users with balance > 0
-      const users = await User.find({ balance: { $gt: 0 }, isBlocked: { $ne: true } });
-
-      let credited = 0;
-      for (const user of users) {
-        try {
-          const oldProfit = user.profitBalance || 0;
-          await processDailyYield(user);
-          if ((user.profitBalance || 0) > oldProfit) credited++;
-        } catch (e) {
-          console.error(`Yield error for user ${user._id}:`, e.message);
-        }
-      }
-      console.log(`✅ Daily yield done: ${credited} users credited`);
+      const { distribute24hYieldAndNotifyAll } = require('./utils/yieldNotifier');
+      const result = await distribute24hYieldAndNotifyAll();
+      console.log(`✅ Daily yield complete: ${result.processedCount} users processed, ${result.notificationsSent} notifications sent`);
     } catch (e) {
       console.error('Daily yield scheduler error:', e.message);
     }

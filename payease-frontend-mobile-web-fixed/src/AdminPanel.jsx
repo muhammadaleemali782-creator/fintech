@@ -99,6 +99,15 @@ export default function AdminPanel() {
   const [issueBorrowerType, setIssueBorrowerType] = useState("existing"); // "existing" | "new"
   const [issueSelectedUser, setIssueSelectedUser] = useState(null);
   const [issueUserSearch, setIssueUserSearch] = useState("");
+  const [issueLoanType, setIssueLoanType] = useState("personal"); // "personal" | "student" | "micro"
+  const [issueDocuments, setIssueDocuments] = useState({
+    doc1Url: "",
+    doc1BackUrl: "",
+    doc2Url: "",
+    doc2BackUrl: "",
+    chequeUrl: "",
+    chequeBackUrl: ""
+  });
   const [issueNewUser, setIssueNewUser] = useState({
     name: "",
     phone: "",
@@ -113,8 +122,17 @@ export default function AdminPanel() {
   const [issueInterestRate, setIssueInterestRate] = useState(1.34);
   const [issueHasCheque, setIssueHasCheque] = useState(false);
   const [issueChequeNumber, setIssueChequeNumber] = useState("");
-  const [issuePurpose, setIssuePurpose] = useState("Micro Enterprise / Personal Loan");
+  const [issuePurpose, setIssuePurpose] = useState("Personal Loan");
   const [issueSubmitting, setIssueSubmitting] = useState(false);
+
+  const handleDocFileUpload = (key, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setIssueDocuments(prev => ({ ...prev, [key]: e.target.result }));
+    };
+    reader.readAsDataURL(file);
+  };
 
   const triggerAdminHeroFly = (id = "generic") => {
     setAdminHeroFlyId(id);
@@ -822,6 +840,22 @@ export default function AdminPanel() {
     }
   };
 
+  // Toggle Penalty Waiver for a loan (Admin authority)
+  const togglePenaltyWaiver = async (loanId, shouldWaive) => {
+    try {
+      const res = await fetch(`${API}/loan/${loanId}/toggle-penalty-waiver`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ waive: shouldWaive })
+      });
+      const data = await res.json();
+      showToast(data.message, res.ok ? "success" : "error");
+      if (res.ok) loadLoans();
+    } catch {
+      showToast("Network error updating penalty waiver", "error");
+    }
+  };
+
   // Submit Loan on behalf of existing user or new borrower
   const handleIssueLoanSubmit = async (e) => {
     e?.preventDefault();
@@ -834,6 +868,7 @@ export default function AdminPanel() {
 
     setIssueSubmitting(true);
     try {
+      const actualLoanType = issueLoanType === "micro" ? "micro_business" : issueLoanType;
       const payload = {
         borrowerType: issueBorrowerType,
         userId: issueSelectedUser?._id,
@@ -844,14 +879,16 @@ export default function AdminPanel() {
         aadharNumber: issueNewUser.aadharNumber,
         panNumber: issueNewUser.panNumber,
         referredByAgentId: issueNewUser.referredByAgentId || undefined,
-        loanType: "personal",
+        loanType: actualLoanType,
         amount: Number(issueLoanAmount),
         installmentsCount: Number(issueInstallmentsCount),
         interestRateOption: Number(issueInterestRate),
+        customRate: Number(issueInterestRate),
         hasChequeFacility: issueHasCheque,
         chequeNumber: issueChequeNumber,
-        purpose: issuePurpose,
-        adminNote: `Applied by Admin on behalf of ${issueBorrowerType === "new" ? issueNewUser.name : issueSelectedUser?.name}`
+        purpose: issuePurpose || (issueLoanType === "student" ? "Student Loan" : issueLoanType === "micro" ? "Micro Enterprise Loan" : "Personal Loan"),
+        documents: issueDocuments,
+        adminNote: `Applied by Admin on behalf of ${issueBorrowerType === "new" ? issueNewUser.name : issueSelectedUser?.name} (${actualLoanType})`
       };
 
       const res = await fetch(`${API}/loan/admin/create-on-behalf`, {
@@ -868,6 +905,7 @@ export default function AdminPanel() {
         // Reset form
         setIssueSelectedUser(null);
         setIssueNewUser({ name: "", phone: "", email: "", address: "", aadharNumber: "", panNumber: "", referredByAgentId: "" });
+        setIssueDocuments({ doc1Url: "", doc1BackUrl: "", doc2Url: "", doc2BackUrl: "", chequeUrl: "", chequeBackUrl: "" });
         // Switch to loans tab so admin can review and approve it
         setTab("loans");
       } else {
@@ -924,7 +962,7 @@ export default function AdminPanel() {
   useEffect(() => {
     const timer = setInterval(() => {
       setAdminLiveMs(Date.now());
-    }, 100);
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -1215,13 +1253,6 @@ export default function AdminPanel() {
                     >
                       {value}
                     </p>
-                    {isLive && (
-                      <p className="text-[10px] text-white/75 font-mono mt-0.5 truncate">
-                        {label === "Fintech Reserves"
-                          ? `≈ ₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (2 dec)`
-                          : `≈ ₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (2 dec)`}
-                      </p>
-                    )}
                   </div>
                 </div>
               );
@@ -2322,38 +2353,90 @@ export default function AdminPanel() {
                         className="p-3.5 sm:p-4 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 border border-gray-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 transition cursor-pointer shadow-2xs group"
                       >
                         <div className="flex items-start gap-3 min-w-0">
-                          {/* Both Document Thumbnails with Direct Lightbox Opening */}
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl ? (
-                              <img
-                                src={u.kycDocuments.doc1Url || u.kycDocuments.docUrl}
-                                alt="Doc 1 Aadhaar"
-                                title="Click to view Aadhaar Card"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLightboxImg(u.kycDocuments.doc1Url || u.kycDocuments.docUrl);
-                                  setZoomLevel(1);
-                                }}
-                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
-                              />
+                          {/* Document Thumbnails (Front & Back for Doc 1 & Doc 2) */}
+                          <div className="flex items-center gap-1.5 shrink-0 flex-wrap max-w-[200px] sm:max-w-none">
+                            {/* Doc 1 Front */}
+                            {(u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl) ? (
+                              <div className="relative group/thumb">
+                                <img
+                                  src={u.kycDocuments.doc1Url || u.kycDocuments.docUrl}
+                                  alt="Aadhaar Front"
+                                  title="Aadhaar Front (Click to Zoom)"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLightboxImg(u.kycDocuments.doc1Url || u.kycDocuments.docUrl);
+                                    setZoomLevel(1);
+                                  }}
+                                  className="w-11 h-11 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
+                                />
+                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-[8px] font-black px-1 rounded shadow-xs whitespace-nowrap pointer-events-none">
+                                  UID Front
+                                </span>
+                              </div>
                             ) : (
-                              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-xs font-bold">🆔</div>
+                              <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-xs font-bold" title="Aadhaar Front">🆔</div>
                             )}
 
+                            {/* Doc 1 Back */}
+                            {u.kycDocuments?.doc1BackUrl && (
+                              <div className="relative group/thumb">
+                                <img
+                                  src={u.kycDocuments.doc1BackUrl}
+                                  alt="Aadhaar Back"
+                                  title="Aadhaar Back (Click to Zoom)"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLightboxImg(u.kycDocuments.doc1BackUrl);
+                                    setZoomLevel(1);
+                                  }}
+                                  className="w-11 h-11 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
+                                />
+                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-[8px] font-black px-1 rounded shadow-xs whitespace-nowrap pointer-events-none">
+                                  UID Back
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Doc 2 Front */}
                             {u.kycDocuments?.doc2Url ? (
-                              <img
-                                src={u.kycDocuments.doc2Url}
-                                alt="Doc 2"
-                                title={`Click to view ${u.kycDocuments.doc2Type === "cheque" ? "Cheque" : "PAN"}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLightboxImg(u.kycDocuments.doc2Url);
-                                  setZoomLevel(1);
-                                }}
-                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
-                              />
+                              <div className="relative group/thumb">
+                                <img
+                                  src={u.kycDocuments.doc2Url}
+                                  alt="Doc 2 Front"
+                                  title={`${u.kycDocuments?.doc2Type === "cheque" ? "Cheque" : "PAN"} Front (Click to Zoom)`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLightboxImg(u.kycDocuments.doc2Url);
+                                    setZoomLevel(1);
+                                  }}
+                                  className="w-11 h-11 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
+                                />
+                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-indigo-900/90 text-white text-[8px] font-black px-1 rounded shadow-xs whitespace-nowrap pointer-events-none">
+                                  {u.kycDocuments?.doc2Type === "cheque" ? "CHQ Front" : "PAN Front"}
+                                </span>
+                              </div>
                             ) : (
-                              <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center text-xs font-bold">💳</div>
+                              <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center text-xs font-bold" title="Doc 2 Front">💳</div>
+                            )}
+
+                            {/* Doc 2 Back */}
+                            {u.kycDocuments?.doc2BackUrl && (
+                              <div className="relative group/thumb">
+                                <img
+                                  src={u.kycDocuments.doc2BackUrl}
+                                  alt="Doc 2 Back"
+                                  title={`${u.kycDocuments?.doc2Type === "cheque" ? "Cheque" : "PAN"} Back (Click to Zoom)`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLightboxImg(u.kycDocuments.doc2BackUrl);
+                                    setZoomLevel(1);
+                                  }}
+                                  className="w-11 h-11 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
+                                />
+                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-indigo-900/90 text-white text-[8px] font-black px-1 rounded shadow-xs whitespace-nowrap pointer-events-none">
+                                  {u.kycDocuments?.doc2Type === "cheque" ? "CHQ Back" : "PAN Back"}
+                                </span>
+                              </div>
                             )}
                           </div>
 
@@ -2482,8 +2565,10 @@ export default function AdminPanel() {
                     { key: "all", label: "All History", icon: "🌐" },
                     { key: "deposit", label: "Deposits", icon: "💰" },
                     { key: "withdrawal", label: "Withdrawals", icon: "💸" },
-                    { key: "kyc", label: "KYC Audits", icon: "📄" },
-                    { key: "loan", label: "Loans", icon: "🏦" },
+                    { key: "kyc", label: "All KYC", icon: "📄" },
+                    { key: "normal_kyc", label: "Normal KYC", icon: "👤" },
+                    { key: "loan_kyc", label: "Loan/Lending KYC", icon: "🏦" },
+                    { key: "loan", label: "Loans", icon: "📑" },
                     { key: "agent", label: "Agents", icon: "🤝" },
                     { key: "yield", label: "12% Yield", icon: "📈" },
                   ].map(c => (
@@ -2539,11 +2624,11 @@ export default function AdminPanel() {
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-2xs">
-                  <table className="w-full min-w-[850px] border-collapse bg-white text-left text-xs">
+                  <table className="w-full min-w-[850px] table-fixed border-collapse bg-white text-left text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-gray-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                         <th className="py-3 px-4 w-[160px]">Timestamp</th>
-                        <th className="py-3 px-4 w-[140px]">Category & Action</th>
+                        <th className="py-3 px-4 w-[170px]">Category & Action</th>
                         <th className="py-3 px-4 w-[200px]">User / Account</th>
                         <th className="py-3 px-4 w-[130px]">Amount / Value</th>
                         <th className="py-3 px-4 w-[110px]">Status</th>
@@ -2555,16 +2640,20 @@ export default function AdminPanel() {
                         const isApproved = item.status === "approved" || item.status === "completed" || item.status === "verified" || item.status === "active";
                         const isPending = item.status === "pending";
                         const isRejected = item.status === "rejected";
+                        const d = new Date(item.timestamp || item.createdAt || Date.now());
+                        const isDateValid = !isNaN(d.getTime());
+                        const refVal = item.reference || item.referenceId;
+                        const noteVal = item.notes || item.remarks;
 
                         return (
                           <tr key={item.id || idx} className="hover:bg-slate-50/70 transition-colors">
                             {/* Timestamp */}
                             <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600 align-top">
                               <span className="block font-bold text-slate-900">
-                                {new Date(item.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                {isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent"}
                               </span>
                               <span className="text-[10px] text-slate-400">
-                                {new Date(item.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
+                                {isDateValid ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }) : ""}
                               </span>
                             </td>
 
@@ -2576,7 +2665,9 @@ export default function AdminPanel() {
                                   : item.category === "withdrawal"
                                   ? "bg-blue-100 text-blue-800"
                                   : item.category === "kyc"
-                                  ? "bg-amber-100 text-amber-800"
+                                  ? item.subCategory === "loan_lending_kyc"
+                                    ? "bg-indigo-100 text-indigo-800"
+                                    : "bg-amber-100 text-amber-800"
                                   : item.category === "loan"
                                   ? "bg-indigo-100 text-indigo-800"
                                   : item.category === "agent"
@@ -2585,7 +2676,8 @@ export default function AdminPanel() {
                               }`}>
                                 {item.category === "deposit" ? "💰 Deposit" :
                                  item.category === "withdrawal" ? "💸 Withdrawal" :
-                                 item.category === "kyc" ? "📄 KYC" :
+                                 item.category === "kyc"
+                                   ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan KYC" : "📄 Normal KYC" :
                                  item.category === "loan" ? "🏦 Loan" :
                                  item.category === "agent" ? "🤝 Agent" : "📈 Yield"}
                               </span>
@@ -2633,14 +2725,14 @@ export default function AdminPanel() {
 
                             {/* Reference / Details */}
                             <td className="py-3.5 px-4 align-top text-[11px] text-slate-600">
-                              {item.reference && (
-                                <p className="font-mono text-[10px] text-slate-500 truncate max-w-[280px]">
-                                  Ref: {item.reference}
+                              {refVal && (
+                                <p className="font-mono text-[10px] text-slate-500 truncate max-w-[280px]" title={refVal}>
+                                  Ref: {refVal}
                                 </p>
                               )}
-                              {item.notes && (
-                                <p className="text-slate-700 text-[11px] mt-0.5">
-                                  {item.notes}
+                              {noteVal && (
+                                <p className="text-slate-700 text-[11px] mt-0.5" title={noteVal}>
+                                  {noteVal}
                                 </p>
                               )}
                             </td>
@@ -3503,18 +3595,57 @@ export default function AdminPanel() {
                       <div key={l._id} className="border border-gray-200 rounded-2xl p-3.5 sm:p-5 hover:shadow-md transition">
                         <div className="flex justify-between items-start mb-3">
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <h4 className="text-base sm:text-lg font-bold">{l.userId?.name}</h4>
                               {l.accountNumber && (
                                 <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                   {l.accountNumber}
                                 </span>
                               )}
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                l.loanType === "student"
+                                  ? "bg-purple-100 text-purple-800 border border-purple-200"
+                                  : l.loanType === "micro_business"
+                                  ? "bg-teal-100 text-teal-800 border border-teal-200"
+                                  : "bg-blue-100 text-blue-800 border border-blue-200"
+                              }`}>
+                                {l.loanType === "student" ? "🎓 Student" : l.loanType === "micro_business" ? "🏪 Micro" : "👤 Personal"}
+                              </span>
                             </div>
                             <p className="text-xs text-gray-400">{l.userId?.email} • Phone: {l.userId?.phone || "N/A"}</p>
                           </div>
                           <span className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${loanStatusColor[l.status] || "bg-gray-100"}`}>{l.status.toUpperCase()}</span>
                         </div>
+
+                        {/* Overdue Penalty Controller & Banner */}
+                        {l.status === "active" && (l.penaltyDue > 0 || l.overdueInstallmentsCount > 0 || l.penaltyWaived) && (
+                          <div className={`mb-3 p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
+                            l.penaltyWaived ? "bg-amber-50 border-amber-200 text-amber-900" : "bg-rose-50 border-rose-200 text-rose-900"
+                          }`}>
+                            <div>
+                              <span className="font-extrabold flex items-center gap-1.5">
+                                <span>{l.penaltyWaived ? "⏸️" : "⚠️"}</span>
+                                <span>{l.penaltyWaived ? "Overdue Penalty Waived / On Hold" : `Active Overdue Penalty: ₹${Number(l.penaltyDue || 0).toLocaleString("en-IN")}`}</span>
+                              </span>
+                              <p className="text-[11px] opacity-80 mt-0.5">
+                                {l.penaltyWaived
+                                  ? "Admin authority se penalty waive kar rakhi hai. Borrower se penalty nahi li jayegi."
+                                  : `${l.overdueInstallmentsCount || 1} overdue installment par 2% per installment jod kar penalty calculate hui hai.`}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => togglePenaltyWaiver(l._id, !l.penaltyWaived)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer self-start sm:self-auto shadow-2xs ${
+                                l.penaltyWaived
+                                  ? "bg-rose-600 hover:bg-rose-700 text-white"
+                                  : "bg-amber-600 hover:bg-amber-700 text-white"
+                              }`}
+                            >
+                              {l.penaltyWaived ? "Re-apply 2% Penalty" : "Waive / Hold Penalty"}
+                            </button>
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-sm mb-4">
                           {[
                             { label: "Amount", value: `₹${l.amount.toLocaleString("en-IN")}` },
@@ -3925,11 +4056,17 @@ export default function AdminPanel() {
             const filteredSearchUsers = users.filter(u => {
               if (!issueUserSearch) return true;
               const q = issueUserSearch.toLowerCase();
+              const agent = agents.find(a => String(a._id) === String(u.referredBy));
               return (
                 (u.name && u.name.toLowerCase().includes(q)) ||
                 (u.phone && u.phone.includes(q)) ||
                 (u.email && u.email.toLowerCase().includes(q)) ||
-                (u.accountNumber && u.accountNumber.toLowerCase().includes(q))
+                (u.accountNumber && u.accountNumber.toLowerCase().includes(q)) ||
+                (agent && (
+                  (agent.name && agent.name.toLowerCase().includes(q)) ||
+                  (agent.phone && agent.phone.includes(q)) ||
+                  (agent.agentProfile?.businessName && agent.agentProfile.businessName.toLowerCase().includes(q))
+                ))
               );
             });
 
@@ -4000,44 +4137,116 @@ export default function AdminPanel() {
                       <div className="space-y-3">
                         {issueSelectedUser ? (
                           /* Selected User Card */
-                          <div className="p-3.5 bg-emerald-50 border-2 border-emerald-400 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
-                                👤
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-extrabold text-sm text-emerald-950">{issueSelectedUser.name}</span>
-                                  <span className="font-mono text-[11px] font-bold bg-white px-2 py-0.5 rounded border border-emerald-200 text-emerald-800">
-                                    {issueSelectedUser.accountNumber || `A/C: EFS${String(issueSelectedUser._id).slice(-7).toUpperCase()}`}
-                                  </span>
-                                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase bg-emerald-200 text-emerald-900">
-                                    ✓ Selected
-                                  </span>
+                          <div className="space-y-3">
+                            <div className="p-3.5 bg-emerald-50 border-2 border-emerald-400 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                                  👤
                                 </div>
-                                <div className="text-xs text-emerald-800/90 mt-0.5 flex flex-wrap gap-x-3">
-                                  <span>📞 {issueSelectedUser.phone}</span>
-                                  <span>✉️ {issueSelectedUser.email}</span>
-                                  <span>💰 Balance: ₹{Number(issueSelectedUser.balance || 0).toLocaleString("en-IN")}</span>
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-extrabold text-sm text-emerald-950">{issueSelectedUser.name}</span>
+                                    <span className="font-mono text-[11px] font-bold bg-white px-2 py-0.5 rounded border border-emerald-200 text-emerald-800">
+                                      {issueSelectedUser.accountNumber || `A/C: EFS${String(issueSelectedUser._id).slice(-7).toUpperCase()}`}
+                                    </span>
+                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase bg-emerald-200 text-emerald-900">
+                                      ✓ Selected
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-emerald-800/90 mt-0.5 flex flex-wrap gap-x-3">
+                                    <span>📞 {issueSelectedUser.phone}</span>
+                                    <span>✉️ {issueSelectedUser.email}</span>
+                                    <span>💰 Balance: ₹{Number(issueSelectedUser.balance || 0).toLocaleString("en-IN")}</span>
+                                  </div>
+                                  {issueSelectedUser.referredBy && (() => {
+                                    const agent = agents.find(a => String(a._id) === String(issueSelectedUser.referredBy));
+                                    return (
+                                      <div className="text-[11px] font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded mt-1 inline-flex items-center gap-1">
+                                        <span>🤝 Agent User:</span>
+                                        <span>{agent ? `${agent.name} (${agent.agentProfile?.businessName || 'Agent Partner'})` : 'Linked Agent'}</span>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
-                                {issueSelectedUser.referredBy && (() => {
-                                  const agent = agents.find(a => String(a._id) === String(issueSelectedUser.referredBy));
-                                  return (
-                                    <div className="text-[11px] font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded mt-1 inline-flex items-center gap-1">
-                                      <span>🤝 Agent:</span>
-                                      <span>{agent ? `${agent.name} (${agent.agentProfile?.businessName || 'Agent'})` : 'Linked Agent'}</span>
-                                    </div>
-                                  );
-                                })()}
                               </div>
+                              <button
+                                type="button"
+                                onClick={() => setIssueSelectedUser(null)}
+                                className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition cursor-pointer self-start sm:self-auto"
+                              >
+                                ✕ Change Borrower
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setIssueSelectedUser(null)}
-                              className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition cursor-pointer self-start sm:self-auto"
-                            >
-                              ✕ Change Borrower
-                            </button>
+
+                            {/* Returning Borrower Detection & Documents Status */}
+                            {(() => {
+                              const userPrevLoans = loans.filter(l => String(l.userId?._id || l.userId) === String(issueSelectedUser._id));
+                              const isReturningBorrower = userPrevLoans.length > 0 || issueSelectedUser.kycStatus === "verified" || !!issueSelectedUser.kycDocuments?.doc1Url;
+
+                              return (
+                                <div className="space-y-2">
+                                  {isReturningBorrower ? (
+                                    <div className="p-3.5 bg-emerald-50/80 border border-emerald-300 rounded-xl space-y-1.5">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-base">✅</span>
+                                        <span className="text-xs font-black text-emerald-950">
+                                          Purana Verified Borrower: Documents already on file ({userPrevLoans.length} Loans Record)
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-emerald-800 leading-relaxed">
+                                        Is borrower ke KYC documents aur loan history system me pehle se registered hain. <strong>Aapko dobara documents upload karne ki koi zaroorat nahi hai.</strong>
+                                      </p>
+                                      {userPrevLoans.length > 0 && (
+                                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                          <span className="text-[10px] font-bold text-emerald-900">Previous Loans:</span>
+                                          {userPrevLoans.map((pl, idx) => (
+                                            <span key={pl._id || idx} className="text-[10px] font-mono font-bold bg-white px-2 py-0.5 rounded border border-emerald-200 text-emerald-900">
+                                              #{idx + 1}: ₹{Number(pl.amount || 0).toLocaleString("en-IN")} ({pl.status})
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl space-y-2.5">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-base">📁</span>
+                                          <span className="text-xs font-black text-amber-950">
+                                            First Time Borrower — Please Upload KYC Documents
+                                          </span>
+                                        </div>
+                                        <span className="text-[10px] text-amber-700 font-bold">Image / PDF (Max 5MB)</span>
+                                      </div>
+                                      <p className="text-[11px] text-amber-800">
+                                        Is borrower ke KYC documents file par nahi hain. Niche diye gaye 4 documents upload karein:
+                                      </p>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+                                        {[
+                                          { key: "doc1Url", label: "Aadhaar Card Front", icon: "🪪" },
+                                          { key: "doc1BackUrl", label: "Aadhaar Card Back", icon: "🔄" },
+                                          { key: "doc2Url", label: "PAN / Cheque Front", icon: "📑" },
+                                          { key: "doc2BackUrl", label: "PAN / Cheque Back", icon: "📄" },
+                                        ].map(doc => (
+                                          <div key={doc.key} className="p-2 bg-white border border-amber-200 rounded-lg space-y-1">
+                                            <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
+                                              <span>{doc.icon} {doc.label}</span>
+                                              {issueDocuments[doc.key] && <span className="text-emerald-600 text-[10px]">✓</span>}
+                                            </div>
+                                            <input
+                                              type="file"
+                                              accept="image/*,application/pdf"
+                                              onChange={(e) => handleDocFileUpload(doc.key, e.target.files[0])}
+                                              className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         ) : (
                           /* Search & Pick from Users */
@@ -4046,14 +4255,14 @@ export default function AdminPanel() {
                               type="text"
                               value={issueUserSearch}
                               onChange={(e) => setIssueUserSearch(e.target.value)}
-                              placeholder="Search customer by name, phone, account number, or email..."
+                              placeholder="Search customer by name, phone, account number, or referring agent..."
                               className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
                             />
                             <div className="max-h-56 overflow-y-auto space-y-1.5 p-1 border border-gray-200 rounded-xl bg-white no-scrollbar">
                               {filteredSearchUsers.length === 0 ? (
                                 <p className="py-6 text-center text-xs text-gray-400">No matching users found.</p>
                               ) : (
-                                filteredSearchUsers.slice(0, 15).map(u => {
+                                filteredSearchUsers.slice(0, 20).map(u => {
                                   const agent = agents.find(a => String(a._id) === String(u.referredBy));
                                   return (
                                     <div
@@ -4062,14 +4271,18 @@ export default function AdminPanel() {
                                       className="p-2.5 rounded-xl hover:bg-blue-50/70 border border-transparent hover:border-blue-200 flex items-center justify-between gap-2 transition cursor-pointer group"
                                     >
                                       <div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                           <span className="font-bold text-xs text-gray-900 group-hover:text-blue-900">{u.name}</span>
                                           <span className="font-mono text-[10px] text-gray-500">
                                             {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
                                           </span>
-                                          {agent && (
-                                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-100 text-amber-900">
-                                              🤝 Agent: {agent.name}
+                                          {agent ? (
+                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                                              🤝 Agent User: {agent.name}
+                                            </span>
+                                          ) : (
+                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-100 text-slate-600">
+                                              Direct User
                                             </span>
                                           )}
                                         </div>
@@ -4196,6 +4409,34 @@ export default function AdminPanel() {
                             className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
+
+                        {/* Document Upload for New User */}
+                        <div className="pt-2 border-t border-gray-200">
+                          <label className="text-[11px] font-bold text-gray-700 block mb-2">
+                            Upload Verification Documents (Aadhaar & PAN/Cheque)
+                          </label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+                            {[
+                              { key: "doc1Url", label: "Aadhaar Card Front", icon: "🪪" },
+                              { key: "doc1BackUrl", label: "Aadhaar Card Back", icon: "🔄" },
+                              { key: "doc2Url", label: "PAN / Cheque Front", icon: "📑" },
+                              { key: "doc2BackUrl", label: "PAN / Cheque Back", icon: "📄" },
+                            ].map(doc => (
+                              <div key={doc.key} className="p-2 bg-slate-50 border border-gray-200 rounded-lg space-y-1">
+                                <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
+                                  <span>{doc.icon} {doc.label}</span>
+                                  {issueDocuments[doc.key] && <span className="text-emerald-600 text-[10px]">✓</span>}
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  onChange={(e) => handleDocFileUpload(doc.key, e.target.files[0])}
+                                  className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -4204,11 +4445,46 @@ export default function AdminPanel() {
                   <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
                     <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold">2</span>
-                      Loan Terms & Configuration (Amount, Installments & Rate)
+                      Loan Terms & Configuration (Category, Amount, Installments & Rate)
                     </h4>
 
+                    {/* Loan Category Selector: Personal | Student | Micro */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-700 block">
+                        Loan Category / Type <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        {[
+                          { id: "personal", label: "👤 Personal Loan", desc: "Personal & emergency cash needs", defaultPurpose: "Personal Financial Need" },
+                          { id: "student", label: "🎓 Student Loan", desc: "Tuition, coaching & book fees", defaultPurpose: "Student Education & Fees" },
+                          { id: "micro", label: "🏪 Micro Enterprise", desc: "Dukan & small business working capital", defaultPurpose: "Micro Business Working Capital" }
+                        ].map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              setIssueLoanType(cat.id);
+                              setIssuePurpose(cat.defaultPurpose);
+                            }}
+                            className={`p-3 rounded-xl border text-left transition cursor-pointer active:scale-95 ${
+                              issueLoanType === cat.id
+                                ? "bg-blue-50 border-blue-600 ring-2 ring-blue-500 shadow-2xs"
+                                : "bg-white border-gray-200 hover:bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            <span className={`block text-xs font-black ${issueLoanType === cat.id ? "text-blue-900" : "text-gray-900"}`}>
+                              {cat.label}
+                            </span>
+                            <span className="block text-[10px] text-gray-500 mt-0.5 leading-tight">
+                              {cat.desc}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* Amount Input & Quick Pills */}
-                    <div className="space-y-2">
+                    <div className="space-y-2 pt-2 border-t border-slate-200">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <label className="text-xs font-bold text-gray-700">
                           Loan Amount (₹)
@@ -4284,33 +4560,53 @@ export default function AdminPanel() {
 
                     {/* Interest Rate & Security Options */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200 text-xs">
-                      <div className="space-y-1">
-                        <label className="font-bold text-gray-700 block">
-                          Interest Rate per Installment (%)
-                        </label>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-gray-700 block">
+                            Interest Rate per Installment (%)
+                          </label>
+                          <span className="font-mono text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                            {issueInterestRate}%
+                          </span>
+                        </div>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setIssueInterestRate(1.34)}
-                            className={`flex-1 py-2 px-3 rounded-xl border font-bold text-center transition cursor-pointer ${
+                            className={`py-2 px-2.5 rounded-xl border font-bold text-center transition cursor-pointer shrink-0 ${
                               issueInterestRate === 1.34
                                 ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
                                 : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                             }`}
                           >
-                            1.34% (Standard)
+                            1.34% (Std)
                           </button>
                           <button
                             type="button"
                             onClick={() => setIssueInterestRate(1.0)}
-                            className={`flex-1 py-2 px-3 rounded-xl border font-bold text-center transition cursor-pointer ${
+                            className={`py-2 px-2.5 rounded-xl border font-bold text-center transition cursor-pointer shrink-0 ${
                               issueInterestRate === 1.0
                                 ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
                                 : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                             }`}
                           >
-                            1.0% (Special &gt;₹20k)
+                            1.0% (&gt;₹20k)
                           </button>
+                          {/* Custom Rate Input */}
+                          <div className="flex-1 flex items-center gap-1 border border-gray-300 rounded-xl px-2.5 py-1.5 bg-white focus-within:ring-2 focus-within:ring-blue-500">
+                            <span className="text-[10px] font-bold text-gray-400">Custom:</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="25"
+                              value={issueInterestRate}
+                              onChange={(e) => setIssueInterestRate(parseFloat(e.target.value) || 0)}
+                              placeholder="e.g. 1.2"
+                              className="w-full text-xs font-black font-mono text-gray-900 focus:outline-none"
+                            />
+                            <span className="text-xs font-bold text-gray-500">%</span>
+                          </div>
                         </div>
                       </div>
 
@@ -4934,28 +5230,6 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Referral Commission */}
-              <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-                <h3 className="text-lg font-bold font-display mb-1">🎯 Referral Commission Rate</h3>
-                <p className="text-sm text-gray-500 mb-5">Jab referred user ka loan approve ho, referrer ko loan amount ka yeh % milega automatically.</p>
-                <div className="flex items-center gap-4 mb-5 flex-wrap">
-                  <div className="bg-orange-50 border border-orange-200 rounded-xl px-6 py-4 text-center">
-                    <p className="text-xs text-gray-500">Current Commission</p>
-                    <p className="text-3xl font-black font-display text-orange-600">{commissionRate}%</p>
-                    <p className="text-xs text-gray-400">of loan amount</p>
-                  </div>
-                  <div className="text-sm text-gray-500 bg-gray-50 rounded-xl p-4">
-                    <p className="font-semibold text-gray-700 mb-1">Example:</p>
-                    <p>₹50,000 loan approve ho</p>
-                    <p className="font-black text-orange-600 text-lg">→ ₹{(50000 * commissionRate / 100).toLocaleString("en-IN")} referrer ko</p>
-                  </div>
-                </div>
-                <div className="flex gap-3 max-w-sm">
-                  <input type="number" inputMode="decimal" min="0" max="50" step="0.5" value={newCommissionRate} onChange={e => setNewCommissionRate(e.target.value)} placeholder="Naya commission daalo" className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-base sm:text-sm" />
-                  <span className="flex items-center text-gray-500 font-bold">%</span>
-                  <button onClick={updateCommissionRate} className="px-5 py-3 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition">Update</button>
-                </div>
-              </div>
 
               {/* Google Drive Integration */}
               <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
@@ -5013,8 +5287,14 @@ export default function AdminPanel() {
 
       {/* IN-APP KYC DOCUMENT VIEWER MODAL */}
       {previewKycUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-gray-200 flex flex-col max-h-[92vh] overflow-hidden text-gray-900">
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setPreviewKycUser(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-gray-200 flex flex-col max-h-[92vh] overflow-hidden text-gray-900"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 shrink-0">
               <div>
@@ -5026,8 +5306,9 @@ export default function AdminPanel() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setPreviewKycUser(null)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition text-sm font-bold"
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition text-sm font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -5120,54 +5401,62 @@ export default function AdminPanel() {
                   </span>
 
                   {/* Front */}
-                  {(previewKycUser.kycDocuments?.doc1Url || previewKycUser.kycDocuments?.docUrl) ? (
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Front Side</span>
-                      <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
-                        {(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl).startsWith("data:application/pdf") ? (
-                          <iframe
-                            src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
-                            title="Aadhaar Front PDF Preview"
-                            className="w-full h-[160px] rounded-lg border border-gray-200"
-                          />
-                        ) : (
-                          <img
-                            src={previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl}
-                            alt="Aadhaar Front Preview"
-                            className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
-                            onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc1Url || previewKycUser.kycDocuments.docUrl); setZoomLevel(1); }}
-                          />
-                        )}
-                        <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Front</div>
+                  {(() => {
+                    const doc1Front = previewKycUser.kycDocuments?.doc1Url || previewKycUser.kycDocuments?.docUrl;
+                    const isPdf = typeof doc1Front === "string" && (doc1Front.startsWith("data:application/pdf") || doc1Front.toLowerCase().includes(".pdf"));
+                    return doc1Front ? (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Front Side</span>
+                        <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
+                          {isPdf ? (
+                            <iframe
+                              src={doc1Front}
+                              title="Aadhaar Front PDF Preview"
+                              className="w-full h-[160px] rounded-lg border border-gray-200"
+                            />
+                          ) : (
+                            <img
+                              src={doc1Front}
+                              alt="Aadhaar Front Preview"
+                              className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
+                              onClick={() => { setLightboxImg(doc1Front); setZoomLevel(1); }}
+                            />
+                          )}
+                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Front</div>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-xs text-gray-400">No Aadhaar Front file</div>
-                  )}
+                    ) : (
+                      <div className="p-4 text-center text-xs text-gray-400">No Aadhaar Front file</div>
+                    );
+                  })()}
 
                   {/* Back */}
-                  {previewKycUser.kycDocuments?.doc1BackUrl && (
-                    <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Back Side</span>
-                      <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
-                        {previewKycUser.kycDocuments.doc1BackUrl.startsWith("data:application/pdf") ? (
-                          <iframe
-                            src={previewKycUser.kycDocuments.doc1BackUrl}
-                            title="Aadhaar Back PDF Preview"
-                            className="w-full h-[160px] rounded-lg border border-gray-200"
-                          />
-                        ) : (
-                          <img
-                            src={previewKycUser.kycDocuments.doc1BackUrl}
-                            alt="Aadhaar Back Preview"
-                            className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
-                            onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc1BackUrl); setZoomLevel(1); }}
-                          />
-                        )}
-                        <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Back</div>
+                  {(() => {
+                    const doc1Back = previewKycUser.kycDocuments?.doc1BackUrl;
+                    const isPdf = typeof doc1Back === "string" && (doc1Back.startsWith("data:application/pdf") || doc1Back.toLowerCase().includes(".pdf"));
+                    return doc1Back ? (
+                      <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Back Side</span>
+                        <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
+                          {isPdf ? (
+                            <iframe
+                              src={doc1Back}
+                              title="Aadhaar Back PDF Preview"
+                              className="w-full h-[160px] rounded-lg border border-gray-200"
+                            />
+                          ) : (
+                            <img
+                              src={doc1Back}
+                              alt="Aadhaar Back Preview"
+                              className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
+                              onClick={() => { setLightboxImg(doc1Back); setZoomLevel(1); }}
+                            />
+                          )}
+                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Back</div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    ) : null;
+                  })()}
                 </div>
 
                 {/* Document 2: PAN or Cheque (Front & Back) */}
@@ -5180,54 +5469,62 @@ export default function AdminPanel() {
                   </span>
 
                   {/* Front */}
-                  {previewKycUser.kycDocuments?.doc2Url ? (
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Front Side</span>
-                      <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
-                        {previewKycUser.kycDocuments.doc2Url.startsWith("data:application/pdf") ? (
-                          <iframe
-                            src={previewKycUser.kycDocuments.doc2Url}
-                            title="Doc 2 Front PDF Preview"
-                            className="w-full h-[160px] rounded-lg border border-gray-200"
-                          />
-                        ) : (
-                          <img
-                            src={previewKycUser.kycDocuments.doc2Url}
-                            alt="Doc 2 Front Preview"
-                            className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
-                            onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc2Url); setZoomLevel(1); }}
-                          />
-                        )}
-                        <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Front</div>
+                  {(() => {
+                    const doc2Front = previewKycUser.kycDocuments?.doc2Url;
+                    const isPdf = typeof doc2Front === "string" && (doc2Front.startsWith("data:application/pdf") || doc2Front.toLowerCase().includes(".pdf"));
+                    return doc2Front ? (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Front Side</span>
+                        <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
+                          {isPdf ? (
+                            <iframe
+                              src={doc2Front}
+                              title="Doc 2 Front PDF Preview"
+                              className="w-full h-[160px] rounded-lg border border-gray-200"
+                            />
+                          ) : (
+                            <img
+                              src={doc2Front}
+                              alt="Doc 2 Front Preview"
+                              className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
+                              onClick={() => { setLightboxImg(doc2Front); setZoomLevel(1); }}
+                            />
+                          )}
+                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Front</div>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-xs text-gray-400">No Doc 2 Front file uploaded</div>
-                  )}
+                    ) : (
+                      <div className="p-4 text-center text-xs text-gray-400">No Doc 2 Front file uploaded</div>
+                    );
+                  })()}
 
                   {/* Back */}
-                  {previewKycUser.kycDocuments?.doc2BackUrl && (
-                    <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Back Side</span>
-                      <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
-                        {previewKycUser.kycDocuments.doc2BackUrl.startsWith("data:application/pdf") ? (
-                          <iframe
-                            src={previewKycUser.kycDocuments.doc2BackUrl}
-                            title="Doc 2 Back PDF Preview"
-                            className="w-full h-[160px] rounded-lg border border-gray-200"
-                          />
-                        ) : (
-                          <img
-                            src={previewKycUser.kycDocuments.doc2BackUrl}
-                            alt="Doc 2 Back Preview"
-                            className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
-                            onClick={() => { setLightboxImg(previewKycUser.kycDocuments.doc2BackUrl); setZoomLevel(1); }}
-                          />
-                        )}
-                        <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Back</div>
+                  {(() => {
+                    const doc2Back = previewKycUser.kycDocuments?.doc2BackUrl;
+                    const isPdf = typeof doc2Back === "string" && (doc2Back.startsWith("data:application/pdf") || doc2Back.toLowerCase().includes(".pdf"));
+                    return doc2Back ? (
+                      <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Back Side</span>
+                        <div className="bg-white rounded-xl p-1.5 border border-gray-200 overflow-hidden relative group">
+                          {isPdf ? (
+                            <iframe
+                              src={doc2Back}
+                              title="Doc 2 Back PDF Preview"
+                              className="w-full h-[160px] rounded-lg border border-gray-200"
+                            />
+                          ) : (
+                            <img
+                              src={doc2Back}
+                              alt="Doc 2 Back Preview"
+                              className="max-h-[160px] max-w-full object-contain rounded-lg shadow-2xs cursor-zoom-in w-full"
+                              onClick={() => { setLightboxImg(doc2Back); setZoomLevel(1); }}
+                            />
+                          )}
+                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Back</div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    ) : null;
+                  })()}
                 </div>
 
               </div>

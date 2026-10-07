@@ -123,7 +123,10 @@ router.post('/transaction/:id/reject', protect, admin, async (req, res) => {
 // All users
 router.get('/users', protect, admin, async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    const users = await User.find()
+      .select('-password')
+      .populate('referredBy', 'name email phone referralCode agentProfile')
+      .sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
@@ -807,11 +810,12 @@ router.get('/audit-history', protect, admin, async (req, res) => {
       .limit(parseInt(limit) || 150);
 
     for (const t of txns) {
+      const ref = t.utrNumber ? `UTR: ${t.utrNumber}` : (t.referenceId || `TXN_${t._id.toString().slice(-6).toUpperCase()}`);
       historyItems.push({
         id: t._id,
         category: t.type === 'deposit' ? 'deposit' : t.type === 'withdrawal' ? 'withdrawal' : t.type === 'daily_yield' ? 'yield' : 'transaction',
         type: t.type,
-        title: t.type === 'deposit' ? 'Deposit Request' : t.type === 'withdrawal' ? 'Withdrawal Request' : t.type === 'daily_yield' ? '12% Daily Yield Credited' : t.type === 'loan_early_closure' ? 'Loan Pre-Closure Payoff' : 'Transaction',
+        title: t.type === 'deposit' ? 'Deposit Request' : t.type === 'withdrawal' ? 'Withdrawal Request' : t.type === 'daily_yield' ? '12% Daily Yield Credited' : t.type === 'loan_early_closure' ? 'Loan Pre-Closure Payoff' : t.type === 'loan_installment' ? 'Loan Installment Repayment' : 'Transaction',
         userName: t.userId?.name || 'User',
         userEmail: t.userId?.email || 'N/A',
         userPhone: t.userId?.phone || 'N/A',
@@ -819,12 +823,16 @@ router.get('/audit-history', protect, admin, async (req, res) => {
         amount: t.amount || 0,
         status: t.status,
         timestamp: t.createdAt,
-        remarks: t.remarks || t.referenceId || 'System entry'
+        createdAt: t.createdAt,
+        reference: ref,
+        referenceId: ref,
+        notes: t.remarks || (t.method ? `Mode: ${t.method}` : 'Platform record'),
+        remarks: t.remarks || ref
       });
     }
 
-    // 2. KYC History
-    if (category === 'all' || category === 'kyc') {
+    // 2. KYC History (Distinguishing Normal User KYC vs Lending/Loan KYC)
+    if (category === 'all' || category === 'kyc' || category === 'normal_kyc' || category === 'loan_kyc') {
       const kycUsers = await User.find({
         $or: [
           { kycStatus: { $in: ['verified', 'rejected', 'pending'] } },
@@ -832,22 +840,45 @@ router.get('/audit-history', protect, admin, async (req, res) => {
         ]
       }).select('name email phone accountNumber kycStatus kycDocuments kycVerifiedAt createdAt');
 
+      const userIds = kycUsers.map(u => u._id);
+      const [loansForUsers, bondsForUsers] = await Promise.all([
+        Loan.find({ userId: { $in: userIds } }).select('userId').lean(),
+        Bond.find({ userId: { $in: userIds } }).select('userId').lean()
+      ]);
+      const loanUserSet = new Set(loansForUsers.map(l => String(l.userId)));
+      const bondUserSet = new Set(bondsForUsers.map(b => String(b.userId)));
+
       for (const u of kycUsers) {
         if (status !== 'all' && u.kycStatus !== status && !(status === 'approved' && u.kycStatus === 'verified')) continue;
+
+        const uIdStr = String(u._id);
+        const isLoanLending = u.kycDocuments?.doc2Type === 'cheque' || !!u.kycDocuments?.chequeNumber || loanUserSet.has(uIdStr) || bondUserSet.has(uIdStr);
+
+        if (category === 'normal_kyc' && isLoanLending) continue;
+        if (category === 'loan_kyc' && !isLoanLending) continue;
+
+        const ts = u.kycVerifiedAt || u.kycDocuments?.submittedAt || u.createdAt;
+        const kycRef = u.kycDocuments?.panNumber ? `PAN: ${u.kycDocuments.panNumber}` : (u.kycDocuments?.aadharNumber ? `UID: ${u.kycDocuments.aadharNumber}` : (u.accountNumber || `KYC_${u._id.toString().slice(-6)}`));
+        const kycNote = u.kycDocuments?.adminRemarks ? `Admin Note: ${u.kycDocuments.adminRemarks}` : `Docs: Aadhaar + ${u.kycDocuments?.doc2Type === 'cheque' ? 'Cheque' : 'PAN'}`;
 
         historyItems.push({
           id: 'kyc_' + u._id,
           category: 'kyc',
+          subCategory: isLoanLending ? 'loan_lending_kyc' : 'normal_kyc',
           type: 'kyc_verification',
-          title: `KYC Submission (${u.kycStatus?.toUpperCase()})`,
+          title: isLoanLending ? 'Lending / Loan KYC' : 'Normal User KYC',
           userName: u.name,
           userEmail: u.email,
           userPhone: u.phone,
           accountNumber: u.accountNumber || '—',
           amount: 0,
           status: u.kycStatus === 'verified' ? 'approved' : u.kycStatus,
-          timestamp: u.kycVerifiedAt || u.kycDocuments?.submittedAt || u.createdAt,
-          remarks: u.kycDocuments?.adminRemarks ? `Admin Note: ${u.kycDocuments.adminRemarks}` : (u.kycDocuments?.panNumber ? `PAN: ${u.kycDocuments.panNumber}` : 'Document Verification')
+          timestamp: ts,
+          createdAt: ts,
+          reference: kycRef,
+          referenceId: kycRef,
+          notes: kycNote,
+          remarks: kycNote
         });
       }
     }
@@ -865,6 +896,10 @@ router.get('/audit-history', protect, admin, async (req, res) => {
         const aStatus = a.agentProfile?.status || 'approved';
         if (status !== 'all' && aStatus !== status && !(status === 'approved' && aStatus === 'approved')) continue;
 
+        const ts = a.agentProfile?.approvedAt || a.agentProfile?.appliedAt || a.createdAt;
+        const agentRef = a.accountNumber ? `A/C: ${a.accountNumber}` : `Agent: ${a.phone}`;
+        const agentNote = `${a.agentProfile?.businessName || 'Business Partner'} • ${a.agentProfile?.commissionModel === 'team_1' ? 'Team System' : 'Solo Direct'} (${a.agentProfile?.commissionRate || 2}% rate)`;
+
         historyItems.push({
           id: 'agent_' + a._id,
           category: 'agent',
@@ -876,8 +911,51 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           accountNumber: a.accountNumber || '—',
           amount: a.agentProfile?.commissionRate || 0,
           status: aStatus === 'approved' ? 'approved' : aStatus,
-          timestamp: a.agentProfile?.approvedAt || a.agentProfile?.appliedAt || a.createdAt,
-          remarks: `Rate: ${a.agentProfile?.commissionRate || 0}% • Shop: ${a.agentProfile?.businessName || 'Business'} (${a.agentProfile?.city || 'India'})`
+          timestamp: ts,
+          createdAt: ts,
+          reference: agentRef,
+          referenceId: agentRef,
+          notes: agentNote,
+          remarks: agentNote
+        });
+      }
+    }
+
+    // 4. Loans History
+    if (category === 'all' || category === 'loan') {
+      const loanQuery = {};
+      if (status !== 'all') {
+        if (status === 'approved') loanQuery.status = { $in: ['approved', 'active', 'closed'] };
+        else loanQuery.status = status;
+      }
+
+      const allLoans = await Loan.find(loanQuery)
+        .populate('userId', 'name email phone accountNumber')
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit) || 100);
+
+      for (const l of allLoans) {
+        const ts = l.createdAt || new Date();
+        const loanRef = l.accountNumber || `LOAN_${l._id.toString().slice(-6).toUpperCase()}`;
+        const loanNote = `${l.installmentsCount || 15} Kist @ ${l.interestRate}% • Disbursed: ₹${(l.disbursalAmount || l.amount).toLocaleString('en-IN')} • Dues: ₹${(l.remainingAmount ?? l.totalPayable).toLocaleString('en-IN')}`;
+
+        historyItems.push({
+          id: 'loan_' + l._id,
+          category: 'loan',
+          type: 'loan_application',
+          title: `${l.loanType === 'micro_business' ? 'Micro Business' : l.loanType === 'student' ? 'Student' : 'Personal'} Loan`,
+          userName: l.userId?.name || 'Borrower',
+          userEmail: l.userId?.email || 'N/A',
+          userPhone: l.userId?.phone || 'N/A',
+          accountNumber: l.accountNumber || l.userId?.accountNumber || '—',
+          amount: l.amount || 0,
+          status: l.status,
+          timestamp: ts,
+          createdAt: ts,
+          reference: loanRef,
+          referenceId: loanRef,
+          notes: loanNote,
+          remarks: loanNote
         });
       }
     }

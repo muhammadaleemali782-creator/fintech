@@ -37,12 +37,13 @@ const getDailyCollectionDates = (startDate, days) => {
   return dates;
 };
 
-// Sync Overdue Installments & Escalating Penalty
-// Rules requested by user:
-// 1. Unpaid EMIs roll over to next EMI ("next emi me judta jaye judta jaye").
-// 2. When collection date is missed, overdue penalty starts.
-// 3. Penalty starts at 50% of processing fee, and doubles with each subsequent missed cycle ("processing fee ka 50 percent penalty then double").
-// 4. When paying, penalty is paid FIRST, then installments ("penalty pehle bhari jayegi phir emi").
+// Sync Overdue Installments & 2% Per Installment Penalty
+// Rules requested by client / admin:
+// 1. Unpaid EMIs roll over to next EMI.
+// 2. Penalty rate: 2% per installment ("Sir penalty lagegi 2% per installment").
+// 3. Admin waiver: Admin can waive / hold penalty ("But ye admin chahe to chor sakta hai").
+// 4. Cumulative on re-application / next cycle: If penalty was waived/stopped earlier on 1st installment and later applied on 2nd cycle (or admin toggles penalty on), previous overdue installments are included ("jaise 1st installment me penalty roka gya aur dusre baar laga to pehle ka bhi jod ke lagega").
+// 5. Payment mandatory with penalty: Payment is always made with active penalty included ("And payment har baar penalty add karke hi hogi").
 const syncLoanOverdueAndPenalties = (loan) => {
   if (!loan || loan.status !== 'active') return loan;
 
@@ -59,19 +60,18 @@ const syncLoanOverdueAndPenalties = (loan) => {
     }
   });
 
-  const procFee = loan.processingFee || Math.round((loan.amount || 5000) * 0.05);
-  const basePenalty = Math.max(50, Math.round(procFee * 0.50));
+  loan.penaltyCount = overdueCount;
+  const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
 
-  if (overdueCount > 0) {
-    // Penalty doubles with each missed cycle: base * 2^(overdueCount - 1)
-    const penaltyMultiplier = Math.pow(2, overdueCount - 1);
-    const calculatedPenalty = basePenalty * penaltyMultiplier;
-    loan.penaltyDue = calculatedPenalty;
-    loan.penaltyCount = overdueCount;
+  if (overdueCount > 0 && !loan.penaltyWaived) {
+    // 2% per overdue installment ("pehle ka bhi jod ke lagega")
+    const penaltyPerInstallment = Math.round((installmentAmt * 2) / 100);
+    loan.penaltyDue = overdueCount * penaltyPerInstallment;
     loan.lastPenaltyAppliedAt = now;
+  } else {
+    loan.penaltyDue = 0;
   }
 
-  const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
   const unpaidItems = schedule.filter(item => item.status === 'pending' || item.status === 'overdue');
   const totalUnpaidEmi = unpaidItems.length * installmentAmt;
   loan.accumulatedDue = totalUnpaidEmi + (loan.penaltyDue || 0);
@@ -79,15 +79,16 @@ const syncLoanOverdueAndPenalties = (loan) => {
   return loan;
 };
 
-// 1. Personal Loan Quote (₹5k - ₹100k, 10-day cycle, 1.34% or 1.0% per installment, min 15 installments)
+// 1. Personal Loan Quote (10-day cycle, custom rate supported or default 1.34% per installment, min 15 installments)
 const calculatePersonalLoanQuote = (amount, installmentsCount = 15, customRate = null) => {
-  const amt = Math.min(Math.max(Number(amount) || 5000, 5000), 100000);
+  const amt = Math.min(Math.max(Number(amount) || 5000, 5000), 1000000);
   const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 30);
   
-  // Rate: Default 1.34% per 10-day installment.
-  // For loans > ₹20,000, 1.0% per installment option is supported!
+  // Rate: If admin specified any custom rate (e.g. 0%, 0.8%, 1.0%, 1.34%, 2.0%), respect it directly!
   let ratePerInstallment = 1.34;
-  if (amt > 20000 && (customRate === 1 || customRate === 1.0 || customRate === '1' || customRate === '1.0' || customRate === '1%')) {
+  if (customRate !== null && customRate !== undefined && !isNaN(Number(customRate)) && Number(customRate) >= 0) {
+    ratePerInstallment = Number(Number(customRate).toFixed(2));
+  } else if (amt > 20000 && (customRate === 1 || customRate === 1.0 || customRate === '1' || customRate === '1.0' || customRate === '1%')) {
     ratePerInstallment = 1.0;
   }
 
@@ -1101,7 +1102,13 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
         applicantPhone: targetUser.phone,
         aadharNumber: targetUser.aadharNumber || aadharNumber,
         panNumber: targetUser.panNumber || panNumber,
-        chequeNumber: chequeNumber ? String(chequeNumber).trim() : '',
+        doc1Url: req.body.documents?.doc1Url || targetUser.kycDocuments?.doc1Url || targetUser.kycDocuments?.docUrl || '',
+        doc1BackUrl: req.body.documents?.doc1BackUrl || targetUser.kycDocuments?.doc1BackUrl || '',
+        doc2Url: req.body.documents?.doc2Url || targetUser.kycDocuments?.doc2Url || '',
+        doc2BackUrl: req.body.documents?.doc2BackUrl || targetUser.kycDocuments?.doc2BackUrl || '',
+        chequeNumber: chequeNumber ? String(chequeNumber).trim() : (targetUser.kycDocuments?.chequeNumber || ''),
+        chequeUrl: req.body.documents?.chequeUrl || targetUser.kycDocuments?.chequeUrl || '',
+        chequeBackUrl: req.body.documents?.chequeBackUrl || targetUser.kycDocuments?.chequeBackUrl || '',
         adminNotes: adminNote || `Loan applied by Admin on behalf of borrower (${borrowerType === 'new' ? 'New User' : 'Existing Customer'})`
       }
     });
@@ -1132,6 +1139,43 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
   } catch (err) {
     console.error('Error in create-on-behalf:', err);
     res.status(500).json({ message: err.message || 'Failed to create loan application' });
+  }
+});
+
+// Admin: Toggle Penalty Waiver for a Loan ("chor sakta hai" / waive or re-apply)
+// Rule: When waived, penalty is 0. When applied again, all overdue installments are counted (2% per installment)
+router.post('/:id/toggle-penalty-waiver', protect, admin, async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid loan ID' });
+    }
+
+    const loan = await Loan.findById(req.params.id);
+    if (!loan) return res.status(404).json({ message: 'Loan not found' });
+
+    const shouldWaive = req.body.waive !== undefined ? Boolean(req.body.waive) : !loan.penaltyWaived;
+    loan.penaltyWaived = shouldWaive;
+    if (shouldWaive) {
+      loan.penaltyWaivedAt = new Date();
+      loan.penaltyWaivedBy = req.user.email;
+    } else {
+      loan.penaltyWaivedAt = null;
+      loan.penaltyWaivedBy = null;
+    }
+
+    syncLoanOverdueAndPenalties(loan);
+    await loan.save();
+
+    res.json({
+      success: true,
+      message: shouldWaive
+        ? 'Penalty waive (rok) di gayi hai. Borrower ko abhi penalty nahi lagegi.'
+        : 'Penalty wapas lagu kar di gayi hai (pichli sabhi overdue kisto samet 2% per installment jod kar).',
+      loan
+    });
+  } catch (err) {
+    console.error('Toggle penalty waiver error:', err);
+    res.status(500).json({ message: 'Failed to update penalty waiver' });
   }
 });
 

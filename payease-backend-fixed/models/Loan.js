@@ -34,7 +34,10 @@ const loanSchema = new mongoose.Schema({
   precloseCompanyProfit: { type: Number, default: 0 },
   penaltyDue: { type: Number, default: 0 }, // Active penalty amount due
   penaltyPaid: { type: Number, default: 0 }, // Cumulative penalty amount paid
-  penaltyCount: { type: Number, default: 0 }, // Number of penalty doubling cycles
+  penaltyCount: { type: Number, default: 0 }, // Number of overdue installments
+  penaltyWaived: { type: Boolean, default: false }, // Whether Admin has waived/held penalty
+  penaltyWaivedAt: { type: Date },
+  penaltyWaivedBy: { type: String },
   lastPenaltyAppliedAt: { type: Date },
   accumulatedDue: { type: Number, default: 0 }, // Total rolled-over unpaid EMIs + penalty
   nominee: {

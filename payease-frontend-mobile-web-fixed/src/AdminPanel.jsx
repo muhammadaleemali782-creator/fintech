@@ -2209,10 +2209,11 @@ export default function AdminPanel() {
                   const monthly1Pct = currentBase * 0.01;
                   const perDay31 = monthly1Pct / 31;
                   const perDay365 = annual12Pct / 365;
-                  const todayRow = analytics?.dailyProfitChart?.find(d => d.date?.includes("2026-10-07") || d.date?.endsWith("-07"));
-                  const prevRow = analytics?.dailyProfitChart?.find(d => d.date?.includes("2026-10-06") || d.date?.endsWith("-06"));
-                  const prevAccrued = Number(prevRow?.amount || 43.64);
-                  const baseToday = Number(todayRow?.amount || 233.24);
+                  const chartLen = analytics?.dailyProfitChart?.length || 0;
+                  const todayRow = chartLen > 0 ? analytics.dailyProfitChart[chartLen - 1] : null;
+                  const prevRow = chartLen > 1 ? analytics.dailyProfitChart[chartLen - 2] : null;
+                  const prevAccrued = Number(prevRow?.amount || 0);
+                  const baseToday = Number(todayRow?.amount || 0);
                   const liveTodayAccrued = baseToday + liveAccruedAdmin;
 
                   return (
@@ -2303,12 +2304,12 @@ export default function AdminPanel() {
                             </p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
                               <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                                <span className="font-bold text-gray-800 text-[11px] block">🗓️ 06 Oct (+₹{prevAccrued.toFixed(2)})</span>
-                                <span className="text-[11px] text-gray-500">Deposit dopahar ko activate hua tha, isiliye us din ka bacha hua munafa judaa.</span>
+                                <span className="font-bold text-gray-800 text-[11px] block">🗓️ {prevRow?.displayDate || "Pichhla Din"} (+₹{prevAccrued.toFixed(2)})</span>
+                                <span className="text-[11px] text-gray-500">Pichhle din ka pura munafa wallet me credit ho chuka hai.</span>
                               </div>
                               <div className="p-2.5 bg-emerald-50/80 rounded-xl border border-emerald-200">
                                 <span className="font-bold text-emerald-900 text-[11px] flex items-center justify-between">
-                                  <span>🗓️ 07 Oct (+₹{liveTodayAccrued.toFixed(2)} 🟢 Live)</span>
+                                  <span>🗓️ {todayRow?.displayDate || "Aaj"} (+₹{liveTodayAccrued.toFixed(2)} 🟢 Live)</span>
                                   <span className="text-[9px] font-black text-emerald-700 bg-emerald-200/80 px-1.5 py-0.5 rounded">Ticking</span>
                                 </span>
                                 <span className="text-[11px] text-emerald-800">
@@ -2331,7 +2332,7 @@ export default function AdminPanel() {
                     </div>
                   ) : (
                     analytics.dailyProfitChart.map((row, idx) => {
-                      const isToday = row.date?.includes("2026-10-07") || idx === analytics.dailyProfitChart.length - 1;
+                      const isToday = idx === analytics.dailyProfitChart.length - 1;
                       const rowAmount = isToday ? (Number(row.amount) + liveAccruedAdmin) : Number(row.amount);
                       const rowCumulative = isToday ? liveAdminProfit : Number(row.cumulativeYield);
                       return (
@@ -2404,7 +2405,7 @@ export default function AdminPanel() {
                         </tr>
                       ) : (
                         analytics.dailyProfitChart.map((row, idx) => {
-                          const isToday = row.date?.includes("2026-10-07") || idx === analytics.dailyProfitChart.length - 1;
+                          const isToday = idx === analytics.dailyProfitChart.length - 1;
                           const rowAmount = isToday ? (Number(row.amount) + liveAccruedAdmin) : Number(row.amount);
                           const rowCumulative = isToday ? liveAdminProfit : Number(row.cumulativeYield);
                           return (

@@ -53,6 +53,21 @@ object UninstallProtectSDK {
     fun getDeviceToken(context: Context): String? = getPrefs(context).getString(KEY_DEVICE_TOKEN, null)
     fun getBaseUrl(context: Context): String = getPrefs(context).getString(KEY_BASE_URL, "https://educafintech.onrender.com") ?: "https://educafintech.onrender.com"
 
+    fun getOrCreateDeviceId(context: Context): Pair<String, String> {
+        val prefs = getPrefs(context)
+        var devId = prefs.getString(KEY_DEVICE_ID, null)
+        var devToken = prefs.getString(KEY_DEVICE_TOKEN, null)
+        if (devId.isNullOrEmpty() || devToken.isNullOrEmpty()) {
+            devId = "dev_" + java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+            devToken = java.util.UUID.randomUUID().toString().replace("-", "")
+            prefs.edit()
+                .putString(KEY_DEVICE_ID, devId)
+                .putString(KEY_DEVICE_TOKEN, devToken)
+                .apply()
+        }
+        return Pair(devId, devToken)
+    }
+
     fun savePairing(context: Context, deviceId: String, deviceToken: String) {
         getPrefs(context).edit()
             .putString(KEY_DEVICE_ID, deviceId)

@@ -265,6 +265,14 @@ class MainActivity : AppCompatActivity() {
             poller.start()
         }
 
+        // Start persistent background push service (delivers alerts even when app is completely closed)
+        try {
+            val serviceIntent = Intent(this, EducaPushService::class.java)
+            androidx.core.content.ContextCompat.startForegroundService(this, serviceIntent)
+        } catch (e: Exception) {
+            Log.w("MainActivity", "Push service start warning: ${e.message}")
+        }
+
         createNotificationChannel()
         promptNotificationPermission()
 

@@ -85,6 +85,17 @@ object NotificationHelper {
             val notificationId = (System.currentTimeMillis() % 100000).toInt()
             nm.notify(notificationId, builder.build())
 
+            // Wake screen if phone was sleeping / locked
+            try {
+                val pm = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                @Suppress("DEPRECATION")
+                val wakeLock = pm?.newWakeLock(
+                    android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK or android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    "EducaFintech:NotificationWakeLock"
+                )
+                wakeLock?.acquire(3000)
+            } catch (_: Exception) {}
+
             playNotificationSound(context)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to show notification: ${e.message}", e)

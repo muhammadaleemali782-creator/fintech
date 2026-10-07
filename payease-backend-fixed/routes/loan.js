@@ -1122,6 +1122,10 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
     if (req.body.documents?.chequeUrl) docUpdates['kycDocuments.chequeUrl'] = req.body.documents.chequeUrl;
     if (req.body.documents?.chequeBackUrl) docUpdates['kycDocuments.chequeBackUrl'] = req.body.documents.chequeBackUrl;
     if (chequeNumber) docUpdates['kycDocuments.chequeNumber'] = String(chequeNumber).trim();
+    if (aadharNumber) { docUpdates['aadharNumber'] = String(aadharNumber).trim(); docUpdates['kycDocuments.aadharNumber'] = String(aadharNumber).trim(); }
+    if (panNumber) { docUpdates['panNumber'] = String(panNumber).trim().toUpperCase(); docUpdates['kycDocuments.panNumber'] = String(panNumber).trim().toUpperCase(); }
+    if (address) { docUpdates['address'] = String(address).trim(); docUpdates['kycDocuments.address'] = String(address).trim(); }
+    if (phone && String(phone).trim() !== targetUser.phone) { docUpdates['phone'] = String(phone).trim(); }
     if (Object.keys(docUpdates).length > 0) {
       await User.findByIdAndUpdate(targetUser._id, { $set: docUpdates });
     }

@@ -125,6 +125,25 @@ export default function AdminPanel() {
   const [issueChequeNumber, setIssueChequeNumber] = useState("");
   const [issuePurpose, setIssuePurpose] = useState("Personal Loan");
   const [issueSubmitting, setIssueSubmitting] = useState(false);
+  const [issueBorrowerDetails, setIssueBorrowerDetails] = useState({
+    phone: "",
+    aadharNumber: "",
+    panNumber: "",
+    address: ""
+  });
+
+  useEffect(() => {
+    if (issueSelectedUser) {
+      setIssueBorrowerDetails({
+        phone: issueSelectedUser.phone || "",
+        aadharNumber: issueSelectedUser.aadharNumber || issueSelectedUser.kycDocuments?.aadharNumber || "",
+        panNumber: issueSelectedUser.panNumber || issueSelectedUser.kycDocuments?.panNumber || "",
+        address: issueSelectedUser.address || issueSelectedUser.kycDocuments?.address || ""
+      });
+    } else {
+      setIssueBorrowerDetails({ phone: "", aadharNumber: "", panNumber: "", address: "" });
+    }
+  }, [issueSelectedUser]);
 
   const handleDocFileUpload = (key, file) => {
     if (!file) return;
@@ -873,12 +892,12 @@ export default function AdminPanel() {
       const payload = {
         borrowerType: issueBorrowerType,
         userId: issueSelectedUser?._id,
-        name: issueNewUser.name,
-        phone: issueNewUser.phone,
-        email: issueNewUser.email,
-        address: issueNewUser.address,
-        aadharNumber: issueNewUser.aadharNumber,
-        panNumber: issueNewUser.panNumber,
+        name: issueBorrowerType === "new" ? issueNewUser.name : issueSelectedUser?.name,
+        phone: issueBorrowerType === "new" ? issueNewUser.phone : (issueBorrowerDetails.phone || issueSelectedUser?.phone),
+        email: issueBorrowerType === "new" ? issueNewUser.email : issueSelectedUser?.email,
+        address: issueBorrowerType === "new" ? issueNewUser.address : (issueBorrowerDetails.address || issueSelectedUser?.address),
+        aadharNumber: issueBorrowerType === "new" ? issueNewUser.aadharNumber : (issueBorrowerDetails.aadharNumber || issueSelectedUser?.aadharNumber),
+        panNumber: issueBorrowerType === "new" ? issueNewUser.panNumber : (issueBorrowerDetails.panNumber || issueSelectedUser?.panNumber),
         referredByAgentId: issueNewUser.referredByAgentId || undefined,
         loanType: actualLoanType,
         amount: Number(issueLoanAmount),
@@ -4434,25 +4453,137 @@ export default function AdminPanel() {
                                       </div>
                                     </div>
 
-                                    {/* Status of Aadhaar & PAN */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
-                                      <div className="p-2 bg-white/80 border border-emerald-200 rounded-lg flex items-center justify-between">
-                                        <span className="font-bold text-gray-700">🪪 Aadhaar Front</span>
-                                        <span className="font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">✓ Verified</span>
+                                    {/* Verified Documents Photo Previews & Upload (Aadhaar Front/Back, PAN Front/Back) */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
+                                          <span>🪪</span> Verified KYC Documents On File (Click Photo To Zoom)
+                                        </span>
+                                        <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full">
+                                          Full 4-Side Docs Review
+                                        </span>
                                       </div>
-                                      <div className="p-2 bg-white/80 border border-emerald-200 rounded-lg flex items-center justify-between">
-                                        <span className="font-bold text-gray-700">🔄 Aadhaar Back</span>
-                                        <span className="font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">✓ Verified</span>
-                                      </div>
-                                      <div className="p-2 bg-white/80 border border-emerald-200 rounded-lg flex items-center justify-between">
-                                        <span className="font-bold text-gray-700">📑 PAN Card</span>
-                                        <span className="font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">✓ Verified</span>
-                                      </div>
-                                      <div className="p-2 bg-amber-100 border border-amber-300 rounded-lg flex items-center justify-between">
-                                        <span className="font-bold text-amber-900">🏦 Barrier Cheque</span>
-                                        <span className="font-black text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">Pending Upload</span>
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+                                        {[
+                                          { key: "doc1Url", label: "Aadhaar Front", icon: "🪪", fallbackUrl: issueSelectedUser.kycDocuments?.doc1Url || issueSelectedUser.kycDocuments?.docUrl },
+                                          { key: "doc1BackUrl", label: "Aadhaar Back", icon: "🔄", fallbackUrl: issueSelectedUser.kycDocuments?.doc1BackUrl },
+                                          { key: "doc2Url", label: "PAN Card Front", icon: "📑", fallbackUrl: issueSelectedUser.kycDocuments?.doc2Url },
+                                          { key: "doc2BackUrl", label: "PAN Card Back", icon: "📄", fallbackUrl: issueSelectedUser.kycDocuments?.doc2BackUrl },
+                                        ].map(doc => {
+                                          const fileUrl = issueDocuments[doc.key] || doc.fallbackUrl;
+                                          return (
+                                            <div key={doc.key} className="p-2.5 bg-white border border-emerald-200 rounded-xl space-y-1.5 shadow-2xs">
+                                              <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
+                                                <span className="truncate">{doc.icon} {doc.label}</span>
+                                                {fileUrl ? (
+                                                  <span className="text-emerald-700 font-black text-[9px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">✓ On File</span>
+                                                ) : (
+                                                  <span className="text-amber-700 font-bold text-[9px] bg-amber-50 px-1.5 py-0.5 rounded shrink-0">Upload</span>
+                                                )}
+                                              </div>
+
+                                              {fileUrl ? (
+                                                <div className="space-y-1">
+                                                  <div className="relative group w-full h-16 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-gray-200">
+                                                    {fileUrl.startsWith("data:application/pdf") ? (
+                                                      <span className="text-[10px] font-bold text-blue-700">📄 PDF Document</span>
+                                                    ) : (
+                                                      <img
+                                                        src={fileUrl}
+                                                        alt={doc.label}
+                                                        className="max-h-full max-w-full object-contain cursor-zoom-in"
+                                                        onClick={() => { setLightboxImg(fileUrl); setZoomLevel(1); }}
+                                                      />
+                                                    )}
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => { setLightboxImg(fileUrl); setZoomLevel(1); }}
+                                                      className="absolute bottom-1 right-1 bg-black/60 hover:bg-black/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-xs transition cursor-pointer"
+                                                    >
+                                                      <span>🔍</span> Zoom
+                                                    </button>
+                                                  </div>
+                                                  <label className="text-[9px] text-gray-400 block cursor-pointer hover:text-blue-600">
+                                                    Replace file:
+                                                    <input
+                                                      type="file"
+                                                      accept="image/*,application/pdf"
+                                                      onChange={(e) => handleDocFileUpload(doc.key, e.target.files[0])}
+                                                      className="text-[9px] text-gray-500 file:mr-1 file:py-0.2 file:px-1 file:rounded file:border-0 file:text-[8px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
+                                                    />
+                                                  </label>
+                                                </div>
+                                              ) : (
+                                                <div className="space-y-1 pt-1">
+                                                  <p className="text-[10px] text-gray-400">File not on record. Upload now:</p>
+                                                  <input
+                                                    type="file"
+                                                    accept="image/*,application/pdf"
+                                                    onChange={(e) => handleDocFileUpload(doc.key, e.target.files[0])}
+                                                    className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
+                                                  />
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
                                       </div>
                                     </div>
+
+                                    {/* Borrower Information & Contact Fields (Phone, Aadhaar, PAN, Address) */}
+                                    <div className="p-3 bg-white border border-amber-200 rounded-xl space-y-2">
+                                       <div className="flex items-center justify-between">
+                                         <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
+                                           <span>📝</span> Borrower Contact & ID Numbers (Review / Fill / Edit)
+                                         </span>
+                                         <span className="text-[10px] text-gray-500 font-bold">Auto-fills to Loan Record</span>
+                                       </div>
+                                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                         <div>
+                                           <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Phone Number</label>
+                                           <input
+                                             type="tel"
+                                             value={issueBorrowerDetails.phone}
+                                             onChange={(e) => setIssueBorrowerDetails({ ...issueBorrowerDetails, phone: e.target.value })}
+                                             placeholder="10-digit mobile"
+                                             className="w-full px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-mono font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                           />
+                                         </div>
+                                         <div>
+                                           <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Aadhaar UID Number</label>
+                                           <input
+                                             type="text"
+                                             maxLength={12}
+                                             value={issueBorrowerDetails.aadharNumber}
+                                             onChange={(e) => setIssueBorrowerDetails({ ...issueBorrowerDetails, aadharNumber: e.target.value.replace(/\D/g, '') })}
+                                             placeholder="12-digit UID"
+                                             className="w-full px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-mono font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                           />
+                                         </div>
+                                         <div>
+                                           <label className="text-[10px] font-bold text-gray-600 block mb-0.5">PAN Card Number</label>
+                                           <input
+                                             type="text"
+                                             maxLength={10}
+                                             value={issueBorrowerDetails.panNumber}
+                                             onChange={(e) => setIssueBorrowerDetails({ ...issueBorrowerDetails, panNumber: e.target.value.toUpperCase() })}
+                                             placeholder="10-digit PAN"
+                                             className="w-full px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-mono font-bold text-gray-900 uppercase focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                           />
+                                         </div>
+                                         <div>
+                                           <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Residential / Shop Address</label>
+                                           <input
+                                             type="text"
+                                             value={issueBorrowerDetails.address}
+                                             onChange={(e) => setIssueBorrowerDetails({ ...issueBorrowerDetails, address: e.target.value })}
+                                             placeholder="Full address, city..."
+                                             className="w-full px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                           />
+                                         </div>
+                                       </div>
+                                     </div>
 
                                     {/* Dedicated Barrier Cheque Upload Fields */}
                                     <div className="p-3 bg-white border border-amber-300 rounded-xl space-y-2">

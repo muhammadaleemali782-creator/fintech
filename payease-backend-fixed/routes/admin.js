@@ -154,15 +154,47 @@ router.post('/agent-applications/:id/approve', protect, admin, async (req, res) 
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    const { commissionRate } = req.body;
     user.role = 'agent';
     if (!user.agentProfile) user.agentProfile = {};
     user.agentProfile.status = 'approved';
     user.agentProfile.approvedAt = new Date();
+    if (commissionRate !== undefined && commissionRate !== null && commissionRate !== '') {
+      const parsedRate = parseFloat(commissionRate);
+      if (!isNaN(parsedRate) && parsedRate >= 0) {
+        user.agentProfile.commissionRate = parsedRate;
+      }
+    }
     await user.save();
 
-    res.json({ message: `Agent approved successfully! Permanent ID: EDUCA-${user.referralCode || user.phone}`, user });
+    res.json({
+      message: `Agent approved successfully! Permanent ID: EDUCA-${user.referralCode || user.phone}${user.agentProfile.commissionRate != null ? ` (${user.agentProfile.commissionRate}% Commission)` : ''}`,
+      user
+    });
   } catch (err) {
     res.status(500).json({ message: 'Failed to approve agent' });
+  }
+});
+
+router.post('/agent-applications/:id/set-commission', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const { commissionRate } = req.body;
+    const parsedRate = parseFloat(commissionRate);
+    if (isNaN(parsedRate) || parsedRate < 0) {
+      return res.status(400).json({ message: 'Valid commission rate is required' });
+    }
+
+    if (!user.agentProfile) user.agentProfile = {};
+    user.agentProfile.commissionRate = parsedRate;
+    await user.save();
+
+    res.json({ message: `Agent commission updated to ${parsedRate}% successfully!`, user });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update commission rate' });
   }
 });
 

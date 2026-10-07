@@ -15,7 +15,8 @@ const userSchema = new mongoose.Schema({
   agentProfile: {
     applied: { type: Boolean, default: false },
     status: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
-    commissionModel: { type: String, enum: ['team_1', 'solo_2'], default: 'solo_2' },
+    commissionModel: { type: String, enum: ['team_1', 'solo_2', 'team', 'solo'], default: 'solo_2' },
+    commissionRate: { type: Number, default: 0 }, // Admin assigns commission percentage (e.g. 2, 3, etc.)
     businessName: { type: String, default: '' },
     city: { type: String, default: '' },
     appliedAt: { type: Date, default: null },

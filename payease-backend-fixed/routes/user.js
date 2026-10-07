@@ -645,6 +645,7 @@ router.get('/agent/stats', protect, async (req, res) => {
         name: agent.name,
         referralCode: agent.referralCode,
         commissionModel: agent.agentProfile?.commissionModel || 'solo_2',
+        commissionRate: agent.agentProfile?.commissionRate ?? 0,
         businessName: agent.agentProfile?.businessName || '',
         city: agent.agentProfile?.city || ''
       },

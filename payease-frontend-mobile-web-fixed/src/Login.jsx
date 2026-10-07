@@ -463,9 +463,9 @@ export default function Login({ isApp = false }) {
                           className="mt-0.5 text-blue-600"
                         />
                         <div>
-                          <span className="font-extrabold text-slate-900 block">👥 Team Model (1% Commission + Team Building)</span>
+                          <span className="font-extrabold text-slate-900 block">👥 Team Model (Team Hierarchy & Partner Network)</span>
                           <span className="text-[11px] text-slate-500 block mt-0.5">
-                            Aapko 1% commission milega aur aap apne neeche team jod sakte hain (team members ko bhi 1% commission milega).
+                            Aap apne neeche sub-agents aur team members jod kar poora network build kar sakte hain.
                           </span>
                         </div>
                       </label>
@@ -480,9 +480,9 @@ export default function Login({ isApp = false }) {
                           className="mt-0.5 text-blue-600"
                         />
                         <div>
-                          <span className="font-extrabold text-slate-900 block">👤 Solo Direct Model (2% Direct Commission)</span>
+                          <span className="font-extrabold text-slate-900 block">👤 Solo Direct Model (Independent Financial Agent)</span>
                           <span className="text-[11px] text-slate-500 block mt-0.5">
-                            Aapko direct 2% commission milega (isme team nahi bana sakte, solo work rahega).
+                            Direct customer onboarding aur independent financial operations (solo partner work).
                           </span>
                         </div>
                       </label>

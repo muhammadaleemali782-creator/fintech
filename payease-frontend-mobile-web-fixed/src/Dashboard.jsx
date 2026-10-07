@@ -3720,6 +3720,11 @@ export default function Dashboard() {
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase">
                       Agent Account
                     </span>
+                    {((agentMetrics?.agentInfo?.commissionRate ?? userProfile.agentProfile?.commissionRate) ?? 0) > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400/20 text-amber-200 border border-amber-400/30">
+                        {agentMetrics?.agentInfo?.commissionRate ?? userProfile.agentProfile?.commissionRate}% Commission
+                      </span>
+                    )}
                   </div>
                   <p className="text-[11px] text-indigo-200">
                     {agentMetrics?.agentInfo?.businessName || userProfile.name} • {agentMetrics?.stats?.customerCount ?? 0} Onboarded Customers
@@ -7709,7 +7714,9 @@ export default function Dashboard() {
                   <span className="font-extrabold text-xs text-amber-950">Verified Agent Partner</span>
                 </div>
                 <span className="px-2 py-0.5 bg-amber-200 text-amber-950 rounded font-black text-[10px]">
-                  {userProfile.agentProfile?.commissionModel === "team_1" ? "1% Team Model" : "2% Solo Direct"}
+                  {userProfile.agentProfile?.commissionRate
+                    ? `${userProfile.agentProfile.commissionRate}% • ${userProfile.agentProfile?.commissionModel === "team_1" ? "Team Model" : "Solo Direct"}`
+                    : (userProfile.agentProfile?.commissionModel === "team_1" ? "Team Model" : "Solo Direct")}
                 </span>
               </div>
               <p className="text-[11px] text-amber-800 mt-1">

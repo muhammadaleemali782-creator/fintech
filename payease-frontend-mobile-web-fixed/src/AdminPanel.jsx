@@ -23,6 +23,8 @@ export default function AdminPanel() {
   const [loadingStats, setLoadingStats] = useState(false);
   const [pending, setPending] = useState([]);
   const [agents, setAgents] = useState([]);
+  const [agentCommissionInput, setAgentCommissionInput] = useState({});
+  const [savingAgentCommission, setSavingAgentCommission] = useState({});
   const [users, setUsers] = useState([]);
   const [devices, setDevices] = useState([]);
   const [loans, setLoans] = useState([]);
@@ -248,9 +250,14 @@ export default function AdminPanel() {
     } catch {}
   }, []); // eslint-disable-line
 
-  const approveAgent = async (id) => {
+  const approveAgent = async (id, customRate) => {
     try {
-      const res = await fetch(`${API}/admin/agent-applications/${id}/approve`, { method: "POST", headers });
+      const rateVal = customRate !== undefined && customRate !== "" ? parseFloat(customRate) : undefined;
+      const res = await fetch(`${API}/admin/agent-applications/${id}/approve`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ commissionRate: rateVal })
+      });
       const d = await res.json();
       if (!res.ok) throw new Error(d.message);
       showToast(d.message || "Agent approved successfully!", "success");
@@ -258,6 +265,30 @@ export default function AdminPanel() {
       loadUsers();
     } catch (err) {
       showToast(err.message, "error");
+    }
+  };
+
+  const updateAgentCommission = async (id, customRate) => {
+    try {
+      const rateVal = parseFloat(customRate);
+      if (isNaN(rateVal) || rateVal < 0) {
+        showToast("Please enter a valid commission %", "error");
+        return;
+      }
+      setSavingAgentCommission(prev => ({ ...prev, [id]: true }));
+      const res = await fetch(`${API}/admin/agent-applications/${id}/set-commission`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ commissionRate: rateVal })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message);
+      showToast(d.message || `Commission rate updated to ${rateVal}%!`, "success");
+      loadAgents();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setSavingAgentCommission(prev => ({ ...prev, [id]: false }));
     }
   };
 
@@ -2275,7 +2306,7 @@ export default function AdminPanel() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex flex-wrap items-center gap-2 shrink-0">
                             <a
                               href={`tel:${a.phone}`}
                               className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1"
@@ -2283,20 +2314,58 @@ export default function AdminPanel() {
                               📞 Call Applicant
                             </a>
                             {isPending && (
-                              <>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <div className="flex items-center gap-1 bg-white px-2 py-1 border border-amber-300 rounded-xl shadow-2xs">
+                                  <span className="text-[10px] font-bold text-gray-600">Rate:</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="50"
+                                    step="0.5"
+                                    placeholder="2"
+                                    value={agentCommissionInput[a._id] !== undefined ? agentCommissionInput[a._id] : 2}
+                                    onChange={e => setAgentCommissionInput({ ...agentCommissionInput, [a._id]: e.target.value })}
+                                    className="w-12 px-1 text-xs font-black text-amber-950 text-center outline-none bg-amber-50/50 rounded"
+                                  />
+                                  <span className="text-[10px] font-black text-amber-950">%</span>
+                                </div>
                                 <button
-                                  onClick={() => approveAgent(a._id)}
-                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm active:scale-95"
+                                  onClick={() => approveAgent(a._id, agentCommissionInput[a._id] !== undefined ? agentCommissionInput[a._id] : 2)}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm active:scale-95 cursor-pointer"
                                 >
                                   ✓ Approve Agent
                                 </button>
                                 <button
                                   onClick={() => rejectAgent(a._id)}
-                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition"
+                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer"
                                 >
                                   Reject
                                 </button>
-                              </>
+                              </div>
+                            )}
+                            {isApproved && (
+                              <div className="flex items-center gap-1.5 bg-white px-2 py-1 border border-emerald-300 rounded-xl shadow-2xs">
+                                <span className="text-[10px] font-bold text-emerald-800">Rate:</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="50"
+                                  step="0.5"
+                                  placeholder="%"
+                                  value={agentCommissionInput[a._id] !== undefined ? agentCommissionInput[a._id] : (prof.commissionRate ?? 2)}
+                                  onChange={e => setAgentCommissionInput({ ...agentCommissionInput, [a._id]: e.target.value })}
+                                  className="w-12 px-1 text-xs font-black text-emerald-950 text-center outline-none bg-emerald-50 rounded"
+                                />
+                                <span className="text-[10px] font-black text-emerald-950">%</span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateAgentCommission(a._id, agentCommissionInput[a._id] !== undefined ? agentCommissionInput[a._id] : (prof.commissionRate ?? 2))}
+                                  disabled={savingAgentCommission[a._id]}
+                                  className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-black transition cursor-pointer active:scale-95 disabled:opacity-50"
+                                >
+                                  {savingAgentCommission[a._id] ? "..." : "Save %"}
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -2308,14 +2377,19 @@ export default function AdminPanel() {
                           </div>
 
                           <div className="p-2.5 bg-white rounded-xl border border-gray-100">
-                            <span className="text-gray-400 font-medium block text-[11px]">Commission Model</span>
-                            <span className="font-bold text-gray-800">
-                              {isTeamModel ? (
-                                <span className="text-amber-700 font-black">👥 Team Model: 1% Self + 1% Team Allowed</span>
-                              ) : (
-                                <span className="text-blue-700 font-black">👤 Solo Direct: 2% Direct (No Team)</span>
-                              )}
-                            </span>
+                            <span className="text-gray-400 font-medium block text-[11px]">Commission Model & Rate</span>
+                            <div className="flex items-center justify-between gap-1 mt-0.5">
+                              <span className="font-bold text-gray-800">
+                                {isTeamModel ? (
+                                  <span className="text-amber-700 font-black">👥 Team Model (Hierarchy Allowed)</span>
+                                ) : (
+                                  <span className="text-blue-700 font-black">👤 Solo Direct (Independent Agent)</span>
+                                )}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full font-black text-[11px] bg-amber-100 text-amber-900 border border-amber-200">
+                                {prof.commissionRate != null ? `${prof.commissionRate}% Commission` : "Rate Pending"}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>

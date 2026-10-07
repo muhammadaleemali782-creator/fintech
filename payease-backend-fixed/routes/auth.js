@@ -76,7 +76,8 @@ router.post('/register', registerRules, async (req, res) => {
       agentProfileData = {
         applied: true,
         status: 'pending',
-        commissionModel: agentCommissionModel === 'team_1' ? 'team_1' : 'solo_2',
+        commissionModel: (agentCommissionModel === 'team_1' || agentCommissionModel === 'team') ? 'team_1' : 'solo_2',
+        commissionRate: 0,
         businessName: (agentBusinessName || '').trim(),
         city: (agentCity || '').trim(),
         appliedAt: new Date()
@@ -102,7 +103,7 @@ router.post('/register', registerRules, async (req, res) => {
 
     // 2. Real-time notification for Admin
     if (isAgent && agentProfileData) {
-      const modelLabel = agentProfileData.commissionModel === 'team_1' ? '1% Team Model (Team Hierarchy)' : '2% Solo Direct Model (Solo only)';
+      const modelLabel = (agentProfileData.commissionModel === 'team_1' || agentProfileData.commissionModel === 'team') ? 'Team Model (Team Hierarchy)' : 'Solo Direct Model (Independent Agent)';
       sendNotification({
         type: 'agent_application',
         title: 'New Agent Application 🤝',

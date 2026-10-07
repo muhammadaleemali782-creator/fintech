@@ -893,6 +893,43 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       await user.save({ session });
       loan.status = 'active';
 
+      // Agent Referral Commission on Loan Disbursal
+      if (user.referredBy && !loan.referralCommissionPaid) {
+        const agentUser = await User.findById(user.referredBy).session(session);
+        if (agentUser) {
+          let commissionRate = 0;
+          if (agentUser.agentProfile && agentUser.agentProfile.commissionRate !== undefined && agentUser.agentProfile.commissionRate !== null && !isNaN(agentUser.agentProfile.commissionRate)) {
+            commissionRate = Number(agentUser.agentProfile.commissionRate);
+          } else {
+            const setting = await Settings.findOne({ key: 'referralCommissionRate' }).session(session);
+            commissionRate = setting ? Number(setting.value) : 2;
+          }
+
+          if (commissionRate > 0) {
+            const commissionAmount = Number(((loan.amount * commissionRate) / 100).toFixed(2));
+            if (commissionAmount > 0) {
+              agentUser.balance = Number(((agentUser.balance || 0) + commissionAmount).toFixed(2));
+              agentUser.profitBalance = Number(((agentUser.profitBalance || 0) + commissionAmount).toFixed(2));
+              agentUser.referralEarnings = Number(((agentUser.referralEarnings || 0) + commissionAmount).toFixed(2));
+              await agentUser.save({ session });
+
+              loan.referralCommissionPaid = true;
+              loan.referralCommissionAmount = commissionAmount;
+
+              await Transaction.create([{
+                userId: agentUser._id,
+                type: 'referral_bonus',
+                amount: commissionAmount,
+                method: 'system',
+                status: 'completed',
+                referenceId: loan._id.toString(),
+                remarks: `Agent Commission (${commissionRate}%) for loan disbursal of ${user.name} (${loan.accountNumber || loan._id})`
+              }], { session });
+            }
+          }
+        }
+      }
+
       await loan.save({ session });
 
       await Transaction.create([{

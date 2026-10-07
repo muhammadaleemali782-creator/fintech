@@ -49,7 +49,9 @@ app.set('trust proxy', 1);
 app.use(compression());
 
 // ------------------ SECURITY HEADERS ------------------
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 // ------------------ CORS (sirf apni frontend domain allow) ------------------
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map(s => s.trim());
@@ -111,7 +113,7 @@ app.get('/', (req, res) => {
 });
 
 // ------------------ HEALTH CHECK (hosting platform isse check karta hai ki server zinda hai) ------------------
-app.get('/api/health', (req, res) => {
+app.get(['/health', '/api/health'], (req, res) => {
   res.json({
     status: 'ok',
     dbConnected: mongoose.connection.readyState === 1

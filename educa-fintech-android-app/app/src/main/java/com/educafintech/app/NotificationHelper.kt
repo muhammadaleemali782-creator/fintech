@@ -13,14 +13,14 @@ import androidx.core.app.NotificationCompat
 
 object NotificationHelper {
 
-    const val CHANNEL_ID = "educa_whatsapp_alerts_v2"
+    const val CHANNEL_ID = "educa_instant_alerts_v5"
     private const val TAG = "NotificationHelper"
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 val nm = context.getSystemService(NotificationManager::class.java)
-                try { nm?.deleteNotificationChannel("educa_transactions") } catch (_: Exception) {}
+                try { nm?.deleteNotificationChannel("educa_whatsapp_alerts_v2") } catch (_: Exception) {}
 
                 val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
                 val audioAttributes = AudioAttributes.Builder()
@@ -64,6 +64,7 @@ object NotificationHelper {
             )
 
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val badgeCount = BadgeHelper.incrementBadge(context)
 
             // PRIORITY_MAX + IMPORTANCE_HIGH + setFullScreenIntent triggers top drop-down Heads-Up banner like WhatsApp!
             val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -80,6 +81,8 @@ object NotificationHelper {
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
                 .setFullScreenIntent(pendingIntent, true)
+                .setNumber(badgeCount)
+                .setBadgeIconType(NotificationCompat.BADGE_ICON_SMALL)
 
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             val notificationId = (System.currentTimeMillis() % 100000).toInt()

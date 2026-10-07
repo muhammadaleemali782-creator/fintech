@@ -6,8 +6,7 @@ import { API } from './config.js'
 
 // Pre-warm backend immediately on load (silent background ping)
 try {
-  const backendBase = API.replace(/\/api$/, "");
-  fetch(`${backendBase}/health`, { mode: 'no-cors' }).catch(() => {});
+  fetch(`${API}/health`).catch(() => {});
 } catch {}
 
 createRoot(document.getElementById('root')).render(

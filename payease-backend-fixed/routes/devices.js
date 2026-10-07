@@ -272,14 +272,16 @@ router.get('/devices/:deviceId/commands/pending', requireDeviceAuth, async (req,
     req.device.lastSeenAt = new Date();
     await req.device.save();
 
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
     const pending = await DeviceCommand.find({
       $or: [
         { deviceId },
         { deviceId: 'all' },
         ...(req.device.userId ? [{ userId: req.device.userId }] : [])
       ],
-      status: 'pending'
-    }).sort({ createdAt: 1 });
+      status: 'pending',
+      createdAt: { $gte: thirtyMinutesAgo }
+    }).sort({ createdAt: 1 }).limit(5);
     res.json({ commands: pending });
   } catch (err) {
     res.status(500).json({ message: 'Failed to poll commands' });

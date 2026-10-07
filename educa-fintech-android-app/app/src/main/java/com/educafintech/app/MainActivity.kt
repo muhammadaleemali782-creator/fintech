@@ -754,6 +754,7 @@ class MainActivity : AppCompatActivity() {
             if (::webView.isInitialized) webView.onResume()
             poller.updateActivity(this)
             poller.start()
+            BadgeHelper.clearBadge(this)
         } catch (e: Exception) {
             Log.e("MainActivity", "onResume error", e)
         }

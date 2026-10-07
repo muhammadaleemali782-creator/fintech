@@ -2602,8 +2602,9 @@ export default function AdminPanel() {
 
           {/* KYC VERIFICATION REQUESTS */}
           {tab === "kyc" && (
-            <div className="bg-white rounded-2xl shadow-sm p-3.5 sm:p-6 border border-gray-100">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100 space-y-4">
+              {/* Header (Tier 1: Title + Action Toolbar) */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div>
                   <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
                     <span>📄</span> User KYC Verification Requests
@@ -2613,82 +2614,86 @@ export default function AdminPanel() {
                   </p>
                 </div>
 
-                {/* Action & Filter Pills */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                    {/* Status Filter */}
-                    <div className="grid grid-cols-4 bg-slate-100 p-1 rounded-xl text-xs font-bold text-center w-full sm:w-auto sm:flex sm:gap-1">
-                      {[
-                        { key: "all", label: "All" },
-                        { key: "pending", label: `Pending (${pendingKycCount})` },
-                        { key: "verified", label: "Verified" },
-                        { key: "rejected", label: "Rejected" },
-                      ].map(f => (
-                        <button
-                          key={f.key}
-                          onClick={() => setKycFilter(f.key)}
-                          className={`px-1.5 sm:px-2.5 py-1 rounded-lg transition cursor-pointer text-center truncate ${
-                            kycFilter === f.key
-                              ? "bg-white text-blue-700 shadow-2xs font-extrabold"
-                              : "text-slate-500 hover:text-slate-800"
-                          }`}
-                        >
-                          {f.label}
-                        </button>
-                      ))}
-                    </div>
+                {/* Export & Multi-select Toolbar */}
+                <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl select-none transition">
+                    <input
+                      type="checkbox"
+                      checked={filteredKycUsers.length > 0 && selectedKycIds.size === filteredKycUsers.length}
+                      onChange={toggleSelectAllKyc}
+                      className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span>Select All ({filteredKycUsers.length})</span>
+                  </label>
 
-                    {/* Date / Time Filter */}
-                    <div className="grid grid-cols-4 bg-blue-50/70 border border-blue-200/90 p-1 rounded-xl text-xs font-bold text-center w-full sm:w-auto sm:flex sm:gap-1">
-                      {[
-                        { key: "all", label: "All Time" },
-                        { key: "today", label: "Today" },
-                        { key: "7days", label: "7 Days" },
-                        { key: "30days", label: "30 Days" },
-                      ].map(tf => (
-                        <button
-                          key={tf.key}
-                          onClick={() => setKycTimeFilter(tf.key)}
-                          className={`px-1.5 sm:px-2 py-1 rounded-lg transition cursor-pointer text-[11px] text-center truncate ${
-                            kycTimeFilter === tf.key
-                              ? "bg-blue-600 text-white shadow-xs font-extrabold"
-                              : "text-blue-700 hover:text-blue-900"
-                          }`}
-                        >
-                          {tf.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Export & Multi-select Toolbar */}
-                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 pt-1 border-t sm:border-t-0 border-gray-100">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg select-none">
-                      <input
-                        type="checkbox"
-                        checked={filteredKycUsers.length > 0 && selectedKycIds.size === filteredKycUsers.length}
-                        onChange={toggleSelectAllKyc}
-                        className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                      />
-                      <span>Select All ({filteredKycUsers.length})</span>
-                    </label>
-
-                    {selectedKycIds.size > 0 && (
-                      <button
-                        onClick={() => exportKycToCsv()}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <span>📥</span> Export Selected ({selectedKycIds.size})
-                      </button>
-                    )}
-
+                  {selectedKycIds.size > 0 && (
                     <button
-                      onClick={() => exportKycToCsv(filteredKycUsers)}
-                      className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                      type="button"
+                      onClick={() => exportKycToCsv()}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
                     >
-                      <span>📥</span> Export All ({filteredKycUsers.length})
+                      <span>📥</span> Export Selected ({selectedKycIds.size})
                     </button>
-                  </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => exportKycToCsv(filteredKycUsers)}
+                    className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>📥</span> Export All ({filteredKycUsers.length})
+                  </button>
                 </div>
+              </div>
+
+              {/* Filter Bar (Tier 2: Status Pills + Date Pills) */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                {/* Status Filter */}
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold overflow-x-auto no-scrollbar">
+                  {[
+                    { key: "all", label: "All" },
+                    { key: "pending", label: `Pending (${pendingKycCount})` },
+                    { key: "verified", label: "Verified" },
+                    { key: "rejected", label: "Rejected" },
+                  ].map(f => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => setKycFilter(f.key)}
+                      className={`px-3 py-1 rounded-lg transition cursor-pointer text-center whitespace-nowrap shrink-0 ${
+                        kycFilter === f.key
+                          ? "bg-white text-blue-700 shadow-2xs font-extrabold"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Date / Time Filter */}
+                <div className="flex items-center bg-blue-50/70 border border-blue-200/90 p-1 rounded-xl text-xs font-bold overflow-x-auto no-scrollbar">
+                  {[
+                    { key: "all", label: "All Time" },
+                    { key: "today", label: "Today" },
+                    { key: "7days", label: "7 Days" },
+                    { key: "30days", label: "30 Days" },
+                  ].map(tf => (
+                    <button
+                      key={tf.key}
+                      type="button"
+                      onClick={() => setKycTimeFilter(tf.key)}
+                      className={`px-3 py-1 rounded-lg transition cursor-pointer text-[11px] text-center whitespace-nowrap shrink-0 ${
+                        kycTimeFilter === tf.key
+                          ? "bg-blue-600 text-white shadow-xs font-extrabold"
+                          : "text-blue-700 hover:text-blue-900"
+                      }`}
+                    >
+                      {tf.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {(() => {
                 if (filteredKycUsers.length === 0) {
@@ -2701,7 +2706,7 @@ export default function AdminPanel() {
                 }
 
                 return (
-                    <div className="space-y-3">
+                  <div className="space-y-3">
                     {filteredKycUsers.map(u => (
                       <div
                         key={u._id}
@@ -2792,7 +2797,7 @@ export default function AdminPanel() {
                             </span>
                           )}
                           {(u.address || u.kycDocuments?.address) && (
-                            <span className="truncate max-w-[260px] text-slate-500">
+                            <span className="truncate max-w-full sm:max-w-md text-slate-500">
                               📍 {u.address || u.kycDocuments?.address}
                             </span>
                           )}
@@ -2810,110 +2815,133 @@ export default function AdminPanel() {
                         )}
 
                         {/* Row 3: 4 Document Thumbnails Grid with Tap to Zoom */}
-                        <div className="p-2.5 bg-slate-50/90 rounded-xl border border-slate-200/80">
+                        <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80">
                           <div className="flex items-center justify-between mb-2 px-0.5">
                             <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                               KYC Document Images (Tap to Zoom)
                             </span>
+                            <span className="text-[10px] font-bold text-blue-600">
+                              🔍 Fullscreen Lightbox
+                            </span>
                           </div>
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                             {/* Doc 1 Front */}
                             {(u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl) ? (
-                              <div className="relative group/thumb flex flex-col items-center">
-                                <img
-                                  src={u.kycDocuments.doc1Url || u.kycDocuments.docUrl}
-                                  alt="UID Front"
-                                  title="Aadhaar Front (Click to Zoom)"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setLightboxImg(u.kycDocuments.doc1Url || u.kycDocuments.docUrl);
-                                    setZoomLevel(1);
-                                  }}
-                                  className="w-full aspect-square max-h-16 object-cover rounded-xl border border-slate-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
-                                />
-                                <span className="mt-1 bg-slate-800 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.2 rounded shadow-xs whitespace-nowrap text-center">
-                                  UID Front
-                                </span>
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxImg(u.kycDocuments.doc1Url || u.kycDocuments.docUrl);
+                                  setZoomLevel(1);
+                                }}
+                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in"
+                              >
+                                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                                  <img
+                                    src={u.kycDocuments.doc1Url || u.kycDocuments.docUrl}
+                                    alt="UID Front"
+                                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
+                                  />
+                                </div>
+                                <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
+                                  <span className="text-[10px] font-extrabold text-slate-800 truncate">UID Front</span>
+                                  <span className="text-[9px] text-blue-600 font-bold shrink-0">🔍 Zoom</span>
+                                </div>
                               </div>
                             ) : (
-                              <div className="w-full aspect-square max-h-16 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
+                              <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
                                 <span>🆔</span>
-                                <span className="text-[8px] text-slate-400 mt-0.5">No Front</span>
+                                <span className="text-[9px] text-slate-400 mt-0.5">No Front</span>
                               </div>
                             )}
 
                             {/* Doc 1 Back */}
                             {u.kycDocuments?.doc1BackUrl ? (
-                              <div className="relative group/thumb flex flex-col items-center">
-                                <img
-                                  src={u.kycDocuments.doc1BackUrl}
-                                  alt="UID Back"
-                                  title="Aadhaar Back (Click to Zoom)"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setLightboxImg(u.kycDocuments.doc1BackUrl);
-                                    setZoomLevel(1);
-                                  }}
-                                  className="w-full aspect-square max-h-16 object-cover rounded-xl border border-slate-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
-                                />
-                                <span className="mt-1 bg-slate-800 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.2 rounded shadow-xs whitespace-nowrap text-center">
-                                  UID Back
-                                </span>
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxImg(u.kycDocuments.doc1BackUrl);
+                                  setZoomLevel(1);
+                                }}
+                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in"
+                              >
+                                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                                  <img
+                                    src={u.kycDocuments.doc1BackUrl}
+                                    alt="UID Back"
+                                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
+                                  />
+                                </div>
+                                <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
+                                  <span className="text-[10px] font-extrabold text-slate-800 truncate">UID Back</span>
+                                  <span className="text-[9px] text-blue-600 font-bold shrink-0">🔍 Zoom</span>
+                                </div>
                               </div>
                             ) : (
-                              <div className="w-full aspect-square max-h-16 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
+                              <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
                                 <span>🆔</span>
-                                <span className="text-[8px] text-slate-400 mt-0.5">No Back</span>
+                                <span className="text-[9px] text-slate-400 mt-0.5">No Back</span>
                               </div>
                             )}
 
                             {/* Doc 2 Front */}
                             {u.kycDocuments?.doc2Url ? (
-                              <div className="relative group/thumb flex flex-col items-center">
-                                <img
-                                  src={u.kycDocuments.doc2Url}
-                                  alt="PAN Front"
-                                  title={`${u.kycDocuments?.doc2Type === "cheque" ? "Cheque" : "PAN"} Front (Click to Zoom)`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setLightboxImg(u.kycDocuments.doc2Url);
-                                    setZoomLevel(1);
-                                  }}
-                                  className="w-full aspect-square max-h-16 object-cover rounded-xl border border-slate-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
-                                />
-                                <span className="mt-1 bg-slate-800 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.2 rounded shadow-xs whitespace-nowrap text-center">
-                                  {u.kycDocuments?.doc2Type === "cheque" ? "CHQ Front" : "PAN Front"}
-                                </span>
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxImg(u.kycDocuments.doc2Url);
+                                  setZoomLevel(1);
+                                }}
+                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in"
+                              >
+                                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                                  <img
+                                    src={u.kycDocuments.doc2Url}
+                                    alt="PAN Front"
+                                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
+                                  />
+                                </div>
+                                <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
+                                  <span className="text-[10px] font-extrabold text-slate-800 truncate">
+                                    {u.kycDocuments?.doc2Type === "cheque" ? "CHQ Front" : "PAN Front"}
+                                  </span>
+                                  <span className="text-[9px] text-blue-600 font-bold shrink-0">🔍 Zoom</span>
+                                </div>
                               </div>
                             ) : (
-                              <div className="w-full aspect-square max-h-16 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
+                              <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
                                 <span>💳</span>
-                                <span className="text-[8px] text-slate-400 mt-0.5">No Doc 2</span>
+                                <span className="text-[9px] text-slate-400 mt-0.5">No Doc 2</span>
                               </div>
                             )}
 
                             {/* Doc 2 Back */}
                             {u.kycDocuments?.doc2BackUrl ? (
-                              <div className="relative group/thumb flex flex-col items-center">
-                                <img
-                                  src={u.kycDocuments.doc2BackUrl}
-                                  alt="PAN Back"
-                                  title={`${u.kycDocuments?.doc2Type === "cheque" ? "Cheque" : "PAN"} Back (Click to Zoom)`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setLightboxImg(u.kycDocuments.doc2BackUrl);
-                                    setZoomLevel(1);
-                                  }}
-                                  className="w-full aspect-square max-h-16 object-cover rounded-xl border border-slate-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
-                                />
-                                <span className="mt-1 bg-slate-800 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.2 rounded shadow-xs whitespace-nowrap text-center">
-                                  {u.kycDocuments?.doc2Type === "cheque" ? "CHQ Back" : "PAN Back"}
-                                </span>
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxImg(u.kycDocuments.doc2BackUrl);
+                                  setZoomLevel(1);
+                                }}
+                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in"
+                              >
+                                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                                  <img
+                                    src={u.kycDocuments.doc2BackUrl}
+                                    alt="PAN Back"
+                                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
+                                  />
+                                </div>
+                                <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
+                                  <span className="text-[10px] font-extrabold text-slate-800 truncate">
+                                    {u.kycDocuments?.doc2Type === "cheque" ? "CHQ Back" : "PAN Back"}
+                                  </span>
+                                  <span className="text-[9px] text-blue-600 font-bold shrink-0">🔍 Zoom</span>
+                                </div>
                               </div>
                             ) : (
-                              <div className="w-full aspect-square max-h-16 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
+                              <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
                                 <span>💳</span>
-                                <span className="text-[8px] text-slate-400 mt-0.5">No Back</span>
+                                <span className="text-[9px] text-slate-400 mt-0.5">No Back</span>
                               </div>
                             )}
                           </div>
@@ -2952,77 +2980,105 @@ export default function AdminPanel() {
           {tab === "history" && (
             <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100 space-y-4">
               {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
-                    <span>📜</span> Activity Audit History
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Comprehensive traceable history of deposits, withdrawals, KYC verifications, loans, and yield distributions.
-                  </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center text-base shadow-xs shrink-0">
+                    📜
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold font-display text-slate-900 leading-tight">
+                      Activity Audit History
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Comprehensive traceable audit logs of deposits, withdrawals, KYC verifications, loans & yield distributions.
+                    </p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={loadAuditHistory}
                   disabled={historyLoading}
-                  className="self-start sm:self-auto px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 disabled:opacity-50"
+                  className="self-start sm:self-auto px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 disabled:opacity-50 shadow-xs shrink-0"
                 >
                   <span className={historyLoading ? "animate-spin" : ""}>🔄</span>
                   <span>{historyLoading ? "Refreshing..." : "Refresh Logs"}</span>
                 </button>
               </div>
 
-              {/* Multi-Type Filter Bar */}
-              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-                {/* Category Pills */}
-                <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
-                  {[
-                    { key: "all", label: "All History", icon: "🌐" },
-                    { key: "deposit", label: "Deposits (Add)", icon: "💰" },
-                    { key: "withdrawal", label: "Withdrawals (Out)", icon: "💸" },
-                    { key: "transfer", label: "P2P Transfers", icon: "🔄" },
-                    { key: "kyc", label: "All KYC", icon: "📄" },
-                    { key: "normal_kyc", label: "Normal KYC", icon: "👤" },
-                    { key: "loan_kyc", label: "Loan/Lending KYC", icon: "🏦" },
-                    { key: "loan", label: "Loans", icon: "📑" },
-                    { key: "agent", label: "Agents", icon: "🤝" },
-                    { key: "yield", label: "12% Yield", icon: "📈" },
-                  ].map(c => (
-                    <button
-                      key={c.key}
-                      onClick={() => setHistoryCategory(c.key)}
-                      className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 active:scale-95 ${
-                        historyCategory === c.key
-                          ? "bg-blue-600 text-white shadow-xs font-black"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                      }`}
-                    >
-                      <span>{c.icon}</span>
-                      <span>{c.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Status Filter & Search */}
-                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-                  <select
-                    value={historyStatus}
-                    onChange={(e) => setHistoryStatus(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              {/* Tier 1: Category Navigation Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                {[
+                  { key: "all", label: "All History", icon: "🌐" },
+                  { key: "deposit", label: "Deposits", icon: "💰" },
+                  { key: "withdrawal", label: "Withdrawals", icon: "💸" },
+                  { key: "transfer", label: "P2P Transfers", icon: "🔄" },
+                  { key: "kyc", label: "All KYC", icon: "📄" },
+                  { key: "normal_kyc", label: "Normal KYC", icon: "👤" },
+                  { key: "loan_kyc", label: "Loan KYC", icon: "🏦" },
+                  { key: "loan", label: "Loans", icon: "📑" },
+                  { key: "agent", label: "Agents", icon: "🤝" },
+                  { key: "yield", label: "12% Yield", icon: "📈" },
+                ].map(c => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => setHistoryCategory(c.key)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                      historyCategory === c.key
+                        ? "bg-blue-600 text-white shadow-xs font-black"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 border border-slate-200/80"
+                    }`}
                   >
-                    <option value="all">All Statuses</option>
-                    <option value="approved">Approved / Done</option>
-                    <option value="pending">Pending</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
+                    <span>{c.icon}</span>
+                    <span>{c.label}</span>
+                  </button>
+                ))}
+              </div>
 
+              {/* Tier 2: Search & Status Filter Toolbar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+                <div className="relative flex-1 max-w-md">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                    🔍
+                  </span>
                   <input
                     type="text"
                     value={historySearch}
                     onChange={(e) => setHistorySearch(e.target.value)}
-                    placeholder="Search by user, phone, UTR..."
-                    className="flex-1 sm:w-56 px-3 py-1.5 rounded-xl border border-gray-200 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Search by user, email, phone, UTR, reference..."
+                    className="w-full pl-8 pr-7 py-2 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus:bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                   />
+                  {historySearch && (
+                    <button
+                      type="button"
+                      onClick={() => setHistorySearch("")}
+                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden md:inline">
+                      Status:
+                    </span>
+                    <select
+                      value={historyStatus}
+                      onChange={(e) => setHistoryStatus(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="approved">Approved / Done</option>
+                      <option value="pending">Pending</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+
+                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-2 rounded-xl border border-slate-200 shrink-0">
+                    {auditHistory.length} Record{auditHistory.length === 1 ? "" : "s"}
+                  </span>
                 </div>
               </div>
 
@@ -3050,52 +3106,55 @@ export default function AdminPanel() {
                       const isDateValid = !isNaN(d.getTime());
                       const refVal = item.reference || item.referenceId;
                       const noteVal = item.notes || item.remarks;
+                      const isMonetary = item.amount != null && Number(item.amount) > 0;
 
                       return (
-                        <div key={item.id || idx} className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs space-y-2">
+                        <div key={item.id || idx} className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs space-y-2.5">
                           {/* Row 1: Category & Status */}
                           <div className="flex items-center justify-between gap-2">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                               item.category === "deposit"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
                                 : item.category === "withdrawal"
-                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                ? "bg-rose-50 text-rose-700 border border-rose-200/80"
                                 : item.category === "transfer"
-                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                ? "bg-blue-50 text-blue-700 border border-blue-200/80"
                                 : item.category === "kyc"
-                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                ? item.subCategory === "loan_lending_kyc"
+                                  ? "bg-sky-50 text-sky-800 border border-sky-200/80"
+                                  : "bg-amber-50 text-amber-800 border border-amber-200/80"
                                 : item.category === "loan"
-                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                ? "bg-indigo-50 text-indigo-700 border border-indigo-200/80"
                                 : item.category === "agent"
-                                ? "bg-sky-50 text-sky-700 border border-sky-200"
-                                : "bg-teal-50 text-teal-700 border border-teal-200"
+                                ? "bg-purple-50 text-purple-700 border border-purple-200/80"
+                                : "bg-teal-50 text-teal-700 border border-teal-200/80"
                             }`}>
-                              {item.category === "deposit" ? "💰 Deposit (Add)" :
-                               item.category === "withdrawal" ? "💸 Withdrawal (Out)" :
+                              {item.category === "deposit" ? "💰 Deposit" :
+                               item.category === "withdrawal" ? "💸 Withdrawal" :
                                item.category === "transfer" ? "🔄 Transfer" :
                                item.category === "kyc"
                                  ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan KYC" : "📄 Normal KYC" :
-                               item.category === "loan" ? "🏦 Loan" :
+                               item.category === "loan" ? "📑 Loan" :
                                item.category === "agent" ? "🤝 Agent" : "📈 Yield"}
                             </span>
 
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                               isApproved
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
                                 : isPending
-                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                ? "bg-amber-50 text-amber-700 border border-amber-200/80"
                                 : isRejected
-                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                ? "bg-rose-50 text-rose-700 border border-rose-200/80"
                                 : "bg-slate-100 text-slate-700"
                             }`}>
                               {item.status}
                             </span>
                           </div>
 
-                          {/* Row 2: Title and Amount */}
+                          {/* Row 2: Title & Amount (no fake ₹0 for non-monetary items) */}
                           <div className="flex items-baseline justify-between gap-2">
                             <p className="font-extrabold text-slate-900 text-xs leading-snug">{item.title}</p>
-                            {item.amount != null && (
+                            {isMonetary ? (
                               <span className={`font-mono font-black text-sm shrink-0 ${
                                 item.category === "deposit" || item.category === "yield"
                                   ? "text-emerald-600"
@@ -3103,55 +3162,86 @@ export default function AdminPanel() {
                                   ? "text-rose-600"
                                   : "text-slate-900"
                               }`}>
+                                {item.category === "deposit" || item.category === "yield" ? "+" : item.category === "withdrawal" ? "-" : ""}
                                 ₹{Number(item.amount).toLocaleString("en-IN")}
                               </span>
+                            ) : (
+                              <span className="text-slate-400 font-bold text-xs">—</span>
                             )}
                           </div>
 
                           {/* Row 3: User Details & Date */}
                           <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-                            <span className="font-bold text-slate-800 truncate">{item.userName || "Direct User"}</span>
-                            <span className="font-mono text-[10px] text-slate-400 shrink-0">
+                            <div className="min-w-0 pr-2">
+                              <span className="font-bold text-slate-800 truncate block">{item.userName || "Direct User"}</span>
+                              {item.userEmail && <span className="font-mono text-[10px] text-slate-400 truncate block">{item.userEmail}</span>}
+                            </div>
+                            <span className="font-mono text-[10px] text-slate-400 shrink-0 text-right">
                               {isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Recent"}
                             </span>
                           </div>
 
                           {/* Row 4: Ref & Details */}
                           {(refVal || noteVal) && (
-                            <div className="bg-slate-50 rounded-xl p-2 text-[10px] font-mono text-slate-600 break-all space-y-0.5">
+                            <div className="bg-slate-50/80 rounded-xl p-2 text-[10px] font-mono text-slate-600 break-all space-y-0.5 border border-slate-100">
                               {refVal && <div>Ref: <span className="font-bold text-slate-800">{refVal}</span></div>}
                               {noteVal && <div className="text-slate-500 font-sans italic">{noteVal}</div>}
                             </div>
                           )}
 
-                          {/* KYC Document preview buttons on mobile if available */}
+                          {/* KYC Document preview pills on mobile with tap to zoom */}
                           {item.category === "kyc" && item.hasPhotos && item.documents && (
                             <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100">
                               {item.documents.doc1Url && (
                                 <button
                                   type="button"
                                   onClick={() => setLightboxImg(item.documents.doc1Url)}
-                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200"
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
                                 >
-                                  UID Front 🔍
+                                  {item.documents.doc1Url.startsWith("data:image") ? (
+                                    <img src={item.documents.doc1Url} alt="UID Front" className="w-3.5 h-3.5 object-cover rounded" />
+                                  ) : <span>🪪</span>}
+                                  <span>UID Front</span>
+                                  <span>🔍</span>
                                 </button>
                               )}
                               {item.documents.doc1BackUrl && (
                                 <button
                                   type="button"
                                   onClick={() => setLightboxImg(item.documents.doc1BackUrl)}
-                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200"
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
                                 >
-                                  UID Back 🔍
+                                  {item.documents.doc1BackUrl.startsWith("data:image") ? (
+                                    <img src={item.documents.doc1BackUrl} alt="UID Back" className="w-3.5 h-3.5 object-cover rounded" />
+                                  ) : <span>🔄</span>}
+                                  <span>UID Back</span>
+                                  <span>🔍</span>
                                 </button>
                               )}
                               {item.documents.doc2Url && (
                                 <button
                                   type="button"
                                   onClick={() => setLightboxImg(item.documents.doc2Url)}
-                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200"
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
                                 >
-                                  Doc 2 🔍
+                                  {item.documents.doc2Url.startsWith("data:image") ? (
+                                    <img src={item.documents.doc2Url} alt="Doc 2" className="w-3.5 h-3.5 object-cover rounded" />
+                                  ) : <span>📑</span>}
+                                  <span>{item.subCategory === "loan_lending_kyc" ? "Cheque" : "PAN"}</span>
+                                  <span>🔍</span>
+                                </button>
+                              )}
+                              {item.documents.doc2BackUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setLightboxImg(item.documents.doc2BackUrl)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
+                                >
+                                  {item.documents.doc2BackUrl.startsWith("data:image") ? (
+                                    <img src={item.documents.doc2BackUrl} alt="Doc 2 Back" className="w-3.5 h-3.5 object-cover rounded" />
+                                  ) : <span>📄</span>}
+                                  <span>{item.subCategory === "loan_lending_kyc" ? "Cheque Back" : "PAN Back"}</span>
+                                  <span>🔍</span>
                                 </button>
                               )}
                             </div>
@@ -3162,19 +3252,19 @@ export default function AdminPanel() {
                   </div>
 
                   {/* Desktop / Tablet Table */}
-                  <div className="hidden sm:block overflow-x-auto rounded-2xl border border-gray-200 shadow-2xs">
+                  <div className="hidden sm:block overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs">
                     <table className="w-full min-w-[850px] table-fixed border-collapse bg-white text-left text-xs">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-gray-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                          <th className="py-3 px-4 w-[150px]">Timestamp</th>
-                          <th className="py-3 px-4 w-[170px]">Category & Action</th>
-                          <th className="py-3 px-4 w-[190px]">User / Account</th>
-                          <th className="py-3 px-4 w-[120px]">Amount / Value</th>
-                          <th className="py-3 px-4 w-[100px]">Status</th>
-                          <th className="py-3 px-4">Audit Reference / Details & Docs</th>
+                        <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                          <th className="py-3 px-3.5 w-[130px]">Timestamp</th>
+                          <th className="py-3 px-3.5 w-[175px]">Category & Action</th>
+                          <th className="py-3 px-3.5 w-[185px]">User / Account</th>
+                          <th className="py-3 px-3.5 w-[110px]">Amount / Value</th>
+                          <th className="py-3 px-3.5 w-[95px]">Status</th>
+                          <th className="py-3 px-3.5">Reference / Details & Docs</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody className="divide-y divide-slate-100">
                         {auditHistory.map((item, idx) => {
                           const isApproved = item.status === "approved" || item.status === "completed" || item.status === "verified" || item.status === "active";
                           const isPending = item.status === "pending";
@@ -3183,11 +3273,12 @@ export default function AdminPanel() {
                           const isDateValid = !isNaN(d.getTime());
                           const refVal = item.reference || item.referenceId;
                           const noteVal = item.notes || item.remarks;
+                          const isMonetary = item.amount != null && Number(item.amount) > 0;
 
                           return (
-                            <tr key={item.id || idx} className="hover:bg-slate-50/70 transition-colors">
+                            <tr key={item.id || idx} className="hover:bg-slate-50/80 transition-colors">
                               {/* Timestamp */}
-                              <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600 align-top">
+                              <td className="py-3.5 px-3.5 font-mono text-[11px] text-slate-600 align-top">
                                 <span className="block font-bold text-slate-900">
                                   {isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent"}
                                 </span>
@@ -3197,166 +3288,165 @@ export default function AdminPanel() {
                               </td>
 
                               {/* Category & Action */}
-                              <td className="py-3.5 px-4 align-top">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              <td className="py-3.5 px-3.5 align-top">
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                                   item.category === "deposit"
-                                    ? "bg-emerald-100 text-emerald-800"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
                                     : item.category === "withdrawal"
-                                    ? "bg-rose-100 text-rose-800"
+                                    ? "bg-rose-50 text-rose-700 border border-rose-200/80"
                                     : item.category === "transfer"
-                                    ? "bg-blue-100 text-blue-800"
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200/80"
                                     : item.category === "kyc"
                                     ? item.subCategory === "loan_lending_kyc"
-                                      ? "bg-sky-100 text-sky-800"
-                                      : "bg-amber-100 text-amber-800"
+                                      ? "bg-sky-50 text-sky-800 border border-sky-200/80"
+                                      : "bg-amber-50 text-amber-800 border border-amber-200/80"
                                     : item.category === "loan"
-                                    ? "bg-blue-100 text-blue-800"
+                                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200/80"
                                     : item.category === "agent"
-                                    ? "bg-teal-100 text-teal-800"
-                                    : "bg-teal-100 text-teal-800"
+                                    ? "bg-purple-50 text-purple-700 border border-purple-200/80"
+                                    : "bg-teal-50 text-teal-700 border border-teal-200/80"
                                 }`}>
-                                  {item.category === "deposit" ? "💰 Deposit (Add)" :
-                                   item.category === "withdrawal" ? "💸 Withdrawal (Out)" :
-                                   item.category === "transfer" ? "🔄 P2P Transfer" :
+                                  {item.category === "deposit" ? "💰 Deposit" :
+                                   item.category === "withdrawal" ? "💸 Withdrawal" :
+                                   item.category === "transfer" ? "🔄 Transfer" :
                                    item.category === "kyc"
-                                     ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan/Lending KYC" : "📄 Normal KYC" :
-                                   item.category === "loan" ? "🏦 Loan" :
+                                     ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan KYC" : "📄 Normal KYC" :
+                                   item.category === "loan" ? "📑 Loan" :
                                    item.category === "agent" ? "🤝 Agent" : "📈 Yield"}
                                 </span>
-                                <p className="font-bold text-gray-900 text-xs mt-1 leading-tight">{item.title}</p>
+                                <p className="font-extrabold text-slate-900 text-xs mt-1 leading-snug">{item.title}</p>
                               </td>
 
-                            {/* User */}
-                            <td className="py-3.5 px-4 align-top">
-                              <p className="font-bold text-gray-900 text-xs leading-tight">{item.userName}</p>
-                              <p className="text-[11px] text-gray-500 truncate max-w-[180px]">{item.userEmail}</p>
-                              {item.userPhone && <p className="text-[10px] text-gray-400 font-mono">{item.userPhone}</p>}
-                            </td>
+                              {/* User */}
+                              <td className="py-3.5 px-3.5 align-top">
+                                <p className="font-extrabold text-slate-900 text-xs leading-snug truncate">{item.userName || "Direct User"}</p>
+                                {item.userEmail && <p className="text-[11px] text-slate-500 font-mono truncate max-w-[175px]">{item.userEmail}</p>}
+                                {item.userPhone && <p className="text-[10px] text-slate-400 font-mono">{item.userPhone}</p>}
+                              </td>
 
-                            {/* Amount */}
-                            <td className="py-3.5 px-4 align-top">
-                              {item.amount != null ? (
-                                <span className={`font-mono font-black text-xs ${
-                                  item.category === "deposit" || item.category === "yield"
-                                    ? "text-emerald-600"
-                                    : item.category === "withdrawal"
-                                    ? "text-rose-600"
-                                    : item.category === "transfer"
-                                    ? "text-blue-700"
-                                    : "text-slate-900"
+                              {/* Amount / Value */}
+                              <td className="py-3.5 px-3.5 align-top">
+                                {isMonetary ? (
+                                  <span className={`font-mono font-black text-xs ${
+                                    item.category === "deposit" || item.category === "yield"
+                                      ? "text-emerald-600"
+                                      : item.category === "withdrawal"
+                                      ? "text-rose-600"
+                                      : "text-slate-900"
+                                  }`}>
+                                    {item.category === "deposit" || item.category === "yield" ? "+" : item.category === "withdrawal" ? "-" : ""}
+                                    ₹{Number(item.amount).toLocaleString("en-IN")}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 font-bold text-xs">—</span>
+                                )}
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-3.5 px-3.5 align-top">
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                  isApproved
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                                    : isPending
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200/80"
+                                    : isRejected
+                                    ? "bg-rose-50 text-rose-700 border border-rose-200/80"
+                                    : "bg-slate-100 text-slate-700"
                                 }`}>
-                                  ₹{Number(item.amount).toLocaleString("en-IN")}
+                                  {item.status}
                                 </span>
-                              ) : (
-                                <span className="text-gray-400 text-xs">—</span>
-                              )}
-                            </td>
+                              </td>
 
-                            {/* Status */}
-                            <td className="py-3.5 px-4 align-top">
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                isApproved
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : isPending
-                                  ? "bg-amber-100 text-amber-800"
-                                  : isRejected
-                                  ? "bg-rose-100 text-rose-800"
-                                  : "bg-slate-100 text-slate-700"
-                              }`}>
-                                {item.status}
-                              </span>
-                            </td>
+                              {/* Reference / Details & KYC Document Thumbnails */}
+                              <td className="py-3.5 px-3.5 align-top text-xs text-slate-600">
+                                {refVal && (
+                                  <p className="font-mono text-[10px] text-slate-700 font-bold break-all" title={refVal}>
+                                    Ref: <span className="text-slate-900">{refVal}</span>
+                                  </p>
+                                )}
+                                {noteVal && (
+                                  <p className="text-slate-600 text-[11px] mt-0.5 font-sans" title={noteVal}>
+                                    {noteVal}
+                                  </p>
+                                )}
 
-                            {/* Reference / Details & KYC Document Thumbnails */}
-                            <td className="py-3.5 px-4 align-top text-[11px] text-slate-600">
-                              {refVal && (
-                                <p className="font-mono text-[10px] text-slate-700 font-bold break-all" title={refVal}>
-                                  Ref: {refVal}
-                                </p>
-                              )}
-                              {noteVal && (
-                                <p className="text-slate-600 text-[11px] mt-0.5" title={noteVal}>
-                                  {noteVal}
-                                </p>
-                              )}
-
-                              {/* KYC Photos / Documents View */}
-                              {item.category === "kyc" && (
-                                <div className="mt-2 pt-1 border-t border-gray-100">
-                                  {item.hasPhotos && item.documents ? (
-                                    <div className="space-y-1">
-                                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">
-                                        Uploaded KYC Photos (Click to Zoom):
-                                      </span>
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        {item.documents.doc1Url && (
-                                          <button
-                                            type="button"
-                                            onClick={() => setLightboxImg(item.documents.doc1Url)}
-                                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-[10px] font-bold text-blue-800 cursor-pointer transition active:scale-95 group/doc"
-                                          >
-                                            {item.documents.doc1Url.startsWith("data:image") ? (
-                                              <img src={item.documents.doc1Url} alt="UID Front" className="w-4 h-4 object-cover rounded border border-blue-300" />
-                                            ) : <span>🪪</span>}
-                                            <span>UID Front</span>
-                                            <span className="text-blue-500 group-hover/doc:scale-110">🔍</span>
-                                          </button>
-                                        )}
-                                        {item.documents.doc1BackUrl && (
-                                          <button
-                                            type="button"
-                                            onClick={() => setLightboxImg(item.documents.doc1BackUrl)}
-                                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-[10px] font-bold text-blue-800 cursor-pointer transition active:scale-95 group/doc"
-                                          >
-                                            {item.documents.doc1BackUrl.startsWith("data:image") ? (
-                                              <img src={item.documents.doc1BackUrl} alt="UID Back" className="w-4 h-4 object-cover rounded border border-blue-300" />
-                                            ) : <span>🔄</span>}
-                                            <span>UID Back</span>
-                                            <span className="text-blue-500 group-hover/doc:scale-110">🔍</span>
-                                          </button>
-                                        )}
-                                        {item.documents.doc2Url && (
-                                          <button
-                                            type="button"
-                                            onClick={() => setLightboxImg(item.documents.doc2Url)}
-                                            className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-[10px] font-bold text-amber-800 cursor-pointer transition active:scale-95 group/doc"
-                                          >
-                                            {item.documents.doc2Url.startsWith("data:image") ? (
-                                              <img src={item.documents.doc2Url} alt="Doc2 Front" className="w-4 h-4 object-cover rounded border border-amber-300" />
-                                            ) : <span>📑</span>}
-                                            <span>{item.subCategory === "loan_lending_kyc" ? "Cheque Front" : "PAN Front"}</span>
-                                            <span className="text-amber-600 group-hover/doc:scale-110">🔍</span>
-                                          </button>
-                                        )}
-                                        {item.documents.doc2BackUrl && (
-                                          <button
-                                            type="button"
-                                            onClick={() => setLightboxImg(item.documents.doc2BackUrl)}
-                                            className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-[10px] font-bold text-amber-800 cursor-pointer transition active:scale-95 group/doc"
-                                          >
-                                            {item.documents.doc2BackUrl.startsWith("data:image") ? (
-                                              <img src={item.documents.doc2BackUrl} alt="Doc2 Back" className="w-4 h-4 object-cover rounded border border-amber-300" />
-                                            ) : <span>📄</span>}
-                                            <span>{item.subCategory === "loan_lending_kyc" ? "Cheque Back" : "PAN Back"}</span>
-                                            <span className="text-amber-600 group-hover/doc:scale-110">🔍</span>
-                                          </button>
-                                        )}
+                                {/* KYC Photos / Documents Pill Gallery */}
+                                {item.category === "kyc" && (
+                                  <div className="mt-1.5 pt-1.5 border-t border-slate-100">
+                                    {item.hasPhotos && item.documents ? (
+                                      <div className="space-y-1">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
+                                          KYC Document Photos (Tap to Zoom):
+                                        </span>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          {item.documents.doc1Url && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setLightboxImg(item.documents.doc1Url)}
+                                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 cursor-pointer transition active:scale-95 group/doc shadow-2xs"
+                                            >
+                                              {item.documents.doc1Url.startsWith("data:image") ? (
+                                                <img src={item.documents.doc1Url} alt="UID Front" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
+                                              ) : <span>🪪</span>}
+                                              <span>UID Front</span>
+                                              <span className="text-slate-400 group-hover/doc:text-blue-600">🔍</span>
+                                            </button>
+                                          )}
+                                          {item.documents.doc1BackUrl && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setLightboxImg(item.documents.doc1BackUrl)}
+                                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 cursor-pointer transition active:scale-95 group/doc shadow-2xs"
+                                            >
+                                              {item.documents.doc1BackUrl.startsWith("data:image") ? (
+                                                <img src={item.documents.doc1BackUrl} alt="UID Back" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
+                                              ) : <span>🔄</span>}
+                                              <span>UID Back</span>
+                                              <span className="text-slate-400 group-hover/doc:text-blue-600">🔍</span>
+                                            </button>
+                                          )}
+                                          {item.documents.doc2Url && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setLightboxImg(item.documents.doc2Url)}
+                                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 cursor-pointer transition active:scale-95 group/doc shadow-2xs"
+                                            >
+                                              {item.documents.doc2Url.startsWith("data:image") ? (
+                                                <img src={item.documents.doc2Url} alt="Doc2 Front" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
+                                              ) : <span>📑</span>}
+                                              <span>{item.subCategory === "loan_lending_kyc" ? "Cheque Front" : "PAN Front"}</span>
+                                              <span className="text-slate-400 group-hover/doc:text-blue-600">🔍</span>
+                                            </button>
+                                          )}
+                                          {item.documents.doc2BackUrl && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setLightboxImg(item.documents.doc2BackUrl)}
+                                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 cursor-pointer transition active:scale-95 group/doc shadow-2xs"
+                                            >
+                                              {item.documents.doc2BackUrl.startsWith("data:image") ? (
+                                                <img src={item.documents.doc2BackUrl} alt="Doc2 Back" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
+                                              ) : <span>📄</span>}
+                                              <span>{item.subCategory === "loan_lending_kyc" ? "Cheque Back" : "PAN Back"}</span>
+                                              <span className="text-slate-400 group-hover/doc:text-blue-600">🔍</span>
+                                            </button>
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  ) : (
-                                    <div className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
-                                      <span>📷</span> Photos Not Uploaded (Pending Submission)
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                                    ) : (
+                                      <div className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
+                                        <span>📷</span> Photos Not Uploaded (Pending Submission)
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
               </>
             )}
             </div>

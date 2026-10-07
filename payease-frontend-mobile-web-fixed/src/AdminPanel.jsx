@@ -928,7 +928,27 @@ export default function AdminPanel() {
     { key: "settings", label: "Settings", icon: "⚙️" },
   ];
 
-  // Dedicated Multi-Category Audit History State
+  // Dedicated Multi-Category Audit History State & Constants
+  const AUDIT_CATEGORIES = [
+    { key: "all", label: "All Activities", icon: "🌐" },
+    { key: "deposit", label: "Deposits", icon: "💰" },
+    { key: "withdrawal", label: "Withdrawals", icon: "💸" },
+    { key: "transfer", label: "P2P Transfers", icon: "🔄" },
+    { key: "kyc", label: "All KYC", icon: "📄" },
+    { key: "normal_kyc", label: "Normal KYC", icon: "👤" },
+    { key: "loan_kyc", label: "Loan KYC", icon: "🏦" },
+    { key: "loan", label: "Loans", icon: "📑" },
+    { key: "agent", label: "Agent Partners", icon: "🤝" },
+    { key: "yield", label: "12% Daily Yield", icon: "📈" },
+  ];
+
+  const AUDIT_STATUSES = [
+    { key: "all", label: "All Statuses", icon: "🌐" },
+    { key: "approved", label: "Approved / Done", icon: "✅" },
+    { key: "pending", label: "Pending", icon: "⏳" },
+    { key: "rejected", label: "Rejected", icon: "❌" },
+  ];
+
   const [auditHistory, setAuditHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyCategory, setHistoryCategory] = useState("all");
@@ -3160,23 +3180,29 @@ export default function AdminPanel() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                  {/* Single Unified Filter Button (Opens All Categories & Statuses in One Clean Desk) */}
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 relative">
+                  {/* Single Unified Filter Button (Opens floating popover menu) */}
                   <button
                     type="button"
                     onClick={() => setHistoryFilterOpen(!historyFilterOpen)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 ${
-                      historyFilterOpen || historyCategory !== "all" || historyStatus !== "all"
-                        ? "bg-blue-600 text-white border-blue-600 shadow-xs font-black ring-2 ring-blue-300"
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 cursor-pointer shadow-2xs active:scale-95 ${
+                      historyCategory !== "all" || historyStatus !== "all"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-xs font-black ring-2 ring-blue-300/60"
+                        : historyFilterOpen
+                        ? "bg-slate-100 border-slate-300 text-slate-900"
                         : "bg-white hover:bg-slate-50 border-slate-200 text-slate-800"
                     }`}
                   >
-                    <span>⚡</span>
-                    <span>Filter & Categories</span>
+                    <span className="text-sm">⚡</span>
+                    <span className="truncate max-w-[170px] sm:max-w-none">
+                      {historyCategory !== "all" || historyStatus !== "all"
+                        ? `${AUDIT_CATEGORIES.find(c => c.key === historyCategory)?.label || "Filtered"} • ${historyStatus === "all" ? "All" : historyStatus}`
+                        : "Filter & Categories"}
+                    </span>
                     {(historyCategory !== "all" || historyStatus !== "all") && (
                       <span className="w-2 h-2 rounded-full bg-amber-300 animate-pulse" />
                     )}
-                    <span className={`text-[10px] opacity-70 transition-transform ${historyFilterOpen ? "rotate-180" : ""}`}>
+                    <span className={`text-[10px] opacity-70 transition-transform duration-200 ${historyFilterOpen ? "rotate-180" : ""}`}>
                       ▼
                     </span>
                   </button>
@@ -3184,6 +3210,138 @@ export default function AdminPanel() {
                   <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-2 rounded-xl border border-slate-200 shrink-0">
                     {auditHistory.length} Record{auditHistory.length === 1 ? "" : "s"}
                   </span>
+
+                  {/* FLOATING POPOVER DROPDOWN (Chakra UI Polish: Never pushes the table down!) */}
+                  {historyFilterOpen && (
+                    <>
+                      {/* Backdrop for click outside */}
+                      <div
+                        className="fixed inset-0 z-40 bg-black/15 backdrop-blur-2xs transition-opacity"
+                        onClick={() => setHistoryFilterOpen(false)}
+                      />
+
+                      {/* Floating Popover Container */}
+                      <div className="fixed inset-x-3 top-24 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 z-50 sm:w-96 max-w-full bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-4 space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
+                        {/* Popover Header */}
+                        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold">
+                              ⚡
+                            </span>
+                            <div>
+                              <h4 className="text-xs font-extrabold text-slate-900 leading-tight">
+                                Audit Filter Hub
+                              </h4>
+                              <p className="text-[10px] text-slate-400">
+                                Select category & lifecycle status to inspect
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {(historyCategory !== "all" || historyStatus !== "all") && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setHistoryCategory("all");
+                                  setHistoryStatus("all");
+                                }}
+                                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-0.5 rounded-lg transition cursor-pointer"
+                              >
+                                Reset
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setHistoryFilterOpen(false)}
+                              className="w-6 h-6 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 text-xs font-bold transition cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 1. Category Selection: Clean Vertical List with Badges */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5 px-0.5">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                              📂 1. Select Category
+                            </label>
+                            <span className="text-[10px] font-extrabold text-blue-600">
+                              {AUDIT_CATEGORIES.find(c => c.key === historyCategory)?.label}
+                            </span>
+                          </div>
+                          <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
+                            {AUDIT_CATEGORIES.map(c => {
+                              const isSelected = historyCategory === c.key;
+                              return (
+                                <button
+                                  key={c.key}
+                                  type="button"
+                                  onClick={() => setHistoryCategory(c.key)}
+                                  className={`w-full px-2.5 py-1.5 rounded-xl text-left text-xs font-bold flex items-center justify-between transition cursor-pointer ${
+                                    isSelected
+                                      ? "bg-blue-600 text-white shadow-xs"
+                                      : "hover:bg-slate-50 text-slate-700"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm">{c.icon}</span>
+                                    <span>{c.label}</span>
+                                  </div>
+                                  {isSelected ? (
+                                    <span className="text-xs font-black">✓</span>
+                                  ) : (
+                                    <span className="text-[11px] text-slate-300">›</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* 2. Status Lifecycle Selection */}
+                        <div className="pt-2.5 border-t border-slate-100">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5 px-0.5">
+                            🚦 2. Transaction Status
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {AUDIT_STATUSES.map(s => {
+                              const isSelected = historyStatus === s.key;
+                              return (
+                                <button
+                                  key={s.key}
+                                  type="button"
+                                  onClick={() => setHistoryStatus(s.key)}
+                                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer border ${
+                                    isSelected
+                                      ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                                      : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+                                  }`}
+                                >
+                                  <span className="text-xs">{s.icon}</span>
+                                  <span className="truncate">{s.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Popover Footer */}
+                        <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            {auditHistory.length} record{auditHistory.length === 1 ? "" : "s"} match
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setHistoryFilterOpen(false)}
+                            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold shadow-xs active:scale-95 transition cursor-pointer"
+                          >
+                            Done / View Results
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -3195,7 +3353,7 @@ export default function AdminPanel() {
                   </span>
                   {historyCategory !== "all" && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold">
-                      <span>Category: {historyCategory}</span>
+                      <span>{AUDIT_CATEGORIES.find(c => c.key === historyCategory)?.icon} {AUDIT_CATEGORIES.find(c => c.key === historyCategory)?.label}</span>
                       <button
                         type="button"
                         onClick={() => setHistoryCategory("all")}
@@ -3207,7 +3365,7 @@ export default function AdminPanel() {
                   )}
                   {historyStatus !== "all" && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-                      <span>Status: {historyStatus}</span>
+                      <span>Status: {AUDIT_STATUSES.find(s => s.key === historyStatus)?.label || historyStatus}</span>
                       <button
                         type="button"
                         onClick={() => setHistoryStatus("all")}
@@ -3240,135 +3398,6 @@ export default function AdminPanel() {
                   >
                     Clear All
                   </button>
-                </div>
-              )}
-
-              {/* Unified Filter Hub Desk ("Ek me khole or ek ek open kr ke dhek le") */}
-              {historyFilterOpen && (
-                <div className="bg-slate-50/95 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm animate-in fade-in duration-150">
-                  {/* Hub Header */}
-                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
-                    <div>
-                      <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-                        <span>⚡</span>
-                        <span>Audit History Filter Hub</span>
-                      </h4>
-                      <p className="text-xs text-slate-500">
-                        Select a category and transaction lifecycle to inspect matching audit logs
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {(historyCategory !== "all" || historyStatus !== "all") && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setHistoryCategory("all");
-                            setHistoryStatus("all");
-                          }}
-                          className="text-xs font-bold text-slate-600 hover:text-rose-600 px-2.5 py-1 rounded-lg hover:bg-slate-200/60 transition cursor-pointer"
-                        >
-                          Reset Filters
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setHistoryFilterOpen(false)}
-                        className="w-7 h-7 rounded-lg bg-white hover:bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold transition cursor-pointer border border-slate-200 shadow-2xs"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 1. Category Selection (All 10 Categories as Rich Tiles) */}
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 block">
-                      📂 1. Select Event Category:
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                      {[
-                        { key: "all", label: "All History", icon: "🌐", desc: "All system activities" },
-                        { key: "deposit", label: "Deposits", icon: "💰", desc: "Added capital" },
-                        { key: "withdrawal", label: "Withdrawals", icon: "💸", desc: "Payouts / debits" },
-                        { key: "transfer", label: "P2P Transfers", icon: "🔄", desc: "Internal user transfers" },
-                        { key: "kyc", label: "All KYC", icon: "📄", desc: "Identity checks" },
-                        { key: "normal_kyc", label: "Normal KYC", icon: "👤", desc: "Standard borrowers" },
-                        { key: "loan_kyc", label: "Loan KYC", icon: "🏦", desc: "Credit / Lending KYC" },
-                        { key: "loan", label: "Loans", icon: "📑", desc: "EMI & principal" },
-                        { key: "agent", label: "Agents", icon: "🤝", desc: "Partner networks" },
-                        { key: "yield", label: "12% Daily Yield", icon: "📈", desc: "Automatic daily ROI" },
-                      ].map(c => {
-                        const isSelected = historyCategory === c.key;
-                        return (
-                          <button
-                            key={c.key}
-                            type="button"
-                            onClick={() => setHistoryCategory(c.key)}
-                            className={`p-2.5 rounded-xl text-left transition active:scale-95 cursor-pointer border ${
-                              isSelected
-                                ? "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-400/40"
-                                : "bg-white hover:bg-slate-100 border-slate-200 text-slate-700"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-base">{c.icon}</span>
-                              {isSelected && <span className="text-xs font-black">✓</span>}
-                            </div>
-                            <div className="text-xs font-bold leading-tight truncate">{c.label}</div>
-                            <div className={`text-[10px] mt-0.5 leading-tight truncate ${isSelected ? "text-blue-100" : "text-slate-400"}`}>
-                              {c.desc}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 2. Status Lifecycle Selection */}
-                  <div className="space-y-2 pt-2 border-t border-slate-200">
-                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 block">
-                      🚦 2. Transaction / Event Status:
-                    </label>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {[
-                        { key: "all", label: "All Statuses", icon: "🌐" },
-                        { key: "approved", label: "Approved / Done", icon: "✅" },
-                        { key: "pending", label: "Pending", icon: "⏳" },
-                        { key: "rejected", label: "Rejected", icon: "❌" },
-                      ].map(s => {
-                        const isSelected = historyStatus === s.key;
-                        return (
-                          <button
-                            key={s.key}
-                            type="button"
-                            onClick={() => setHistoryStatus(s.key)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer border ${
-                              isSelected
-                                ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                                : "bg-white hover:bg-slate-100 border-slate-200 text-slate-700"
-                            }`}
-                          >
-                            <span>{s.icon}</span>
-                            <span>{s.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Done & Summary Footer */}
-                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                    <span className="text-xs text-slate-500 font-bold">
-                      Showing results for <span className="text-slate-900 font-extrabold">{historyCategory}</span> • <span className="text-slate-900 font-extrabold">{historyStatus}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setHistoryFilterOpen(false)}
-                      className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold shadow-xs active:scale-95 transition cursor-pointer"
-                    >
-                      Done / View Results
-                    </button>
-                  </div>
                 </div>
               )}
 

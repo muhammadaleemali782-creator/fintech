@@ -1052,6 +1052,8 @@ router.get('/audit-history', protect, admin, async (req, res) => {
     console.error('Audit history error:', err);
     res.status(500).json({ message: 'Failed to fetch audit history' });
   }
+});
+
 // Trigger 24h Daily Yield Distribution & Dispatch Phone Alerts to all depositors
 router.post('/distribute-yield-notifications', protect, admin, async (req, res) => {
   try {

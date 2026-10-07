@@ -3005,37 +3005,74 @@ export default function AdminPanel() {
                 </button>
               </div>
 
-              {/* Tier 1: Category Navigation Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                {[
-                  { key: "all", label: "All History", icon: "🌐" },
-                  { key: "deposit", label: "Deposits", icon: "💰" },
-                  { key: "withdrawal", label: "Withdrawals", icon: "💸" },
-                  { key: "transfer", label: "P2P Transfers", icon: "🔄" },
-                  { key: "kyc", label: "All KYC", icon: "📄" },
-                  { key: "normal_kyc", label: "Normal KYC", icon: "👤" },
-                  { key: "loan_kyc", label: "Loan KYC", icon: "🏦" },
-                  { key: "loan", label: "Loans", icon: "📑" },
-                  { key: "agent", label: "Agents", icon: "🤝" },
-                  { key: "yield", label: "12% Yield", icon: "📈" },
-                ].map(c => (
-                  <button
-                    key={c.key}
-                    type="button"
-                    onClick={() => setHistoryCategory(c.key)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95 ${
-                      historyCategory === c.key
-                        ? "bg-blue-600 text-white shadow-xs font-black"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 border border-slate-200/80"
-                    }`}
-                  >
-                    <span>{c.icon}</span>
-                    <span>{c.label}</span>
-                  </button>
-                ))}
+              {/* Tier 1: Category Navigation Tabs (with Mouse Wheel Vertical Scroll & Arrow Controls) */}
+              <div className="relative group/pillbar">
+                {/* Scroll Left Button (Desktop) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById("admin-audit-cat-scroll");
+                    if (el) el.scrollBy({ left: -220, behavior: "smooth" });
+                  }}
+                  className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 z-10 w-6 h-6 items-center justify-center bg-white/95 hover:bg-white text-slate-600 hover:text-slate-900 rounded-full border border-slate-200 shadow-xs text-xs font-bold transition active:scale-90 cursor-pointer opacity-80 hover:opacity-100"
+                  title="Scroll left"
+                >
+                  ‹
+                </button>
+
+                {/* Horizontal Category Strip with Vertical Mouse Wheel Support */}
+                <div
+                  id="admin-audit-cat-scroll"
+                  onWheel={(e) => {
+                    if (e.deltaY !== 0) {
+                      e.currentTarget.scrollLeft += e.deltaY;
+                    }
+                  }}
+                  className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-0.5 scroll-smooth"
+                >
+                  {[
+                    { key: "all", label: "All History", icon: "🌐" },
+                    { key: "deposit", label: "Deposits", icon: "💰" },
+                    { key: "withdrawal", label: "Withdrawals", icon: "💸" },
+                    { key: "transfer", label: "P2P Transfers", icon: "🔄" },
+                    { key: "kyc", label: "All KYC", icon: "📄" },
+                    { key: "normal_kyc", label: "Normal KYC", icon: "👤" },
+                    { key: "loan_kyc", label: "Loan KYC", icon: "🏦" },
+                    { key: "loan", label: "Loans", icon: "📑" },
+                    { key: "agent", label: "Agents", icon: "🤝" },
+                    { key: "yield", label: "12% Yield", icon: "📈" },
+                  ].map(c => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setHistoryCategory(c.key)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                        historyCategory === c.key
+                          ? "bg-blue-600 text-white shadow-xs font-black ring-2 ring-blue-400/40"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 border border-slate-200/80"
+                      }`}
+                    >
+                      <span>{c.icon}</span>
+                      <span>{c.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Scroll Right Button (Desktop) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById("admin-audit-cat-scroll");
+                    if (el) el.scrollBy({ left: 220, behavior: "smooth" });
+                  }}
+                  className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 z-10 w-6 h-6 items-center justify-center bg-white/95 hover:bg-white text-slate-600 hover:text-slate-900 rounded-full border border-slate-200 shadow-xs text-xs font-bold transition active:scale-90 cursor-pointer opacity-80 hover:opacity-100"
+                  title="Scroll right"
+                >
+                  ›
+                </button>
               </div>
 
-              {/* Tier 2: Search & Status Filter Toolbar */}
+              {/* Tier 2: Search, Category Dropdown & Status Filter Toolbar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
                 <div className="relative flex-1 max-w-md">
                   <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
@@ -3059,7 +3096,32 @@ export default function AdminPanel() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
+                  {/* Category Dropdown (Native Vertical Scroll Menu) */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden md:inline">
+                      Category:
+                    </span>
+                    <select
+                      value={historyCategory}
+                      onChange={(e) => setHistoryCategory(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs"
+                      title="Filter category via vertical scroll menu"
+                    >
+                      <option value="all">🌐 All History</option>
+                      <option value="deposit">💰 Deposits</option>
+                      <option value="withdrawal">💸 Withdrawals</option>
+                      <option value="transfer">🔄 P2P Transfers</option>
+                      <option value="kyc">📄 All KYC</option>
+                      <option value="normal_kyc">👤 Normal KYC</option>
+                      <option value="loan_kyc">🏦 Loan KYC</option>
+                      <option value="loan">📑 Loans</option>
+                      <option value="agent">🤝 Agents</option>
+                      <option value="yield">📈 12% Yield</option>
+                    </select>
+                  </div>
+
+                  {/* Status Dropdown */}
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden md:inline">
                       Status:
@@ -3251,11 +3313,11 @@ export default function AdminPanel() {
                     })}
                   </div>
 
-                  {/* Desktop / Tablet Table */}
-                  <div className="hidden sm:block overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs">
+                  {/* Desktop / Tablet Table with Vertical Scroll */}
+                  <div className="hidden sm:block overflow-x-auto max-h-[580px] overflow-y-auto rounded-2xl border border-slate-200/90 shadow-2xs">
                     <table className="w-full min-w-[850px] table-fixed border-collapse bg-white text-left text-xs">
-                      <thead>
-                        <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                      <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-xs border-b border-slate-200 shadow-2xs">
+                        <tr className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
                           <th className="py-3 px-3.5 w-[130px]">Timestamp</th>
                           <th className="py-3 px-3.5 w-[175px]">Category & Action</th>
                           <th className="py-3 px-3.5 w-[185px]">User / Account</th>

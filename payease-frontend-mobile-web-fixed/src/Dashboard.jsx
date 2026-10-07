@@ -731,6 +731,16 @@ export default function Dashboard() {
     } catch {}
   };
 
+  useEffect(() => {
+    try {
+      if (window.AndroidNotification?.requestPermission) {
+        window.AndroidNotification.requestPermission();
+      } else if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    } catch {}
+  }, []);
+
   const showToast = (text, type = "success") => {
     setToast({ text, type });
     if (type === "success" && (text.includes("Transfer") || text.includes("Payment") || text.includes("credited") || text.includes("₹") || text.includes("Deposit"))) {
@@ -4462,8 +4472,15 @@ export default function Dashboard() {
                 {loans.map(l => {
                   const progress = l.totalPayable ? (l.paidAmount / l.totalPayable) * 100 : 0;
                   const instAmt = l.installmentAmount || l.emiAmount || 0;
-                  const payoffAmt = l.remainingAmount || (l.totalPayable - l.paidAmount);
-                  const isDaily = l.collectionFrequency === "daily";
+                  const isDaily = l.collectionFrequency === "daily" || l.loanType === "micro_business";
+                  const schedule = (l.installmentSchedule && l.installmentSchedule.length > 0) ? l.installmentSchedule : (l.emiSchedule || []);
+                  const paidCount = schedule.filter(s => s.status === "paid").length;
+                  const totalCount = schedule.length || l.installmentsCount || l.dailyTenureDays || l.tenure || 15;
+                  const penaltyAmt = l.penaltyDue || 0;
+                  const payoffAmt = (!isDaily && paidCount < 15
+                    ? (Math.min(15, totalCount) - paidCount) * instAmt
+                    : (l.remainingAmount || (l.totalPayable - l.paidAmount))) + penaltyAmt;
+                  const nextDueAmt = instAmt + penaltyAmt;
                   return (
                     <div key={l._id} className="border border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-md transition">
                       <div className="flex justify-between items-start mb-3">
@@ -4485,6 +4502,11 @@ export default function Dashboard() {
                         </div>
                         <StatusBadge status={l.status} />
                       </div>
+                      {penaltyAmt > 0 && (
+                        <div className="mb-3 p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
+                          ⚠️ Overdue Penalty Due: <strong>₹{penaltyAmt}</strong> (Pehle penalty clear hogi, phir installment)
+                        </div>
+                      )}
                       <div className="grid grid-cols-3 gap-2 sm:gap-3 text-sm mb-3">
                         <div><p className="text-gray-400 text-xs">{isDaily ? "Daily Kist" : "Easy Installment"}</p><p className="font-bold">₹{instAmt}</p></div>
                         <div><p className="text-gray-400 text-xs">Total Duration</p><p className="font-bold">{l.installmentsCount || l.tenure} {isDaily ? "Days" : "Installments"}</p></div>
@@ -4495,11 +4517,11 @@ export default function Dashboard() {
                       </div>
                       {l.status === "active" && (
                         <div className="flex gap-2">
-                          <button onClick={() => payInstallment(l._id, instAmt)} className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-xs hover:shadow-lg active:scale-[0.98] transition">
-                            Pay Kist ₹{instAmt}
+                          <button onClick={() => payInstallment(l._id, nextDueAmt)} className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-xs hover:shadow-lg active:scale-[0.98] transition">
+                            Pay Kist ₹{nextDueAmt}{penaltyAmt > 0 ? ` (incl ₹${penaltyAmt} penalty)` : ""}
                           </button>
                           <button onClick={() => closeLoanEarly(l._id, payoffAmt)} className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs border border-emerald-300 transition active:scale-[0.98]">
-                            ⚡ Full Payoff (₹{payoffAmt})
+                            ⚡ 15-Kist Payoff (₹{payoffAmt})
                           </button>
                         </div>
                       )}
@@ -5179,6 +5201,21 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* Overdue Penalty Alert */}
+            {activePersonalLoan.penaltyDue > 0 && (
+              <div className="p-3 bg-rose-50 border border-rose-300 rounded-2xl text-xs text-rose-900 space-y-1.5">
+                <div className="flex items-center justify-between font-bold">
+                  <span className="flex items-center gap-1.5 text-rose-700">
+                    <span>⚠️</span> Overdue Penalty Active
+                  </span>
+                  <span className="text-rose-800 text-sm font-black">₹{activePersonalLoan.penaltyDue.toLocaleString("en-IN")}</span>
+                </div>
+                <p className="text-[11px] text-rose-700 leading-relaxed">
+                  Kist time par jama na hone ke karan penalty lagi hai. Niyam anusaar <strong>pehle penalty clear hogi</strong>, phir installment. Har overdue cycle me penalty double hoti jayegi.
+                </p>
+              </div>
+            )}
+
             {/* Loan Metrics */}
             <div className="border border-gray-100 rounded-2xl p-4 bg-gray-50 space-y-2 text-xs">
               <div className="flex justify-between"><span className="text-gray-500">Tenure:</span><span className="font-bold">{activePersonalLoan.installmentsCount || activePersonalLoan.tenure} Easy Installments</span></div>
@@ -5186,38 +5223,52 @@ export default function Dashboard() {
               <div className="flex justify-between"><span className="text-gray-500">Per Installment:</span><span className="font-bold text-emerald-700">₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Total Paid Amount:</span><span className="font-bold text-emerald-600">₹{(activePersonalLoan.paidAmount || 0).toLocaleString("en-IN")}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Remaining Dues Balance:</span><span className="font-bold text-rose-600">₹{(activePersonalLoan.remainingAmount ?? activePersonalLoan.amount).toLocaleString("en-IN")}</span></div>
+              {activePersonalLoan.penaltyDue > 0 && (
+                <div className="flex justify-between"><span className="text-rose-600 font-bold">Pending Penalty:</span><span className="font-bold text-rose-700">₹{activePersonalLoan.penaltyDue.toLocaleString("en-IN")}</span></div>
+              )}
             </div>
 
             {/* Primary Action Buttons */}
-            {activePersonalLoan.status === "active" && (
-              <div className="space-y-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const list = (activeLoanDetails?.installments || activePersonalLoan.installmentSchedule || []);
-                    const pendingInst = list.find(x => x.status === "pending" || x.status === "overdue") || list[0];
-                    setSubmitInstallmentModal({
-                      loanId: activePersonalLoan._id,
-                      installmentNo: pendingInst ? pendingInst.installmentNo : 1,
-                      amount: pendingInst ? pendingInst.amount : (activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount)
-                    });
-                  }}
-                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer"
-                >
-                  Pay Next Easy Installment (₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount}) →
-                </button>
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
-                  ⚡ <strong>Early Closure Bonus:</strong> 9th installment se pehle pura loan close karne par agent ko 1:1 profit bonus milta hai aur limit turant double hoti hai!
+            {activePersonalLoan.status === "active" && (() => {
+              const list = (activeLoanDetails?.installments || activePersonalLoan.installmentSchedule || []);
+              const paidCount = list.filter(x => x.status === "paid").length;
+              const totalCount = activePersonalLoan.installmentsCount || activePersonalLoan.tenure || list.length || 15;
+              const instAmt = activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount || 0;
+              const penalty = activePersonalLoan.penaltyDue || 0;
+              const pendingInst = list.find(x => x.status === "overdue") || list.find(x => x.status === "pending") || list[0];
+              const totalNextDue = (pendingInst ? pendingInst.amount : instAmt) + penalty;
+              const payoffAmount = (paidCount < 15
+                ? (Math.min(15, totalCount) - paidCount) * instAmt
+                : (activePersonalLoan.remainingAmount || 0)) + penalty;
+
+              return (
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubmitInstallmentModal({
+                        loanId: activePersonalLoan._id,
+                        installmentNo: pendingInst ? pendingInst.installmentNo : 1,
+                        amount: totalNextDue
+                      });
+                    }}
+                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer"
+                  >
+                    Pay Next Easy Installment (₹{totalNextDue.toLocaleString("en-IN")}{penalty > 0 ? ` incl. ₹${penalty} penalty` : ""}) →
+                  </button>
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
+                    ⚡ <strong>15-Installment Early Pre-Closure Rule:</strong> Minimum 15 kiston ka bhugtan karke loan samay se pehle band kiya ja sakta hai.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => closeLoanEarly(activePersonalLoan._id, payoffAmount)}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm active:scale-95 transition cursor-pointer"
+                  >
+                    Close Loan Early (15-Kist Payoff ₹{payoffAmount.toLocaleString("en-IN")}) →
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => closeLoanEarly(activePersonalLoan._id, activePersonalLoan.remainingAmount || activePersonalLoan.amount)}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm active:scale-95 transition cursor-pointer"
-                >
-                  Close Loan Early (Payoff ₹{(activePersonalLoan.remainingAmount || activePersonalLoan.amount).toLocaleString("en-IN")}) →
-                </button>
-              </div>
-            )}
+              );
+            })()}
 
             {/* FULL 10-DAY INSTALLMENT SCHEDULE & HISTORY BREAKDOWN */}
             {((activeLoanDetails?.installments && activeLoanDetails.installments.length > 0) || (activePersonalLoan.installmentSchedule && activePersonalLoan.installmentSchedule.length > 0)) && (
@@ -6432,28 +6483,45 @@ export default function Dashboard() {
               )}
             </div>
 
-            {activeStudentLoan.status === "active" && (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setSubmitInstallmentModal({
-                    loanId: activeStudentLoan._id,
-                    installmentNo: (activeStudentLoan.installmentsPaidCount || 0) + 1,
-                    amount: activeStudentLoan.installmentAmount
-                  })}
-                  className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer"
-                >
-                  Pay Next Installment (₹{activeStudentLoan.installmentAmount}) →
-                </button>
-                <button
-                  type="button"
-                  onClick={() => closeLoanEarly(activeStudentLoan._id, activeStudentLoan.remainingAmount || activeStudentLoan.amount)}
-                  className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs transition cursor-pointer"
-                >
-                  ⚡ Close Loan Early in Full
-                </button>
-              </div>
-            )}
+            {activeStudentLoan.status === "active" && (() => {
+              const studentSchedule = activeStudentLoan.installmentSchedule || [];
+              const studentPaidCount = studentSchedule.filter(s => s.status === 'paid').length;
+              const studentTotalCount = activeStudentLoan.installmentsCount || activeStudentLoan.tenure || studentSchedule.length || 15;
+              const studentInstAmt = activeStudentLoan.installmentAmount || 0;
+              const studentPenalty = activeStudentLoan.penaltyDue || 0;
+              const studentPayoff = (studentPaidCount < 15
+                ? (Math.min(15, studentTotalCount) - studentPaidCount) * studentInstAmt
+                : (activeStudentLoan.remainingAmount || activeStudentLoan.amount)) + studentPenalty;
+              const studentNextDue = studentInstAmt + studentPenalty;
+
+              return (
+                <div className="space-y-2">
+                  {studentPenalty > 0 && (
+                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+                      ⚠️ Overdue Penalty Due: <strong>₹{studentPenalty}</strong> (Pehle penalty clear hogi)
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSubmitInstallmentModal({
+                      loanId: activeStudentLoan._id,
+                      installmentNo: (activeStudentLoan.installmentsPaidCount || 0) + 1,
+                      amount: studentNextDue
+                    })}
+                    className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer"
+                  >
+                    Pay Next Installment (₹{studentNextDue}{studentPenalty > 0 ? ` incl ₹${studentPenalty} penalty` : ""}) →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => closeLoanEarly(activeStudentLoan._id, studentPayoff)}
+                    className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs transition cursor-pointer"
+                  >
+                    ⚡ Close Loan Early (15-Kist Payoff ₹{studentPayoff.toLocaleString("en-IN")})
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="space-y-4">
@@ -6872,10 +6940,13 @@ export default function Dashboard() {
                   const totalCount = schedule.length || l.installmentsCount || l.dailyTenureDays || l.tenure || 0;
                   const progress = totalCount > 0 ? (paidCount / totalCount) * 100 : (l.totalPayable ? (l.paidAmount / l.totalPayable) * 100 : 0);
                   const instAmt = l.installmentAmount || l.emiAmount || 0;
-                  const payoffAmt = l.remainingAmount ?? (l.totalPayable ? Math.max(0, l.totalPayable - (l.paidAmount || 0)) : l.amount);
                   const isDaily = l.collectionFrequency === "daily" || l.loanType === "micro_business";
                   const isStudent = l.loanType === "student";
                   const isExpanded = expandedLoanId === l._id;
+                  const penaltyAmt = l.penaltyDue || 0;
+                  const payoffAmt = (!isDaily && paidCount < 15
+                    ? (Math.min(15, totalCount) - paidCount) * instAmt
+                    : (l.remainingAmount ?? (l.totalPayable ? Math.max(0, l.totalPayable - (l.paidAmount || 0)) : l.amount))) + penaltyAmt;
 
                   return (
                     <div key={l._id} className="p-4 bg-white border border-gray-200 rounded-2xl shadow-xs space-y-3">
@@ -6928,34 +6999,44 @@ export default function Dashboard() {
                       </div>
 
                       {/* Active Actions */}
-                      {l.status === "active" && (
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              triggerHeroFly("pay_kist_" + l._id);
-                              const nextInst = schedule.find(s => s.status === "pending" || s.status === "overdue") || { installmentNo: paidCount + 1, amount: instAmt };
-                              setSubmitInstallmentModal({
-                                loanId: l._id,
-                                installmentNo: nextInst.installmentNo,
-                                amount: nextInst.amount || instAmt
-                              });
-                            }}
-                            className="relative overflow-visible flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-xs active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
-                          >
-                            {heroFlyId === ("pay_kist_" + l._id) && <LoanHeroFlyBadge />}
-                            <span>Pay Kist ₹{instAmt} →</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => closeLoanEarly(l._id, payoffAmt)}
-                            className="px-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs active:scale-95 transition cursor-pointer"
-                            title="Close loan early with bonus"
-                          >
-                            ⚡ Settle & Close
-                          </button>
-                        </div>
-                      )}
+                      {l.status === "active" && (() => {
+                        const nextInst = schedule.find(s => s.status === "overdue") || schedule.find(s => s.status === "pending") || { installmentNo: paidCount + 1, amount: instAmt };
+                        const totalNextDue = (nextInst.amount || instAmt) + penaltyAmt;
+                        return (
+                          <div className="space-y-2 pt-1">
+                            {penaltyAmt > 0 && (
+                              <div className="p-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+                                ⚠️ Overdue Penalty Due: <strong>₹{penaltyAmt}</strong> (Pehle penalty clear hogi)
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  triggerHeroFly("pay_kist_" + l._id);
+                                  setSubmitInstallmentModal({
+                                    loanId: l._id,
+                                    installmentNo: nextInst.installmentNo,
+                                    amount: totalNextDue
+                                  });
+                                }}
+                                className="relative overflow-visible flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-xs active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                              >
+                                {heroFlyId === ("pay_kist_" + l._id) && <LoanHeroFlyBadge />}
+                                <span>Pay Kist ₹{totalNextDue}{penaltyAmt > 0 ? ` (incl ₹${penaltyAmt} penalty)` : ""} →</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => closeLoanEarly(l._id, payoffAmt)}
+                                className="px-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs active:scale-95 transition cursor-pointer"
+                                title="Close loan early with 15-installment payoff"
+                              >
+                                ⚡ 15-Kist Payoff (₹{payoffAmt})
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Installment Schedule Toggle */}
                       {schedule.length > 0 && (

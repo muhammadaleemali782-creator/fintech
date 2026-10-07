@@ -37,6 +37,48 @@ const getDailyCollectionDates = (startDate, days) => {
   return dates;
 };
 
+// Sync Overdue Installments & Escalating Penalty
+// Rules requested by user:
+// 1. Unpaid EMIs roll over to next EMI ("next emi me judta jaye judta jaye").
+// 2. When collection date is missed, overdue penalty starts.
+// 3. Penalty starts at 50% of processing fee, and doubles with each subsequent missed cycle ("processing fee ka 50 percent penalty then double").
+// 4. When paying, penalty is paid FIRST, then installments ("penalty pehle bhari jayegi phir emi").
+const syncLoanOverdueAndPenalties = (loan) => {
+  if (!loan || loan.status !== 'active') return loan;
+
+  const now = new Date();
+  const schedule = loan.installmentSchedule && loan.installmentSchedule.length > 0 
+    ? loan.installmentSchedule 
+    : (loan.emiSchedule || []);
+  let overdueCount = 0;
+
+  schedule.forEach(item => {
+    if ((item.status === 'pending' || item.status === 'overdue') && item.dueDate && new Date(item.dueDate) < now) {
+      item.status = 'overdue';
+      overdueCount++;
+    }
+  });
+
+  const procFee = loan.processingFee || Math.round((loan.amount || 5000) * 0.05);
+  const basePenalty = Math.max(50, Math.round(procFee * 0.50));
+
+  if (overdueCount > 0) {
+    // Penalty doubles with each missed cycle: base * 2^(overdueCount - 1)
+    const penaltyMultiplier = Math.pow(2, overdueCount - 1);
+    const calculatedPenalty = basePenalty * penaltyMultiplier;
+    loan.penaltyDue = calculatedPenalty;
+    loan.penaltyCount = overdueCount;
+    loan.lastPenaltyAppliedAt = now;
+  }
+
+  const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
+  const unpaidItems = schedule.filter(item => item.status === 'pending' || item.status === 'overdue');
+  const totalUnpaidEmi = unpaidItems.length * installmentAmt;
+  loan.accumulatedDue = totalUnpaidEmi + (loan.penaltyDue || 0);
+
+  return loan;
+};
+
 // 1. Personal Loan Quote (₹5k - ₹50k, 10-day cycle, 1.34% per installment, min 15 installments)
 const calculatePersonalLoanQuote = (amount, installmentsCount = 15) => {
   const amt = Math.min(Math.max(Number(amount) || 5000, 5000), 50000);
@@ -599,34 +641,56 @@ router.post('/:id/pay-installment', protect, async (req, res) => {
       if (loan.userId.toString() !== req.user._id.toString()) throw Object.assign(new Error('Unauthorized'), { status: 403 });
       if (loan.status !== 'active') throw Object.assign(new Error('Loan is not active'), { status: 400 });
 
-      const pending = loan.installmentSchedule.find(x => x.status === 'pending') || loan.emiSchedule.find(x => x.status === 'pending');
+      syncLoanOverdueAndPenalties(loan);
+
+      const schedule = loan.installmentSchedule && loan.installmentSchedule.length > 0 
+        ? loan.installmentSchedule 
+        : (loan.emiSchedule || []);
+      const pending = schedule.find(x => x.status === 'overdue') || schedule.find(x => x.status === 'pending');
       if (!pending) throw Object.assign(new Error('No pending Easy Installment'), { status: 400 });
 
       const { sourceWallet = 'main' } = req.body;
       const isProfitSource = sourceWallet === 'profit';
-      const installmentAmt = loan.installmentAmount || loan.emiAmount;
+      const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
+      const penaltyAmt = loan.penaltyDue || 0;
+
+      // Penalty paid first before EMI ("panely pehle bhari jayegi phir emi")
+      const totalRequired = installmentAmt + penaltyAmt;
 
       const userQuery = isProfitSource
-        ? { _id: req.user._id, profitBalance: { $gte: installmentAmt } }
-        : { _id: req.user._id, balance: { $gte: installmentAmt } };
+        ? { _id: req.user._id, profitBalance: { $gte: totalRequired } }
+        : { _id: req.user._id, balance: { $gte: totalRequired } };
 
       const userUpdate = isProfitSource
-        ? { $inc: { profitBalance: -installmentAmt, duesBalance: -installmentAmt } }
-        : { $inc: { balance: -installmentAmt, duesBalance: -installmentAmt } };
+        ? { $inc: { profitBalance: -totalRequired, duesBalance: -totalRequired } }
+        : { $inc: { balance: -totalRequired, duesBalance: -totalRequired } };
 
       const updatedUser = await User.findOneAndUpdate(userQuery, userUpdate, { new: true, session });
       if (!updatedUser) {
         throw Object.assign(
-          new Error(isProfitSource ? 'Insufficient profit wallet balance to pay installment' : 'Insufficient primary wallet balance to pay installment'),
+          new Error(isProfitSource 
+            ? `Insufficient profit wallet balance. Required: ₹${totalRequired}${penaltyAmt > 0 ? ` (EMI ₹${installmentAmt} + Penalty ₹${penaltyAmt})` : ''}` 
+            : `Insufficient primary wallet balance. Required: ₹${totalRequired}${penaltyAmt > 0 ? ` (EMI ₹${installmentAmt} + Penalty ₹${penaltyAmt})` : ''}`),
           { status: 400 }
         );
       }
       newBalance = isProfitSource ? updatedUser.profitBalance : updatedUser.balance;
 
+      // 1. Penalty cleared FIRST
+      if (penaltyAmt > 0) {
+        loan.penaltyPaid = (loan.penaltyPaid || 0) + penaltyAmt;
+        loan.penaltyDue = 0;
+        loan.penaltyCount = 0;
+      }
+
+      // 2. Installment marked paid
       pending.status = 'paid';
       pending.paidOn = new Date();
+      pending.paymentMethod = isProfitSource ? 'profit_wallet' : 'primary_wallet';
       loan.paidAmount = (loan.paidAmount || 0) + installmentAmt;
       loan.remainingAmount = Math.max(0, (loan.remainingAmount || loan.totalPayable) - installmentAmt);
+
+      syncLoanOverdueAndPenalties(loan);
 
       // Check if loan completed
       if (loan.paidAmount >= loan.totalPayable || loan.remainingAmount === 0) {
@@ -640,11 +704,13 @@ router.post('/:id/pay-installment', protect, async (req, res) => {
       await Transaction.create([{
         userId: req.user._id,
         type: 'loan_installment',
-        amount: installmentAmt,
-        method: 'wallet',
+        amount: totalRequired,
+        method: isProfitSource ? 'profit_wallet' : 'wallet',
         status: 'completed',
         referenceId: loan._id.toString(),
-        remarks: `Easy Installment paid for ${loan.accountNumber || 'Loan'}`
+        remarks: penaltyAmt > 0 
+          ? `Installment paid (Penalty ₹${penaltyAmt} cleared + EMI ₹${installmentAmt}) for ${loan.accountNumber || 'Loan'}`
+          : `Easy Installment paid for ${loan.accountNumber || 'Loan'}`
       }], { session });
 
       resultLoan = loan;
@@ -685,7 +751,23 @@ router.post('/:id/close-early', protect, async (req, res) => {
 
       if (loan.status !== 'active') throw Object.assign(new Error('Loan is not active'), { status: 400 });
 
-      const payoffAmount = loan.remainingAmount || (loan.totalPayable - (loan.paidAmount || 0));
+      syncLoanOverdueAndPenalties(loan);
+
+      const paidInstallmentsCount = (loan.installmentSchedule || []).filter(s => s.status === 'paid').length;
+      const totalTenure = loan.installmentsCount || loan.tenure || (loan.installmentSchedule || []).length || 15;
+      const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
+      const penaltyAmt = loan.penaltyDue || 0;
+
+      // RULE: Borrower MUST pay for at least 15 installments (with interest) even if closing after 1 installment!
+      // ("15 installment ka pasia bhrna hai with intreset cheche user 1 kist ke baad he loan bnd kara de")
+      let payoffAmount = 0;
+      if (paidInstallmentsCount < 15) {
+        const installmentsToReach15 = Math.min(15, totalTenure) - paidInstallmentsCount;
+        payoffAmount = (installmentsToReach15 * installmentAmt) + penaltyAmt;
+      } else {
+        payoffAmount = Math.max(0, loan.remainingAmount || 0) + penaltyAmt;
+      }
+
       if (payoffAmount <= 0) throw Object.assign(new Error('Loan has no outstanding balance'), { status: 400 });
 
       // Atomic balance deduction from borrower
@@ -699,21 +781,17 @@ router.post('/:id/close-early', protect, async (req, res) => {
         },
         { new: true, session }
       );
-      if (!updatedUser) throw Object.assign(new Error(`Borrower wallet me paryapt balance nahi hai. Payoff ke liye ₹${payoffAmount.toLocaleString('en-IN')} zaroori hai.`), { status: 400 });
-
-      // Count installments paid before closure
-      const paidInstallmentsCount = (loan.installmentSchedule || []).filter(s => s.status === 'paid').length;
-      const totalTenure = loan.installmentsCount || loan.tenure || (loan.installmentSchedule || []).length || 0;
+      if (!updatedUser) throw Object.assign(new Error(`Borrower wallet me paryapt balance nahi hai. 15-kist early payoff ke liye ₹${payoffAmount.toLocaleString('en-IN')} zaroori hai.`), { status: 400 });
 
       // Mark all schedule entries as paid
-      loan.installmentSchedule.forEach(s => {
-        if (s.status === 'pending') {
+      (loan.installmentSchedule || []).forEach(s => {
+        if (s.status !== 'paid') {
           s.status = 'paid';
           s.paidOn = new Date();
         }
       });
-      loan.emiSchedule.forEach(s => {
-        if (s.status === 'pending') {
+      (loan.emiSchedule || []).forEach(s => {
+        if (s.status !== 'paid') {
           s.status = 'paid';
           s.paidOn = new Date();
         }
@@ -721,35 +799,28 @@ router.post('/:id/close-early', protect, async (req, res) => {
 
       loan.paidAmount = loan.totalPayable;
       loan.remainingAmount = 0;
+      loan.penaltyDue = 0;
+      loan.accumulatedDue = 0;
       loan.status = 'closed';
       loan.earlyClosed = true;
       loan.earlyClosedAt = new Date();
 
       // Agent Pre-Closure Commission Rules:
-      // 18 EMI tenure: min 15 paid -> 3% commission on loan amount
-      // 21 EMI tenure: 6% commission on loan amount
-      // 24 EMI tenure: 9% commission on loan amount
+      // 21 EMI tenure: 6% commission on loan amount ("usee 21 wali me 6 percent milega")
+      // 24 EMI tenure: 9% commission on loan amount ("or 24 waki me 9 percent")
+      // 18 EMI tenure: 3% commission on loan amount
       let preCloseCommissionPct = 0;
-      if (totalTenure === 18 && paidInstallmentsCount >= 15) {
+      if (totalTenure >= 24) {
+        preCloseCommissionPct = 9;
+      } else if (totalTenure >= 21) {
+        preCloseCommissionPct = 6;
+      } else if (totalTenure >= 18) {
         preCloseCommissionPct = 3;
-      } else if (totalTenure === 21) {
-        preCloseCommissionPct = 6;
-      } else if (totalTenure === 24) {
-        preCloseCommissionPct = 9;
-      } else if (totalTenure > 21) {
-        preCloseCommissionPct = 9;
-      } else if (totalTenure > 18) {
-        preCloseCommissionPct = 6;
-      } else if (totalTenure >= 18 && paidInstallmentsCount >= 15) {
+      } else {
         preCloseCommissionPct = 3;
       }
 
-      if (preCloseCommissionPct > 0) {
-        agentBonus = Math.round((loan.amount * preCloseCommissionPct) / 100);
-      } else if (paidInstallmentsCount < 9) {
-        // Fallback early close profit
-        agentBonus = loan.installmentAmount || Math.round(loan.amount * 0.05);
-      }
+      agentBonus = Math.round((loan.amount * preCloseCommissionPct) / 100);
 
       const agentId = updatedUser.referredBy;
       if (agentBonus > 0 && agentId) {
@@ -767,15 +838,13 @@ router.post('/:id/close-early', protect, async (req, res) => {
         loan.agentProfitPaid = true;
         loan.agentProfitAmount = agentBonus;
 
-        const commissionRemarks = preCloseCommissionPct > 0
-          ? `Agent Pre-Closure ${preCloseCommissionPct}% Commission for loan ${loan.accountNumber || loan._id} (${totalTenure} EMIs tenure, ${paidInstallmentsCount} paid)`
-          : `Agent Early Closure Profit for loan ${loan.accountNumber || loan._id}`;
+        const commissionRemarks = `Agent Pre-Closure ${preCloseCommissionPct}% Commission for loan ${loan.accountNumber || loan._id} (${totalTenure} EMIs tenure, 15-installment closure)`;
 
         await Transaction.create([{
           userId: agentId,
-          type: 'bond_payout',
+          type: 'referral_bonus',
           amount: agentBonus,
-          method: 'wallet',
+          method: 'system',
           status: 'completed',
           referenceId: loan._id.toString(),
           remarks: commissionRemarks
@@ -963,6 +1032,9 @@ router.get('/my', protect, async (req, res) => {
     for (const l of loans) {
       if (!l.accountNumber || !l.accountNumber.startsWith('EFS0000')) {
         l.accountNumber = await generateLoanAccountNumber();
+      }
+      if (l.status === 'active') {
+        syncLoanOverdueAndPenalties(l);
         await l.save();
       }
     }
@@ -1009,6 +1081,9 @@ router.get('/all', protect, admin, async (req, res) => {
     for (const l of loans) {
       if (!l.accountNumber || !l.accountNumber.startsWith('EFS0000')) {
         l.accountNumber = await generateLoanAccountNumber();
+      }
+      if (l.status === 'active') {
+        syncLoanOverdueAndPenalties(l);
         await l.save();
       }
     }

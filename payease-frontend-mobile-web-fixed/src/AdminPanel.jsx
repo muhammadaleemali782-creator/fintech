@@ -2201,23 +2201,23 @@ export default function AdminPanel() {
                   </span>
                 </div>
                 <p className="text-[11px] sm:text-xs text-blue-900/80 mb-3">
-                  Jab koi agent kisi bhi borrower ka loan samay se pehle pre-close karwata hai, toh agent ke wallet me direct commission add hota hai:
+                  Early loan close karne par borrower ko minimum 15 installments ka paisa (with interest) bharna hota hai (chahe borrower 1 kist ke baad hi close kare). Agent dwara band karwane par direct commission wallet me credit hota hai:
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                   <div className="p-3 bg-white rounded-xl border border-blue-100 shadow-2xs">
                     <span className="text-[10px] uppercase font-bold text-gray-400 block">18 EMI Tenure</span>
                     <span className="text-base font-black text-blue-700">3% Commission</span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Minimum 15 installments paid required</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Min 15 installments paid required</p>
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs">
                     <span className="text-[10px] uppercase font-bold text-gray-400 block">21 EMI Tenure</span>
                     <span className="text-base font-black text-indigo-700">6% Commission</span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Direct 6% on loan pre-closure</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Direct 6% commission on pre-closure (15 kist paid)</p>
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-amber-100 shadow-2xs">
                     <span className="text-[10px] uppercase font-bold text-gray-400 block">24 EMI Tenure</span>
                     <span className="text-base font-black text-amber-700">9% Commission</span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Maximum tenure 9% bonus on pre-closure</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Maximum tenure 9% bonus on pre-closure (15 kist paid)</p>
                   </div>
                 </div>
               </div>

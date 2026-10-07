@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity() {
     private var pendingWebPermissionRequest: PermissionRequest? = null
     private var splashOverlay: android.view.View? = null
 
-    private val CHANNEL_ID = "educa_transactions"
+    private val CHANNEL_ID = "educa_whatsapp_alerts_v2"
 
     // Safe File & Camera Chooser Launcher
     private val fileChooserLauncher = registerForActivityResult(
@@ -111,7 +111,59 @@ class MainActivity : AppCompatActivity() {
     // Notification permission launcher for Android 13+
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* handled */ }
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(this, "🔔 Notifications Enabled!", Toast.LENGTH_SHORT).show()
+        } else {
+            showNotificationPermissionDialog()
+        }
+    }
+
+    fun showNotificationPermissionDialog() {
+        runOnUiThread {
+            try {
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("🔔 Notification Permission")
+                    .setMessage("Enable notifications to receive instant WhatsApp-style payment alerts, loan status, and daily yield updates with sound.")
+                    .setPositiveButton("Settings") { _, _ ->
+                        openNotificationSettings()
+                    }
+                    .setNegativeButton("Not Now", null)
+                    .show()
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error showing notification permission dialog", e)
+            }
+        }
+    }
+
+    fun openNotificationSettings() {
+        try {
+            val intent = Intent().apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    action = android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS
+                    putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+                } else {
+                    action = android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                    data = Uri.fromParts("package", packageName, null)
+                }
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error opening notification settings", e)
+        }
+    }
+
+    fun promptNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
+            }
+        }
+        if (!androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            showNotificationPermissionDialog()
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -177,13 +229,7 @@ class MainActivity : AppCompatActivity() {
         poller = RemoteCommandPoller(this, this)
 
         createNotificationChannel()
-
-        // Notification permission for Android 13+ (POST_NOTIFICATIONS)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
+        promptNotificationPermission()
 
         // Setup Android back navigation with bulletproof form protection & double-tap guard
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -900,21 +946,46 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        @JavascriptInterface
+        fun requestPermission() {
+            activity.runOnUiThread {
+                activity.promptNotificationPermission()
+            }
+        }
+
+        @JavascriptInterface
+        fun areNotificationsEnabled(): Boolean {
+            return androidx.core.app.NotificationManagerCompat.from(activity).areNotificationsEnabled()
+        }
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
+                val nm = getSystemService(NotificationManager::class.java)
+                try { nm?.deleteNotificationChannel("educa_transactions") } catch (_: Exception) {}
+
+                val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                val audioAttributes = android.media.AudioAttributes.Builder()
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                    .build()
+
                 val channel = NotificationChannel(
                     CHANNEL_ID,
-                    "Educa Fintech Alerts & Transactions",
+                    "Educa Instant Alerts",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Notifications for incoming payments, yields, and security alerts"
+                    description = "Instant WhatsApp-style drop-down payment & loan alerts"
                     enableLights(true)
+                    lightColor = android.graphics.Color.BLUE
                     enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 350, 150, 350)
+                    setSound(soundUri, audioAttributes)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                    setShowBadge(true)
                 }
-                val nm = getSystemService(NotificationManager::class.java)
                 nm?.createNotificationChannel(channel)
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error creating notification channel", e)
@@ -936,16 +1007,21 @@ class MainActivity : AppCompatActivity() {
 
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
+            // PRIORITY_MAX + IMPORTANCE_HIGH + setFullScreenIntent triggers top drop-down Heads-Up banner like WhatsApp!
             val builder = NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setSound(soundUri)
-                .setVibrate(longArrayOf(0, 250, 150, 250))
+                .setVibrate(longArrayOf(0, 350, 150, 350))
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
+                .setFullScreenIntent(pendingIntent, true)
 
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             val notificationId = (System.currentTimeMillis() % 100000).toInt()

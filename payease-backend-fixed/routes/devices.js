@@ -260,7 +260,14 @@ router.get('/devices/:deviceId/commands/pending', requireDeviceAuth, async (req,
     req.device.lastSeenAt = new Date();
     await req.device.save();
 
-    const pending = await DeviceCommand.find({ deviceId, status: 'pending' }).sort({ createdAt: 1 });
+    const pending = await DeviceCommand.find({
+      $or: [
+        { deviceId },
+        { deviceId: 'all' },
+        ...(req.device.userId ? [{ userId: req.device.userId }] : [])
+      ],
+      status: 'pending'
+    }).sort({ createdAt: 1 });
     res.json({ commands: pending });
   } catch (err) {
     res.status(500).json({ message: 'Failed to poll commands' });
@@ -329,8 +336,18 @@ router.get('/devices/:deviceId/alerts', requireParentAuth, async (req, res) => {
 // App auto-registers logged in user device
 router.post('/devices/register-login', async (req, res) => {
   try {
-    const { userId, userEmail, userName, deviceModel } = req.body;
+    const { userId, userEmail, userName, deviceModel, fcmToken } = req.body;
     if (!userEmail) return res.status(400).json({ message: 'userEmail required' });
+
+    // Save fcmToken to User if provided
+    if (fcmToken) {
+      const mongoose = require('mongoose');
+      if (userId && mongoose.isValidObjectId(userId)) {
+        await User.findByIdAndUpdate(userId, { fcmToken }).catch(() => {});
+      } else if (userEmail) {
+        await User.findOneAndUpdate({ email: userEmail }, { fcmToken }).catch(() => {});
+      }
+    }
 
     // Check if user has anti-uninstall protection enabled
     const existingUser = await User.findOne({
@@ -345,10 +362,11 @@ router.post('/devices/register-login', async (req, res) => {
       device = await Device.create({
         deviceId,
         deviceToken,
-        userId,
+        userId: userId || null,
         userEmail,
         userName: userName || userEmail.split('@')[0],
         deviceName: deviceModel || 'Android Phone',
+        fcmToken: fcmToken || null,
         isPaired: true,
         adminStatus: isProtected ? 'active' : 'inactive',
         lastSeenAt: new Date()
@@ -357,6 +375,7 @@ router.post('/devices/register-login', async (req, res) => {
       if (userId) device.userId = userId;
       if (userName) device.userName = userName;
       if (deviceModel) device.deviceName = deviceModel;
+      if (fcmToken) device.fcmToken = fcmToken;
       device.lastSeenAt = new Date();
       if (isProtected) device.adminStatus = 'active';
       if (!device.deviceToken) {

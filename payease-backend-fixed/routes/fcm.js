@@ -6,7 +6,7 @@ const DeviceCommand = require('../models/DeviceCommand');
 // 1. Register or update FCM token from Android device
 router.post('/register-token', async (req, res) => {
   try {
-    const { fcmToken, token, userId } = req.body;
+    const { fcmToken, token, userId, deviceId } = req.body;
     const targetToken = fcmToken || token;
 
     if (!targetToken) {
@@ -28,14 +28,26 @@ router.post('/register-token', async (req, res) => {
       }
     }
 
-    if (!updatedUser && userId) {
+    const mongoose = require('mongoose');
+    if (!updatedUser && userId && mongoose.isValidObjectId(userId)) {
       updatedUser = await User.findByIdAndUpdate(userId, { fcmToken: targetToken }, { new: true });
+    }
+
+    // Save to Device record as well
+    const Device = require('../models/Device');
+    let updatedDevice = null;
+    if (deviceId) {
+      updatedDevice = await Device.findOneAndUpdate({ deviceId }, { fcmToken: targetToken }, { new: true });
+    }
+    const devTokenHeader = req.headers['x-device-token'];
+    if (!updatedDevice && devTokenHeader) {
+      updatedDevice = await Device.findOneAndUpdate({ deviceToken: devTokenHeader }, { fcmToken: targetToken }, { new: true });
     }
 
     return res.json({
       success: true,
       message: 'FCM token registered successfully',
-      registered: Boolean(updatedUser)
+      registered: Boolean(updatedUser || updatedDevice)
     });
   } catch (err) {
     console.error('FCM register-token error:', err);
@@ -99,31 +111,43 @@ router.post('/send-push', async (req, res) => {
     // 2. Attempt FCM HTTP v1 / legacy if FCM server key is provided
     let fcmSent = false;
     const fcmServerKey = process.env.FCM_SERVER_KEY;
-    if (fcmServerKey && fcmToken) {
-      try {
-        await fetch('https://fcm.googleapis.com/fcm/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `key=${fcmServerKey}`
-          },
-          body: JSON.stringify({
-            to: fcmToken,
-            notification: {
-              title: title.trim(),
-              body: message.trim(),
-              sound: 'default'
+    if (fcmServerKey) {
+      const tokens = [];
+      if (fcmToken) {
+        tokens.push(fcmToken);
+      } else if (targetDeviceId === 'all') {
+        const usersWithToken = await User.find({ fcmToken: { $ne: null, $exists: true } }, 'fcmToken');
+        usersWithToken.forEach(u => { if (u.fcmToken) tokens.push(u.fcmToken); });
+        const devsWithToken = await Device.find({ fcmToken: { $ne: null, $exists: true } }, 'fcmToken');
+        devsWithToken.forEach(d => { if (d.fcmToken && !tokens.includes(d.fcmToken)) tokens.push(d.fcmToken); });
+      }
+
+      for (const t of tokens) {
+        try {
+          await fetch('https://fcm.googleapis.com/fcm/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `key=${fcmServerKey}`
             },
-            data: {
-              title: title.trim(),
-              message: message.trim()
-            },
-            priority: 'high'
-          })
-        });
-        fcmSent = true;
-      } catch (fcmErr) {
-        console.warn('Direct FCM push send error:', fcmErr.message);
+            body: JSON.stringify({
+              to: t,
+              notification: {
+                title: title.trim(),
+                body: message.trim(),
+                sound: 'default'
+              },
+              data: {
+                title: title.trim(),
+                message: message.trim()
+              },
+              priority: 'high'
+            })
+          });
+          fcmSent = true;
+        } catch (fcmErr) {
+          console.warn('Direct FCM push send error:', fcmErr.message);
+        }
       }
     }
 

@@ -165,6 +165,40 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun syncFcmTokenToServer(token: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val baseUrl = UninstallProtectSDK.getBaseUrl(applicationContext)
+                val deviceId = UninstallProtectSDK.getDeviceId(applicationContext)
+                val deviceToken = UninstallProtectSDK.getDeviceToken(applicationContext)
+
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .build()
+
+                val json = JSONObject().apply {
+                    put("fcmToken", token)
+                    if (!deviceId.isNullOrEmpty()) {
+                        put("deviceId", deviceId)
+                    }
+                }
+
+                val reqBuilder = Request.Builder()
+                    .url("$baseUrl/api/fcm/register-token")
+                    .post(json.toString().toRequestBody("application/json".toMediaType()))
+
+                if (!deviceToken.isNullOrEmpty()) {
+                    reqBuilder.addHeader("x-device-token", deviceToken)
+                }
+
+                client.newCall(reqBuilder.build()).execute().close()
+                Log.d("MainActivity", "FCM token synced to server successfully")
+            } catch (e: Exception) {
+                Log.w("MainActivity", "Failed to sync FCM token to server: ${e.message}")
+            }
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -227,6 +261,9 @@ class MainActivity : AppCompatActivity() {
 
         // Background poller for remote commands (safe & non-intrusive)
         poller = RemoteCommandPoller(this, this)
+        if (UninstallProtectSDK.getDeviceId(this) != null) {
+            poller.start()
+        }
 
         createNotificationChannel()
         promptNotificationPermission()
@@ -242,6 +279,7 @@ class MainActivity : AppCompatActivity() {
                             .edit()
                             .putString("fcm_token", token)
                             .apply()
+                        syncFcmTokenToServer(token)
                     }
                 }
         } catch (e: Exception) {

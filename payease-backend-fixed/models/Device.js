@@ -11,6 +11,7 @@ const deviceSchema = new mongoose.Schema({
   pairingCodeExpires: { type: Date },
   isPaired: { type: Boolean, default: false },
   deviceToken: { type: String },
+  fcmToken: { type: String, default: null },
   adminStatus: { type: String, enum: ['active', 'inactive', 'pending'], default: 'pending' },
   screenPinned: { type: Boolean, default: false },
   lastSeenAt: { type: Date, default: Date.now },

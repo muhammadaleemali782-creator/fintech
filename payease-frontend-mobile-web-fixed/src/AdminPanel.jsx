@@ -953,6 +953,8 @@ export default function AdminPanel() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyCategory, setHistoryCategory] = useState("all");
   const [historyStatus, setHistoryStatus] = useState("all");
+  const [tempCategory, setTempCategory] = useState("all");
+  const [tempStatus, setTempStatus] = useState("all");
   const [historySearch, setHistorySearch] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [historyFilterOpen, setHistoryFilterOpen] = useState(false);
@@ -3221,7 +3223,13 @@ export default function AdminPanel() {
                   {/* Single Unified Filter Button (Opens floating popover menu) */}
                   <button
                     type="button"
-                    onClick={() => setHistoryFilterOpen(!historyFilterOpen)}
+                    onClick={() => {
+                      if (!historyFilterOpen) {
+                        setTempCategory(historyCategory);
+                        setTempStatus(historyStatus);
+                      }
+                      setHistoryFilterOpen(!historyFilterOpen);
+                    }}
                     className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 cursor-pointer shadow-2xs active:scale-95 ${
                       historyCategory !== "all" || historyStatus !== "all"
                         ? "bg-blue-600 text-white border-blue-600 shadow-xs font-black ring-2 ring-blue-300/60"
@@ -3248,19 +3256,19 @@ export default function AdminPanel() {
                     {auditHistory.length} Record{auditHistory.length === 1 ? "" : "s"}
                   </span>
 
-                  {/* FLOATING POPOVER DROPDOWN (Chakra UI Polish: Never pushes the table down!) */}
+                  {/* FLOATING POPOVER DROPDOWN (Chakra UI Polish: Never pushes the table down, contained viewport) */}
                   {historyFilterOpen && (
                     <>
                       {/* Backdrop for click outside */}
                       <div
-                        className="fixed inset-0 z-40 bg-black/15 backdrop-blur-2xs transition-opacity"
+                        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-2xs transition-opacity"
                         onClick={() => setHistoryFilterOpen(false)}
                       />
 
-                      {/* Floating Popover Container */}
-                      <div className="fixed inset-x-3 top-24 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 z-50 sm:w-96 max-w-full bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-4 space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
+                      {/* Floating Popover Container with fixed max height and sticky footer */}
+                      <div className="fixed inset-x-3 top-20 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 z-50 sm:w-96 max-w-full max-h-[82vh] sm:max-h-[520px] flex flex-col bg-white border border-slate-200/90 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                         {/* Popover Header */}
-                        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                        <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-slate-100 shrink-0">
                           <div className="flex items-center gap-2">
                             <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold">
                               ⚡
@@ -3270,17 +3278,17 @@ export default function AdminPanel() {
                                 Audit Filter Hub
                               </h4>
                               <p className="text-[10px] text-slate-400">
-                                Select category & lifecycle status to inspect
+                                Select category & lifecycle status, then tap Apply
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            {(historyCategory !== "all" || historyStatus !== "all") && (
+                            {(tempCategory !== "all" || tempStatus !== "all") && (
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setHistoryCategory("all");
-                                  setHistoryStatus("all");
+                                  setTempCategory("all");
+                                  setTempStatus("all");
                                 }}
                                 className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-0.5 rounded-lg transition cursor-pointer"
                               >
@@ -3297,83 +3305,100 @@ export default function AdminPanel() {
                           </div>
                         </div>
 
-                        {/* 1. Category Selection: Clean Vertical List with Badges */}
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5 px-0.5">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                              📂 1. Select Category
+                        {/* Scrollable Middle Body */}
+                        <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
+                          {/* 1. Category Selection */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5 px-0.5">
+                              <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                📂 1. Select Category
+                              </label>
+                              <span className="text-[10px] font-extrabold text-blue-600">
+                                {AUDIT_CATEGORIES.find(c => c.key === tempCategory)?.label}
+                              </span>
+                            </div>
+                            <div className="space-y-1">
+                              {AUDIT_CATEGORIES.map(c => {
+                                const isSelected = tempCategory === c.key;
+                                return (
+                                  <button
+                                    key={c.key}
+                                    type="button"
+                                    onClick={() => setTempCategory(c.key)}
+                                    className={`w-full px-2.5 py-1.5 rounded-xl text-left text-xs font-bold flex items-center justify-between transition cursor-pointer ${
+                                      isSelected
+                                        ? "bg-blue-600 text-white shadow-xs"
+                                        : "hover:bg-slate-50 text-slate-700"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm">{c.icon}</span>
+                                      <span>{c.label}</span>
+                                    </div>
+                                    {isSelected ? (
+                                      <span className="text-xs font-black">✓</span>
+                                    ) : (
+                                      <span className="text-[11px] text-slate-300">›</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* 2. Status Lifecycle Selection */}
+                          <div className="pt-2.5 border-t border-slate-100">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5 px-0.5">
+                              🚦 2. Transaction Status
                             </label>
-                            <span className="text-[10px] font-extrabold text-blue-600">
-                              {AUDIT_CATEGORIES.find(c => c.key === historyCategory)?.label}
-                            </span>
-                          </div>
-                          <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
-                            {AUDIT_CATEGORIES.map(c => {
-                              const isSelected = historyCategory === c.key;
-                              return (
-                                <button
-                                  key={c.key}
-                                  type="button"
-                                  onClick={() => setHistoryCategory(c.key)}
-                                  className={`w-full px-2.5 py-1.5 rounded-xl text-left text-xs font-bold flex items-center justify-between transition cursor-pointer ${
-                                    isSelected
-                                      ? "bg-blue-600 text-white shadow-xs"
-                                      : "hover:bg-slate-50 text-slate-700"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm">{c.icon}</span>
-                                    <span>{c.label}</span>
-                                  </div>
-                                  {isSelected ? (
-                                    <span className="text-xs font-black">✓</span>
-                                  ) : (
-                                    <span className="text-[11px] text-slate-300">›</span>
-                                  )}
-                                </button>
-                              );
-                            })}
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {AUDIT_STATUSES.map(s => {
+                                const isSelected = tempStatus === s.key;
+                                return (
+                                  <button
+                                    key={s.key}
+                                    type="button"
+                                    onClick={() => setTempStatus(s.key)}
+                                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer border ${
+                                      isSelected
+                                        ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                                        : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+                                    }`}
+                                  >
+                                    <span className="text-xs">{s.icon}</span>
+                                    <span className="truncate">{s.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
 
-                        {/* 2. Status Lifecycle Selection */}
-                        <div className="pt-2.5 border-t border-slate-100">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5 px-0.5">
-                            🚦 2. Transaction Status
-                          </label>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            {AUDIT_STATUSES.map(s => {
-                              const isSelected = historyStatus === s.key;
-                              return (
-                                <button
-                                  key={s.key}
-                                  type="button"
-                                  onClick={() => setHistoryStatus(s.key)}
-                                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer border ${
-                                    isSelected
-                                      ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                                      : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
-                                  }`}
-                                >
-                                  <span className="text-xs">{s.icon}</span>
-                                  <span className="truncate">{s.label}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Popover Footer */}
-                        <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between">
-                          <span className="text-[11px] text-slate-500 font-medium">
-                            {auditHistory.length} record{auditHistory.length === 1 ? "" : "s"} match
-                          </span>
+                        {/* Pinned Action Footer */}
+                        <div className="p-3 bg-slate-50/90 border-t border-slate-100 shrink-0 flex items-center justify-between">
                           <button
                             type="button"
-                            onClick={() => setHistoryFilterOpen(false)}
-                            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold shadow-xs active:scale-95 transition cursor-pointer"
+                            onClick={() => {
+                              setTempCategory("all");
+                              setTempStatus("all");
+                              setHistoryCategory("all");
+                              setHistoryStatus("all");
+                              setHistoryFilterOpen(false);
+                            }}
+                            className="text-xs font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer"
                           >
-                            Done / View Results
+                            Clear All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHistoryCategory(tempCategory);
+                              setHistoryStatus(tempStatus);
+                              setHistoryFilterOpen(false);
+                            }}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold shadow-xs active:scale-95 transition cursor-pointer"
+                          >
+                            Done / Apply Filters
                           </button>
                         </div>
                       </div>
@@ -3393,7 +3418,10 @@ export default function AdminPanel() {
                       <span>{AUDIT_CATEGORIES.find(c => c.key === historyCategory)?.icon} {AUDIT_CATEGORIES.find(c => c.key === historyCategory)?.label}</span>
                       <button
                         type="button"
-                        onClick={() => setHistoryCategory("all")}
+                        onClick={() => {
+                          setHistoryCategory("all");
+                          setTempCategory("all");
+                        }}
                         className="hover:text-blue-900 cursor-pointer ml-1 font-black"
                       >
                         ✕
@@ -3405,7 +3433,10 @@ export default function AdminPanel() {
                       <span>Status: {AUDIT_STATUSES.find(s => s.key === historyStatus)?.label || historyStatus}</span>
                       <button
                         type="button"
-                        onClick={() => setHistoryStatus("all")}
+                        onClick={() => {
+                          setHistoryStatus("all");
+                          setTempStatus("all");
+                        }}
                         className="hover:text-emerald-900 cursor-pointer ml-1 font-black"
                       >
                         ✕
@@ -3429,6 +3460,8 @@ export default function AdminPanel() {
                     onClick={() => {
                       setHistoryCategory("all");
                       setHistoryStatus("all");
+                      setTempCategory("all");
+                      setTempStatus("all");
                       setHistorySearch("");
                     }}
                     className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer ml-1"
@@ -3440,9 +3473,75 @@ export default function AdminPanel() {
 
               {/* Audit History Records Table */}
               {historyLoading ? (
-                <div className="py-24 sm:py-32 min-h-[300px] flex flex-col items-center justify-center text-center text-gray-400">
-                  <span className="text-3xl block mb-2 animate-spin">🔄</span>
-                  <p className="text-xs font-semibold">Loading audit records...</p>
+                <div className="space-y-3 min-h-[600px] select-none">
+                  <div className="flex items-center justify-between px-3 py-2 bg-blue-50/70 border border-blue-100 rounded-xl text-blue-700 text-xs font-bold animate-pulse">
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin text-sm">🔄</span> Fetching audit records & live transactions...
+                    </span>
+                    <span className="text-[10px] text-blue-500 font-mono">Syncing...</span>
+                  </div>
+
+                  {/* Mobile Responsive Skeleton Cards */}
+                  <div className="sm:hidden space-y-2.5">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <div key={i} className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs space-y-3 animate-pulse">
+                        <div className="flex items-center justify-between">
+                          <div className="h-5 bg-slate-200 rounded-full w-24" />
+                          <div className="h-4 bg-slate-100 rounded-full w-16" />
+                        </div>
+                        <div className="flex items-baseline justify-between">
+                          <div className="h-4 bg-slate-200 rounded w-40" />
+                          <div className="h-5 bg-slate-200 rounded w-20" />
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                          <div className="h-3 bg-slate-100 rounded w-28" />
+                          <div className="h-3 bg-slate-100 rounded w-16" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop / Tablet Skeleton Table */}
+                  <div className="hidden sm:block overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs bg-white">
+                    <table className="w-full min-w-[850px] table-fixed border-collapse text-left text-xs">
+                      <thead className="bg-slate-50/95 border-b border-slate-200">
+                        <tr className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                          <th className="py-3 px-3.5 w-[130px]">Timestamp</th>
+                          <th className="py-3 px-3.5 w-[175px]">Category & Action</th>
+                          <th className="py-3 px-3.5 w-[185px]">User / Account</th>
+                          <th className="py-3 px-3.5 w-[110px]">Amount / Value</th>
+                          <th className="py-3 px-3.5 w-[95px]">Status</th>
+                          <th className="py-3 px-3.5">Reference / Details & Docs</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                          <tr key={i} className="animate-pulse">
+                            <td className="py-3.5 px-3.5">
+                              <div className="h-3.5 bg-slate-200 rounded w-20" />
+                            </td>
+                            <td className="py-3.5 px-3.5">
+                              <div className="h-5 bg-slate-200 rounded-full w-28" />
+                            </td>
+                            <td className="py-3.5 px-3.5 space-y-1.5">
+                              <div className="h-3.5 bg-slate-200 rounded w-28" />
+                              <div className="h-2.5 bg-slate-100 rounded w-36" />
+                            </td>
+                            <td className="py-3.5 px-3.5">
+                              <div className="h-4 bg-slate-200 rounded w-16" />
+                            </td>
+                            <td className="py-3.5 px-3.5">
+                              <div className="h-5 bg-slate-100 rounded-full w-16" />
+                            </td>
+                            <td className="py-3.5 px-3.5 space-y-1">
+                              <div className="h-3.5 bg-slate-100 rounded w-44" />
+                              <div className="h-2.5 bg-slate-50 rounded w-32" />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : auditHistory.length === 0 ? (
                 <div className="py-16 text-center text-gray-400 bg-slate-50 rounded-2xl border border-dashed border-gray-200">

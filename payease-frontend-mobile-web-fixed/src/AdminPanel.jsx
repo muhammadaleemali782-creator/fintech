@@ -1168,12 +1168,12 @@ export default function AdminPanel() {
   const liveAdminReserves = totalDepositsDisplay + liveAdminProfit;
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, iconBg: "bg-emerald-50 text-emerald-600 border-emerald-200" },
-    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, iconBg: "bg-teal-50 text-teal-600 border-teal-200" },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, iconBg: "bg-blue-50 text-blue-600 border-blue-200" },
-    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? users.length ?? 0, iconBg: "bg-slate-100 text-slate-700 border-slate-200" },
-    { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? pending.length ?? 0, iconBg: "bg-amber-50 text-amber-700 border-amber-200" },
-    { icon: "📑", label: "Active Loans", value: stats.totalLoans ?? loans.length ?? 0, iconBg: "bg-sky-50 text-sky-600 border-sky-200" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600" },
+    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600" },
+    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? users.length ?? 0, isWhite: true },
+    { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? pending.length ?? 0, g: "from-amber-500 to-orange-500" },
+    { icon: "📑", label: "Active Loans", value: stats.totalLoans ?? loans.length ?? 0, g: "from-sky-500 to-blue-600" },
   ];
 
   return (
@@ -1275,26 +1275,26 @@ export default function AdminPanel() {
       )}
 
       {/* DESKTOP SIDEBAR (COLLAPSIBLE & FULL-HEIGHT) */}
-      <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? "w-20" : "w-64"} shrink-0 bg-white border-r border-slate-200/90 text-slate-800 h-screen transition-all duration-200 z-30 select-none shadow-2xs`}>
+      <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? "w-20" : "w-64"} shrink-0 bg-slate-900 border-r border-slate-800 text-slate-100 h-screen transition-all duration-200 z-30 select-none shadow-xl`}>
         {/* Header with Title & Collapse Toggle */}
-        <div className={`shrink-0 flex items-center ${isSidebarCollapsed ? "flex-col justify-center p-3 gap-2" : "justify-between px-4 py-4"} border-b border-slate-200/80`}>
+        <div className={`shrink-0 flex items-center ${isSidebarCollapsed ? "flex-col justify-center p-3 gap-2" : "justify-between px-4 py-4"} border-b border-slate-800`}>
           {!isSidebarCollapsed ? (
             <div className="flex items-center gap-2.5 min-w-0">
-              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-slate-50 border border-slate-200 p-0.5 shadow-2xs shrink-0" />
+              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs shrink-0" />
               <div className="min-w-0">
-                <h1 className="font-black text-base text-slate-900 leading-tight truncate">Admin Panel</h1>
-                <p className="text-blue-600 text-[11px] font-semibold truncate">Educa Finance</p>
+                <h1 className="font-black text-base text-white leading-tight truncate">Admin Panel</h1>
+                <p className="text-blue-400 text-[11px] font-semibold truncate">Educa Finance</p>
               </div>
             </div>
           ) : (
-            <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-slate-50 border border-slate-200 p-0.5 shadow-2xs shrink-0" title="Educa Admin Panel" />
+            <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs shrink-0" title="Educa Admin Panel" />
           )}
 
           <button
             type="button"
             onClick={toggleSidebar}
             title={isSidebarCollapsed ? "Expand Sidebar (Wider)" : "Collapse Sidebar (Compact)"}
-            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition cursor-pointer border border-slate-200 text-xs flex items-center justify-center shrink-0"
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer border border-slate-700 text-xs flex items-center justify-center shrink-0"
           >
             {isSidebarCollapsed ? "▶" : "◀"}
           </button>
@@ -1310,7 +1310,7 @@ export default function AdminPanel() {
               className={`w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3 py-2.5"} rounded-xl font-semibold text-xs transition cursor-pointer relative group ${
                 tab === key
                   ? "bg-blue-600 text-white shadow-xs font-bold"
-                  : "text-slate-600 hover:bg-slate-100/90 hover:text-slate-900"
+                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
               }`}
             >
               <span className="flex items-center gap-2.5">
@@ -1319,7 +1319,7 @@ export default function AdminPanel() {
               </span>
               {!!badge && (
                 isSidebarCollapsed ? (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" title={`${badge} alerts`} />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-slate-900" title={`${badge} alerts`} />
                 ) : (
                   <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
                     {badge}
@@ -1331,24 +1331,24 @@ export default function AdminPanel() {
         </nav>
 
         {/* Footer Area */}
-        <div className={`shrink-0 ${isSidebarCollapsed ? "p-2 space-y-2" : "px-3.5 py-3 space-y-2"} border-t border-slate-200/80 bg-slate-50/80`}>
+        <div className={`shrink-0 ${isSidebarCollapsed ? "p-2 space-y-2" : "px-3.5 py-3 space-y-2"} border-t border-slate-800 bg-slate-950/60`}>
           <Link
             to="/dashboard"
             title={isSidebarCollapsed ? "Customer App View" : undefined}
-            className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/90 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-2xs"
+            className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
           >
             <span>📱</span>
             {!isSidebarCollapsed && <span className="truncate">Customer App View</span>}
           </Link>
           {!isSidebarCollapsed && (
             <div className="flex items-center justify-between text-xs px-1 pt-0.5">
-              <span className="text-slate-500 text-[11px] truncate">Admin: <strong className="text-slate-900 font-semibold">{user.name}</strong></span>
+              <span className="text-slate-400 text-[11px] truncate">Admin: <strong className="text-white font-semibold">{user.name}</strong></span>
             </div>
           )}
           <button
             onClick={logout}
             title={isSidebarCollapsed ? "Logout" : undefined}
-            className="w-full px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+            className="w-full px-2.5 py-1.5 bg-rose-600/90 hover:bg-rose-600 text-white rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
           >
             <span>🚪</span>
             {!isSidebarCollapsed && <span>Logout</span>}
@@ -1358,27 +1358,27 @@ export default function AdminPanel() {
 
       <div className="flex-1 min-w-0 max-w-full h-full overflow-y-auto overflow-x-hidden">
         {/* MOBILE / TABLET TOP NAV */}
-        <nav className="lg:hidden bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs sticky top-0 z-40 safe-top">
-          <div className="px-4 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
-            <div className="flex items-center gap-2.5">
-              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-slate-50 border border-slate-200 p-0.5 shadow-2xs shrink-0" />
+        <nav className="lg:hidden bg-slate-900 border-b border-slate-800 shadow-md sticky top-0 z-40 safe-top">
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs shrink-0" />
               <div>
-                <h1 className="text-slate-900 font-black text-base sm:text-lg leading-tight">Admin Panel</h1>
-                <p className="text-blue-600 text-[11px] font-semibold hidden sm:block">Educa Finance Control Center</p>
+                <h1 className="text-white font-black text-base sm:text-lg leading-tight">Admin Panel</h1>
+                <p className="text-blue-400 text-xs font-semibold hidden sm:block">Educa Finance Control Center</p>
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <Link
                 to="/dashboard"
-                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
               >
                 <span>📱</span> <span className="hidden sm:inline">App View</span>
               </Link>
               <div className="text-right hidden sm:block">
                 <p className="text-slate-400 text-xs">Logged in as</p>
-                <p className="text-slate-900 font-semibold text-sm">{user.name}</p>
+                <p className="text-white font-semibold text-sm">{user.name}</p>
               </div>
-              <button onClick={logout} className="px-3 sm:px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg transition text-xs font-bold">Logout</button>
+              <button onClick={logout} className="px-3 sm:px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition text-xs font-bold cursor-pointer">Logout</button>
             </div>
           </div>
         </nav>
@@ -1386,33 +1386,58 @@ export default function AdminPanel() {
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0">
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
-            {statCards.map(({ icon, label, value, iconBg }) => {
+            {statCards.map(({ icon, label, value, g, isWhite }) => {
               const valStr = String(value);
-              const isLong = valStr.length > 12;
+              const isLong = valStr.length > 11;
               const isLive = label === "Fintech Reserves" || label === "Profit Credited";
+
+              if (isWhite) {
+                return (
+                  <div
+                    key={label}
+                    className="bg-white border-2 border-slate-200/90 hover:border-slate-300 p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
+                        <p className="text-slate-500 text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</p>
+                      </div>
+                    </div>
+                    <div className="mt-1">
+                      <p
+                        className={`font-black font-mono tabular-nums tracking-tight text-slate-900 truncate ${
+                          isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
+                        }`}
+                        title={valStr}
+                      >
+                        {value}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={label}
-                  className="bg-white border border-slate-200/90 hover:border-slate-300 p-3 sm:p-3.5 rounded-2xl shadow-2xs transition flex flex-col justify-between min-w-0"
+                  className={`bg-gradient-to-br ${g} text-white p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm border ${iconBg}`}>
-                      {icon}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
+                      <p className="text-white/85 text-[11px] sm:text-xs font-medium truncate">{label}</p>
                     </div>
                     {isLive && (
-                      <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
                         Live
                       </span>
                     )}
                   </div>
-                  <div>
-                    <p className="text-slate-500 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate mb-0.5">
-                      {label}
-                    </p>
+                  <div className="mt-1">
                     <p
-                      className={`font-black font-mono tabular-nums text-slate-900 tracking-tight truncate ${
-                        isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base"
+                      className={`font-black font-mono tabular-nums tracking-tight whitespace-nowrap overflow-visible ${
+                        isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
                       }`}
                       title={valStr}
                     >

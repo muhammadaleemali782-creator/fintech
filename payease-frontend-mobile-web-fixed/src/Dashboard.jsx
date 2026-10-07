@@ -2105,20 +2105,114 @@ export default function Dashboard() {
     let reply = "";
 
     // 1. Instant Loan / EMI Number Extraction & Calculation
-    let requestedAmt = null;
-    const kMatch = lower.match(/(\d+(?:\.\d+)?)\s*k\b/);
-    if (kMatch) {
-      requestedAmt = Math.round(parseFloat(kMatch[1]) * 1000);
-    } else {
-      const numMatch = lower.match(/(?:₹|rs\.?|inr)?\s*(\d{1,3}(?:,\d{3})+|\d{3,7})/);
-      if (numMatch) {
-        requestedAmt = parseInt(numMatch[1].replace(/,/g, ""), 10);
+    let tenureVal = null;
+    const tenureMatch = lower.match(/(\d+)\s*(?:kist(?:ein|o|on)?|installment(?:s)?|cycle|mahine)\b/i);
+    if (tenureMatch) {
+      const n = parseInt(tenureMatch[1], 10);
+      if (n >= 1 && n <= 60) tenureVal = n;
+    }
+
+    let emiVal = null;
+    const emiMatch = lower.match(/(?:emi|har\s+kist|per\s+installment)\s*(?:hai|bani|bana|of|is|=|:)?\s*(\d+(?:\.\d+)?\s*k?)\b/i) ||
+                     lower.match(/(\d+(?:\.\d+)?\s*k?)\s*(?:ki|ka|har)?\s*(?:emi|har\s+kist|per\s+kist)\b/i);
+    if (emiMatch) {
+      let raw = emiMatch[1].trim().toLowerCase();
+      let n = parseFloat(raw);
+      if (raw.endsWith("k")) n *= 1000;
+      if (n !== tenureVal) emiVal = Math.round(n);
+    }
+
+    let totalVal = null;
+    const totalMatch = lower.match(/(\d+(?:\.\d+)?\s*k?)\s*(?:dena|wapas|repay|bharna|total)\b/i);
+    if (totalMatch) {
+      let raw = totalMatch[1].trim().toLowerCase();
+      let n = parseFloat(raw);
+      if (raw.endsWith("k")) n *= 1000;
+      totalVal = Math.round(n);
+    }
+
+    const nums = [];
+    const numRe = /(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)\s*(k)?\b/gi;
+    let m;
+    while ((m = numRe.exec(lower)) !== null) {
+      let val = parseFloat(m[1]);
+      if (m[2] && m[2].toLowerCase() === "k") val *= 1000;
+      nums.push(Math.round(val));
+    }
+
+    let principalVal = null;
+    const principalMatch = lower.match(/(\d+(?:\.\d+)?\s*k?)\s*(?:ka\s+loan|liya|udhar|borrow|chahiye)\b/i);
+    if (principalMatch) {
+      let raw = principalMatch[1].trim().toLowerCase();
+      let n = parseFloat(raw);
+      if (raw.endsWith("k")) n *= 1000;
+      principalVal = Math.round(n);
+    }
+
+    if (!principalVal && nums.length > 0) {
+      const candidates = nums.filter(x => x !== tenureVal && x !== emiVal && x !== totalVal);
+      if (candidates.length > 0) {
+        principalVal = Math.max(...candidates);
+      } else {
+        principalVal = nums[0];
       }
     }
 
-    if (requestedAmt || lower.includes("emi") || lower.includes("kist") || lower.includes("count") || lower.includes("calculate") || lower.includes("hisaab")) {
-      const amt = requestedAmt || 10000;
-      const installments = 18;
+    const hasCalcIntent = principalVal || emiVal || totalVal || lower.includes("emi") || lower.includes("kist") || lower.includes("count") || lower.includes("calculate") || lower.includes("hisaab") || lower.includes("dena") || lower.includes("liya");
+
+    if (principalVal && emiVal && emiVal < principalVal) {
+      // User scenario: e.g. "maine 10000 liya 600 ki emi bani to kitna dena hai"
+      const tenure = tenureVal || 18;
+      const totalRepay = emiVal * tenure;
+      const totalInterest = Math.max(0, totalRepay - principalVal);
+      const interestRate = ((totalInterest / principalVal) * 100).toFixed(1);
+
+      if (isEn) {
+        reply = `🧮 Custom Loan & EMI Breakdown:\n\n` +
+          `• Loan Amount Borrowed: ₹${principalVal.toLocaleString("en-IN")}\n` +
+          `• Your EMI Amount: ₹${emiVal.toLocaleString("en-IN")} / installment\n` +
+          `• Total Installments: ${tenure} Installments (Every 10-day cycle, ~${Math.round(tenure * 10 / 30)} months)\n` +
+          `• Total Repayment: ₹${totalRepay.toLocaleString("en-IN")}\n` +
+          `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}% total)\n\n` +
+          `🔥 With Educa Fintech, You Only Go Higher! 🚀\n` +
+          `Pay each installment on time and your credit limit doubles automatically up to ₹50,000!`;
+      } else {
+        reply = `🧮 Aapke Hisaab Ka Pura Breakdown:\n\n` +
+          `• Aapne Liya (Loan Amount): ₹${principalVal.toLocaleString("en-IN")}\n` +
+          `• Aapki EMI (Har Kist): Sirf ₹${emiVal.toLocaleString("en-IN")} / 10-din\n` +
+          `• Kul Kistein (Tenure): ${tenure} Kistein (Har 10 din me 1 kist, ~${Math.round(tenure * 10 / 30)} mahine)\n` +
+          `• Kul Bhugtan (Total Repayment): ₹${totalRepay.toLocaleString("en-IN")}\n` +
+          `• Kul Byaj (Total Interest): ₹${totalInterest.toLocaleString("en-IN")} (Sirf ${interestRate}%)\n\n` +
+          `🔥 Educa Fintech Me Aap Sirf Upar Hi Jayenge! 🚀\n` +
+          `Samay par kist chukane par aapka credit record mazboot hota hai aur agla loan instant double limit ke sath milta hai!`;
+      }
+    } else if (principalVal && totalVal && totalVal > principalVal) {
+      // User scenario: e.g. "10000 liya 12000 dena hai emi kitni banegi"
+      const tenure = tenureVal || 18;
+      const totalInterest = totalVal - principalVal;
+      const emiAmt = Math.round(totalVal / tenure);
+      const interestRate = ((totalInterest / principalVal) * 100).toFixed(1);
+
+      if (isEn) {
+        reply = `🧮 Repayment & EMI Breakdown for ₹${principalVal.toLocaleString("en-IN")}:\n\n` +
+          `• Loan Amount Borrowed: ₹${principalVal.toLocaleString("en-IN")}\n` +
+          `• Total Repayment: ₹${totalVal.toLocaleString("en-IN")}\n` +
+          `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}%)\n` +
+          `• Tenure: ${tenure} Installments (Every 10-day cycle)\n` +
+          `• Each Installment (EMI): ₹${emiAmt.toLocaleString("en-IN")} / cycle\n\n` +
+          `🚀 With Educa Fintech, you only go higher! Repay easily and grow.`;
+      } else {
+        reply = `🧮 ₹${principalVal.toLocaleString("en-IN")} Loan Ka Repayment Hisaab:\n\n` +
+          `• Aapne Liya: ₹${principalVal.toLocaleString("en-IN")}\n` +
+          `• Kul Wapas Dena Hai: ₹${totalVal.toLocaleString("en-IN")}\n` +
+          `• Kul Byaj (Interest): ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}%)\n` +
+          `• Kul Kistein: ${tenure} Kistein (Har 10 din me 1 kist)\n` +
+          `• Har Kist (EMI): Sirf ₹${emiAmt.toLocaleString("en-IN")} per kist\n\n` +
+          `🚀 Samay par bhugtan karein aur agla loan instant double limit ke sath paayein!`;
+      }
+    } else if (hasCalcIntent) {
+      const amt = principalVal || 10000;
+      const installments = tenureVal || 18;
       const ratePerInstallment = 1.34; // 1.34% per 10-day cycle
       const totalInterest = Math.round((amt * (ratePerInstallment * installments)) / 100);
       const totalPayable = amt + totalInterest;
@@ -2127,7 +2221,7 @@ export default function Dashboard() {
       if (isEn) {
         reply = `🧮 Instant EMI Breakdown for ₹${amt.toLocaleString("en-IN")}:\n\n` +
           `• Loan Amount: ₹${amt.toLocaleString("en-IN")}\n` +
-          `• Tenure: 18 Installments (Every 10-day cycle, 6 months)\n` +
+          `• Tenure: ${installments} Installments (Every 10-day cycle, ~${Math.round(installments * 10 / 30)} months)\n` +
           `• Each Installment (EMI): ₹${emiAmt.toLocaleString("en-IN")} / cycle\n` +
           `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (Just 1.34% per installment)\n` +
           `• Total Repayment: ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
@@ -2136,10 +2230,10 @@ export default function Dashboard() {
       } else {
         reply = `🧮 ₹${amt.toLocaleString("en-IN")} Loan Ka Turant EMI Hisaab:\n\n` +
           `• Loan Amount: ₹${amt.toLocaleString("en-IN")}\n` +
-          `• Kul Kist (Tenure): 18 Kistein (Har 10 din me 1 kist, 6 mahine)\n` +
+          `• Kul Kist (Tenure): ${installments} Kistein (Har 10 din me 1 kist, ~${Math.round(installments * 10 / 30)} mahine)\n` +
           `• Har Kist (EMI): Sirf ₹${emiAmt.toLocaleString("en-IN")} / 10-din\n` +
           `• Kul Byaj (Interest): ₹${totalInterest.toLocaleString("en-IN")} (Sirf 1.34% per kist)\n` +
-          `• Total Repayment: ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
+          `• Total Repayment (Kul Dena Hai): ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
           `🔥 Educa Fintech Me Aap Sirf Upar Hi Jayenge! 🚀\n` +
           `Aap hamare sath kaam karenge aur judenge to aapka business aur balance dono tezi se unchaiyon par jayenge! Samay par kist chukane par aapki loan limit turant double ho jati hai. Zero hidden charges, seedha aapke wallet me instant paisa!`;
       }
@@ -9383,12 +9477,18 @@ export default function Dashboard() {
       )}
 
       {/* ══════════════════════════════════════════════════════
-          EDUCA SUPPORT & ADVISOR SHEET
+          EDUCA SUPPORT & ADVISOR SHEET (90% SCREEN HEIGHT)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={showAiAdvisor} onClose={() => setShowAiAdvisor(false)} title="Educa Support & Advisor" icon="💬">
-        <div className="space-y-3 bg-white">
+      <Sheet
+        open={showAiAdvisor}
+        onClose={() => setShowAiAdvisor(false)}
+        title="Educa Support & Advisor"
+        icon="💬"
+        className="h-[90dvh] sm:h-[88vh] flex flex-col"
+      >
+        <div className="flex-1 flex flex-col min-h-0 space-y-3 bg-white">
           {/* Header Row: Live Status + Language Toggle */}
-          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100 shrink-0">
             <span className="text-[11px] font-semibold text-gray-500 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
               <span>{advisorLang === "english" ? "24/7 Live Support & Advisor" : "24/7 Live Sahayata & Advisor"}</span>
@@ -9418,18 +9518,18 @@ export default function Dashboard() {
           </div>
 
           {/* Quick Helpful Questions (Clean Light White Pills - Pure /ponytail) */}
-          <div className="overflow-x-auto no-scrollbar flex items-center gap-1.5 py-0.5">
+          <div className="overflow-x-auto no-scrollbar flex items-center gap-1.5 py-0.5 shrink-0">
             {(advisorLang === "english" ? [
-              { label: "🧮 ₹10K Loan EMI", q: "Calculate EMI for 10000 loan" },
+              { label: "🧮 Custom EMI Calculator", q: "I borrowed 10000 with 600 emi how much to repay" },
               { label: "💼 Business Loan", q: "Tell me about business loan with cheque" },
-              { label: "⚡ ₹5K Instant Loan", q: "5000 loan emi calculation" },
+              { label: "⚡ ₹10K Loan EMI", q: "10000 loan ka emi count karo" },
               { label: "🎯 Loan Benefits", q: "What are the advantages of Educa loan" },
               { label: "📈 12% Interest", q: "How does 12% compounding interest work" },
               { label: "🔄 Profit Transfer", q: "How to transfer profit to primary wallet" },
             ] : [
-              { label: "🧮 ₹10,000 EMI Hisaab", q: "10000 loan ka emi hisaab batao" },
+              { label: "🧮 10000 liya 600 emi hisaab", q: "maine 10000 liya 600 ki emi bani to kitna dena hai" },
               { label: "💼 Business Loan Niyam", q: "Cheque ke sath business loan 20000" },
-              { label: "⚡ ₹5,000 Instant Loan", q: "5000 loan emi calculation" },
+              { label: "⚡ ₹20K Loan Hisaab", q: "maine 20000 liya 18 kist me kitna dena hai" },
               { label: "🎯 Loan Ke Fayde", q: "Loan ke fayde ginwao motivation wale" },
               { label: "📈 12% Munafa Byaj", q: "12% interest compounding kaise milta hai" },
               { label: "🔄 Profit Transfer Help", q: "Profit wallet se main wallet transfer" },
@@ -9445,15 +9545,15 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Chat Messages Feed - Clean White Container */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-3.5 max-h-72 sm:max-h-80 overflow-y-auto space-y-3 shadow-inner">
+          {/* Chat Messages Feed - Expanded 90% Screen Height */}
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-3 bg-white border border-gray-200 rounded-2xl p-3.5 shadow-inner">
             {advisorMessages.map((msg, index) => (
               <div
                 key={index}
                 className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
               >
                 <div
-                  className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-line shadow-2xs ${
+                  className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed whitespace-pre-line shadow-2xs ${
                     msg.sender === "user"
                       ? "bg-blue-600 text-white rounded-tr-none font-medium"
                       : "bg-gray-50 text-gray-800 border border-gray-200/90 rounded-tl-none font-normal"
@@ -9472,26 +9572,26 @@ export default function Dashboard() {
               e.preventDefault();
               handleAdvisorSend();
             }}
-            className="flex gap-2"
+            className="flex gap-2 shrink-0 pt-1"
           >
             <input
               type="text"
               value={advisorInput}
               onChange={(e) => setAdvisorInput(e.target.value)}
-              placeholder={advisorLang === "english" ? "Type amount or question (e.g. 10000, EMI, Loan...)" : "Amount ya sawaal likhein (e.g. 10000, 20000, EMI...)"}
-              className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-gray-800"
+              placeholder={advisorLang === "english" ? "Type amount or question (e.g. 10000 liya 600 emi...)" : "Apna hisaab likhein (e.g. 10000 liya 600 emi kitna dena hai...)"}
+              className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs sm:text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-gray-800"
             />
             <button
               type="submit"
               disabled={!advisorInput.trim()}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition active:scale-95 disabled:opacity-50 shadow-xs cursor-pointer"
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl transition active:scale-95 disabled:opacity-50 shadow-xs cursor-pointer shrink-0"
             >
               {advisorLang === "english" ? "Send" : "Bhejein"}
             </button>
           </form>
 
           {/* Clear Chat / Issue Resolved Action Button */}
-          <div className="pt-1 border-t border-gray-100 flex justify-center">
+          <div className="pt-1 border-t border-gray-100 flex justify-center shrink-0">
             <button
               type="button"
               onClick={handleResolveAdvisorChat}

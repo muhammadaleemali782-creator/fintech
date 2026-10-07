@@ -662,6 +662,10 @@ export default function Dashboard() {
     phone: ""
   });
 
+  // Bond Multi-unit Selectors (1L, 2L, 3L etc.)
+  const [debitBondUnits, setDebitBondUnits] = useState(1);
+  const [lendingBondUnits, setLendingBondUnits] = useState(1);
+
   // Lending Bond Selection (40 or 80 months)
   const [lendingBondType, setLendingBondType] = useState("lending_40");
   const [lendingForm, setLendingForm] = useState({
@@ -3295,19 +3299,22 @@ export default function Dashboard() {
 
   // Create 365-Day Fixed Bond (Debit)
   const createDebitBond = async () => {
-    if (balance < 100000) {
-      return showToast("1 Lakh ka bond banane ke liye wallet me kam se kam ₹1,00,000 hona chahiye", "error");
+    const units = Math.max(1, parseInt(debitBondUnits) || 1);
+    const amount = units * 100000;
+    const profitReturn = Math.round(amount * 1.18);
+    if (balance < amount) {
+      return showToast(`${units} Lakh (₹${amount.toLocaleString("en-IN")}) ka bond banane ke liye wallet me kam se kam ₹${amount.toLocaleString("en-IN")} hona chahiye`, "error");
     }
-    if (!window.confirm("₹1,00,000 ka 365-Day Fixed Bond lock karein? Maturity par ₹1,18,000 Profit Wallet me add hoga.")) return;
+    if (!window.confirm(`₹${amount.toLocaleString("en-IN")} (${units} Lakh) ka 365-Day Fixed Bond lock karein? Maturity par ₹${profitReturn.toLocaleString("en-IN")} Profit Wallet me add hoga.`)) return;
     try {
       const res = await fetch(`${API}/bond/create`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ bondType: "debit_365", amount: 100000 })
+        body: JSON.stringify({ bondType: "debit_365", amount })
       });
       const data = await res.json();
       if (res.ok) {
-        showToast("🎉 365-Day Bond created! ₹1,18,000 maturity scheduled.", "success");
+        showToast(`🎉 ${units} Lakh 365-Day Bond created! ₹${profitReturn.toLocaleString("en-IN")} maturity scheduled.`, "success");
         loadDashboard();
         loadBonds();
       } else {
@@ -3320,8 +3327,13 @@ export default function Dashboard() {
 
   // Create Lending Monthly Bond (40 or 80 Months) with Mandatory Document Verification
   const createLendingBond = async (type = "lending_40") => {
-    if (balance < 100000) {
-      return showToast("Lending Bond banane ke liye wallet me kam se kam ₹1,00,000 hona chahiye", "error");
+    const units = Math.max(1, parseInt(lendingBondUnits) || 1);
+    const amount = units * 100000;
+    const monthlyPayout = type === "lending_40" ? Math.round(3500 * units) : Math.round(2500 * units);
+    const totalReturn = type === "lending_40" ? Math.round(140000 * units) : Math.round(200000 * units);
+
+    if (balance < amount) {
+      return showToast(`Lending Bond (${units} Lakh) lock karne ke liye wallet me kam se kam ₹${amount.toLocaleString("en-IN")} hona chahiye`, "error");
     }
 
     const form = lendingForm;
@@ -3379,8 +3391,8 @@ export default function Dashboard() {
     }
 
     const msg = type === "lending_40"
-      ? "₹1,00,000 ka 40 Months Lending Bond lock karein? (₹1,40,000 return @ ₹3,500/month)"
-      : "₹1,00,000 ka 80 Months Lending Bond lock karein? (₹2,00,000 return @ ₹2,500/month)";
+      ? `₹${amount.toLocaleString("en-IN")} (${units} Lakh) ka 40 Months Lending Bond lock karein? (Total ₹${totalReturn.toLocaleString("en-IN")} return @ ₹${monthlyPayout.toLocaleString("en-IN")}/month)`
+      : `₹${amount.toLocaleString("en-IN")} (${units} Lakh) ka 80 Months Lending Bond lock karein? (Total ₹${totalReturn.toLocaleString("en-IN")} return @ ₹${monthlyPayout.toLocaleString("en-IN")}/month)`;
     if (!window.confirm(msg)) return;
 
     try {
@@ -3389,7 +3401,7 @@ export default function Dashboard() {
         headers,
         body: JSON.stringify({
           bondType: type,
-          amount: 100000,
+          amount,
           documents: {
             aadharNumber: form.aadharNumber.replace(/\D/g, ""),
             aadharUrl: form.doc1Url,
@@ -6499,22 +6511,80 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 365-DAY 1 LAKH BOND CREATION */}
-          <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-2.5">
+          {/* 365-DAY MULTI-UNIT FIXED BOND CREATION */}
+          <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-3 shadow-xs">
             <div className="flex justify-between items-start">
               <div>
-                <h5 className="font-extrabold text-sm text-emerald-900">365-Day Fixed Bond (₹1,00,000)</h5>
-                <p className="text-xs text-emerald-700 mt-0.5">
-                  1 Lakh ka bond 365 din ke liye lock karein. Maturity par <strong>₹1,18,000</strong> seedha Profit Wallet me credit hoga!
+                <h5 className="font-extrabold text-sm text-emerald-950 flex items-center gap-1.5">
+                  <span>📜</span> 365-Day Fixed Bond (Multiple Units Allowed)
+                </h5>
+                <p className="text-xs text-emerald-800 mt-0.5">
+                  1 Lakh, 2 Lakh, 3 Lakh ya multiple bonds lock karein. Har bond par guaranteed <strong>18% Profit</strong> maturity par Profit Wallet me credit hoga!
                 </p>
               </div>
-              <span className="px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded font-black text-[10px]">18% PROFIT</span>
+              <span className="px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded-md font-black text-[10px] shrink-0 border border-emerald-300">
+                18% PROFIT
+              </span>
             </div>
+
+            {/* Units Selector (1 Lakh, 2 Lakh, 3 Lakh, 5 Lakh) */}
+            <div className="space-y-1.5 bg-white/80 p-3 rounded-xl border border-emerald-200">
+              <div className="flex justify-between items-center text-xs font-bold text-emerald-950">
+                <span>Select Bond Amount / Units:</span>
+                <span className="text-emerald-700 font-extrabold font-mono">
+                  {debitBondUnits} Unit ({debitBondUnits} Lakh = ₹{(debitBondUnits * 100000).toLocaleString("en-IN")})
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {[1, 2, 3, 5].map(u => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setDebitBondUnits(u)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                      debitBondUnits === u
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-emerald-100/60 hover:bg-emerald-200/80 text-emerald-900 border border-emerald-200"
+                    }`}
+                  >
+                    ₹{u} Lakh
+                  </button>
+                ))}
+                <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-300 rounded-lg px-2 py-1 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setDebitBondUnits(prev => Math.max(1, prev - 1))}
+                    className="w-5 h-5 flex items-center justify-center bg-white text-emerald-900 font-black rounded text-xs hover:bg-emerald-100 cursor-pointer"
+                  >
+                    -
+                  </button>
+                  <span className="text-xs font-black text-emerald-950 px-1 font-mono">{debitBondUnits}L</span>
+                  <button
+                    type="button"
+                    onClick={() => setDebitBondUnits(prev => prev + 1)}
+                    className="w-5 h-5 flex items-center justify-center bg-white text-emerald-900 font-black rounded text-xs hover:bg-emerald-100 cursor-pointer"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Maturity Breakdown */}
+              <div className="pt-2 border-t border-emerald-100 flex justify-between items-center text-xs">
+                <span className="text-gray-600">
+                  Principal: <strong>₹{(debitBondUnits * 100000).toLocaleString("en-IN")}</strong>
+                </span>
+                <span className="text-emerald-800 font-black">
+                  Maturity Payout: <span className="text-emerald-600 font-mono text-sm">₹{Math.round(debitBondUnits * 118000).toLocaleString("en-IN")}</span>
+                </span>
+              </div>
+            </div>
+
             <button
               onClick={createDebitBond}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95 cursor-pointer"
             >
-              Create ₹1,00,000 Fixed Bond Now →
+              Lock ₹{(debitBondUnits * 100000).toLocaleString("en-IN")} ({debitBondUnits} Lakh) Fixed Bond Now →
             </button>
           </div>
 
@@ -6589,17 +6659,62 @@ export default function Dashboard() {
       <Sheet open={accountModal === "lending"} onClose={closeModal} title="Lending Account (Monthly Return)" icon="🤝">
         <div className="space-y-4">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
-            <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Lending Monthly Bonds</span>
+            <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Lending Monthly Bonds (Multi-Unit Supported)</span>
             <div className="text-2xl sm:text-3xl font-black font-display my-1">
-              {lendingBondType === "lending_40" ? "₹3,500 / Month (40 Mo)" : "₹2,500 / Month (80 Mo)"}
+              {lendingBondType === "lending_40"
+                ? `₹${(3500 * lendingBondUnits).toLocaleString("en-IN")} / Month (40 Mo)`
+                : `₹${(2500 * lendingBondUnits).toLocaleString("en-IN")} / Month (80 Mo)`}
             </div>
             <p className="text-xs text-blue-100">
-              ₹1 Lakh par ₹1,40,000 (40 mo @ ₹3,500/mo) ya ₹2,00,000 (80 mo @ ₹2,500/mo) guaranteed returns
+              {lendingBondUnits} Lakh par {lendingBondType === "lending_40" ? `₹${(140000 * lendingBondUnits).toLocaleString("en-IN")}` : `₹${(200000 * lendingBondUnits).toLocaleString("en-IN")}`} total guaranteed returns. Multiple bonds allow hain!
             </p>
           </div>
 
           <div className="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl space-y-3">
-            <div className="text-xs font-bold text-indigo-900">Select Monthly Bond Option (₹1,00,000 Investment):</div>
+            {/* Units Selector (1 Lakh, 2 Lakh, 3 Lakh, 5 Lakh) */}
+            <div className="space-y-1.5 bg-white p-3 rounded-xl border border-indigo-200">
+              <div className="flex justify-between items-center text-xs font-bold text-indigo-950">
+                <span>Select Investment Amount / Units:</span>
+                <span className="text-indigo-700 font-extrabold font-mono">
+                  {lendingBondUnits} Unit ({lendingBondUnits} Lakh = ₹{(lendingBondUnits * 100000).toLocaleString("en-IN")})
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {[1, 2, 3, 5].map(u => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setLendingBondUnits(u)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                      lendingBondUnits === u
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200"
+                    }`}
+                  >
+                    ₹{u} Lakh
+                  </button>
+                ))}
+                <div className="flex items-center gap-1 bg-indigo-50/70 border border-indigo-300 rounded-lg px-2 py-1 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setLendingBondUnits(prev => Math.max(1, prev - 1))}
+                    className="w-5 h-5 flex items-center justify-center bg-white text-indigo-900 font-black rounded text-xs hover:bg-indigo-100 cursor-pointer"
+                  >
+                    -
+                  </button>
+                  <span className="text-xs font-black text-indigo-950 px-1 font-mono">{lendingBondUnits}L</span>
+                  <button
+                    type="button"
+                    onClick={() => setLendingBondUnits(prev => prev + 1)}
+                    className="w-5 h-5 flex items-center justify-center bg-white text-indigo-900 font-black rounded text-xs hover:bg-indigo-100 cursor-pointer"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-xs font-bold text-indigo-900">Select Monthly Bond Option (₹{(lendingBondUnits * 100000).toLocaleString("en-IN")} Investment):</div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -6611,8 +6726,8 @@ export default function Dashboard() {
                 }`}
               >
                 <div className="text-xs font-bold">40 Months</div>
-                <div className="text-sm font-black mt-0.5">₹1,40,000 Return</div>
-                <div className="text-[10px] opacity-80">₹3,500 / month</div>
+                <div className="text-sm font-black mt-0.5">₹{(140000 * lendingBondUnits).toLocaleString("en-IN")} Return</div>
+                <div className="text-[10px] opacity-80">₹{(3500 * lendingBondUnits).toLocaleString("en-IN")} / month</div>
               </button>
               <button
                 type="button"
@@ -6624,8 +6739,8 @@ export default function Dashboard() {
                 }`}
               >
                 <div className="text-xs font-bold">80 Months</div>
-                <div className="text-sm font-black mt-0.5">₹2,00,000 Return</div>
-                <div className="text-[10px] opacity-80">₹2,500 / month</div>
+                <div className="text-sm font-black mt-0.5">₹{(200000 * lendingBondUnits).toLocaleString("en-IN")} Return</div>
+                <div className="text-[10px] opacity-80">₹{(2500 * lendingBondUnits).toLocaleString("en-IN")} / month</div>
               </button>
             </div>
 
@@ -6804,7 +6919,7 @@ export default function Dashboard() {
               onClick={() => createLendingBond(lendingBondType)}
               className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-black text-xs shadow-md shadow-indigo-500/25 transition active:scale-95 cursor-pointer"
             >
-              Invest ₹1,00,000 in {lendingBondType === "lending_40" ? "40M (₹3,500/mo)" : "80M (₹2,500/mo)"} Lending Bond →
+              Invest ₹{(lendingBondUnits * 100000).toLocaleString("en-IN")} in {lendingBondType === "lending_40" ? `40M (₹${(3500 * lendingBondUnits).toLocaleString("en-IN")}/mo)` : `80M (₹${(2500 * lendingBondUnits).toLocaleString("en-IN")}/mo)`} Lending Bond →
             </button>
           </div>
 

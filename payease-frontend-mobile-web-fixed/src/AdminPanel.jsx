@@ -63,6 +63,8 @@ export default function AdminPanel() {
   const [previewKycUser, setPreviewKycUser] = useState(null);
   const [kycReviewRemarks, setKycReviewRemarks] = useState("");
   const [kycFilter, setKycFilter] = useState("all");
+  const [kycTimeFilter, setKycTimeFilter] = useState("all"); // 'all' | 'today' | '7days' | '30days'
+  const [selectedKycIds, setSelectedKycIds] = useState(new Set());
   const [userFilter, setUserFilter] = useState("all"); // 'all' | 'customers' | 'agents'
   const [agentFilter, setAgentFilter] = useState("all"); // 'all' | 'approved' | 'pending'
 
@@ -84,6 +86,48 @@ export default function AdminPanel() {
       return true;
     });
   }, [agents, agentFilter]);
+
+  const filteredKycUsers = useMemo(() => {
+    return users.filter(u => {
+      const hasKyc = u.kycStatus && u.kycStatus !== "none";
+      if (!hasKyc) return false;
+      if (kycFilter !== "all" && u.kycStatus !== kycFilter) return false;
+      if (kycTimeFilter !== "all") {
+        const rawDate = u.kycDocuments?.submittedAt || u.createdAt;
+        if (!rawDate) return false;
+        const subDate = new Date(rawDate);
+        const now = new Date();
+        if (kycTimeFilter === "today") {
+          return subDate.toDateString() === now.toDateString();
+        }
+        if (kycTimeFilter === "7days") {
+          return (now.getTime() - subDate.getTime()) <= 7 * 24 * 60 * 60 * 1000;
+        }
+        if (kycTimeFilter === "30days") {
+          return (now.getTime() - subDate.getTime()) <= 30 * 24 * 60 * 60 * 1000;
+        }
+      }
+      return true;
+    });
+  }, [users, kycFilter, kycTimeFilter]);
+
+  const toggleSelectKyc = (id) => {
+    setSelectedKycIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllKyc = () => {
+    if (selectedKycIds.size === filteredKycUsers.length && filteredKycUsers.length > 0) {
+      setSelectedKycIds(new Set());
+    } else {
+      setSelectedKycIds(new Set(filteredKycUsers.map(u => u._id)));
+    }
+  };
+
   const [lightboxImg, setLightboxImg] = useState(null); // fullscreen doc viewer
   const [zoomLevel, setZoomLevel] = useState(1);
   const [expandedLoanId, setExpandedLoanId] = useState(null);
@@ -126,6 +170,7 @@ export default function AdminPanel() {
   const [issuePurpose, setIssuePurpose] = useState("Personal Loan");
   const [issueSubmitting, setIssueSubmitting] = useState(false);
   const [issueBorrowerDetails, setIssueBorrowerDetails] = useState({
+    name: "",
     phone: "",
     aadharNumber: "",
     panNumber: "",
@@ -134,16 +179,41 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (issueSelectedUser) {
+      const rawPhone = issueSelectedUser.phone || issueSelectedUser.kycDocuments?.aadhaarPhone || "";
+      const validPhone = /^[6-9]\d{9}$/.test(rawPhone) ? rawPhone : (/^\d{10}$/.test(rawPhone) ? rawPhone : "");
+      const autoName = issueSelectedUser.kycDocuments?.aadhaarName || issueSelectedUser.name || "";
       setIssueBorrowerDetails({
-        phone: issueSelectedUser.phone || "",
+        name: autoName,
+        phone: validPhone,
         aadharNumber: issueSelectedUser.aadharNumber || issueSelectedUser.kycDocuments?.aadharNumber || "",
         panNumber: issueSelectedUser.panNumber || issueSelectedUser.kycDocuments?.panNumber || "",
         address: issueSelectedUser.address || issueSelectedUser.kycDocuments?.address || ""
       });
     } else {
-      setIssueBorrowerDetails({ phone: "", aadharNumber: "", panNumber: "", address: "" });
+      setIssueBorrowerDetails({ name: "", phone: "", aadharNumber: "", panNumber: "", address: "" });
     }
   }, [issueSelectedUser]);
+
+  const missingBorrowerFields = useMemo(() => {
+    if (!issueSelectedUser) return [];
+    const missing = [];
+    if (!issueBorrowerDetails.name?.trim()) {
+      missing.push({ key: "name", label: "Borrower / Aadhaar Name" });
+    }
+    if (!issueBorrowerDetails.phone?.trim() || !/^[6-9]\d{9}$/.test(issueBorrowerDetails.phone.trim())) {
+      missing.push({ key: "phone", label: "10-Digit Mobile Number" });
+    }
+    if (!issueBorrowerDetails.aadharNumber?.trim() || issueBorrowerDetails.aadharNumber.trim().length !== 12) {
+      missing.push({ key: "aadharNumber", label: "12-Digit Aadhaar UID" });
+    }
+    if (!issueBorrowerDetails.panNumber?.trim() || issueBorrowerDetails.panNumber.trim().length !== 10) {
+      missing.push({ key: "panNumber", label: "10-Digit PAN Number" });
+    }
+    if (!issueBorrowerDetails.address?.trim()) {
+      missing.push({ key: "address", label: "Address" });
+    }
+    return missing;
+  }, [issueSelectedUser, issueBorrowerDetails]);
 
   const handleDocFileUpload = (key, file) => {
     if (!file) return;
@@ -736,9 +806,27 @@ export default function AdminPanel() {
     }
   };
 
-  const exportKycToCsv = () => {
-    const kycUsers = users.filter(u => u.kycStatus && u.kycStatus !== "none");
-    if (!kycUsers.length) return showToast("No KYC records to export", "error");
+  const exportKycToCsv = (targetUsers = null) => {
+    let toExport = [];
+    if (Array.isArray(targetUsers)) {
+      toExport = targetUsers;
+    } else if (targetUsers && typeof targetUsers === "object") {
+      toExport = [targetUsers];
+    } else if (selectedKycIds.size > 0) {
+      toExport = filteredKycUsers.filter(u => selectedKycIds.has(u._id));
+    } else {
+      toExport = filteredKycUsers;
+    }
+
+    if (!toExport.length) return showToast("No KYC records found to export", "error");
+
+    const formatDocLink = (fileUrl, driveLink) => {
+      if (!fileUrl) return "Not Uploaded";
+      if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) return fileUrl;
+      if (driveLink && (driveLink.startsWith("http://") || driveLink.startsWith("https://"))) return driveLink;
+      if (fileUrl.startsWith("data:image")) return "Uploaded On Record (In App DB)";
+      return fileUrl.slice(0, 60);
+    };
 
     const headers = [
       "User ID",
@@ -746,38 +834,47 @@ export default function AdminPanel() {
       "Email",
       "Phone",
       "Address",
-      "Doc 1 Type",
       "Aadhaar Number",
-      "Doc 1 File Link",
+      "Aadhaar Front Link",
+      "Aadhaar Back Link",
       "Doc 2 Type",
       "PAN Number",
-      "Cheque/Account Number",
-      "Doc 2 File Link",
+      "PAN Front Link",
+      "PAN Back Link",
+      "Cheque Number",
+      "Cheque Front Link",
+      "Cheque Back Link",
       "KYC Status",
       "Submitted Date",
       "Admin Remarks",
-      "Google Drive Link"
+      "Google Drive Folder Link"
     ];
 
-    const rows = kycUsers.map(u => {
-      const doc2Type = u.kycDocuments?.doc2Type || (u.kycDocuments?.chequeNumber ? "cheque" : "pan");
+    const rows = toExport.map(u => {
+      const docs = u.kycDocuments || {};
+      const drive = docs.googleDriveLink || "";
+      const doc2Type = docs.doc2Type || (docs.chequeNumber ? "cheque" : "pan");
+
       return [
         `"${u._id || ""}"`,
-        `"${(u.name || "").replace(/"/g, '""')}"`,
+        `"${(docs.aadhaarName || u.name || "").replace(/"/g, '""')}"`,
         `"${(u.email || "").replace(/"/g, '""')}"`,
-        `"${(u.phone || "").replace(/"/g, '""')}"`,
-        `"${(u.address || u.kycDocuments?.address || "").replace(/"/g, '""')}"`,
-        `"AADHAAR CARD"`,
-        `"${(u.kycDocuments?.aadharNumber || u.aadharNumber || "").replace(/"/g, '""')}"`,
-        `"${(u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl || "").replace(/"/g, '""')}"`,
+        `"${(docs.aadhaarPhone || u.phone || "").replace(/"/g, '""')}"`,
+        `"${(docs.address || u.address || "").replace(/"/g, '""')}"`,
+        `"${(docs.aadharNumber || u.aadharNumber || "").replace(/"/g, '""')}"`,
+        `"${formatDocLink(docs.doc1Url || docs.docUrl, drive)}"`,
+        `"${formatDocLink(docs.doc1BackUrl, drive)}"`,
         `"${doc2Type.toUpperCase()}"`,
-        `"${(u.kycDocuments?.panNumber || u.panNumber || "").replace(/"/g, '""')}"`,
-        `"${(u.kycDocuments?.chequeNumber || u.chequeNumber || "").replace(/"/g, '""')}"`,
-        `"${(u.kycDocuments?.doc2Url || "").replace(/"/g, '""')}"`,
+        `"${(docs.panNumber || u.panNumber || "").replace(/"/g, '""')}"`,
+        `"${formatDocLink(docs.doc2Url, drive)}"`,
+        `"${formatDocLink(docs.doc2BackUrl, drive)}"`,
+        `"${(docs.chequeNumber || u.chequeNumber || "").replace(/"/g, '""')}"`,
+        `"${formatDocLink(docs.chequeUrl, drive)}"`,
+        `"${formatDocLink(docs.chequeBackUrl, drive)}"`,
         `"${(u.kycStatus || "").toUpperCase()}"`,
-        `"${u.kycDocuments?.submittedAt ? new Date(u.kycDocuments.submittedAt).toLocaleString("en-IN") : ""}"`,
-        `"${(u.kycDocuments?.adminRemarks || "").replace(/"/g, '""')}"`,
-        `"${(u.kycDocuments?.googleDriveLink || "").replace(/"/g, '""')}"`
+        `"${docs.submittedAt ? new Date(docs.submittedAt).toLocaleString("en-IN") : ""}"`,
+        `"${(docs.adminRemarks || "").replace(/"/g, '""')}"`,
+        `"${drive}"`
       ];
     });
 
@@ -786,12 +883,13 @@ export default function AdminPanel() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `Educa_KYC_Records_${new Date().toISOString().slice(0, 10)}.csv`);
+    const filenamePrefix = toExport.length === 1 ? `KYC_${(toExport[0].name || "User").replace(/\s+/g, '_')}` : `Educa_KYC_Records_${toExport.length}_Users`;
+    link.setAttribute("download", `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast("KYC Excel/CSV exported successfully!", "success");
+    showToast(`Exported ${toExport.length} KYC record(s) to Excel successfully!`, "success");
   };
 
   const loanStatusColor = { pending: "bg-yellow-100 text-yellow-700", active: "bg-blue-100 text-blue-700", closed: "bg-green-100 text-green-700", rejected: "bg-red-100 text-red-700" };
@@ -913,7 +1011,7 @@ export default function AdminPanel() {
       const payload = {
         borrowerType: issueBorrowerType,
         userId: issueSelectedUser?._id,
-        name: issueBorrowerType === "new" ? issueNewUser.name : issueSelectedUser?.name,
+        name: issueBorrowerType === "new" ? issueNewUser.name : (issueBorrowerDetails.name || issueSelectedUser?.name),
         phone: issueBorrowerType === "new" ? issueNewUser.phone : (issueBorrowerDetails.phone || issueSelectedUser?.phone),
         email: issueBorrowerType === "new" ? issueNewUser.email : issueSelectedUser?.email,
         address: issueBorrowerType === "new" ? issueNewUser.address : (issueBorrowerDetails.address || issueSelectedUser?.address),
@@ -1070,15 +1168,16 @@ export default function AdminPanel() {
   const liveAdminReserves = totalDepositsDisplay + liveAdminProfit;
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600" },
-    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600" },
-    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 2, g: "from-slate-700 to-slate-800" },
-    { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, g: "from-amber-500 to-orange-500" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, iconBg: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, iconBg: "bg-teal-50 text-teal-600 border-teal-200" },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, iconBg: "bg-blue-50 text-blue-600 border-blue-200" },
+    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? users.length ?? 0, iconBg: "bg-slate-100 text-slate-700 border-slate-200" },
+    { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? pending.length ?? 0, iconBg: "bg-amber-50 text-amber-700 border-amber-200" },
+    { icon: "📑", label: "Active Loans", value: stats.totalLoans ?? loans.length ?? 0, iconBg: "bg-sky-50 text-sky-600 border-sky-200" },
   ];
 
   return (
-    <div className="bg-gray-50 min-h-screen lg:h-screen lg:overflow-hidden lg:flex">
+    <div className="bg-slate-50 min-h-screen overflow-x-hidden lg:h-screen lg:overflow-hidden lg:flex">
       {/* FULLSCREEN LIGHTBOX WITH INTERACTIVE ZOOM & PAN */}
       {lightboxImg && (
         <div
@@ -1176,26 +1275,26 @@ export default function AdminPanel() {
       )}
 
       {/* DESKTOP SIDEBAR (COLLAPSIBLE & FULL-HEIGHT) */}
-      <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? "w-20" : "w-64"} shrink-0 bg-slate-900 border-r border-slate-800 text-slate-100 h-screen transition-all duration-200 z-30 select-none`}>
+      <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? "w-20" : "w-64"} shrink-0 bg-white border-r border-slate-200/90 text-slate-800 h-screen transition-all duration-200 z-30 select-none shadow-2xs`}>
         {/* Header with Title & Collapse Toggle */}
-        <div className={`shrink-0 flex items-center ${isSidebarCollapsed ? "flex-col justify-center p-3 gap-2" : "justify-between px-4 py-4"} border-b border-slate-800`}>
+        <div className={`shrink-0 flex items-center ${isSidebarCollapsed ? "flex-col justify-center p-3 gap-2" : "justify-between px-4 py-4"} border-b border-slate-200/80`}>
           {!isSidebarCollapsed ? (
             <div className="flex items-center gap-2.5 min-w-0">
-              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs shrink-0" />
+              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-slate-50 border border-slate-200 p-0.5 shadow-2xs shrink-0" />
               <div className="min-w-0">
-                <h1 className="font-black text-base leading-tight truncate">Admin Panel</h1>
-                <p className="text-blue-400 text-[11px] font-semibold truncate">Educa Finance</p>
+                <h1 className="font-black text-base text-slate-900 leading-tight truncate">Admin Panel</h1>
+                <p className="text-blue-600 text-[11px] font-semibold truncate">Educa Finance</p>
               </div>
             </div>
           ) : (
-            <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs shrink-0" title="Educa Admin Panel" />
+            <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-slate-50 border border-slate-200 p-0.5 shadow-2xs shrink-0" title="Educa Admin Panel" />
           )}
 
           <button
             type="button"
             onClick={toggleSidebar}
             title={isSidebarCollapsed ? "Expand Sidebar (Wider)" : "Collapse Sidebar (Compact)"}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer border border-slate-700 text-xs flex items-center justify-center shrink-0"
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition cursor-pointer border border-slate-200 text-xs flex items-center justify-center shrink-0"
           >
             {isSidebarCollapsed ? "▶" : "◀"}
           </button>
@@ -1210,8 +1309,8 @@ export default function AdminPanel() {
               title={isSidebarCollapsed ? label : undefined}
               className={`w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3 py-2.5"} rounded-xl font-semibold text-xs transition cursor-pointer relative group ${
                 tab === key
-                  ? "bg-blue-600 text-white shadow-sm font-bold"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  ? "bg-blue-600 text-white shadow-xs font-bold"
+                  : "text-slate-600 hover:bg-slate-100/90 hover:text-slate-900"
               }`}
             >
               <span className="flex items-center gap-2.5">
@@ -1220,7 +1319,7 @@ export default function AdminPanel() {
               </span>
               {!!badge && (
                 isSidebarCollapsed ? (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-slate-900" title={`${badge} alerts`} />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" title={`${badge} alerts`} />
                 ) : (
                   <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
                     {badge}
@@ -1232,24 +1331,24 @@ export default function AdminPanel() {
         </nav>
 
         {/* Footer Area */}
-        <div className={`shrink-0 ${isSidebarCollapsed ? "p-2 space-y-2" : "px-3.5 py-3 space-y-2"} border-t border-slate-800 bg-slate-950/60`}>
+        <div className={`shrink-0 ${isSidebarCollapsed ? "p-2 space-y-2" : "px-3.5 py-3 space-y-2"} border-t border-slate-200/80 bg-slate-50/80`}>
           <Link
             to="/dashboard"
             title={isSidebarCollapsed ? "Customer App View" : undefined}
-            className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
+            className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/90 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-2xs"
           >
             <span>📱</span>
             {!isSidebarCollapsed && <span className="truncate">Customer App View</span>}
           </Link>
           {!isSidebarCollapsed && (
             <div className="flex items-center justify-between text-xs px-1 pt-0.5">
-              <span className="text-slate-400 text-[11px] truncate">Admin: <strong className="text-white font-semibold">{user.name}</strong></span>
+              <span className="text-slate-500 text-[11px] truncate">Admin: <strong className="text-slate-900 font-semibold">{user.name}</strong></span>
             </div>
           )}
           <button
             onClick={logout}
             title={isSidebarCollapsed ? "Logout" : undefined}
-            className="w-full px-2.5 py-1.5 bg-rose-600/90 hover:bg-rose-600 text-white rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+            className="w-full px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
           >
             <span>🚪</span>
             {!isSidebarCollapsed && <span>Logout</span>}
@@ -1257,60 +1356,63 @@ export default function AdminPanel() {
         </div>
       </aside>
 
-      <div className="flex-1 min-w-0 h-full overflow-y-auto">
+      <div className="flex-1 min-w-0 max-w-full h-full overflow-y-auto overflow-x-hidden">
         {/* MOBILE / TABLET TOP NAV */}
-        <nav className="lg:hidden bg-slate-900 border-b border-slate-800 shadow-lg sticky top-0 z-40 safe-top">
-          <div className="px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs" />
+        <nav className="lg:hidden bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs sticky top-0 z-40 safe-top">
+          <div className="px-4 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
+            <div className="flex items-center gap-2.5">
+              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-slate-50 border border-slate-200 p-0.5 shadow-2xs shrink-0" />
               <div>
-                <h1 className="text-white font-black text-base sm:text-lg leading-none">Admin Panel</h1>
-                <p className="text-blue-400 text-xs font-semibold hidden sm:block">Educa Finance Control Center</p>
+                <h1 className="text-slate-900 font-black text-base sm:text-lg leading-tight">Admin Panel</h1>
+                <p className="text-blue-600 text-[11px] font-semibold hidden sm:block">Educa Finance Control Center</p>
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <Link
                 to="/dashboard"
-                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
               >
                 <span>📱</span> <span className="hidden sm:inline">App View</span>
               </Link>
               <div className="text-right hidden sm:block">
                 <p className="text-slate-400 text-xs">Logged in as</p>
-                <p className="text-white font-semibold text-sm">{user.name}</p>
+                <p className="text-slate-900 font-semibold text-sm">{user.name}</p>
               </div>
-              <button onClick={logout} className="px-3 sm:px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition text-xs sm:text-sm font-semibold">Logout</button>
+              <button onClick={logout} className="px-3 sm:px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg transition text-xs font-bold">Logout</button>
             </div>
           </div>
         </nav>
 
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0">
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4 mb-4 sm:mb-8">
-            {statCards.map(({ icon, label, value, g }) => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
+            {statCards.map(({ icon, label, value, iconBg }) => {
               const valStr = String(value);
-              const isLong = valStr.length > 11;
+              const isLong = valStr.length > 12;
               const isLive = label === "Fintech Reserves" || label === "Profit Credited";
               return (
-                <div key={label} className={`bg-gradient-to-br ${g} text-white p-3 sm:p-4 lg:p-3.5 xl:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between`}>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
-                      <p className="text-white/80 text-[11px] sm:text-xs font-medium truncate">{label}</p>
+                <div
+                  key={label}
+                  className="bg-white border border-slate-200/90 hover:border-slate-300 p-3 sm:p-3.5 rounded-2xl shadow-2xs transition flex flex-col justify-between min-w-0"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm border ${iconBg}`}>
+                      {icon}
                     </div>
                     {isLive && (
-                      <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                      <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Live
                       </span>
                     )}
                   </div>
-                  <div className="mt-1">
+                  <div>
+                    <p className="text-slate-500 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate mb-0.5">
+                      {label}
+                    </p>
                     <p
-                      className={`font-black font-display font-mono tabular-nums tracking-tight whitespace-nowrap overflow-visible ${
-                        isLong
-                          ? "text-xs sm:text-sm lg:text-[13px] xl:text-[15px]"
-                          : "text-sm sm:text-base lg:text-base xl:text-lg"
+                      className={`font-black font-mono tabular-nums text-slate-900 tracking-tight truncate ${
+                        isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base"
                       }`}
                       title={valStr}
                     >
@@ -1322,15 +1424,59 @@ export default function AdminPanel() {
             })}
           </div>
 
-          {/* Tabs — mobile/tablet only (desktop uses sidebar) */}
-          <div className="lg:hidden flex gap-1.5 mb-4 sm:mb-6 bg-white p-1.5 rounded-2xl shadow-xs border border-gray-100 overflow-x-auto no-scrollbar">
-            {tabs.map(({ key, label, icon, badge }) => (
-              <button key={key} onClick={() => setTab(key)}
-                className={`shrink-0 py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer ${tab === key ? "bg-indigo-600 text-white shadow-xs" : "text-gray-500 hover:text-gray-700"}`}>
-                <span>{icon}</span><span>{label}</span>
-                {!!badge && <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${tab === key ? "bg-white/20 text-white" : "bg-red-100 text-red-600"}`}>{badge}</span>}
-              </button>
-            ))}
+          {/* Tabs — mobile/tablet (No left-right scroll required) */}
+          <div className="lg:hidden mb-4 bg-white p-2.5 rounded-2xl shadow-2xs border border-slate-200/90">
+            <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                Navigation Desk
+              </span>
+              <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
+                {tabs.find(t => t.key === tab)?.icon} {tabs.find(t => t.key === tab)?.label}
+              </span>
+            </div>
+
+            {/* Instant Dropdown for all 12 sections */}
+            <select
+              value={tab}
+              onChange={(e) => setTab(e.target.value)}
+              className="w-full py-2 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer mb-2"
+            >
+              {tabs.map(({ key, label, icon, badge }) => (
+                <option key={key} value={key}>
+                  {icon} {label} {badge ? `(${badge})` : ""}
+                </option>
+              ))}
+            </select>
+
+            {/* 4 Primary Action Pills in a grid that spans 100% of mobile screen */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { key: "analytics", label: "Reserves", icon: "📊" },
+                { key: "pending", label: "Pending", icon: "⏳", badge: pending.length },
+                { key: "kyc", label: "KYC", icon: "📄", badge: pendingKycCount },
+                { key: "history", label: "History", icon: "📜" },
+              ].map(({ key, label, icon, badge }) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={`py-2 px-1 rounded-xl text-[11px] font-bold text-center flex flex-col items-center justify-center gap-0.5 transition active:scale-95 cursor-pointer relative ${
+                    tab === key
+                      ? "bg-blue-600 text-white shadow-xs font-black"
+                      : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200/70"
+                  }`}
+                >
+                  <span className="text-sm">{icon}</span>
+                  <span className="leading-tight truncate w-full">{label}</span>
+                  {!!badge && (
+                    <span className={`absolute -top-1 -right-1 text-[9px] font-black px-1.5 py-0.2 rounded-full ${
+                      tab === key ? "bg-amber-400 text-slate-950 font-black" : "bg-rose-500 text-white"
+                    }`}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* ══════════════════════════════════════════════════════
@@ -1339,38 +1485,38 @@ export default function AdminPanel() {
           {tab === "analytics" && (
             <div className="space-y-6 w-full min-w-0">
               {/* Header */}
-              <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
+              <div className="bg-white text-slate-900 rounded-3xl p-5 sm:p-7 shadow-xs border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">📈</span>
-                    <span className="text-xs font-black tracking-widest text-blue-300 uppercase px-2.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/30">
+                    <span className="text-xl">📈</span>
+                    <span className="text-[10px] sm:text-xs font-black tracking-widest text-blue-700 uppercase px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200">
                       Fintech Liquidity & Reserves Audit
                     </span>
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-black font-display flex flex-wrap items-center">
-                    <span>Total Fintech Reserves:&nbsp;</span>
+                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-black font-display flex flex-wrap items-baseline gap-1.5 text-slate-900">
+                    <span>Total Fintech Reserves:</span>
                     {loadingAnalytics && !analytics && !liveAdminReserves ? (
-                      <span className="inline-block h-8 w-44 bg-white/20 rounded-xl animate-pulse" />
+                      <span className="inline-block h-8 w-44 bg-slate-200 rounded-xl animate-pulse" />
                     ) : (
-                      <span className="font-mono tabular-nums text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
+                      <span className="font-mono tabular-nums text-emerald-600 font-black">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
                     )}
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-300 mt-2 max-w-2xl">
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
                     Real-time capital balance, customer deposits, compounding 12% p.a. daily yield distribution, and liquidity reserve health.
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <button
                     onClick={loadAnalytics}
                     disabled={loadingAnalytics}
-                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition active:scale-95 flex items-center gap-2"
+                    className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
                   >
                     <span>{loadingAnalytics ? "⏳" : "🔄"}</span>
                     <span>{loadingAnalytics ? "Refreshing..." : "Refresh Data"}</span>
                   </button>
                   <button
                     onClick={() => setTab("settings")}
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95 flex items-center gap-2"
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
                   >
                     <span>⚙️</span>
                     <span>Deposit & UPI Config</span>
@@ -1502,7 +1648,7 @@ export default function AdminPanel() {
                     if (!data || data.length === 0) {
                       return (
                         <div className="py-14 flex flex-col items-center justify-center text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
-                          <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl mb-3 shadow-xs">
+                          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-3 shadow-xs">
                             📊
                           </div>
                           <p className="font-extrabold text-gray-800 text-sm">No Profit Yield History Yet</p>
@@ -1572,20 +1718,20 @@ export default function AdminPanel() {
                           <defs>
                             {/* Daily Bar Gradient */}
                             <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#4F46E5" />
-                              <stop offset="70%" stopColor="#6366F1" />
-                              <stop offset="100%" stopColor="#818CF8" stopOpacity="0.85" />
+                              <stop offset="0%" stopColor="#2563EB" />
+                              <stop offset="70%" stopColor="#3B82F6" />
+                              <stop offset="100%" stopColor="#60A5FA" stopOpacity="0.85" />
                             </linearGradient>
                             <linearGradient id="barGradHover" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#3730A3" />
-                              <stop offset="100%" stopColor="#4F46E5" />
+                              <stop offset="0%" stopColor="#1D4ED8" />
+                              <stop offset="100%" stopColor="#2563EB" />
                             </linearGradient>
 
                             {/* Cumulative Area Gradient */}
                             <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.38" />
-                              <stop offset="50%" stopColor="#6366F1" stopOpacity="0.18" />
-                              <stop offset="100%" stopColor="#A5B4FC" stopOpacity="0.0" />
+                              <stop offset="0%" stopColor="#2563EB" stopOpacity="0.32" />
+                              <stop offset="50%" stopColor="#3B82F6" stopOpacity="0.14" />
+                              <stop offset="100%" stopColor="#93C5FD" stopOpacity="0.0" />
                             </linearGradient>
 
                             {/* Shadows & Glow */}
@@ -1651,8 +1797,8 @@ export default function AdminPanel() {
                                     width={barW}
                                     height={plotH}
                                     rx={10}
-                                    fill={isHovered ? "#EEF2FF" : "#F8FAFC"}
-                                    stroke={isHovered ? "#C7D2FE" : "#F1F5F9"}
+                                    fill={isHovered ? "#EFF6FF" : "#F8FAFC"}
+                                    stroke={isHovered ? "#BFDBFE" : "#F1F5F9"}
                                     strokeWidth="1"
                                     className="transition-colors duration-200"
                                   />
@@ -1676,8 +1822,8 @@ export default function AdminPanel() {
                                       width="72"
                                       height="20"
                                       rx="10"
-                                      fill={isHovered ? "#312E81" : "#EEF2FF"}
-                                      stroke={isHovered ? "#312E81" : "#C7D2FE"}
+                                      fill={isHovered ? "#1E3A8A" : "#EFF6FF"}
+                                      stroke={isHovered ? "#1E3A8A" : "#BFDBFE"}
                                       strokeWidth="1"
                                       filter="url(#pillShadow)"
                                       className="transition-colors duration-200"
@@ -1687,7 +1833,7 @@ export default function AdminPanel() {
                                       y="2"
                                       textAnchor="middle"
                                       className={`text-[11px] font-black font-mono transition-colors duration-200 ${
-                                        isHovered ? "fill-white" : "fill-indigo-700"
+                                        isHovered ? "fill-white" : "fill-blue-700"
                                       }`}
                                     >
                                       +₹{amount.toFixed(2)}
@@ -1700,7 +1846,7 @@ export default function AdminPanel() {
                                     y={padTop + plotH + 20}
                                     textAnchor="middle"
                                     className={`text-[12px] font-black transition-colors duration-200 ${
-                                      isHovered ? "fill-indigo-900 font-extrabold" : "fill-gray-700"
+                                      isHovered ? "fill-slate-900 font-extrabold" : "fill-gray-700"
                                     }`}
                                   >
                                     {d.displayDate}
@@ -1727,7 +1873,7 @@ export default function AdminPanel() {
                                   y1={p.y}
                                   x2={p.x}
                                   y2={padTop + plotH}
-                                  stroke="#C7D2FE"
+                                  stroke="#BFDBFE"
                                   strokeWidth="1.5"
                                   strokeDasharray="4 3"
                                 />
@@ -1740,7 +1886,7 @@ export default function AdminPanel() {
                               <path
                                 d={linePath}
                                 fill="none"
-                                stroke="#4F46E5"
+                                stroke="#2563EB"
                                 strokeWidth="4"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -1762,7 +1908,7 @@ export default function AdminPanel() {
                                       cx={p.x}
                                       cy={p.y}
                                       r={isHovered ? 13 : 9}
-                                      fill="rgba(79, 70, 229, 0.16)"
+                                      fill="rgba(37, 99, 235, 0.16)"
                                       className="transition-all duration-200"
                                     />
                                     {/* Center Core Circle */}
@@ -1770,7 +1916,7 @@ export default function AdminPanel() {
                                       cx={p.x}
                                       cy={p.y}
                                       r={isHovered ? 7 : 5.5}
-                                      fill={isHovered ? "#312E81" : "#4F46E5"}
+                                      fill={isHovered ? "#1E3A8A" : "#2563EB"}
                                       stroke="#FFFFFF"
                                       strokeWidth="3"
                                       className="transition-all duration-200"
@@ -1784,7 +1930,7 @@ export default function AdminPanel() {
                                         width="76"
                                         height="22"
                                         rx="11"
-                                        fill={isHovered ? "#1E1B4B" : "#4F46E5"}
+                                        fill={isHovered ? "#0F172A" : "#2563EB"}
                                         filter="url(#pillShadow)"
                                         className="transition-colors duration-200"
                                       />
@@ -1804,7 +1950,7 @@ export default function AdminPanel() {
                                       y={padTop + plotH + 20}
                                       textAnchor="middle"
                                       className={`text-[12px] font-black transition-colors duration-200 ${
-                                        isHovered ? "fill-indigo-900 font-extrabold" : "fill-gray-700"
+                                        isHovered ? "fill-slate-900 font-extrabold" : "fill-gray-700"
                                       }`}
                                     >
                                       {p.displayDate}
@@ -1813,7 +1959,7 @@ export default function AdminPanel() {
                                       x={p.x}
                                       y={padTop + plotH + 34}
                                       textAnchor="middle"
-                                      className="text-[10px] font-bold fill-indigo-600 font-mono"
+                                      className="text-[10px] font-bold fill-blue-600 font-mono"
                                     >
                                       Accrued ₹{Number(p.val).toFixed(2)}
                                     </text>
@@ -1830,12 +1976,12 @@ export default function AdminPanel() {
 
                 {/* Hover Details Card */}
                 {hoveredChartBar && (
-                  <div className="mt-4 p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in">
+                  <div className="mt-4 p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in">
                     <div className="flex items-center gap-3">
                       <span className="text-xl">📅</span>
                       <div>
-                        <span className="font-extrabold text-indigo-950 text-sm">{hoveredChartBar.displayDate}</span>
-                        <p className="text-[11px] text-indigo-700">12% p.a. Savings Compounding Yield</p>
+                        <span className="font-extrabold text-slate-900 text-sm">{hoveredChartBar.displayDate}</span>
+                        <p className="text-[11px] text-slate-600">12% p.a. Savings Compounding Yield</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4 text-xs font-semibold">
@@ -1845,7 +1991,7 @@ export default function AdminPanel() {
                       </div>
                       <div>
                         <span className="text-gray-500 text-[10px] block">Cumulative Yield:</span>
-                        <span className="font-black text-indigo-600 text-sm">₹{hoveredChartBar.cumulativeYield}</span>
+                        <span className="font-black text-blue-600 text-sm">₹{hoveredChartBar.cumulativeYield}</span>
                       </div>
                       <div>
                         <span className="text-gray-500 text-[10px] block">Total Capital:</span>
@@ -1889,7 +2035,7 @@ export default function AdminPanel() {
                           />
                           <div
                             style={{ width: `${Math.max(2, parseFloat(yldPct))}%` }}
-                            className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                            className="bg-blue-600 h-full rounded-full transition-all duration-500"
                             title={`Yield Profit (${yldPct}%)`}
                           />
                         </div>
@@ -1919,7 +2065,7 @@ export default function AdminPanel() {
                           {/* Accrued Profit Yield Row */}
                           <div className="p-4 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-gray-200 hover:shadow-xs transition-all flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center text-lg shrink-0">
+                              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center text-lg shrink-0">
                                 📈
                               </div>
                               <div className="min-w-0">
@@ -1928,10 +2074,10 @@ export default function AdminPanel() {
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="font-black font-mono text-sm text-indigo-600">
+                              <p className="font-black font-mono text-sm text-blue-600">
                                 +₹{yld.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                               </p>
-                              <span className="text-[10px] font-bold font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                              <span className="text-[10px] font-bold font-mono text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full inline-block mt-0.5">
                                 {yldPct}% ROI Growth
                               </span>
                             </div>
@@ -1971,7 +2117,7 @@ export default function AdminPanel() {
                               className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 border ${
                                 isDeposit
                                   ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                  : "bg-indigo-50 text-indigo-600 border-indigo-100"
+                                  : "bg-blue-50 text-blue-600 border-blue-100"
                               }`}
                             >
                               {isDeposit ? "📥" : "⚡"}
@@ -1986,7 +2132,7 @@ export default function AdminPanel() {
                                   className={`font-mono font-bold text-xs px-2 py-0.5 rounded-lg shrink-0 border ${
                                     isDeposit
                                       ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-                                      : "text-indigo-700 bg-indigo-50 border-indigo-200"
+                                      : "text-blue-700 bg-blue-50 border-blue-200"
                                   }`}
                                 >
                                   +₹{formattedAmt}
@@ -2045,27 +2191,27 @@ export default function AdminPanel() {
                   const liveTodayAccrued = baseToday + liveAccruedAdmin;
 
                   return (
-                    <div className="mb-6 p-5 bg-gradient-to-br from-indigo-50/95 via-blue-50/80 to-emerald-50/90 border border-indigo-200/80 rounded-3xl shadow-xs">
+                    <div className="mb-6 p-5 bg-white border border-slate-200/90 rounded-3xl shadow-xs">
                       {/* Header */}
                       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-lg shadow-sm">
+                          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg shadow-sm">
                             🧮
                           </div>
                           <div>
-                            <h4 className="text-sm font-black text-gray-900 tracking-tight">
+                            <h4 className="text-sm font-black text-slate-900 tracking-tight">
                               Transparent Daily Savings Yield & Real-Time Accrual Breakdown
                             </h4>
-                            <p className="text-[11px] font-semibold text-gray-500">
+                            <p className="text-[11px] font-semibold text-slate-500">
                               Har din ka munafa kaise calculate hota hai aur live kaise credit hota hai
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-black text-indigo-700 bg-white px-3 py-1 rounded-full border border-indigo-200 shadow-2xs font-mono">
+                          <span className="text-[11px] font-black text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 shadow-2xs font-mono">
                             12.00% Annual (p.a.) • 1.00% Monthly
                           </span>
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-black text-emerald-700 bg-emerald-100/90 px-2.5 py-1 rounded-full border border-emerald-300 shadow-2xs">
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-300 shadow-2xs">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                             Live Accrual Active
                           </span>
@@ -2075,33 +2221,33 @@ export default function AdminPanel() {
                       {/* 4 Step Visual Calculation Flow */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                         {/* Step 1 */}
-                        <div className="p-3.5 bg-white/95 rounded-2xl border border-indigo-100 shadow-2xs">
+                        <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider">Step 1 • Active Capital</span>
+                            <span className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Step 1 • Active Capital</span>
                             <span className="text-xs">💼</span>
                           </div>
-                          <p className="font-mono font-black text-base text-gray-900">₹{currentBase.toLocaleString("en-IN")}</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">Approved Company Deposit Pool</p>
+                          <p className="font-mono font-black text-base text-slate-900">₹{currentBase.toLocaleString("en-IN")}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Approved Company Deposit Pool</p>
                         </div>
 
                         {/* Step 2 */}
-                        <div className="p-3.5 bg-white/95 rounded-2xl border border-indigo-100 shadow-2xs">
+                        <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-[10px] font-extrabold text-blue-600 uppercase tracking-wider">Step 2 • Monthly (1%)</span>
                             <span className="text-xs">📅</span>
                           </div>
                           <p className="font-mono font-black text-base text-blue-600">₹{monthly1Pct.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">₹{currentBase.toLocaleString("en-IN")} × 1% per month</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">₹{currentBase.toLocaleString("en-IN")} × 1% per month</p>
                         </div>
 
                         {/* Step 3 */}
-                        <div className="p-3.5 bg-white/95 rounded-2xl border border-indigo-100 shadow-2xs">
+                        <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-extrabold text-purple-600 uppercase tracking-wider">Step 3 • Daily Yield (24h)</span>
+                            <span className="text-[10px] font-extrabold text-sky-600 uppercase tracking-wider">Step 3 • Daily Yield (24h)</span>
                             <span className="text-xs">🗓️</span>
                           </div>
-                          <p className="font-mono font-black text-base text-purple-700">₹{perDay365.toFixed(2)} / full day</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">₹{annual12Pct.toLocaleString("en-IN")} ÷ 365 din (~₹{perDay31.toFixed(2)} in Oct)</p>
+                          <p className="font-mono font-black text-base text-sky-700">₹{perDay365.toFixed(2)} / full day</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">₹{annual12Pct.toLocaleString("en-IN")} ÷ 365 din (~₹{perDay31.toFixed(2)} in Oct)</p>
                         </div>
 
                         {/* Step 4 */}
@@ -2120,11 +2266,11 @@ export default function AdminPanel() {
                       </div>
 
                       {/* Live Understanding Notice Banner */}
-                      <div className="p-3.5 bg-white/90 border border-indigo-100 rounded-2xl text-xs space-y-2">
+                      <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-2">
                         <div className="flex items-start gap-2.5">
                           <span className="text-base mt-0.5">💡</span>
-                          <div className="space-y-1 text-gray-700 leading-relaxed">
-                            <p className="font-extrabold text-indigo-950">
+                          <div className="space-y-1 text-slate-700 leading-relaxed">
+                            <p className="font-extrabold text-slate-900">
                               Kyun din ka pura amount (+₹{perDay365.toFixed(2)}) ek baar me nahi, balki dheere-dheere badhta hai?
                             </p>
                             <p className="text-gray-600">
@@ -2152,21 +2298,79 @@ export default function AdminPanel() {
                   );
                 })()}
 
-                <div className="overflow-x-auto">
+                {/* MOBILE CARD LIST (NO HORIZONTAL SCROLL) */}
+                <div className="sm:hidden space-y-2.5">
+                  {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
+                    <div className="py-8 text-center text-gray-400 text-xs font-medium bg-slate-50 rounded-xl border border-slate-200">
+                      Koi daily profit yield abhi tak record nahi hua hai.
+                    </div>
+                  ) : (
+                    analytics.dailyProfitChart.map((row, idx) => {
+                      const isToday = row.date?.includes("2026-10-07") || idx === analytics.dailyProfitChart.length - 1;
+                      const rowAmount = isToday ? (Number(row.amount) + liveAccruedAdmin) : Number(row.amount);
+                      const rowCumulative = isToday ? liveAdminProfit : Number(row.cumulativeYield);
+                      return (
+                        <div key={row.date || idx} className="p-3 bg-white border border-slate-200/90 rounded-xl space-y-2 shadow-2xs">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                              <span className="font-mono text-slate-400 text-[11px]">#{idx + 1}</span>
+                              <span>{row.displayDate || row.date}</span>
+                              {isToday && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  Live
+                                </span>
+                              )}
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isToday ? "bg-emerald-500 text-white shadow-2xs" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+                              {isToday ? "⚡ Live Crediting" : "✓ Credited"}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-100">
+                            <div>
+                              <span className="text-slate-400 block text-[10px]">Principal Base</span>
+                              <span className="font-mono font-bold text-slate-700">₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-slate-400 block text-[10px]">Annual Rate</span>
+                              <span className="font-bold text-slate-700">12% p.a.</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block text-[10px]">Daily Profit Added</span>
+                              <span className="font-mono font-black text-emerald-600">
+                                +₹{rowAmount.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-slate-400 block text-[10px]">Cumulative Yield</span>
+                              <span className="font-mono font-bold text-blue-700">
+                                ₹{rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* DESKTOP TABLE */}
+                <div className="hidden sm:block overflow-x-auto rounded-xl border border-slate-200">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-left text-gray-400 uppercase border-b border-gray-100 pb-2">
-                        <th className="pb-3 font-bold pr-4">#</th>
-                        <th className="pb-3 font-bold pr-4">Date</th>
-                        <th className="pb-3 font-bold pr-4">Principal Base</th>
-                        <th className="pb-3 font-bold pr-4">Rate</th>
-                        <th className="pb-3 font-bold pr-4">Daily Profit</th>
-                        <th className="pb-3 font-bold pr-4">Cumulative Total</th>
-                        <th className="pb-3 font-bold pr-4">User</th>
-                        <th className="pb-3 font-bold">Status</th>
+                      <tr className="bg-slate-50 text-left text-slate-500 uppercase border-b border-slate-200">
+                        <th className="py-2.5 px-3 font-bold">#</th>
+                        <th className="py-2.5 px-3 font-bold">Date</th>
+                        <th className="py-2.5 px-3 font-bold">Principal Base</th>
+                        <th className="py-2.5 px-3 font-bold">Rate</th>
+                        <th className="py-2.5 px-3 font-bold">Daily Profit</th>
+                        <th className="py-2.5 px-3 font-bold">Cumulative Total</th>
+                        <th className="py-2.5 px-3 font-bold">User</th>
+                        <th className="py-2.5 px-3 font-bold">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-slate-100">
                       {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
                         <tr>
                           <td colSpan="8" className="py-8 text-center text-gray-400 font-medium">
@@ -2179,28 +2383,28 @@ export default function AdminPanel() {
                           const rowAmount = isToday ? (Number(row.amount) + liveAccruedAdmin) : Number(row.amount);
                           const rowCumulative = isToday ? liveAdminProfit : Number(row.cumulativeYield);
                           return (
-                            <tr key={row.date || idx} className="hover:bg-gray-50/70 transition">
-                              <td className="py-3 pr-4 font-mono text-gray-400">{idx + 1}</td>
-                              <td className="py-3 pr-4 font-bold text-gray-900 flex items-center gap-1.5">
+                            <tr key={row.date || idx} className="hover:bg-slate-50/70 transition">
+                              <td className="py-3 px-3 font-mono text-slate-400">{idx + 1}</td>
+                              <td className="py-3 px-3 font-bold text-slate-900 flex items-center gap-1.5">
                                 <span>{row.displayDate || row.date}</span>
                                 {isToday && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full border border-emerald-300">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                     Live
                                   </span>
                                 )}
                               </td>
-                              <td className="py-3 pr-4 font-mono text-gray-600">₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}</td>
-                              <td className="py-3 pr-4 text-gray-500">12% p.a.</td>
-                              <td className="py-3 pr-4 font-black text-emerald-600 font-mono">
+                              <td className="py-3 px-3 font-mono text-slate-700">₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}</td>
+                              <td className="py-3 px-3 text-slate-600">12% p.a.</td>
+                              <td className="py-3 px-3 font-black text-emerald-600 font-mono">
                                 +₹{rowAmount.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
                               </td>
-                              <td className="py-3 pr-4 font-bold font-mono text-indigo-700">
+                              <td className="py-3 px-3 font-bold font-mono text-blue-700">
                                 ₹{rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
                               </td>
-                              <td className="py-3 pr-4 text-gray-500">{row.uniqueUsers ? `${row.uniqueUsers} User(s)` : "Active User"}</td>
-                              <td className="py-3">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isToday ? "bg-emerald-500 text-white shadow-2xs" : "bg-emerald-100 text-emerald-700"}`}>
+                              <td className="py-3 px-3 text-slate-600">{row.uniqueUsers ? `${row.uniqueUsers} User(s)` : "Active User"}</td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isToday ? "bg-emerald-500 text-white shadow-2xs" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
                                   {isToday ? "⚡ Live Crediting" : "✓ Credited"}
                                 </span>
                               </td>
@@ -2219,12 +2423,12 @@ export default function AdminPanel() {
           {tab === "pending" && (
             <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
               {/* Active Deposit Credentials Info Banner */}
-              <div className="mb-5 p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="mb-5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2.5">
                   <span className="text-xl">💳</span>
                   <div>
-                    <span className="font-extrabold text-blue-950">Active Deposit Credentials:</span>
-                    <span className="text-blue-800 ml-1">
+                    <span className="font-extrabold text-slate-900">Active Deposit Credentials:</span>
+                    <span className="text-slate-700 ml-1">
                       UPI: <strong className="font-mono">{depositDetails.upiId || "educafinance@upi"}</strong> | A/C: <strong className="font-mono">{depositDetails.accountNumber || "5010045239128"}</strong> ({depositDetails.bankName || "Bank of Baroda"})
                     </span>
                   </div>
@@ -2258,7 +2462,7 @@ export default function AdminPanel() {
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <span className={`px-2 py-1 rounded-full text-xs font-bold ${t.type === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{t.type}</span>
                                 {t.type === "withdrawal" && (
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.amount <= 5000 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-purple-100 text-purple-800 border border-purple-200"}`}>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.amount <= 5000 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-blue-100 text-blue-800 border border-blue-200"}`}>
                                     {t.slaLabel || (t.amount <= 5000 ? "24h SLA" : "72h SLA")}
                                   </span>
                                 )}
@@ -2269,9 +2473,21 @@ export default function AdminPanel() {
                             <td className="py-3 pr-4 text-xs text-gray-500 max-w-xs">
                               {t.utrNumber && <div className="font-mono font-bold text-gray-800">UTR: {t.utrNumber}</div>}
                               {(t.proofUrl || t.screenshotUrl) && (
-                                <a href={t.proofUrl || t.screenshotUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:underline font-bold mt-1">
-                                  📸 View Receipt / Evidence
-                                </a>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <img
+                                    src={t.proofUrl || t.screenshotUrl}
+                                    alt="Receipt"
+                                    onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
+                                    className="w-8 h-8 object-cover rounded-md border border-slate-300 cursor-zoom-in hover:scale-105 transition"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
+                                    className="text-[11px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
+                                  >
+                                    View Receipt 🔍
+                                  </button>
+                                </div>
                               )}
                               {t.paymentDetails && (
                                 <div className="text-[11px] text-gray-500 truncate mt-0.5">
@@ -2294,16 +2510,16 @@ export default function AdminPanel() {
                   {/* Mobile card list */}
                   <div className="md:hidden space-y-3">
                     {pending.map(t => (
-                      <div key={t._id} className="border border-gray-100 rounded-xl p-4">
+                      <div key={t._id} className="border border-slate-200/90 rounded-2xl p-4 bg-white shadow-2xs">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <p className="font-semibold text-sm">{t.userId?.name}</p>
+                            <p className="font-semibold text-sm text-slate-900">{t.userId?.name}</p>
                             <p className="text-xs text-gray-400">{t.userId?.email}</p>
                           </div>
                           <div className="flex flex-col items-end gap-1">
                             <span className={`px-2 py-1 rounded-full text-xs font-bold shrink-0 ${t.type === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{t.type}</span>
                             {t.type === "withdrawal" && (
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.amount <= 5000 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-purple-100 text-purple-800 border border-purple-200"}`}>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.amount <= 5000 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-blue-100 text-blue-800 border border-blue-200"}`}>
                                 {t.slaLabel || (t.amount <= 5000 ? "24h SLA" : "72h SLA")}
                               </span>
                             )}
@@ -2311,18 +2527,34 @@ export default function AdminPanel() {
                         </div>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-gray-400">Amount</span>
-                          <span className="font-bold">₹{t.amount.toLocaleString("en-IN")}</span>
+                          <span className="font-bold text-slate-900">₹{t.amount.toLocaleString("en-IN")}</span>
                         </div>
                         <div className="flex justify-between text-sm mb-2">
                           <span className="text-gray-400">Method</span>
                           <span className="uppercase text-xs text-gray-500">{t.method}</span>
                         </div>
-                        {t.utrNumber && <p className="text-xs font-mono font-bold text-gray-800 mb-1">UTR: {t.utrNumber}</p>}
+                        {t.utrNumber && <p className="text-xs font-mono font-bold text-slate-800 mb-1">UTR: {t.utrNumber}</p>}
                         {(t.proofUrl || t.screenshotUrl) && (
-                          <div className="mb-2">
-                            <a href={t.proofUrl || t.screenshotUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline font-bold">
-                              📸 View Receipt / Evidence
-                            </a>
+                          <div className="mb-2 p-2 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <img
+                                src={t.proofUrl || t.screenshotUrl}
+                                alt="Receipt"
+                                onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
+                                className="w-10 h-10 object-cover rounded-lg border border-slate-300 cursor-zoom-in"
+                              />
+                              <div>
+                                <span className="text-xs font-bold text-slate-800 block">Payment Receipt</span>
+                                <span className="text-[10px] text-slate-500">Tap to inspect full screen</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
+                              className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold"
+                            >
+                              🔍 Zoom
+                            </button>
                           </div>
                         )}
                         {t.paymentDetails && (
@@ -2356,236 +2588,330 @@ export default function AdminPanel() {
                 </div>
 
                 {/* Action & Filter Pills */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={exportKycToCsv}
-                    className="w-full sm:w-auto justify-center px-3.5 py-2 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer shrink-0"
-                  >
-                    <span>📥</span> Export to Excel
-                  </button>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                    {/* Status Filter */}
+                    <div className="grid grid-cols-4 bg-slate-100 p-1 rounded-xl text-xs font-bold text-center w-full sm:w-auto sm:flex sm:gap-1">
+                      {[
+                        { key: "all", label: "All" },
+                        { key: "pending", label: `Pending (${pendingKycCount})` },
+                        { key: "verified", label: "Verified" },
+                        { key: "rejected", label: "Rejected" },
+                      ].map(f => (
+                        <button
+                          key={f.key}
+                          onClick={() => setKycFilter(f.key)}
+                          className={`px-1.5 sm:px-2.5 py-1 rounded-lg transition cursor-pointer text-center truncate ${
+                            kycFilter === f.key
+                              ? "bg-white text-blue-700 shadow-2xs font-extrabold"
+                              : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
 
-                    <div className="w-full sm:w-auto overflow-x-auto no-scrollbar flex gap-1 bg-gray-100 p-1 rounded-xl text-xs font-bold shrink-0">
-                    {[
-                      { key: "all", label: "All Submissions" },
-                      { key: "pending", label: `Pending (${pendingKycCount})` },
-                      { key: "verified", label: "Verified" },
-                      { key: "rejected", label: "Rejected" },
-                    ].map(f => (
+                    {/* Date / Time Filter */}
+                    <div className="grid grid-cols-4 bg-blue-50/70 border border-blue-200/90 p-1 rounded-xl text-xs font-bold text-center w-full sm:w-auto sm:flex sm:gap-1">
+                      {[
+                        { key: "all", label: "All Time" },
+                        { key: "today", label: "Today" },
+                        { key: "7days", label: "7 Days" },
+                        { key: "30days", label: "30 Days" },
+                      ].map(tf => (
+                        <button
+                          key={tf.key}
+                          onClick={() => setKycTimeFilter(tf.key)}
+                          className={`px-1.5 sm:px-2 py-1 rounded-lg transition cursor-pointer text-[11px] text-center truncate ${
+                            kycTimeFilter === tf.key
+                              ? "bg-blue-600 text-white shadow-xs font-extrabold"
+                              : "text-blue-700 hover:text-blue-900"
+                          }`}
+                        >
+                          {tf.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Export & Multi-select Toolbar */}
+                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 pt-1 border-t sm:border-t-0 border-gray-100">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg select-none">
+                      <input
+                        type="checkbox"
+                        checked={filteredKycUsers.length > 0 && selectedKycIds.size === filteredKycUsers.length}
+                        onChange={toggleSelectAllKyc}
+                        className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span>Select All ({filteredKycUsers.length})</span>
+                    </label>
+
+                    {selectedKycIds.size > 0 && (
                       <button
-                        key={f.key}
-                        onClick={() => setKycFilter(f.key)}
-                        className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                          kycFilter === f.key
-                            ? "bg-white text-blue-700 shadow-xs"
-                            : "text-gray-500 hover:text-gray-800"
-                        }`}
+                        onClick={() => exportKycToCsv()}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
                       >
-                        {f.label}
+                        <span>📥</span> Export Selected ({selectedKycIds.size})
                       </button>
-                    ))}
+                    )}
+
+                    <button
+                      onClick={() => exportKycToCsv(filteredKycUsers)}
+                      className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>📥</span> Export All ({filteredKycUsers.length})
+                    </button>
                   </div>
                 </div>
-              </div>
 
               {(() => {
-                const kycUsers = users.filter(u => {
-                  const hasKyc = u.kycStatus && u.kycStatus !== "none";
-                  if (!hasKyc) return false;
-                  if (kycFilter === "all") return true;
-                  return u.kycStatus === kycFilter;
-                });
-
-                if (kycUsers.length === 0) {
+                if (filteredKycUsers.length === 0) {
                   return (
                     <div className="py-16 text-center text-gray-400">
                       <span className="text-4xl block mb-2">📄</span>
-                      <p className="text-sm font-semibold">No KYC submissions found in this category.</p>
+                      <p className="text-sm font-semibold">No KYC submissions found matching this filter.</p>
                     </div>
                   );
                 }
 
                 return (
-                  <div className="space-y-3">
-                    {kycUsers.map(u => (
+                    <div className="space-y-3">
+                    {filteredKycUsers.map(u => (
                       <div
                         key={u._id}
                         onClick={() => {
                           setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
                           setPreviewKycUser(u);
                         }}
-                        className="p-3.5 sm:p-4 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 border border-gray-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 transition cursor-pointer shadow-2xs group"
+                        className={`p-3.5 sm:p-5 rounded-2xl flex flex-col gap-3 transition cursor-pointer shadow-2xs group border ${
+                          selectedKycIds.has(u._id)
+                            ? "bg-blue-50/70 border-blue-400 ring-1 ring-blue-400"
+                            : "bg-white hover:bg-slate-50 hover:border-slate-300 border-slate-200"
+                        }`}
                       >
-                        <div className="flex items-start gap-3 min-w-0">
-                          {/* Document Thumbnails (Front & Back for Doc 1 & Doc 2) */}
-                          <div className="flex items-center gap-1.5 shrink-0 flex-wrap max-w-[200px] sm:max-w-none">
+                        {/* Row 1: Header (Checkbox + User Name + Badges + Excel) */}
+                        <div className="flex items-center justify-between gap-2 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              onClick={(e) => { e.stopPropagation(); toggleSelectKyc(u._id); }}
+                              className="cursor-pointer shrink-0"
+                              title="Select for export"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedKycIds.has(u._id)}
+                                onChange={() => {}}
+                                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-extrabold text-slate-900 text-sm sm:text-base group-hover:text-blue-700 transition truncate">
+                                  {u.name}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                    u.kycStatus === "verified"
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                      : u.kycStatus === "pending"
+                                      ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                      : "bg-rose-50 text-rose-700 border border-rose-200"
+                                  }`}
+                                >
+                                  {u.kycStatus}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  🕒 {u.kycDocuments?.submittedAt ? new Date(u.kycDocuments.submittedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Recent"}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 truncate mt-0.5">
+                                {u.email} {u.phone ? `• ${u.phone}` : ""}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Quick 1-click Excel Export */}
+                          <button
+                            type="button"
+                            title="Download this borrower's KYC record in Excel"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              exportKycToCsv(u);
+                            }}
+                            className="shrink-0 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
+                          >
+                            <span>📥</span>
+                            <span className="hidden sm:inline">Excel</span>
+                          </button>
+                        </div>
+
+                        {/* Row 2: ID Numbers & Details Chips (Full Width) */}
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600 pt-0.5">
+                          {u.kycDocuments?.aadharNumber && (
+                            <span className="font-mono bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 text-slate-700">
+                              UID: {u.kycDocuments.aadharNumber}
+                            </span>
+                          )}
+                          <span className="font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 uppercase text-[10px]">
+                            {u.kycDocuments?.doc2Type === "cheque" ? "Cheque" : "PAN"}
+                          </span>
+                          {u.kycDocuments?.panNumber && (
+                            <span className="font-mono uppercase bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 text-slate-700">
+                              PAN: {u.kycDocuments.panNumber}
+                            </span>
+                          )}
+                          {u.kycDocuments?.chequeNumber && (
+                            <span className="font-mono bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 text-slate-700">
+                              CHQ: {u.kycDocuments.chequeNumber}
+                            </span>
+                          )}
+                          {(u.address || u.kycDocuments?.address) && (
+                            <span className="truncate max-w-[260px] text-slate-500">
+                              📍 {u.address || u.kycDocuments?.address}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Admin Remarks if any */}
+                        {u.kycDocuments?.adminRemarks && (
+                          <div className="text-[11px] text-blue-700 font-medium bg-blue-50/80 px-2.5 py-1 rounded-xl border border-blue-100 flex items-center gap-1.5">
+                            <span>💬 Note:</span>
+                            <span className="truncate">{u.kycDocuments.adminRemarks}</span>
+                            {(u.kycStatus === "verified" || u.kycStatus === "rejected" || u.kycDocuments?.isNoteLocked) && (
+                              <span className="text-[9px] text-slate-400 font-bold ml-auto shrink-0">🔒 Locked</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Row 3: 4 Document Thumbnails Grid with Tap to Zoom */}
+                        <div className="p-2.5 bg-slate-50/90 rounded-xl border border-slate-200/80">
+                          <div className="flex items-center justify-between mb-2 px-0.5">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                              KYC Document Images (Tap to Zoom)
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2">
                             {/* Doc 1 Front */}
                             {(u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl) ? (
-                              <div className="relative group/thumb">
+                              <div className="relative group/thumb flex flex-col items-center">
                                 <img
                                   src={u.kycDocuments.doc1Url || u.kycDocuments.docUrl}
-                                  alt="Aadhaar Front"
+                                  alt="UID Front"
                                   title="Aadhaar Front (Click to Zoom)"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setLightboxImg(u.kycDocuments.doc1Url || u.kycDocuments.docUrl);
                                     setZoomLevel(1);
                                   }}
-                                  className="w-11 h-11 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
+                                  className="w-full aspect-square max-h-16 object-cover rounded-xl border border-slate-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
                                 />
-                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-[8px] font-black px-1 rounded shadow-xs whitespace-nowrap pointer-events-none">
+                                <span className="mt-1 bg-slate-800 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.2 rounded shadow-xs whitespace-nowrap text-center">
                                   UID Front
                                 </span>
                               </div>
                             ) : (
-                              <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-xs font-bold" title="Aadhaar Front">🆔</div>
+                              <div className="w-full aspect-square max-h-16 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
+                                <span>🆔</span>
+                                <span className="text-[8px] text-slate-400 mt-0.5">No Front</span>
+                              </div>
                             )}
 
                             {/* Doc 1 Back */}
-                            {u.kycDocuments?.doc1BackUrl && (
-                              <div className="relative group/thumb">
+                            {u.kycDocuments?.doc1BackUrl ? (
+                              <div className="relative group/thumb flex flex-col items-center">
                                 <img
                                   src={u.kycDocuments.doc1BackUrl}
-                                  alt="Aadhaar Back"
+                                  alt="UID Back"
                                   title="Aadhaar Back (Click to Zoom)"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setLightboxImg(u.kycDocuments.doc1BackUrl);
                                     setZoomLevel(1);
                                   }}
-                                  className="w-11 h-11 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
+                                  className="w-full aspect-square max-h-16 object-cover rounded-xl border border-slate-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
                                 />
-                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-[8px] font-black px-1 rounded shadow-xs whitespace-nowrap pointer-events-none">
+                                <span className="mt-1 bg-slate-800 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.2 rounded shadow-xs whitespace-nowrap text-center">
                                   UID Back
                                 </span>
+                              </div>
+                            ) : (
+                              <div className="w-full aspect-square max-h-16 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
+                                <span>🆔</span>
+                                <span className="text-[8px] text-slate-400 mt-0.5">No Back</span>
                               </div>
                             )}
 
                             {/* Doc 2 Front */}
                             {u.kycDocuments?.doc2Url ? (
-                              <div className="relative group/thumb">
+                              <div className="relative group/thumb flex flex-col items-center">
                                 <img
                                   src={u.kycDocuments.doc2Url}
-                                  alt="Doc 2 Front"
+                                  alt="PAN Front"
                                   title={`${u.kycDocuments?.doc2Type === "cheque" ? "Cheque" : "PAN"} Front (Click to Zoom)`}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setLightboxImg(u.kycDocuments.doc2Url);
                                     setZoomLevel(1);
                                   }}
-                                  className="w-11 h-11 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
+                                  className="w-full aspect-square max-h-16 object-cover rounded-xl border border-slate-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
                                 />
-                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-indigo-900/90 text-white text-[8px] font-black px-1 rounded shadow-xs whitespace-nowrap pointer-events-none">
+                                <span className="mt-1 bg-slate-800 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.2 rounded shadow-xs whitespace-nowrap text-center">
                                   {u.kycDocuments?.doc2Type === "cheque" ? "CHQ Front" : "PAN Front"}
                                 </span>
                               </div>
                             ) : (
-                              <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center text-xs font-bold" title="Doc 2 Front">💳</div>
+                              <div className="w-full aspect-square max-h-16 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
+                                <span>💳</span>
+                                <span className="text-[8px] text-slate-400 mt-0.5">No Doc 2</span>
+                              </div>
                             )}
 
                             {/* Doc 2 Back */}
-                            {u.kycDocuments?.doc2BackUrl && (
-                              <div className="relative group/thumb">
+                            {u.kycDocuments?.doc2BackUrl ? (
+                              <div className="relative group/thumb flex flex-col items-center">
                                 <img
                                   src={u.kycDocuments.doc2BackUrl}
-                                  alt="Doc 2 Back"
+                                  alt="PAN Back"
                                   title={`${u.kycDocuments?.doc2Type === "cheque" ? "Cheque" : "PAN"} Back (Click to Zoom)`}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setLightboxImg(u.kycDocuments.doc2BackUrl);
                                     setZoomLevel(1);
                                   }}
-                                  className="w-11 h-11 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
+                                  className="w-full aspect-square max-h-16 object-cover rounded-xl border border-slate-300 bg-white shadow-2xs group-hover/thumb:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
                                 />
-                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-indigo-900/90 text-white text-[8px] font-black px-1 rounded shadow-xs whitespace-nowrap pointer-events-none">
+                                <span className="mt-1 bg-slate-800 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.2 rounded shadow-xs whitespace-nowrap text-center">
                                   {u.kycDocuments?.doc2Type === "cheque" ? "CHQ Back" : "PAN Back"}
                                 </span>
                               </div>
-                            )}
-                          </div>
-
-                          <div className="min-w-0 space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-gray-900 text-sm group-hover:text-blue-900 transition">{u.name}</span>
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                  u.kycStatus === "verified"
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : u.kycStatus === "pending"
-                                    ? "bg-amber-100 text-amber-800"
-                                    : "bg-rose-100 text-rose-800"
-                                }`}
-                              >
-                                {u.kycStatus}
-                              </span>
-                              <span className="text-[10px] text-gray-400 font-mono">
-                                🕒 {u.kycDocuments?.submittedAt ? new Date(u.kycDocuments.submittedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Recent"}
-                              </span>
-                            </div>
-
-                            <p className="text-xs text-gray-500">
-                              {u.email} · {u.phone}
-                            </p>
-
-                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-600">
-                              {u.kycDocuments?.aadharNumber && (
-                                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 text-slate-700">
-                                  UID: {u.kycDocuments.aadharNumber}
-                                </span>
-                              )}
-                              <span className="font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 uppercase text-[10px]">
-                                {u.kycDocuments?.doc2Type === "cheque" ? "Cheque" : "PAN"}
-                              </span>
-                              {u.kycDocuments?.panNumber && (
-                                <span className="font-mono uppercase bg-white px-2 py-0.5 rounded border border-gray-200 text-slate-700">
-                                  PAN: {u.kycDocuments.panNumber}
-                                </span>
-                              )}
-                              {u.kycDocuments?.chequeNumber && (
-                                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 text-slate-700">
-                                  CHQ: {u.kycDocuments.chequeNumber}
-                                </span>
-                              )}
-                              {(u.address || u.kycDocuments?.address) && (
-                                <span className="truncate max-w-[200px] text-gray-500">
-                                  📍 {u.address || u.kycDocuments?.address}
-                                </span>
-                              )}
-                            </div>
-
-                            {u.kycDocuments?.adminRemarks && (
-                              <p className="text-[11px] text-blue-700 font-medium bg-blue-50/80 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
-                                <span>💬 Note:</span>
-                                <span>{u.kycDocuments.adminRemarks}</span>
-                                {(u.kycStatus === "verified" || u.kycStatus === "rejected" || u.kycDocuments?.isNoteLocked) && (
-                                  <span className="text-[9px] text-gray-400 font-bold ml-1">🔒 Locked</span>
-                                )}
-                              </p>
+                            ) : (
+                              <div className="w-full aspect-square max-h-16 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
+                                <span>💳</span>
+                                <span className="text-[8px] text-slate-400 mt-0.5">No Back</span>
+                              </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Action */}
-                        <div className="flex items-center gap-2 w-full md:w-auto shrink-0 md:self-center">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
-                              setPreviewKycUser(u);
-                            }}
-                            className={`w-full md:w-auto justify-center px-4 py-2.5 rounded-xl text-xs font-bold shadow-md active:scale-95 transition flex items-center gap-1.5 cursor-pointer ${
-                              u.kycStatus === "rejected"
-                                ? "bg-rose-100 text-rose-700 border border-rose-200 shadow-none hover:bg-rose-200/70"
-                                : u.kycStatus === "verified"
-                                ? "bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-none hover:bg-emerald-200/70"
-                                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
-                            }`}
-                          >
-                            <span>{u.kycStatus === "rejected" ? "🚫" : u.kycStatus === "verified" ? "✓" : "🔍"}</span>
-                            {u.kycStatus === "rejected" ? "Rejected — View" : u.kycStatus === "verified" ? "Verified — View" : "Review & Verify"}
-                          </button>
-                        </div>
-
+                        {/* Row 4: Clean Action Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
+                            setPreviewKycUser(u);
+                          }}
+                          className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold shadow-xs active:scale-95 transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                            u.kycStatus === "rejected"
+                              ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
+                              : u.kycStatus === "verified"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                              : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
+                          }`}
+                        >
+                          <span>{u.kycStatus === "rejected" ? "🚫" : u.kycStatus === "verified" ? "✓" : "🔍"}</span>
+                          <span>{u.kycStatus === "rejected" ? "Rejected — View Details" : u.kycStatus === "verified" ? "Verified — View Details" : "Review & Verify KYC"}</span>
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -2687,69 +3013,192 @@ export default function AdminPanel() {
                   <p className="text-xs text-gray-400 mt-1">Try changing category or clearing search query.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-2xs">
-                  <table className="w-full min-w-[850px] table-fixed border-collapse bg-white text-left text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-gray-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4 w-[150px]">Timestamp</th>
-                        <th className="py-3 px-4 w-[170px]">Category & Action</th>
-                        <th className="py-3 px-4 w-[190px]">User / Account</th>
-                        <th className="py-3 px-4 w-[120px]">Amount / Value</th>
-                        <th className="py-3 px-4 w-[100px]">Status</th>
-                        <th className="py-3 px-4">Audit Reference / Details & Docs</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {auditHistory.map((item, idx) => {
-                        const isApproved = item.status === "approved" || item.status === "completed" || item.status === "verified" || item.status === "active";
-                        const isPending = item.status === "pending";
-                        const isRejected = item.status === "rejected";
-                        const d = new Date(item.timestamp || item.createdAt || Date.now());
-                        const isDateValid = !isNaN(d.getTime());
-                        const refVal = item.reference || item.referenceId;
-                        const noteVal = item.notes || item.remarks;
+                <>
+                  {/* Mobile Responsive Audit Cards (sm:hidden) */}
+                  <div className="sm:hidden space-y-2.5">
+                    {auditHistory.map((item, idx) => {
+                      const isApproved = item.status === "approved" || item.status === "completed" || item.status === "verified" || item.status === "active";
+                      const isPending = item.status === "pending";
+                      const isRejected = item.status === "rejected";
+                      const d = new Date(item.timestamp || item.createdAt || Date.now());
+                      const isDateValid = !isNaN(d.getTime());
+                      const refVal = item.reference || item.referenceId;
+                      const noteVal = item.notes || item.remarks;
 
-                        return (
-                          <tr key={item.id || idx} className="hover:bg-slate-50/70 transition-colors">
-                            {/* Timestamp */}
-                            <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600 align-top">
-                              <span className="block font-bold text-slate-900">
-                                {isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent"}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                {isDateValid ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }) : ""}
-                              </span>
-                            </td>
+                      return (
+                        <div key={item.id || idx} className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs space-y-2">
+                          {/* Row 1: Category & Status */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              item.category === "deposit"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : item.category === "withdrawal"
+                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                : item.category === "transfer"
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : item.category === "kyc"
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : item.category === "loan"
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : item.category === "agent"
+                                ? "bg-sky-50 text-sky-700 border border-sky-200"
+                                : "bg-teal-50 text-teal-700 border border-teal-200"
+                            }`}>
+                              {item.category === "deposit" ? "💰 Deposit (Add)" :
+                               item.category === "withdrawal" ? "💸 Withdrawal (Out)" :
+                               item.category === "transfer" ? "🔄 Transfer" :
+                               item.category === "kyc"
+                                 ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan KYC" : "📄 Normal KYC" :
+                               item.category === "loan" ? "🏦 Loan" :
+                               item.category === "agent" ? "🤝 Agent" : "📈 Yield"}
+                            </span>
 
-                            {/* Category & Action */}
-                            <td className="py-3.5 px-4 align-top">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                item.category === "deposit"
-                                  ? "bg-emerald-100 text-emerald-800"
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              isApproved
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : isPending
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : isRejected
+                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                : "bg-slate-100 text-slate-700"
+                            }`}>
+                              {item.status}
+                            </span>
+                          </div>
+
+                          {/* Row 2: Title and Amount */}
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="font-extrabold text-slate-900 text-xs leading-snug">{item.title}</p>
+                            {item.amount != null && (
+                              <span className={`font-mono font-black text-sm shrink-0 ${
+                                item.category === "deposit" || item.category === "yield"
+                                  ? "text-emerald-600"
                                   : item.category === "withdrawal"
-                                  ? "bg-rose-100 text-rose-800"
-                                  : item.category === "transfer"
-                                  ? "bg-violet-100 text-violet-800"
-                                  : item.category === "kyc"
-                                  ? item.subCategory === "loan_lending_kyc"
-                                    ? "bg-indigo-100 text-indigo-800"
-                                    : "bg-amber-100 text-amber-800"
-                                  : item.category === "loan"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : item.category === "agent"
-                                  ? "bg-purple-100 text-purple-800"
-                                  : "bg-teal-100 text-teal-800"
+                                  ? "text-rose-600"
+                                  : "text-slate-900"
                               }`}>
-                                {item.category === "deposit" ? "💰 Deposit (Add)" :
-                                 item.category === "withdrawal" ? "💸 Withdrawal (Out)" :
-                                 item.category === "transfer" ? "🔄 P2P Transfer" :
-                                 item.category === "kyc"
-                                   ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan/Lending KYC" : "📄 Normal KYC" :
-                                 item.category === "loan" ? "🏦 Loan" :
-                                 item.category === "agent" ? "🤝 Agent" : "📈 Yield"}
+                                ₹{Number(item.amount).toLocaleString("en-IN")}
                               </span>
-                              <p className="font-bold text-gray-900 text-xs mt-1 leading-tight">{item.title}</p>
-                            </td>
+                            )}
+                          </div>
+
+                          {/* Row 3: User Details & Date */}
+                          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+                            <span className="font-bold text-slate-800 truncate">{item.userName || "Direct User"}</span>
+                            <span className="font-mono text-[10px] text-slate-400 shrink-0">
+                              {isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Recent"}
+                            </span>
+                          </div>
+
+                          {/* Row 4: Ref & Details */}
+                          {(refVal || noteVal) && (
+                            <div className="bg-slate-50 rounded-xl p-2 text-[10px] font-mono text-slate-600 break-all space-y-0.5">
+                              {refVal && <div>Ref: <span className="font-bold text-slate-800">{refVal}</span></div>}
+                              {noteVal && <div className="text-slate-500 font-sans italic">{noteVal}</div>}
+                            </div>
+                          )}
+
+                          {/* KYC Document preview buttons on mobile if available */}
+                          {item.category === "kyc" && item.hasPhotos && item.documents && (
+                            <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100">
+                              {item.documents.doc1Url && (
+                                <button
+                                  type="button"
+                                  onClick={() => setLightboxImg(item.documents.doc1Url)}
+                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200"
+                                >
+                                  UID Front 🔍
+                                </button>
+                              )}
+                              {item.documents.doc1BackUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setLightboxImg(item.documents.doc1BackUrl)}
+                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200"
+                                >
+                                  UID Back 🔍
+                                </button>
+                              )}
+                              {item.documents.doc2Url && (
+                                <button
+                                  type="button"
+                                  onClick={() => setLightboxImg(item.documents.doc2Url)}
+                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200"
+                                >
+                                  Doc 2 🔍
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop / Tablet Table */}
+                  <div className="hidden sm:block overflow-x-auto rounded-2xl border border-gray-200 shadow-2xs">
+                    <table className="w-full min-w-[850px] table-fixed border-collapse bg-white text-left text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-gray-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          <th className="py-3 px-4 w-[150px]">Timestamp</th>
+                          <th className="py-3 px-4 w-[170px]">Category & Action</th>
+                          <th className="py-3 px-4 w-[190px]">User / Account</th>
+                          <th className="py-3 px-4 w-[120px]">Amount / Value</th>
+                          <th className="py-3 px-4 w-[100px]">Status</th>
+                          <th className="py-3 px-4">Audit Reference / Details & Docs</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {auditHistory.map((item, idx) => {
+                          const isApproved = item.status === "approved" || item.status === "completed" || item.status === "verified" || item.status === "active";
+                          const isPending = item.status === "pending";
+                          const isRejected = item.status === "rejected";
+                          const d = new Date(item.timestamp || item.createdAt || Date.now());
+                          const isDateValid = !isNaN(d.getTime());
+                          const refVal = item.reference || item.referenceId;
+                          const noteVal = item.notes || item.remarks;
+
+                          return (
+                            <tr key={item.id || idx} className="hover:bg-slate-50/70 transition-colors">
+                              {/* Timestamp */}
+                              <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600 align-top">
+                                <span className="block font-bold text-slate-900">
+                                  {isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent"}
+                                </span>
+                                <span className="text-[10px] text-slate-400">
+                                  {isDateValid ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }) : ""}
+                                </span>
+                              </td>
+
+                              {/* Category & Action */}
+                              <td className="py-3.5 px-4 align-top">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                  item.category === "deposit"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : item.category === "withdrawal"
+                                    ? "bg-rose-100 text-rose-800"
+                                    : item.category === "transfer"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : item.category === "kyc"
+                                    ? item.subCategory === "loan_lending_kyc"
+                                      ? "bg-sky-100 text-sky-800"
+                                      : "bg-amber-100 text-amber-800"
+                                    : item.category === "loan"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : item.category === "agent"
+                                    ? "bg-teal-100 text-teal-800"
+                                    : "bg-teal-100 text-teal-800"
+                                }`}>
+                                  {item.category === "deposit" ? "💰 Deposit (Add)" :
+                                   item.category === "withdrawal" ? "💸 Withdrawal (Out)" :
+                                   item.category === "transfer" ? "🔄 P2P Transfer" :
+                                   item.category === "kyc"
+                                     ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan/Lending KYC" : "📄 Normal KYC" :
+                                   item.category === "loan" ? "🏦 Loan" :
+                                   item.category === "agent" ? "🤝 Agent" : "📈 Yield"}
+                                </span>
+                                <p className="font-bold text-gray-900 text-xs mt-1 leading-tight">{item.title}</p>
+                              </td>
 
                             {/* User */}
                             <td className="py-3.5 px-4 align-top">
@@ -2767,7 +3216,7 @@ export default function AdminPanel() {
                                     : item.category === "withdrawal"
                                     ? "text-rose-600"
                                     : item.category === "transfer"
-                                    ? "text-violet-700"
+                                    ? "text-blue-700"
                                     : "text-slate-900"
                                 }`}>
                                   ₹{Number(item.amount).toLocaleString("en-IN")}
@@ -2882,7 +3331,8 @@ export default function AdminPanel() {
                     </tbody>
                   </table>
                 </div>
-              )}
+              </>
+            )}
             </div>
           )}
 
@@ -2905,26 +3355,26 @@ export default function AdminPanel() {
               </div>
 
               {/* Agent Foreclosure Commission Structure Guide Card */}
-              <div className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50 to-amber-50 border border-blue-200/70 space-y-3">
+              <div className="mb-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-base">⚡</span>
-                    <h4 className="text-xs sm:text-sm font-extrabold text-blue-950">
+                    <h4 className="text-xs sm:text-sm font-extrabold text-slate-900">
                       Loan Pre-Closure 3-Way Sharing Rule (User • Agent • Company)
                     </h4>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white uppercase tracking-wider">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-600 text-white uppercase tracking-wider">
                     1:1:1 Equal Split
                   </span>
                 </div>
-                <div className="text-[11px] sm:text-xs text-blue-900/90 leading-relaxed bg-white/70 p-3 rounded-xl border border-blue-100">
-                  <p className="font-bold text-indigo-950 mb-1">
+                <div className="text-[11px] sm:text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-xl border border-slate-200/80">
+                  <p className="font-bold text-slate-900 mb-1">
                     📌 <strong>Official Pre-Closure Rules:</strong>
                   </p>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
+                  <ul className="list-disc list-inside space-y-1 text-slate-600">
                     <li><strong>9 Kist Rule:</strong> Agar 9th installment se pehle close hoga to hi fayda/discount hoga. (9 ya uske baad discount zero).</li>
                     <li><strong>15 Kist Minimum Payoff:</strong> Borrower ko minimum 15 kiston ka bhugtan karna zaroori hai.</li>
-                    <li><strong>x% Formula:</strong> 15 ke upar jitna installment hai, utna percent chhoot hoga: <code className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900 font-bold">Total Kist - 15 = x% of Loan Amount</code>.</li>
+                    <li><strong>x% Formula:</strong> 15 ke upar jitna installment hai, utna percent chhoot hoga: <code className="font-mono bg-blue-50 px-1 py-0.5 rounded text-blue-700 font-bold border border-blue-200">Total Kist - 15 = x% of Loan Amount</code>.</li>
                     <li><strong>3 Barabar Hisse (1:1:1):</strong> Jo x% pool aayega uske 3 part honge: <strong>1 User ko discount</strong>, <strong>1 Agent ko benefit</strong>, <strong>1 Company ko profit</strong>.</li>
                   </ul>
                 </div>
@@ -2939,27 +3389,27 @@ export default function AdminPanel() {
                     <span className="text-base font-black text-amber-700">x / 3 % Commission</span>
                     <p className="text-[10px] text-gray-500 mt-0.5">Direct wallet me auto-credit</p>
                   </div>
-                  <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-indigo-600 block">3️⃣ Company Ko Profit</span>
-                    <span className="text-base font-black text-indigo-700">x / 3 % Profit</span>
+                  <div className="p-3 bg-white rounded-xl border border-blue-100 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-blue-600 block">3️⃣ Company Ko Profit</span>
+                    <span className="text-base font-black text-blue-700">x / 3 % Profit</span>
                     <p className="text-[10px] text-gray-500 mt-0.5">Company reserves me retained</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[10px] pt-1 border-t border-blue-200/50 text-gray-700 font-medium">
-                  <div className="bg-white/80 py-1.5 px-2 rounded-lg border border-blue-100">
-                    <span className="font-mono text-indigo-900 font-bold block">18 Kist (x=3%)</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[10px] pt-1 border-t border-slate-200 text-slate-700 font-medium">
+                  <div className="bg-white py-1.5 px-2 rounded-lg border border-slate-200">
+                    <span className="font-mono text-slate-900 font-bold block">18 Kist (x=3%)</span>
                     <span>1% User | 1% Agent | 1% Co.</span>
                   </div>
-                  <div className="bg-white/80 py-1.5 px-2 rounded-lg border border-blue-100">
-                    <span className="font-mono text-indigo-900 font-bold block">21 Kist (x=6%)</span>
+                  <div className="bg-white py-1.5 px-2 rounded-lg border border-slate-200">
+                    <span className="font-mono text-slate-900 font-bold block">21 Kist (x=6%)</span>
                     <span>2% User | 2% Agent | 2% Co.</span>
                   </div>
-                  <div className="bg-white/80 py-1.5 px-2 rounded-lg border border-blue-100">
-                    <span className="font-mono text-indigo-900 font-bold block">24 Kist (x=9%)</span>
+                  <div className="bg-white py-1.5 px-2 rounded-lg border border-slate-200">
+                    <span className="font-mono text-slate-900 font-bold block">24 Kist (x=9%)</span>
                     <span>3% User | 3% Agent | 3% Co.</span>
                   </div>
-                  <div className="bg-white/80 py-1.5 px-2 rounded-lg border border-blue-100">
-                    <span className="font-mono text-indigo-900 font-bold block">30 Kist (x=15%)</span>
+                  <div className="bg-white py-1.5 px-2 rounded-lg border border-slate-200">
+                    <span className="font-mono text-slate-900 font-bold block">30 Kist (x=15%)</span>
                     <span>5% User | 5% Agent | 5% Co.</span>
                   </div>
                 </div>
@@ -2972,7 +3422,7 @@ export default function AdminPanel() {
                   onClick={() => setAgentFilter("all")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 ${
                     agentFilter === "all"
-                      ? "bg-slate-900 text-white shadow-xs"
+                      ? "bg-blue-600 text-white shadow-xs"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
@@ -3165,7 +3615,7 @@ export default function AdminPanel() {
                   onClick={() => setUserFilter("all")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 ${
                     userFilter === "all"
-                      ? "bg-slate-900 text-white shadow-xs"
+                      ? "bg-blue-600 text-white shadow-xs"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
@@ -3228,7 +3678,7 @@ export default function AdminPanel() {
                                 )}
                               </div>
                               <div className="mt-1 flex flex-wrap items-center gap-1">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200" title="Account Number">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200" title="Account Number">
                                   A/C: {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
                                 </span>
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono text-gray-600 bg-gray-100" title="App UPI ID">
@@ -3272,7 +3722,7 @@ export default function AdminPanel() {
                                     <button
                                       type="button"
                                       onClick={() => setPreviewKycUser(u)}
-                                      className="inline-flex items-center gap-1 text-[11px] text-indigo-700 font-bold bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded cursor-pointer transition active:scale-95"
+                                      className="inline-flex items-center gap-1 text-[11px] text-blue-700 font-bold bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 cursor-pointer transition active:scale-95"
                                     >
                                       📄 View Submitted Docs
                                     </button>
@@ -3361,7 +3811,7 @@ export default function AdminPanel() {
                                 <span className={`px-1.5 py-0.5 border rounded text-[10px] font-bold ${u.wallets?.debit?.active ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-100 border-gray-200 text-gray-400"}`} title="Debit Wallet">
                                   💳 Debit
                                 </span>
-                                <span className={`px-1.5 py-0.5 border rounded text-[10px] font-bold ${u.wallets?.lending?.active ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-gray-100 border-gray-200 text-gray-400"}`} title="Lending Wallet">
+                                <span className={`px-1.5 py-0.5 border rounded text-[10px] font-bold ${u.wallets?.lending?.active ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-100 border-gray-200 text-gray-400"}`} title="Lending Wallet">
                                   🤝 Loans
                                 </span>
                               </div>
@@ -3417,7 +3867,7 @@ export default function AdminPanel() {
                                   className={`px-2.5 py-1 rounded-lg text-[11px] font-bold text-white transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95 ${
                                     u.isUninstallProtected
                                       ? "bg-rose-600 hover:bg-rose-700"
-                                      : "bg-indigo-600 hover:bg-indigo-700"
+                                      : "bg-blue-600 hover:bg-blue-700"
                                   }`}
                                   title={u.isUninstallProtected ? "App uninstall is blocked. Click to allow uninstall." : "Click to lock and prevent user from uninstalling app."}
                                 >
@@ -3446,7 +3896,7 @@ export default function AdminPanel() {
                               )}
                             </div>
                             <div className="flex flex-wrap items-center gap-1 mt-1 mb-1">
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                 A/C: {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
                               </span>
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-gray-600 bg-gray-100">
@@ -3486,7 +3936,7 @@ export default function AdminPanel() {
                               <button
                                 type="button"
                                 onClick={() => setPreviewKycUser(u)}
-                                className="px-2.5 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold transition active:scale-95"
+                                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold border border-blue-200 transition active:scale-95"
                               >
                                 📄 View Submitted Docs
                               </button>
@@ -3551,7 +4001,7 @@ export default function AdminPanel() {
                           <button
                             onClick={() => toggleUninstallLock(u._id)}
                             className={`flex-1 py-2 rounded-xl text-xs font-bold text-white transition flex items-center justify-center gap-1 shadow-2xs ${
-                              u.isUninstallProtected ? "bg-rose-600 hover:bg-rose-700" : "bg-indigo-600 hover:bg-indigo-700"
+                              u.isUninstallProtected ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
                             }`}
                           >
                             {u.isUninstallProtected ? "🔒 Unlock Uninstall" : "🛡️ Block Uninstall"}
@@ -3744,7 +4194,7 @@ export default function AdminPanel() {
                               )}
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
                                 l.loanType === "student"
-                                  ? "bg-purple-100 text-purple-800 border border-purple-200"
+                                  ? "bg-sky-100 text-sky-800 border border-sky-200"
                                   : l.loanType === "micro_business"
                                   ? "bg-teal-100 text-teal-800 border border-teal-200"
                                   : "bg-blue-100 text-blue-800 border border-blue-200"
@@ -3824,7 +4274,7 @@ export default function AdminPanel() {
                                 </div>
                                 <div className="bg-white/90 p-2 rounded-lg border border-emerald-100 shadow-2xs">
                                   <span className="text-gray-500 block text-[10px] font-semibold">🏢 Company Profit</span>
-                                  <strong className="text-indigo-700 text-xs">₹{(l.precloseCompanyProfit || 0).toLocaleString("en-IN")}</strong>
+                                  <strong className="text-blue-700 text-xs">₹{(l.precloseCompanyProfit || 0).toLocaleString("en-IN")}</strong>
                                 </div>
                               </div>
                             ) : (
@@ -3834,21 +4284,23 @@ export default function AdminPanel() {
                         )}
                         {/* SUBMITTED LOAN DOCUMENTS */}
                         {(l.documents?.doc1Url || l.documents?.doc2Url || l.documents?.studentProofUrl || l.hasChequeFacility) && (
-                          <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-1.5 mb-3">
-                            <div className="flex items-center justify-between text-xs font-bold text-indigo-900">
-                              <span>📄 Submitted Loan Documents</span>
+                          <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2 mb-3">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                              <span className="flex items-center gap-1.5">
+                                <span>📄</span> Submitted Loan Documents
+                              </span>
                               {l.hasChequeFacility && (
-                                <span className="text-[10px] bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded-full font-bold">
+                                <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold">
                                   Cheque: {l.chequeNumber || 'Yes'}
                                 </span>
                               )}
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                               {l.documents?.doc1Url && (
                                 <button
                                   type="button"
                                   onClick={() => { setLightboxImg(l.documents.doc1Url); setZoomLevel(1); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-semibold text-indigo-800 hover:bg-indigo-50 transition cursor-pointer"
+                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
                                 >
                                   <span>🆔</span> Aadhaar (Front) 🔍
                                 </button>
@@ -3857,7 +4309,7 @@ export default function AdminPanel() {
                                 <button
                                   type="button"
                                   onClick={() => { setLightboxImg(l.documents.doc1BackUrl); setZoomLevel(1); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-semibold text-indigo-800 hover:bg-indigo-50 transition cursor-pointer"
+                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
                                 >
                                   <span>🆔</span> Aadhaar (Back) 🔍
                                 </button>
@@ -3866,7 +4318,7 @@ export default function AdminPanel() {
                                 <button
                                   type="button"
                                   onClick={() => { setLightboxImg(l.documents.doc2Url); setZoomLevel(1); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-semibold text-indigo-800 hover:bg-indigo-50 transition cursor-pointer"
+                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
                                 >
                                   <span>💳</span> {l.hasChequeFacility ? "Cheque (Front)" : "PAN (Front)"} 🔍
                                 </button>
@@ -3875,7 +4327,7 @@ export default function AdminPanel() {
                                 <button
                                   type="button"
                                   onClick={() => { setLightboxImg(l.documents.doc2BackUrl); setZoomLevel(1); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-semibold text-indigo-800 hover:bg-indigo-50 transition cursor-pointer"
+                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
                                 >
                                   <span>💳</span> {l.hasChequeFacility ? "Cheque (Back)" : "PAN (Back)"} 🔍
                                 </button>
@@ -3884,7 +4336,7 @@ export default function AdminPanel() {
                                 <button
                                   type="button"
                                   onClick={() => { setLightboxImg(l.documents.studentProofUrl); setZoomLevel(1); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-cyan-200 rounded-lg text-[11px] font-semibold text-cyan-800 hover:bg-cyan-50 transition cursor-pointer"
+                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-sky-200 rounded-lg text-[11px] font-semibold text-sky-800 hover:bg-sky-50 transition cursor-pointer shadow-2xs"
                                 >
                                   <span>🎓</span> Student ID (Front) 🔍
                                 </button>
@@ -3893,7 +4345,7 @@ export default function AdminPanel() {
                                 <button
                                   type="button"
                                   onClick={() => { setLightboxImg(l.documents.studentProofBackUrl); setZoomLevel(1); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-cyan-200 rounded-lg text-[11px] font-semibold text-cyan-800 hover:bg-cyan-50 transition cursor-pointer"
+                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-sky-200 rounded-lg text-[11px] font-semibold text-sky-800 hover:bg-sky-50 transition cursor-pointer shadow-2xs"
                                 >
                                   <span>🎓</span> Student ID (Back) 🔍
                                 </button>
@@ -3913,7 +4365,7 @@ export default function AdminPanel() {
                           return (
                             <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
                               {/* 1st Installment Decision Card for Admin */}
-                              <div className="p-3 sm:p-4 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 border-2 border-indigo-200/80 rounded-2xl space-y-2.5 shadow-xs">
+                              <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5 shadow-2xs">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
                                   <div className="flex items-start sm:items-center gap-2">
                                     <span className="text-base sm:text-lg shrink-0 mt-0.5 sm:mt-0">⚙️</span>
@@ -3932,9 +4384,9 @@ export default function AdminPanel() {
                                         ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                                         : chosenOpt === "deduct"
                                         ? "bg-amber-100 text-amber-800 border-amber-300"
-                                        : "bg-purple-100 text-purple-800 border-purple-300"
+                                        : "bg-sky-100 text-sky-800 border-sky-300"
                                     }`}>
-                                      {chosenOpt === "none" ? "🟢 NA LEIN (Pura Paisa)" : chosenOpt === "deduct" ? "🟡 Advance Kaatein" : "🟣 Waive/Maaf"}
+                                      {chosenOpt === "none" ? "🟢 NA LEIN (Pura Paisa)" : chosenOpt === "deduct" ? "🟡 Advance Kaatein" : "🔵 Waive/Maaf"}
                                     </span>
                                   </div>
                                 </div>
@@ -4009,7 +4461,7 @@ export default function AdminPanel() {
                                     setLoanApproveModal(l);
                                     triggerAdminHeroFly(l._id);
                                   }}
-                                  className="relative overflow-visible w-full sm:flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                                  className="relative overflow-visible w-full sm:flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
                                 >
                                   {adminHeroFlyId === l._id && <AdminLoanHeroFlyBadge />}
                                   <span>✅ Approve & Disburse (₹{currentDisburseAmount.toLocaleString("en-IN")})</span>
@@ -4102,7 +4554,7 @@ export default function AdminPanel() {
                                             </div>
                                           )}
                                           {inst.utrNumber && (
-                                            <div className="text-[10px] font-mono text-indigo-700 truncate">
+                                            <div className="text-[10px] font-mono text-blue-700 truncate">
                                               UTR: {inst.utrNumber}
                                             </div>
                                           )}
@@ -4121,7 +4573,7 @@ export default function AdminPanel() {
                                                 <button
                                                   type="button"
                                                   onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
-                                                  className="w-full py-1 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold border border-indigo-200 flex items-center justify-center gap-1 cursor-pointer"
+                                                  className="w-full py-1 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold border border-blue-200 flex items-center justify-center gap-1 cursor-pointer"
                                                 >
                                                   <span>🖼</span> View Proof (Front)
                                                 </button>
@@ -4130,7 +4582,7 @@ export default function AdminPanel() {
                                                 <button
                                                   type="button"
                                                   onClick={() => { setLightboxImg(inst.proofBackUrl); setZoomLevel(1); }}
-                                                  className="w-full py-1 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold border border-indigo-200 flex items-center justify-center gap-1 cursor-pointer"
+                                                  className="w-full py-1 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold border border-blue-200 flex items-center justify-center gap-1 cursor-pointer"
                                                 >
                                                   <span>🖼</span> View Proof (Back)
                                                 </button>
@@ -4300,10 +4752,29 @@ export default function AdminPanel() {
                                   </div>
                                   {issueSelectedUser.referredBy && (() => {
                                     const agent = agents.find(a => String(a._id) === String(issueSelectedUser.referredBy));
+                                    if (!agent) {
+                                      return (
+                                        <div className="text-[11px] font-bold text-amber-800 bg-amber-100/70 px-2.5 py-1 rounded-lg mt-1.5 inline-flex items-center gap-1">
+                                          <span>🤝 Linked Agent</span>
+                                        </div>
+                                      );
+                                    }
+                                    const prof = agent.agentProfile || {};
+                                    const isTeam = prof.commissionModel === "team_1";
                                     return (
-                                      <div className="text-[11px] font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded mt-1 inline-flex items-center gap-1">
-                                        <span>🤝 Agent User:</span>
-                                        <span>{agent ? `${agent.name} (${agent.agentProfile?.businessName || 'Agent Partner'})` : 'Linked Agent'}</span>
+                                      <div className="text-[11px] font-bold text-amber-950 bg-amber-100/80 border border-amber-300 px-2.5 py-1 rounded-xl mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 shadow-2xs">
+                                        <span className="font-extrabold text-amber-900">🤝 Referring Agent:</span>
+                                        <span className="text-gray-900 font-black">{agent.name}</span>
+                                        <span className="px-1.5 py-0.5 bg-amber-200 text-amber-950 rounded text-[9px] font-black">
+                                          {isTeam ? "👑 Team Agent" : "👤 Solo Agent"}
+                                        </span>
+                                        {prof.businessName && (
+                                          <span className="text-amber-900 font-bold">🏢 {prof.businessName}</span>
+                                        )}
+                                        {prof.city && (
+                                          <span className="text-gray-600 font-medium">📍 {prof.city}</span>
+                                        )}
+                                        <span className="text-gray-600 font-mono">📞 {agent.phone}</span>
                                       </div>
                                     );
                                   })()}
@@ -4317,6 +4788,25 @@ export default function AdminPanel() {
                                 ✕ Change Borrower
                               </button>
                             </div>
+
+                            {/* Missing Borrower Fields Warning Alert Banner */}
+                            {missingBorrowerFields.length > 0 && (
+                              <div className="p-3 bg-rose-50 border-2 border-rose-300 rounded-xl space-y-1 shadow-2xs">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-black text-rose-900 flex items-center gap-1">
+                                    <span>⚠️</span> Incomplete Borrower Details Detected ({missingBorrowerFields.length} Missing):
+                                  </span>
+                                  {missingBorrowerFields.map(f => (
+                                    <span key={f.key} className="px-2 py-0.5 bg-rose-200 text-rose-950 rounded-md font-black text-[10px] border border-rose-300">
+                                      ✕ {f.label}
+                                    </span>
+                                  ))}
+                                </div>
+                                <p className="text-[11px] text-rose-800 leading-tight">
+                                  Is borrower ka phone number ya identity data incomplete hai. Kripya neeche diye gaye fields ko check aur fill karein taaki loan record complete ho sake.
+                                </p>
+                              </div>
+                            )}
 
                             {/* Borrower KYC & Loan History Intelligence (State A: Purana Loan Borrower | State B: Normal KYC Done - Cheque Required | State C: First Time Borrower) */}
                             {(() => {
@@ -4417,7 +4907,7 @@ export default function AdminPanel() {
                                                 </div>
                                                 <div className="p-1.5 bg-slate-50 rounded-lg">
                                                   <span className="text-gray-500 block text-[9px]">Interest Rate</span>
-                                                  <span className="font-mono font-bold text-indigo-700">
+                                                  <span className="font-mono font-bold text-blue-700">
                                                     {pl.interestRatePerInstallment || pl.interestRate || 1.34}%
                                                   </span>
                                                 </div>
@@ -4485,7 +4975,7 @@ export default function AdminPanel() {
                                         </span>
                                       </div>
 
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+                                      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2">
                                         {[
                                           { key: "doc1Url", label: "Aadhaar Front", icon: "🪪", fallbackUrl: issueSelectedUser.kycDocuments?.doc1Url || issueSelectedUser.kycDocuments?.docUrl },
                                           { key: "doc1BackUrl", label: "Aadhaar Back", icon: "🔄", fallbackUrl: issueSelectedUser.kycDocuments?.doc1BackUrl },
@@ -4551,47 +5041,92 @@ export default function AdminPanel() {
                                          </span>
                                          <span className="text-[10px] text-gray-500 font-bold">Auto-fills to Loan Record</span>
                                        </div>
-                                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-xs">
                                          <div>
-                                           <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Phone Number</label>
+                                           <div className="flex items-center justify-between mb-0.5">
+                                             <label className="text-[10px] font-bold text-gray-700">Borrower Full Name</label>
+                                             {!issueBorrowerDetails.name?.trim() && (
+                                               <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1 rounded border border-rose-200">* Missing</span>
+                                             )}
+                                           </div>
+                                           <input
+                                             type="text"
+                                             value={issueBorrowerDetails.name}
+                                             onChange={(e) => setIssueBorrowerDetails({ ...issueBorrowerDetails, name: e.target.value })}
+                                             placeholder="Full name as in Aadhaar"
+                                             className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                                               !issueBorrowerDetails.name?.trim() ? "bg-rose-50/60 border-2 border-rose-300" : "bg-slate-50 border border-gray-300"
+                                             }`}
+                                           />
+                                         </div>
+                                         <div>
+                                           <div className="flex items-center justify-between mb-0.5">
+                                             <label className="text-[10px] font-bold text-gray-700">Phone Number</label>
+                                             {(!issueBorrowerDetails.phone?.trim() || !/^[6-9]\d{9}$/.test(issueBorrowerDetails.phone.trim())) && (
+                                               <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1 rounded border border-rose-200">* 10-Digit Mobile</span>
+                                             )}
+                                           </div>
                                            <input
                                              type="tel"
                                              value={issueBorrowerDetails.phone}
                                              onChange={(e) => setIssueBorrowerDetails({ ...issueBorrowerDetails, phone: e.target.value })}
                                              placeholder="10-digit mobile"
-                                             className="w-full px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-mono font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                             className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                                               (!issueBorrowerDetails.phone?.trim() || !/^[6-9]\d{9}$/.test(issueBorrowerDetails.phone.trim())) ? "bg-rose-50/60 border-2 border-rose-300" : "bg-slate-50 border border-gray-300"
+                                             }`}
                                            />
                                          </div>
                                          <div>
-                                           <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Aadhaar UID Number</label>
+                                           <div className="flex items-center justify-between mb-0.5">
+                                             <label className="text-[10px] font-bold text-gray-700">Aadhaar UID Number</label>
+                                             {(!issueBorrowerDetails.aadharNumber?.trim() || issueBorrowerDetails.aadharNumber.trim().length !== 12) && (
+                                               <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1 rounded border border-rose-200">* 12 Digits</span>
+                                             )}
+                                           </div>
                                            <input
                                              type="text"
                                              maxLength={12}
                                              value={issueBorrowerDetails.aadharNumber}
                                              onChange={(e) => setIssueBorrowerDetails({ ...issueBorrowerDetails, aadharNumber: e.target.value.replace(/\D/g, '') })}
                                              placeholder="12-digit UID"
-                                             className="w-full px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-mono font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                             className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                                               (!issueBorrowerDetails.aadharNumber?.trim() || issueBorrowerDetails.aadharNumber.trim().length !== 12) ? "bg-rose-50/60 border-2 border-rose-300" : "bg-slate-50 border border-gray-300"
+                                             }`}
                                            />
                                          </div>
                                          <div>
-                                           <label className="text-[10px] font-bold text-gray-600 block mb-0.5">PAN Card Number</label>
+                                           <div className="flex items-center justify-between mb-0.5">
+                                             <label className="text-[10px] font-bold text-gray-700">PAN Card Number</label>
+                                             {(!issueBorrowerDetails.panNumber?.trim() || issueBorrowerDetails.panNumber.trim().length !== 10) && (
+                                               <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1 rounded border border-rose-200">* 10 Chars</span>
+                                             )}
+                                           </div>
                                            <input
                                              type="text"
                                              maxLength={10}
                                              value={issueBorrowerDetails.panNumber}
                                              onChange={(e) => setIssueBorrowerDetails({ ...issueBorrowerDetails, panNumber: e.target.value.toUpperCase() })}
                                              placeholder="10-digit PAN"
-                                             className="w-full px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-mono font-bold text-gray-900 uppercase focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                             className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold text-gray-900 uppercase focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                                               (!issueBorrowerDetails.panNumber?.trim() || issueBorrowerDetails.panNumber.trim().length !== 10) ? "bg-rose-50/60 border-2 border-rose-300" : "bg-slate-50 border border-gray-300"
+                                             }`}
                                            />
                                          </div>
                                          <div>
-                                           <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Residential / Shop Address</label>
+                                           <div className="flex items-center justify-between mb-0.5">
+                                             <label className="text-[10px] font-bold text-gray-700">Address</label>
+                                             {!issueBorrowerDetails.address?.trim() && (
+                                               <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1 rounded border border-rose-200">* Missing</span>
+                                             )}
+                                           </div>
                                            <input
                                              type="text"
                                              value={issueBorrowerDetails.address}
                                              onChange={(e) => setIssueBorrowerDetails({ ...issueBorrowerDetails, address: e.target.value })}
                                              placeholder="Full address, city..."
-                                             className="w-full px-2.5 py-1.5 bg-slate-50 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                             className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                                               !issueBorrowerDetails.address?.trim() ? "bg-rose-50/60 border-2 border-rose-300" : "bg-slate-50 border border-gray-300"
+                                             }`}
                                            />
                                          </div>
                                        </div>
@@ -4705,7 +5240,7 @@ export default function AdminPanel() {
                                     <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 hidden sm:inline">📷 Photos Only (Auto Drive Sync • Any MB Size)</span>
                                   </div>
 
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2">
                                     {[
                                       { key: "doc1Url", label: "Aadhaar Card Front", icon: "🪪" },
                                       { key: "doc1BackUrl", label: "Aadhaar Card Back", icon: "🔄" },
@@ -4793,8 +5328,14 @@ export default function AdminPanel() {
                                             {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
                                           </span>
                                           {agent ? (
-                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-900 border border-amber-300">
-                                              🤝 Agent User: {agent.name}
+                                            <span className="px-2 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-950 border border-amber-300 inline-flex items-center gap-1.5 flex-wrap">
+                                              <span>🤝 Agent: {agent.name}</span>
+                                              <span className="px-1 py-0.2 bg-amber-200 text-amber-900 rounded font-bold text-[8px]">
+                                                {agent.agentProfile?.commissionModel === "team_1" ? "👑 Team" : "👤 Solo"}
+                                              </span>
+                                              {agent.agentProfile?.businessName && (
+                                                <span className="text-amber-800 font-semibold">🏢 {agent.agentProfile.businessName}</span>
+                                              )}
                                             </span>
                                           ) : (
                                             <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-100 text-slate-600">
@@ -5241,43 +5782,43 @@ export default function AdminPanel() {
                   </div>
 
                   {/* Step 3: Real-Time Calculated Quote Summary Box */}
-                  <div className="p-4 sm:p-5 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl space-y-4 shadow-lg">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200/90 text-slate-900 rounded-2xl space-y-4 shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                       <div>
-                        <span className="text-[10px] font-black tracking-wider uppercase text-blue-300 block">
+                        <span className="text-[10px] font-black tracking-wider uppercase text-blue-700 block">
                           Real-Time Quote Breakdown
                         </span>
-                        <h4 className="text-base font-extrabold text-white">Loan Financial Summary</h4>
+                        <h4 className="text-base font-extrabold text-slate-900">Loan Financial Summary</h4>
                       </div>
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
                         10-Day Cycle Schedule
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                      <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-                        <span className="text-slate-400 block text-[10px]">Sanctioned Amount</span>
-                        <span className="text-base font-black text-white font-mono">₹{amt.toLocaleString("en-IN")}</span>
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                        <span className="text-slate-500 block text-[10px] font-bold">Sanctioned Amount</span>
+                        <span className="text-base font-black text-slate-900 font-mono">₹{amt.toLocaleString("en-IN")}</span>
                       </div>
-                      <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-                        <span className="text-slate-400 block text-[10px]">Per Installment (Kist)</span>
-                        <span className="text-base font-black text-emerald-400 font-mono">₹{installmentAmt.toLocaleString("en-IN")}</span>
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                        <span className="text-slate-500 block text-[10px] font-bold">Per Installment (Kist)</span>
+                        <span className="text-base font-black text-emerald-600 font-mono">₹{installmentAmt.toLocaleString("en-IN")}</span>
                         <span className="text-[9px] text-slate-400 block">Har 10 din par</span>
                       </div>
-                      <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-                        <span className="text-slate-400 block text-[10px]">Total Payable ({count} Kist)</span>
-                        <span className="text-base font-black text-amber-300 font-mono">₹{totalPayable.toLocaleString("en-IN")}</span>
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                        <span className="text-slate-500 block text-[10px] font-bold">Total Payable ({count} Kist)</span>
+                        <span className="text-base font-black text-amber-700 font-mono">₹{totalPayable.toLocaleString("en-IN")}</span>
                         <span className="text-[9px] text-slate-400 block">Interest: ₹{totalInterest.toLocaleString("en-IN")}</span>
                       </div>
-                      <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-                        <span className="text-slate-400 block text-[10px]">Net Disbursal to Wallet</span>
-                        <span className="text-base font-black text-cyan-300 font-mono">₹{netDisbursal.toLocaleString("en-IN")}</span>
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                        <span className="text-slate-500 block text-[10px] font-bold">Net Disbursal to Wallet</span>
+                        <span className="text-base font-black text-blue-600 font-mono">₹{netDisbursal.toLocaleString("en-IN")}</span>
                         <span className="text-[9px] text-slate-400 block">After 5% fee + 1% UPI</span>
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-white/10">
-                      <p className="text-[11px] text-slate-300 leading-relaxed max-w-xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-200">
+                      <p className="text-[11px] text-slate-600 leading-relaxed max-w-xl">
                         💡 <strong>Note:</strong> Yeh loan submit hone ke baad direct disburse nahi hoga. Request <strong>Pending Loan Applications</strong> queue me jayegi jahan aap borrower ke documents aur details verify karke <strong>Approve</strong> karenge.
                       </p>
 
@@ -5337,13 +5878,13 @@ export default function AdminPanel() {
                         {/* Header: User Info & Account Number */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
+                            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
                               🤝
                             </div>
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="font-extrabold text-gray-900 text-base">{b.userId?.name || "Investor"}</h4>
-                                <span className="bg-indigo-100 text-indigo-900 text-xs font-black font-mono px-2.5 py-0.5 rounded-full border border-indigo-200">
+                                <span className="bg-blue-50 text-blue-700 text-xs font-black font-mono px-2.5 py-0.5 rounded-full border border-blue-200">
                                   A/C: {b.accountNumber || "EFS0000XXX"}
                                 </span>
                                 <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
@@ -5379,13 +5920,13 @@ export default function AdminPanel() {
                           </div>
                           <div>
                             <span className="text-gray-400 block font-medium">Payout Progress</span>
-                            <span className="font-bold text-indigo-700 text-sm">{b.monthsPaid || 0} / {b.monthsTotal || 40} Months</span>
+                            <span className="font-bold text-blue-700 text-sm">{b.monthsPaid || 0} / {b.monthsTotal || 40} Months</span>
                           </div>
                         </div>
 
                         {/* Mandatory Submitted Documents Lightbox Buttons */}
-                        <div className="p-3.5 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-2">
-                          <div className="flex items-center justify-between text-xs font-bold text-indigo-950">
+                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                             <span className="flex items-center gap-1.5">
                               <span>📄</span> Compulsory Documents (Aadhaar, PAN & Barrier Cheque)
                             </span>
@@ -5401,12 +5942,12 @@ export default function AdminPanel() {
                             )}
                           </div>
 
-                          <div className="flex flex-wrap gap-2 pt-1">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
                             {aadharFront ? (
                               <button
                                 type="button"
                                 onClick={() => { setLightboxImg(aadharFront); setZoomLevel(1); }}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-indigo-800 hover:bg-indigo-50 shadow-2xs transition cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 hover:bg-slate-100 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
                                 🆔 Aadhaar Front 🔍
                               </button>
@@ -5417,7 +5958,7 @@ export default function AdminPanel() {
                               <button
                                 type="button"
                                 onClick={() => { setLightboxImg(aadharBack); setZoomLevel(1); }}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-indigo-800 hover:bg-indigo-50 shadow-2xs transition cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 hover:bg-slate-100 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
                                 🆔 Aadhaar Back 🔍
                               </button>
@@ -5427,7 +5968,7 @@ export default function AdminPanel() {
                               <button
                                 type="button"
                                 onClick={() => { setLightboxImg(panFront); setZoomLevel(1); }}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-indigo-800 hover:bg-indigo-50 shadow-2xs transition cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 hover:bg-slate-100 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
                                 💳 PAN Front 🔍
                               </button>
@@ -5438,7 +5979,7 @@ export default function AdminPanel() {
                               <button
                                 type="button"
                                 onClick={() => { setLightboxImg(panBack); setZoomLevel(1); }}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-indigo-800 hover:bg-indigo-50 shadow-2xs transition cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 hover:bg-slate-100 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
                                 💳 PAN Back 🔍
                               </button>
@@ -5448,7 +5989,7 @@ export default function AdminPanel() {
                               <button
                                 type="button"
                                 onClick={() => { setLightboxImg(chequeFront); setZoomLevel(1); }}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-900 hover:bg-amber-50 shadow-2xs transition cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-900 hover:bg-amber-50 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
                                 📑 Barrier Cheque Front 🔍
                               </button>
@@ -5459,7 +6000,7 @@ export default function AdminPanel() {
                               <button
                                 type="button"
                                 onClick={() => { setLightboxImg(chequeBack); setZoomLevel(1); }}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-900 hover:bg-amber-50 shadow-2xs transition cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-900 hover:bg-amber-50 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
                                 📑 Barrier Cheque Back 🔍
                               </button>
@@ -5518,7 +6059,7 @@ export default function AdminPanel() {
                 <div className="flex gap-2">
                   <button
                     onClick={playNotificationSound}
-                    className="px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                    className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
                   >
                     <span>🔊</span> Test Sound
                   </button>
@@ -5581,7 +6122,7 @@ export default function AdminPanel() {
                                 </span>
                               )}
                               {n.data.amount && (
-                                <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-md font-bold">
+                                <span className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md font-bold">
                                   ₹{n.data.amount}
                                 </span>
                               )}
@@ -5643,7 +6184,7 @@ export default function AdminPanel() {
                           value={depositDetails.upiId}
                           onChange={e => setDepositDetails({ ...depositDetails, upiId: e.target.value })}
                           placeholder="e.g. educafinance@upi ya phone@paytm"
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono"
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono"
                         />
                       </div>
                       <div>
@@ -5653,7 +6194,7 @@ export default function AdminPanel() {
                           value={depositDetails.upiName}
                           onChange={e => setDepositDetails({ ...depositDetails, upiName: e.target.value })}
                           placeholder="e.g. Educa Finance & Payments"
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                         />
                       </div>
                     </div>
@@ -5667,7 +6208,7 @@ export default function AdminPanel() {
                           value={depositDetails.accountNumber}
                           onChange={e => setDepositDetails({ ...depositDetails, accountNumber: e.target.value })}
                           placeholder="e.g. 5010045239128"
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono"
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono"
                         />
                       </div>
                       <div>
@@ -5678,7 +6219,7 @@ export default function AdminPanel() {
                           value={depositDetails.ifsc}
                           onChange={e => setDepositDetails({ ...depositDetails, ifsc: e.target.value.toUpperCase() })}
                           placeholder="e.g. BARB0JHALWA"
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono uppercase"
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono uppercase"
                         />
                       </div>
                     </div>
@@ -5691,7 +6232,7 @@ export default function AdminPanel() {
                           value={depositDetails.bankName}
                           onChange={e => setDepositDetails({ ...depositDetails, bankName: e.target.value })}
                           placeholder="e.g. Bank of Baroda"
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                         />
                       </div>
                       <div>
@@ -5701,7 +6242,7 @@ export default function AdminPanel() {
                           value={depositDetails.branch}
                           onChange={e => setDepositDetails({ ...depositDetails, branch: e.target.value })}
                           placeholder="e.g. Jhalwa Branch, Prayagraj"
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                         />
                       </div>
                     </div>
@@ -5713,7 +6254,7 @@ export default function AdminPanel() {
                         value={depositDetails.accountHolder}
                         onChange={e => setDepositDetails({ ...depositDetails, accountHolder: e.target.value })}
                         placeholder="e.g. Educa Fintech Admin"
-                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                       />
                     </div>
 
@@ -5724,7 +6265,7 @@ export default function AdminPanel() {
                         value={depositDetails.instructions}
                         onChange={e => setDepositDetails({ ...depositDetails, instructions: e.target.value })}
                         placeholder="e.g. Payment complete karne ke baad 12-digit UTR number enter karein."
-                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                       />
                     </div>
 
@@ -5739,43 +6280,43 @@ export default function AdminPanel() {
                   </form>
 
                   {/* Live Mobile App Preview */}
-                  <div className="lg:col-span-5 bg-slate-900 text-white rounded-2xl p-4.5 border border-slate-700 shadow-md space-y-3 self-start">
-                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-indigo-400">📱 Live Customer App Preview</p>
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                  <div className="lg:col-span-5 bg-slate-50 text-slate-900 rounded-2xl p-4.5 border border-slate-200/90 shadow-2xs space-y-3 self-start">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">📱 Live Customer App Preview</p>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
                         Add Money Sheet
                       </span>
                     </div>
 
                     <div className="space-y-2">
-                      <div className="bg-white/10 rounded-xl p-3 space-y-1">
-                        <p className="text-[10px] text-gray-400 uppercase">UPI Payment</p>
-                        <p className="font-mono font-bold text-sm text-cyan-300 truncate">{depositDetails.upiId || "admin@upi"}</p>
-                        <p className="text-[11px] text-gray-300">{depositDetails.upiName || "Educa Finance"}</p>
+                      <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs space-y-1">
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">UPI Payment</p>
+                        <p className="font-mono font-bold text-sm text-blue-700 truncate">{depositDetails.upiId || "admin@upi"}</p>
+                        <p className="text-[11px] text-slate-600">{depositDetails.upiName || "Educa Finance"}</p>
                       </div>
 
-                      <div className="bg-white/10 rounded-xl p-3 space-y-1 text-xs">
-                        <p className="text-[10px] text-gray-400 uppercase">Bank Transfer</p>
+                      <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs space-y-1 text-xs">
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">Bank Transfer</p>
                         <div className="flex justify-between">
-                          <span className="text-gray-400 text-[11px]">Bank:</span>
-                          <span className="font-bold text-white">{depositDetails.bankName || "Bank of Baroda"}</span>
+                          <span className="text-slate-500 text-[11px]">Bank:</span>
+                          <span className="font-bold text-slate-900">{depositDetails.bankName || "Bank of Baroda"}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-400 text-[11px]">A/C No:</span>
-                          <span className="font-mono font-bold text-cyan-300">{depositDetails.accountNumber || "1234567890"}</span>
+                          <span className="text-slate-500 text-[11px]">A/C No:</span>
+                          <span className="font-mono font-bold text-blue-700">{depositDetails.accountNumber || "1234567890"}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-400 text-[11px]">IFSC:</span>
-                          <span className="font-mono font-bold text-white">{depositDetails.ifsc || "BARB0JHALWA"}</span>
+                          <span className="text-slate-500 text-[11px]">IFSC:</span>
+                          <span className="font-mono font-bold text-slate-900">{depositDetails.ifsc || "BARB0JHALWA"}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-400 text-[11px]">Branch:</span>
-                          <span className="text-white">{depositDetails.branch || "Jhalwa"}</span>
+                          <span className="text-slate-500 text-[11px]">Branch:</span>
+                          <span className="text-slate-900">{depositDetails.branch || "Jhalwa"}</span>
                         </div>
                       </div>
                     </div>
 
-                    <p className="text-[10px] text-indigo-200 leading-relaxed italic">
+                    <p className="text-[10px] text-slate-500 leading-relaxed italic">
                       "Customer is detail par payment karega, receipt ka UTR daalega, aur aap 'Pending' tab me Approve karenge."
                     </p>
                   </div>
@@ -5784,19 +6325,19 @@ export default function AdminPanel() {
 
               {/* Interest Rate */}
               <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-                <h3 className="text-lg font-bold font-display mb-1">📈 Loan Interest Rate</h3>
-                <p className="text-sm text-gray-500 mb-5">Sirf <strong>naye loans</strong> affect honge. Purane loans ka rate kabhi nahi badlega.</p>
+                <h3 className="text-lg font-bold font-display mb-1 text-slate-900">📈 Loan Interest Rate</h3>
+                <p className="text-sm text-slate-500 mb-5">Sirf <strong>naye loans</strong> affect honge. Purane loans ka rate kabhi nahi badlega.</p>
                 <div className="flex items-center gap-6 mb-5 flex-wrap">
-                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-6 py-4 text-center">
-                    <p className="text-xs text-gray-500">Current Rate</p>
-                    <p className="text-3xl font-black font-display text-indigo-600">{interestRate}%</p>
-                    <p className="text-xs text-gray-400">per annum</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl px-6 py-4 text-center">
+                    <p className="text-xs text-slate-500">Current Rate</p>
+                    <p className="text-3xl font-black font-display text-blue-600">{interestRate}%</p>
+                    <p className="text-xs text-slate-400">per annum</p>
                   </div>
                 </div>
                 <div className="flex gap-3 max-w-sm">
-                  <input type="number" inputMode="decimal" min="1" max="100" step="0.5" value={newInterestRate} onChange={e => setNewInterestRate(e.target.value)} placeholder="Naya rate daalo" className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-base sm:text-sm" />
+                  <input type="number" inputMode="decimal" min="1" max="100" step="0.5" value={newInterestRate} onChange={e => setNewInterestRate(e.target.value)} placeholder="Naya rate daalo" className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm" />
                   <span className="flex items-center text-gray-500 font-bold">%</span>
-                  <button onClick={updateInterestRate} className="px-5 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition">Update</button>
+                  <button onClick={updateInterestRate} className="px-5 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition cursor-pointer">Update</button>
                 </div>
               </div>
 
@@ -5912,7 +6453,7 @@ export default function AdminPanel() {
                 </div>
                 <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">DOC 2 (FINANCIAL)</span>
-                  <span className="font-bold text-indigo-700 uppercase">
+                  <span className="font-bold text-blue-700 uppercase">
                     {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "Bank Cheque" : "PAN Card"}
                   </span>
                 </div>
@@ -6031,11 +6572,11 @@ export default function AdminPanel() {
 
                 {/* Document 2: PAN or Cheque (Front & Back) */}
                 <div className="space-y-2 p-3 bg-gray-50 border border-gray-200 rounded-2xl">
-                  <span className="text-xs font-bold text-indigo-900 block flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900 block flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <span>💳</span> Doc 2: {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "Bank Cheque" : "PAN Card"}
                     </span>
-                    <span className="text-[10px] text-indigo-600 font-semibold">Front & Back</span>
+                    <span className="text-[10px] text-blue-600 font-semibold">Front & Back</span>
                   </span>
 
                   {/* Front */}
@@ -6126,7 +6667,7 @@ export default function AdminPanel() {
                   className={`w-full p-2.5 rounded-xl text-xs font-medium outline-none transition ${
                     (previewKycUser.kycStatus === "verified" || previewKycUser.kycStatus === "rejected" || previewKycUser.kycDocuments?.isNoteLocked)
                       ? "bg-gray-100 text-gray-700 border border-gray-300 cursor-not-allowed select-text font-semibold shadow-inner"
-                      : "bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500"
+                      : "bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-blue-500"
                   }`}
                 />
               </div>
@@ -6263,7 +6804,7 @@ export default function AdminPanel() {
                     Approve & Disburse Loan
                   </h3>
                   <p className="text-[11px] text-gray-500 font-medium">
-                    Account: <span className="font-bold font-mono text-indigo-700">{loanApproveModal.accountNumber || "Loan"}</span>
+                    Account: <span className="font-bold font-mono text-blue-700">{loanApproveModal.accountNumber || "Loan"}</span>
                   </p>
                 </div>
               </div>
@@ -6361,7 +6902,7 @@ export default function AdminPanel() {
                 {/* Option 3: Waive 1st installment */}
                 <label className={`flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-2xl border-2 cursor-pointer transition ${
                   advanceOption === "waive"
-                    ? "bg-purple-50/90 border-purple-500 ring-2 ring-purple-300 shadow-xs"
+                    ? "bg-sky-50/90 border-sky-500 ring-2 ring-sky-300 shadow-xs"
                     : "bg-white border-gray-200 hover:bg-gray-50"
                 }`}>
                   <input
@@ -6370,17 +6911,17 @@ export default function AdminPanel() {
                     value="waive"
                     checked={advanceOption === "waive"}
                     onChange={() => setAdvanceOption("waive")}
-                    className="mt-1 text-purple-600 cursor-pointer accent-purple-600"
+                    className="mt-1 text-sky-600 cursor-pointer accent-sky-600"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="font-extrabold text-purple-950 flex items-center justify-between gap-1">
-                      <span className="text-xs">🟣 Waive / Maaf Karein</span>
-                      <span className="text-[9px] sm:text-[10px] bg-purple-200 text-purple-900 px-1.5 sm:px-2 py-0.5 rounded-full font-black shrink-0 whitespace-nowrap">WAIVER</span>
+                    <div className="font-extrabold text-sky-950 flex items-center justify-between gap-1">
+                      <span className="text-xs">🔵 Waive / Maaf Karein</span>
+                      <span className="text-[9px] sm:text-[10px] bg-sky-100 text-sky-800 border border-sky-200 px-1.5 sm:px-2 py-0.5 rounded-full font-black shrink-0 whitespace-nowrap">WAIVER</span>
                     </div>
                     <p className="text-[11px] text-gray-700 mt-1 font-medium">
-                      Net Disburse: <strong className="text-purple-700 font-extrabold text-xs">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>
+                      Net Disburse: <strong className="text-sky-700 font-extrabold text-xs">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>
                     </p>
-                    <p className="text-[10px] text-purple-700 mt-0.5">
+                    <p className="text-[10px] text-sky-700 mt-0.5">
                       ✓ Kist #1 free me 'Paid' ho jayegi.
                     </p>
                   </div>
@@ -6403,7 +6944,7 @@ export default function AdminPanel() {
                   triggerAdminHeroFly("modal_confirm");
                   submitApproveLoan();
                 }}
-                className="relative overflow-visible flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white text-xs font-black shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                className="relative overflow-visible flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {adminHeroFlyId === "modal_confirm" && <AdminLoanHeroFlyBadge />}
                 {loanApproveLoading ? (

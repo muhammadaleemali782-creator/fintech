@@ -306,9 +306,7 @@ class MainActivity : AppCompatActivity() {
             val density = resources.displayMetrics.density
             val dpToPx = { dp: Int -> (dp * density).toInt() }
 
-            val splashLayout = android.widget.LinearLayout(this).apply {
-                orientation = android.widget.LinearLayout.VERTICAL
-                gravity = android.view.Gravity.CENTER
+            val splashLayout = FrameLayout(this).apply {
                 setBackgroundColor(0xFFFFFFFF.toInt())
                 layoutParams = FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -318,9 +316,20 @@ class MainActivity : AppCompatActivity() {
                 isFocusable = true
             }
 
+            // Center Content: Logo + Title + Subtitle + Loader
+            val centerLayout = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.Gravity.CENTER
+                )
+            }
+
             val logoView = android.widget.ImageView(this).apply {
                 setImageResource(R.mipmap.ic_launcher)
-                layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(84), dpToPx(84)).apply {
+                layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(88), dpToPx(88)).apply {
                     bottomMargin = dpToPx(16)
                 }
             }
@@ -357,18 +366,52 @@ class MainActivity : AppCompatActivity() {
                 layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(32), dpToPx(32))
             }
 
-            splashLayout.addView(logoView)
-            splashLayout.addView(titleView)
-            splashLayout.addView(subtitleView)
-            splashLayout.addView(progressBar)
+            centerLayout.addView(logoView)
+            centerLayout.addView(titleView)
+            centerLayout.addView(subtitleView)
+            centerLayout.addView(progressBar)
+            splashLayout.addView(centerLayout)
+
+            // Bottom Content: "12% Per Year" + Subtitle
+            val bottomLayout = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL
+                ).apply {
+                    bottomMargin = dpToPx(28)
+                }
+            }
+
+            val perYearView = android.widget.TextView(this).apply {
+                text = "12% PER YEAR"
+                textSize = 13f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setTextColor(0xFF0F172A.toInt())
+                gravity = android.view.Gravity.CENTER
+                letterSpacing = 0.08f
+            }
+
+            val returnsSubView = android.widget.TextView(this).apply {
+                text = "Compounding Returns on Savings"
+                textSize = 10f
+                setTextColor(0xFF64748B.toInt())
+                gravity = android.view.Gravity.CENTER
+            }
+
+            bottomLayout.addView(perYearView)
+            bottomLayout.addView(returnsSubView)
+            splashLayout.addView(bottomLayout)
 
             splashOverlay = splashLayout
             rootLayout.addView(splashLayout)
 
-            // Auto-dismiss safety timeout after 3.5 seconds
+            // Auto-dismiss safety timeout (dismisses early via onPageFinished)
             splashLayout.postDelayed({
                 dismissNativeSplash()
-            }, 3500)
+            }, 6000)
         } catch (e: Exception) {
             Log.e("MainActivity", "Splash create error", e)
         }

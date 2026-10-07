@@ -49,6 +49,16 @@ function LoadingScreen() {
         NextGen Financial Hub • v2.0
       </p>
       <div className="w-8 h-8 border-3 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+
+      {/* Bottom Side Branding */}
+      <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none text-center">
+        <span className="text-xs font-extrabold tracking-wider text-slate-900 uppercase">
+          12% Per Year
+        </span>
+        <span className="text-[10px] font-semibold text-slate-500 tracking-wide">
+          Compounding Returns on Savings
+        </span>
+      </div>
     </div>
   );
 }

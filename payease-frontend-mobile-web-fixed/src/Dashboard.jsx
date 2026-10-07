@@ -2104,191 +2104,202 @@ export default function Dashboard() {
     const isEn = advisorLang === "english";
     let reply = "";
 
-    // 1. Instant Loan / EMI Number Extraction & Calculation
-    let tenureVal = null;
-    const tenureMatch = lower.match(/(\d+)\s*(?:kist(?:ein|o|on)?|installment(?:s)?|cycle|mahine)\b/i);
-    if (tenureMatch) {
-      const n = parseInt(tenureMatch[1], 10);
-      if (n >= 1 && n <= 60) tenureVal = n;
-    }
+    // Check specific informational topics FIRST (so 12% interest or profit transfer chips aren't caught by calc parser)
+    const isCalcQuery = lower.includes("emi") || lower.includes("kist") || lower.includes("count") || lower.includes("calculate") || lower.includes("hisaab") || lower.includes("dena hai") || lower.includes("repay") || lower.includes("kitna dena");
 
-    let emiVal = null;
-    const emiMatch = lower.match(/(?:emi|har\s+kist|per\s+installment)\s*(?:hai|bani|bana|of|is|=|:)?\s*(\d+(?:\.\d+)?\s*k?)\b/i) ||
-                     lower.match(/(\d+(?:\.\d+)?\s*k?)\s*(?:ki|ka|har)?\s*(?:emi|har\s+kist|per\s+kist)\b/i);
-    if (emiMatch) {
-      let raw = emiMatch[1].trim().toLowerCase();
-      let n = parseFloat(raw);
-      if (raw.endsWith("k")) n *= 1000;
-      if (n !== tenureVal) emiVal = Math.round(n);
-    }
-
-    let totalVal = null;
-    const totalMatch = lower.match(/(\d+(?:\.\d+)?\s*k?)\s*(?:dena|wapas|repay|bharna|total)\b/i);
-    if (totalMatch) {
-      let raw = totalMatch[1].trim().toLowerCase();
-      let n = parseFloat(raw);
-      if (raw.endsWith("k")) n *= 1000;
-      totalVal = Math.round(n);
-    }
-
-    const nums = [];
-    const numRe = /(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)\s*(k)?\b/gi;
-    let m;
-    while ((m = numRe.exec(lower)) !== null) {
-      let val = parseFloat(m[1]);
-      if (m[2] && m[2].toLowerCase() === "k") val *= 1000;
-      nums.push(Math.round(val));
-    }
-
-    let principalVal = null;
-    const principalMatch = lower.match(/(\d+(?:\.\d+)?\s*k?)\s*(?:ka\s+loan|liya|udhar|borrow|chahiye)\b/i);
-    if (principalMatch) {
-      let raw = principalMatch[1].trim().toLowerCase();
-      let n = parseFloat(raw);
-      if (raw.endsWith("k")) n *= 1000;
-      principalVal = Math.round(n);
-    }
-
-    if (!principalVal && nums.length > 0) {
-      const candidates = nums.filter(x => x !== tenureVal && x !== emiVal && x !== totalVal);
-      if (candidates.length > 0) {
-        principalVal = Math.max(...candidates);
-      } else {
-        principalVal = nums[0];
-      }
-    }
-
-    const hasCalcIntent = principalVal || emiVal || totalVal || lower.includes("emi") || lower.includes("kist") || lower.includes("count") || lower.includes("calculate") || lower.includes("hisaab") || lower.includes("dena") || lower.includes("liya");
-
-    if (principalVal && emiVal && emiVal < principalVal) {
-      // User scenario: e.g. "maine 10000 liya 600 ki emi bani to kitna dena hai"
-      const tenure = tenureVal || 18;
-      const totalRepay = emiVal * tenure;
-      const totalInterest = Math.max(0, totalRepay - principalVal);
-      const interestRate = ((totalInterest / principalVal) * 100).toFixed(1);
-
-      if (isEn) {
-        reply = `🧮 Custom Loan & EMI Breakdown:\n\n` +
-          `• Loan Amount Borrowed: ₹${principalVal.toLocaleString("en-IN")}\n` +
-          `• Your EMI Amount: ₹${emiVal.toLocaleString("en-IN")} / installment\n` +
-          `• Total Installments: ${tenure} Installments (Every 10-day cycle, ~${Math.round(tenure * 10 / 30)} months)\n` +
-          `• Total Repayment: ₹${totalRepay.toLocaleString("en-IN")}\n` +
-          `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}% total)\n\n` +
-          `🔥 With Educa Fintech, You Only Go Higher! 🚀\n` +
-          `Pay each installment on time and your credit limit doubles automatically up to ₹50,000!`;
-      } else {
-        reply = `🧮 Aapke Hisaab Ka Pura Breakdown:\n\n` +
-          `• Aapne Liya (Loan Amount): ₹${principalVal.toLocaleString("en-IN")}\n` +
-          `• Aapki EMI (Har Kist): Sirf ₹${emiVal.toLocaleString("en-IN")} / 10-din\n` +
-          `• Kul Kistein (Tenure): ${tenure} Kistein (Har 10 din me 1 kist, ~${Math.round(tenure * 10 / 30)} mahine)\n` +
-          `• Kul Bhugtan (Total Repayment): ₹${totalRepay.toLocaleString("en-IN")}\n` +
-          `• Kul Byaj (Total Interest): ₹${totalInterest.toLocaleString("en-IN")} (Sirf ${interestRate}%)\n\n` +
-          `🔥 Educa Fintech Me Aap Sirf Upar Hi Jayenge! 🚀\n` +
-          `Samay par kist chukane par aapka credit record mazboot hota hai aur agla loan instant double limit ke sath milta hai!`;
-      }
-    } else if (principalVal && totalVal && totalVal > principalVal) {
-      // User scenario: e.g. "10000 liya 12000 dena hai emi kitni banegi"
-      const tenure = tenureVal || 18;
-      const totalInterest = totalVal - principalVal;
-      const emiAmt = Math.round(totalVal / tenure);
-      const interestRate = ((totalInterest / principalVal) * 100).toFixed(1);
-
-      if (isEn) {
-        reply = `🧮 Repayment & EMI Breakdown for ₹${principalVal.toLocaleString("en-IN")}:\n\n` +
-          `• Loan Amount Borrowed: ₹${principalVal.toLocaleString("en-IN")}\n` +
-          `• Total Repayment: ₹${totalVal.toLocaleString("en-IN")}\n` +
-          `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}%)\n` +
-          `• Tenure: ${tenure} Installments (Every 10-day cycle)\n` +
-          `• Each Installment (EMI): ₹${emiAmt.toLocaleString("en-IN")} / cycle\n\n` +
-          `🚀 With Educa Fintech, you only go higher! Repay easily and grow.`;
-      } else {
-        reply = `🧮 ₹${principalVal.toLocaleString("en-IN")} Loan Ka Repayment Hisaab:\n\n` +
-          `• Aapne Liya: ₹${principalVal.toLocaleString("en-IN")}\n` +
-          `• Kul Wapas Dena Hai: ₹${totalVal.toLocaleString("en-IN")}\n` +
-          `• Kul Byaj (Interest): ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}%)\n` +
-          `• Kul Kistein: ${tenure} Kistein (Har 10 din me 1 kist)\n` +
-          `• Har Kist (EMI): Sirf ₹${emiAmt.toLocaleString("en-IN")} per kist\n\n` +
-          `🚀 Samay par bhugtan karein aur agla loan instant double limit ke sath paayein!`;
-      }
-    } else if (hasCalcIntent) {
-      const amt = principalVal || 10000;
-      const installments = tenureVal || 18;
-      const ratePerInstallment = 1.34; // 1.34% per 10-day cycle
-      const totalInterest = Math.round((amt * (ratePerInstallment * installments)) / 100);
-      const totalPayable = amt + totalInterest;
-      const emiAmt = Math.round(totalPayable / installments);
-
-      if (isEn) {
-        reply = `🧮 Instant EMI Breakdown for ₹${amt.toLocaleString("en-IN")}:\n\n` +
-          `• Loan Amount: ₹${amt.toLocaleString("en-IN")}\n` +
-          `• Tenure: ${installments} Installments (Every 10-day cycle, ~${Math.round(installments * 10 / 30)} months)\n` +
-          `• Each Installment (EMI): ₹${emiAmt.toLocaleString("en-IN")} / cycle\n` +
-          `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (Just 1.34% per installment)\n` +
-          `• Total Repayment: ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
-          `🔥 With Educa Fintech, You Only Go Higher! 🚀\n` +
-          `Partner with us and elevate your business. Repay on time and your credit limit doubles automatically! 100% digital disbursal, zero hidden fees!`;
-      } else {
-        reply = `🧮 ₹${amt.toLocaleString("en-IN")} Loan Ka Turant EMI Hisaab:\n\n` +
-          `• Loan Amount: ₹${amt.toLocaleString("en-IN")}\n` +
-          `• Kul Kist (Tenure): ${installments} Kistein (Har 10 din me 1 kist, ~${Math.round(installments * 10 / 30)} mahine)\n` +
-          `• Har Kist (EMI): Sirf ₹${emiAmt.toLocaleString("en-IN")} / 10-din\n` +
-          `• Kul Byaj (Interest): ₹${totalInterest.toLocaleString("en-IN")} (Sirf 1.34% per kist)\n` +
-          `• Total Repayment (Kul Dena Hai): ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
-          `🔥 Educa Fintech Me Aap Sirf Upar Hi Jayenge! 🚀\n` +
-          `Aap hamare sath kaam karenge aur judenge to aapka business aur balance dono tezi se unchaiyon par jayenge! Samay par kist chukane par aapki loan limit turant double ho jati hai. Zero hidden charges, seedha aapke wallet me instant paisa!`;
-      }
-    } else if (lower.includes("fayde") || lower.includes("fyde") || lower.includes("benefit") || lower.includes("advantage") || lower.includes("kyu") || lower.includes("kyon")) {
-      if (isEn) {
-        reply = `🎯 Key Advantages of Educa Fintech Loans:\n\n` +
+    if (!isCalcQuery && (lower.includes("profit") && (lower.includes("transfer") || lower.includes("wallet") || lower.includes("main") || lower.includes("primary")))) {
+      reply = isEn
+        ? `🔄 Dual Wallet & Instant Profit Transfer Rules:\n\n` +
+          `• Real-Time Accrual: Your 12% p.a. profit accrues live second-by-second into your Profit Wallet.\n` +
+          `• 1-Click Transfer: Transfer any amount from Profit Wallet to Primary Wallet instantly with zero fee!\n` +
+          `• Complete Freedom: Once in Primary Wallet, cash out immediately to Bank/UPI or spend via QR.\n\n` +
+          `🔥 Your money works 24/7 for you in Educa Fintech!`
+        : `🔄 Dual Wallet & Instant Profit Transfer Niyam:\n\n` +
+          `• Har Second Live Profit: Aapka 12% p.a. munafa har second live aapke Profit Wallet me judta hai.\n` +
+          `• 1-Click Transfer: Profit Wallet se Primary Wallet me jab chahein 1-click me transfer karein, zero charges!\n` +
+          `• Pura Control: Primary Wallet me aate hi seedha Bank/UPI Cash Out karein ya QR scan se payment karein!\n\n` +
+          `🔥 Educa Fintech me aapka paisa har second aapke liye kamata hai! 🚀`;
+    } else if (!isCalcQuery && (lower.includes("12") || lower.includes("compounding") || lower.includes("munafa") || lower.includes("bachat") || (lower.includes("interest") && !lower.includes("loan")))) {
+      reply = isEn
+        ? `📈 Educa Fintech 12% p.a. Compounding Wealth Model:\n\n` +
+          `• 12% Annual Interest: 4x higher returns than traditional bank savings accounts!\n` +
+          `• Real-Time Accrual: Your money earns profit second-by-second on your live dashboard.\n` +
+          `• Dual Wallet Power: Transfer profit to Primary Wallet anytime with 1-click or withdraw to Bank/UPI!\n\n` +
+          `🔥 "With Educa Fintech, you only go higher!" Invest and grow with complete confidence. 🚀`
+        : `📈 Educa Fintech 12% p.a. Compounding Wealth Model:\n\n` +
+          `• 12% p.a. Compounding Return: Bank ke aam bachat khate se 4 guna zyada munafa!\n` +
+          `• Har Second Live Profit: Aapka balance har second live dashboard par profit kamata hai.\n` +
+          `• Dual Wallet Azadi: Profit ko 1-click me Primary Wallet me bhejein ya seedha Cash Out karein!\n\n` +
+          `🔥 "Educa Fintech me aap sirf upar hi jayenge!" Aaj hi shuru karein aur daulat badhayein! 🚀`;
+    } else if (!isCalcQuery && (lower.includes("fayde") || lower.includes("fyde") || lower.includes("benefit") || lower.includes("advantage"))) {
+      reply = isEn
+        ? `🎯 Key Advantages of Educa Fintech Loans:\n\n` +
           `1. ⚡ Instant Disbursal: No bank queues or physical paperwork. Direct to wallet!\n` +
           `2. 📈 Limit Doubling: Repay your 18 installments on time and your limit doubles up to ₹50,000!\n` +
           `3. 💼 Business Growth: Up to ₹20,000 with cheque facility or ₹10,000 direct capital for your trade!\n` +
           `4. 🛡️ Complete Transparency: Transparent 1.34% per installment rate, zero hidden penalties!\n\n` +
-          `🚀 In Educa Fintech, you only move upwards towards financial freedom!`;
-      } else {
-        reply = `🎯 Educa Fintech Loan Ke Zabardast Fayde:\n\n` +
+          `🚀 In Educa Fintech, you only move upwards towards financial freedom!`
+        : `🎯 Educa Fintech Loan Ke Zabardast Fayde:\n\n` +
           `1. ⚡ Turant Wallet Disbursal: Kisi bank ki lambi line ya paperwork ke bina turant aapke wallet me paisa!\n` +
           `2. 📈 Limit Double Guarantee: 18 kistein samay par bharte hi aapki limit double ho jati hai (₹5,000 → ₹10,000 → ₹50,000 tak)!\n` +
           `3. 💼 Business Growth Boost: Cheque ke sath ₹20,000 aur bina cheque ₹10,000 tak ki instant capital suvidha!\n` +
           `4. 🛡️ 100% Transparent: Sirf 1.34% per installment ka transparent rate, zero hidden deduction!\n\n` +
           `🚀 Educa Fintech me aap sirf upar hi jayenge — aaj hi apply karein aur aage badhein! 🌟`;
-      }
-    } else if (lower.includes("business") || lower.includes("cheque") || lower.includes("check") || lower.includes("dukan") || lower.includes("vyapar")) {
-      if (isEn) {
-        reply = `💼 Educa Micro Business Loan Limits:\n\n` +
+    } else if (!isCalcQuery && (lower.includes("business") || lower.includes("cheque") || lower.includes("check") || lower.includes("dukan") || lower.includes("vyapar"))) {
+      reply = isEn
+        ? `💼 Educa Micro Business Loan Limits:\n\n` +
           `• With Cheque Facility: Up to ₹20,000 maximum eligible capital!\n` +
           `• Without Cheque: Up to ₹10,000 instant capital!\n` +
           `• Repayment: Flexible daily collection (60 to 120 days) or 10-day installments!\n\n` +
-          `Expand your inventory and scale your daily revenue with Educa Fintech! 🚀`;
-      } else {
-        reply = `💼 Educa Micro Business Loan Suvidha:\n\n` +
+          `Expand your inventory and scale your daily revenue with Educa Fintech! 🚀`
+        : `💼 Educa Micro Business Loan Suvidha:\n\n` +
           `• Cheque Ke Sath: Maximum ₹20,000 tak working capital!\n` +
           `• Bina Cheque Ke: Maximum ₹10,000 tak instant capital!\n` +
           `• Repayment: 60 se 120 din ke rozana aasan daily collections ya 10-day installments!\n\n` +
           `Apne vyapar ko double karein — Educa Fintech me aap sirf unchaiyon pe jayenge! 🚀`;
-      }
-    } else if (lower.includes("12") || lower.includes("interest") || lower.includes("byaj") || lower.includes("munafa") || lower.includes("invest") || lower.includes("growth") || lower.includes("tezi") || lower.includes("bachat")) {
-      if (isEn) {
-        reply = `📈 Educa Fintech 12% p.a. Compounding Wealth Model:\n\n` +
-          `• 12% Annual Interest: 4x higher returns than regular banks!\n` +
-          `• Real-Time Accrual: Your money earns profit second-by-second live!\n` +
-          `• Dual Wallet Power: Transfer profit to Primary Wallet with 1-click or withdraw directly to Bank/UPI!\n\n` +
-          `🔥 "With Educa Fintech, you only go higher!" Invest and grow with confidence.`;
-      } else {
-        reply = `📈 Educa Fintech 12% p.a. Compounding Wealth Model:\n\n` +
-          `• 12% p.a. Compounding Return: Bank ke aam bachat khate se 4 guna zyada munafa!\n` +
-          `• Har Second Live Profit: Aapka balance har second live dashboard par profit kamata hai.\n` +
-          `• Dual Wallet Azadi: Profit ko 1-click me Primary Wallet me bhejein ya seedha Cash Out karein!\n\n` +
-          `🔥 "Educa Fintech me aap sirf upar hi jayenge!" Aaj hi shuru karein aur daulat badhayein!`;
-      }
-    } else if (lower.includes("unchai") || lower.includes("vision") || lower.includes("safal") || lower.includes("upar")) {
-      reply = isEn
-        ? "Yes! 'With Educa Fintech, you only go higher! 🚀' That is our core mission — idle funds earn 12% p.a. compounding returns, and you get instant loans up to ₹50,000 without paperwork hassle!"
-        : "Haan bilkul! 'Educa Fintech me aap sirf upar hi jayenge! 🚀' — Har aam insaan ka paisa har second 12% p.a. ki tezi se badhe aur emergency me instant ₹5,000 se ₹50,000 ka loan mile bina kisi paper chakkar ke!";
     } else {
-      reply = isEn
-        ? "Welcome to Educa Fintech! 🚀\n• 12% p.a. live compounding savings interest\n• Instant Business Loans (Up to ₹20K with cheque / ₹10K direct)\n• Instant Personal Loans with 18 easy installments (1.34%/cycle)\n• Ask any amount to calculate instant EMI!"
-        : "Educa Fintech me aapka swagat hai! 🚀\n• 12% p.a. live compounding munafa\n• Instant Business Loans (₹20,000 cheque ke sath / ₹10,000 direct)\n• Instant Personal Loans 18 aasan kiston me (1.34% per kist)\n• Koi bhi amount likhein (jaise 10000, 20000) aur turant EMI hisaab dekhein!";
+      // Loan / EMI Calculation Engine (ignores percentage numbers like 12% or 1.34%)
+      let tenureVal = null;
+      const tenureMatch = lower.match(/(\d+)\s*(?:kist(?:ein|o|on)?|installment(?:s)?|cycle|mahine)\b/i);
+      if (tenureMatch) {
+        const n = parseInt(tenureMatch[1], 10);
+        if (n >= 1 && n <= 60) tenureVal = n;
+      }
+
+      let emiVal = null;
+      const emiMatch = lower.match(/(?:emi|har\s+kist|per\s+installment)\s*(?:hai|bani|bana|of|is|=|:)?\s*(\d+(?:\.\d+)?\s*k?)\b/i) ||
+                       lower.match(/(\d+(?:\.\d+)?\s*k?)\s*(?:ki|ka|har)?\s*(?:emi|har\s+kist|per\s+kist)\b/i);
+      if (emiMatch) {
+        let raw = emiMatch[1].trim().toLowerCase();
+        let n = parseFloat(raw);
+        if (raw.endsWith("k")) n *= 1000;
+        if (n !== tenureVal) emiVal = Math.round(n);
+      }
+
+      let totalVal = null;
+      const totalMatch = lower.match(/(\d+(?:\.\d+)?\s*k?)\s*(?:dena|wapas|repay|bharna|total)\b/i);
+      if (totalMatch) {
+        let raw = totalMatch[1].trim().toLowerCase();
+        let n = parseFloat(raw);
+        if (raw.endsWith("k")) n *= 1000;
+        totalVal = Math.round(n);
+      }
+
+      const nums = [];
+      const numRe = /(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)\s*(k)?(?!\s*(?:%|percent))\b/gi;
+      let m;
+      while ((m = numRe.exec(lower)) !== null) {
+        let val = parseFloat(m[1]);
+        if (m[2] && m[2].toLowerCase() === "k") val *= 1000;
+        nums.push(Math.round(val));
+      }
+
+      let principalVal = null;
+      const principalMatch = lower.match(/(\d+(?:\.\d+)?\s*k?)\s*(?:ka\s+loan|liya|udhar|borrow|chahiye)\b/i);
+      if (principalMatch) {
+        let raw = principalMatch[1].trim().toLowerCase();
+        let n = parseFloat(raw);
+        if (raw.endsWith("k")) n *= 1000;
+        principalVal = Math.round(n);
+      }
+
+      if (!principalVal && nums.length > 0) {
+        const candidates = nums.filter(x => x >= 500 && x !== tenureVal && x !== emiVal && x !== totalVal);
+        if (candidates.length > 0) {
+          principalVal = Math.max(...candidates);
+        } else if (nums[0] >= 500) {
+          principalVal = nums[0];
+        }
+      }
+
+      const hasCalcIntent = principalVal || emiVal || totalVal || isCalcQuery || lower.includes("liya");
+
+      if (principalVal && emiVal && emiVal < principalVal) {
+        // User scenario: e.g. "maine 10000 liya 600 ki emi bani to kitna dena hai"
+        const tenure = tenureVal || 18;
+        const totalRepay = emiVal * tenure;
+        const totalInterest = Math.max(0, totalRepay - principalVal);
+        const interestRate = ((totalInterest / principalVal) * 100).toFixed(1);
+
+        if (isEn) {
+          reply = `🧮 Custom Loan & EMI Breakdown:\n\n` +
+            `• Loan Amount Borrowed: ₹${principalVal.toLocaleString("en-IN")}\n` +
+            `• Your EMI Amount: ₹${emiVal.toLocaleString("en-IN")} / installment\n` +
+            `• Total Installments: ${tenure} Installments (Every 10-day cycle, ~${Math.round(tenure * 10 / 30)} months)\n` +
+            `• Total Repayment: ₹${totalRepay.toLocaleString("en-IN")}\n` +
+            `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}% total)\n\n` +
+            `🔥 With Educa Fintech, You Only Go Higher! 🚀\n` +
+            `Pay each installment on time and your credit limit doubles automatically up to ₹50,000!`;
+        } else {
+          reply = `🧮 Aapke Hisaab Ka Pura Breakdown:\n\n` +
+            `• Aapne Liya (Loan Amount): ₹${principalVal.toLocaleString("en-IN")}\n` +
+            `• Aapki EMI (Har Kist): Sirf ₹${emiVal.toLocaleString("en-IN")} / 10-din\n` +
+            `• Kul Kistein (Tenure): ${tenure} Kistein (Har 10 din me 1 kist, ~${Math.round(tenure * 10 / 30)} mahine)\n` +
+            `• Kul Bhugtan (Total Repayment): ₹${totalRepay.toLocaleString("en-IN")}\n` +
+            `• Kul Byaj (Total Interest): ₹${totalInterest.toLocaleString("en-IN")} (Sirf ${interestRate}%)\n\n` +
+            `🔥 Educa Fintech Me Aap Sirf Upar Hi Jayenge! 🚀\n` +
+            `Samay par kist chukane par aapka credit record mazboot hota hai aur agla loan instant double limit ke sath milta hai!`;
+        }
+      } else if (principalVal && totalVal && totalVal > principalVal) {
+        // User scenario: e.g. "10000 liya 12000 dena hai emi kitni banegi"
+        const tenure = tenureVal || 18;
+        const totalInterest = totalVal - principalVal;
+        const emiAmt = Math.round(totalVal / tenure);
+        const interestRate = ((totalInterest / principalVal) * 100).toFixed(1);
+
+        if (isEn) {
+          reply = `🧮 Repayment & EMI Breakdown for ₹${principalVal.toLocaleString("en-IN")}:\n\n` +
+            `• Loan Amount Borrowed: ₹${principalVal.toLocaleString("en-IN")}\n` +
+            `• Total Repayment: ₹${totalVal.toLocaleString("en-IN")}\n` +
+            `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}%)\n` +
+            `• Tenure: ${tenure} Installments (Every 10-day cycle)\n` +
+            `• Each Installment (EMI): ₹${emiAmt.toLocaleString("en-IN")} / cycle\n\n` +
+            `🚀 With Educa Fintech, you only go higher! Repay easily and grow.`;
+        } else {
+          reply = `🧮 ₹${principalVal.toLocaleString("en-IN")} Loan Ka Repayment Hisaab:\n\n` +
+            `• Aapne Liya: ₹${principalVal.toLocaleString("en-IN")}\n` +
+            `• Kul Wapas Dena Hai: ₹${totalVal.toLocaleString("en-IN")}\n` +
+            `• Kul Byaj (Interest): ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}%)\n` +
+            `• Kul Kistein: ${tenure} Kistein (Har 10 din me 1 kist)\n` +
+            `• Har Kist (EMI): Sirf ₹${emiAmt.toLocaleString("en-IN")} per kist\n\n` +
+            `🚀 Samay par bhugtan karein aur agla loan instant double limit ke sath paayein!`;
+        }
+      } else if (hasCalcIntent) {
+        const amt = principalVal || 10000;
+        const installments = tenureVal || 18;
+        const ratePerInstallment = 1.34; // 1.34% per 10-day cycle
+        const totalInterest = Math.round((amt * (ratePerInstallment * installments)) / 100);
+        const totalPayable = amt + totalInterest;
+        const emiAmt = Math.round(totalPayable / installments);
+
+        if (isEn) {
+          reply = `🧮 Instant EMI Breakdown for ₹${amt.toLocaleString("en-IN")}:\n\n` +
+            `• Loan Amount: ₹${amt.toLocaleString("en-IN")}\n` +
+            `• Tenure: ${installments} Installments (Every 10-day cycle, ~${Math.round(installments * 10 / 30)} months)\n` +
+            `• Each Installment (EMI): ₹${emiAmt.toLocaleString("en-IN")} / cycle\n` +
+            `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (Just 1.34% per installment)\n` +
+            `• Total Repayment: ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
+            `🔥 With Educa Fintech, You Only Go Higher! 🚀\n` +
+            `Partner with us and elevate your business. Repay on time and your credit limit doubles automatically! 100% digital disbursal, zero hidden fees!`;
+        } else {
+          reply = `🧮 ₹${amt.toLocaleString("en-IN")} Loan Ka Turant EMI Hisaab:\n\n` +
+            `• Loan Amount: ₹${amt.toLocaleString("en-IN")}\n` +
+            `• Kul Kist (Tenure): ${installments} Kistein (Har 10 din me 1 kist, ~${Math.round(installments * 10 / 30)} mahine)\n` +
+            `• Har Kist (EMI): Sirf ₹${emiAmt.toLocaleString("en-IN")} / 10-din\n` +
+            `• Kul Byaj (Interest): ₹${totalInterest.toLocaleString("en-IN")} (Sirf 1.34% per kist)\n` +
+            `• Total Repayment (Kul Dena Hai): ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
+            `🔥 Educa Fintech Me Aap Sirf Upar Hi Jayenge! 🚀\n` +
+            `Aap hamare sath kaam karenge aur judenge to aapka business aur balance dono tezi se unchaiyon par jayenge! Samay par kist chukane par aapki loan limit turant double ho jati hai. Zero hidden charges, seedha aapke wallet me instant paisa!`;
+        }
+      } else if (lower.includes("unchai") || lower.includes("vision") || lower.includes("safal") || lower.includes("upar")) {
+        reply = isEn
+          ? "Yes! 'With Educa Fintech, you only go higher! 🚀' That is our core mission — idle funds earn 12% p.a. compounding returns, and you get instant loans up to ₹50,000 without paperwork hassle!"
+          : "Haan bilkul! 'Educa Fintech me aap sirf upar hi jayenge! 🚀' — Har aam insaan ka paisa har second 12% p.a. ki tezi se badhe aur emergency me instant ₹5,000 se ₹50,000 ka loan mile bina kisi paper chakkar ke!";
+      } else {
+        reply = isEn
+          ? "Welcome to Educa Fintech! 🚀\n• 12% p.a. live compounding savings interest\n• Instant Business Loans (Up to ₹20K with cheque / ₹10K direct)\n• Instant Personal Loans with 18 easy installments (1.34%/cycle)\n• Ask any amount to calculate instant EMI!"
+          : "Educa Fintech me aapka swagat hai! 🚀\n• 12% p.a. live compounding munafa\n• Instant Business Loans (₹20,000 cheque ke sath / ₹10,000 direct)\n• Instant Personal Loans 18 aasan kiston me (1.34% per kist)\n• Koi bhi amount likhein (jaise 10000, 20000) aur turant EMI hisaab dekhein!";
+      }
     }
 
     setTimeout(() => {

@@ -382,6 +382,7 @@ router.post('/kyc/:id/approve', protect, admin, async (req, res) => {
     user.kycVerifiedAt = new Date();
     if (!user.kycDocuments) user.kycDocuments = {};
     if (remarks) user.kycDocuments.adminRemarks = remarks.trim();
+    user.kycDocuments.isNoteLocked = true;
 
     if (!user.cardStatus) {
       user.cardStatus = {
@@ -407,10 +408,15 @@ router.post('/kyc/:id/reject', protect, admin, async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    if (user.kycStatus === 'rejected') {
+      return res.status(400).json({ message: 'KYC already rejected hai.' });
+    }
+
     const { remarks } = req.body;
     user.kycStatus = 'rejected';
     if (!user.kycDocuments) user.kycDocuments = {};
     if (remarks) user.kycDocuments.adminRemarks = remarks.trim();
+    user.kycDocuments.isNoteLocked = true;
     user.markModified('kycDocuments');
     await user.save();
 

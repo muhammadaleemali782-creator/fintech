@@ -78,6 +78,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- FIREBASE CLOUD MESSAGING SERVICE (WhatsApp-style Background Push) -->
+        <service
+            android:name=".EducaFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

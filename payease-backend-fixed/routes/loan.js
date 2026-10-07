@@ -79,11 +79,17 @@ const syncLoanOverdueAndPenalties = (loan) => {
   return loan;
 };
 
-// 1. Personal Loan Quote (₹5k - ₹50k, 10-day cycle, 1.34% per installment, min 15 installments)
-const calculatePersonalLoanQuote = (amount, installmentsCount = 15) => {
-  const amt = Math.min(Math.max(Number(amount) || 5000, 5000), 50000);
+// 1. Personal Loan Quote (₹5k - ₹100k, 10-day cycle, 1.34% or 1.0% per installment, min 15 installments)
+const calculatePersonalLoanQuote = (amount, installmentsCount = 15, customRate = null) => {
+  const amt = Math.min(Math.max(Number(amount) || 5000, 5000), 100000);
   const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 30);
-  const ratePerInstallment = 1.34; // 1.34% per 10-day installment
+  
+  // Rate: Default 1.34% per 10-day installment.
+  // For loans > ₹20,000, 1.0% per installment option is supported!
+  let ratePerInstallment = 1.34;
+  if (amt > 20000 && (customRate === 1 || customRate === 1.0 || customRate === '1' || customRate === '1.0' || customRate === '1%')) {
+    ratePerInstallment = 1.0;
+  }
 
   const principalPerInstallment = amt / count;
   const interestPerInstallment = (amt * ratePerInstallment) / 100;
@@ -102,6 +108,7 @@ const calculatePersonalLoanQuote = (amount, installmentsCount = 15) => {
     installmentsCount: count,
     cycleDays: 10,
     interestRatePerInstallment: ratePerInstallment,
+    annualEquivalentRate: Number((ratePerInstallment * 36.5).toFixed(2)),
     installmentAmount,
     totalPayable,
     processingFee,
@@ -196,7 +203,7 @@ router.post('/calculate', (req, res) => {
   }
 
   // Personal Loan default
-  const quote = calculatePersonalLoanQuote(amount, installmentsCount);
+  const quote = calculatePersonalLoanQuote(amount, installmentsCount, req.query.interestRate || req.query.rate || req.query.interestRateOption);
   const dates = getCollectionDates(new Date(), quote.installmentsCount);
   const schedule = dates.map((dueDate, idx) => ({
     installmentNo: idx + 1,
@@ -215,6 +222,7 @@ router.post('/apply', protect, async (req, res) => {
       loanType = 'personal',
       amount,
       installmentsCount = 15,
+      interestRateOption,
       days = 60,
       hasChequeFacility = false,
       chequeNumber,
@@ -244,15 +252,15 @@ router.post('/apply', protect, async (req, res) => {
     }
 
     const numAmount = Number(amount);
-    if (!numAmount || numAmount < 5000 || numAmount > 50000) {
+    if (!numAmount || numAmount < 5000 || numAmount > 100000) {
       return res.status(400).json({
-        message: 'Loan amount ₹5,000 se ₹50,000 ke beech hona chahiye.'
+        message: 'Loan amount ₹5,000 se ₹1,00,000 ke beech hona chahiye.'
       });
     }
 
     // Loan Limit Rules:
     // Business Loan: Up to ₹20,000 with cheque, up to ₹10,000 without cheque
-    // Personal & Student Loans: First-time limit ₹5,000, repeat limit up to currentLimit
+    // Personal & Student Loans: First-time limit ₹5,000 (unless raised by Agent/Admin), repeat limit up to currentLimit
     const isBusiness = loanType === 'micro_business';
     const hasCheque = Boolean(hasChequeFacility || (documents && (documents.chequeUrl || documents.chequeFrontUrl || documents.chequeNumber)));
 
@@ -267,19 +275,12 @@ router.post('/apply', protect, async (req, res) => {
       }
     } else {
       const isFirstTimeBorrower = (userDoc.loansCount || 0) === 0;
-      if (isFirstTimeBorrower) {
-        if (numAmount > 5000) {
-          return res.status(400).json({
-            message: 'Pehli baar Personal ya Student loan ke liye maximum eligible limit ₹5,000 hai. Purana loan clear karne par limit double ho jayegi.'
-          });
-        }
-      } else {
-        const currentLimit = userDoc.loanLimit || 10000;
-        if (numAmount > currentLimit) {
-          return res.status(400).json({
-            message: `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai.`
-          });
-        }
+      // If user has higher loanLimit configured by Agent or Admin, respect it!
+      const currentLimit = userDoc.loanLimit || (isFirstTimeBorrower ? 5000 : 10000);
+      if (numAmount > currentLimit) {
+        return res.status(400).json({
+          message: `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai. Limit badhane ke liye apne Agent ya Admin se sampark karein.`
+        });
       }
     }
 
@@ -523,7 +524,7 @@ router.post('/apply', protect, async (req, res) => {
         return res.status(400).json({ message: 'Easy Installments minimum 15 aur maximum 30 honi chahiye (10-din cycle).' });
       }
 
-      const quote = calculatePersonalLoanQuote(numAmount, count);
+      const quote = calculatePersonalLoanQuote(numAmount, count, interestRateOption);
       const accountNumber = await generateLoanAccountNumber('personal');
       const collectionDates = getCollectionDates(new Date(), count);
       const schedule = collectionDates.map((dueDate, idx) => ({

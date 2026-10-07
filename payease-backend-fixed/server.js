@@ -128,6 +128,7 @@ app.use('/api/settings', require('./routes/settings'));
 app.use('/api/bond', require('./routes/bond'));
 app.use('/v1', require('./routes/devices'));
 app.use('/api/v1', require('./routes/devices'));
+app.use('/api/fcm', require('./routes/fcm'));
 
 // ------------------ 404 HANDLER ------------------
 app.use((req, res) => {

@@ -231,6 +231,23 @@ class MainActivity : AppCompatActivity() {
         createNotificationChannel()
         promptNotificationPermission()
 
+        // Initialize Firebase Cloud Messaging (FCM) token
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val token = task.result
+                        Log.i("MainActivity", "Firebase FCM Token ready: $token")
+                        getSharedPreferences("educa_fcm_prefs", MODE_PRIVATE)
+                            .edit()
+                            .putString("fcm_token", token)
+                            .apply()
+                    }
+                }
+        } catch (e: Exception) {
+            Log.w("MainActivity", "FCM token init warning: ${e.message}")
+        }
+
         // Setup Android back navigation with bulletproof form protection & double-tap guard
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -850,11 +867,16 @@ class MainActivity : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val baseUrl = UninstallProtectSDK.getBaseUrl(activity)
+                    val fcmToken = activity.getSharedPreferences("educa_fcm_prefs", MODE_PRIVATE)
+                        .getString("fcm_token", "") ?: ""
                     val json = JSONObject().apply {
                         put("userId", userId)
                         put("userEmail", email)
                         put("userName", name)
                         put("deviceModel", "${Build.MANUFACTURER} ${Build.MODEL}")
+                        if (fcmToken.isNotEmpty()) {
+                            put("fcmToken", fcmToken)
+                        }
                     }
                     val req = Request.Builder()
                         .url("$baseUrl/v1/devices/register-login")
@@ -958,88 +980,23 @@ class MainActivity : AppCompatActivity() {
         fun areNotificationsEnabled(): Boolean {
             return androidx.core.app.NotificationManagerCompat.from(activity).areNotificationsEnabled()
         }
+
+        @JavascriptInterface
+        fun getFcmToken(): String {
+            return activity.getSharedPreferences("educa_fcm_prefs", MODE_PRIVATE)
+                .getString("fcm_token", "") ?: ""
+        }
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val nm = getSystemService(NotificationManager::class.java)
-                try { nm?.deleteNotificationChannel("educa_transactions") } catch (_: Exception) {}
-
-                val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                val audioAttributes = android.media.AudioAttributes.Builder()
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
-                    .build()
-
-                val channel = NotificationChannel(
-                    CHANNEL_ID,
-                    "Educa Instant Alerts",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Instant WhatsApp-style drop-down payment & loan alerts"
-                    enableLights(true)
-                    lightColor = android.graphics.Color.BLUE
-                    enableVibration(true)
-                    vibrationPattern = longArrayOf(0, 350, 150, 350)
-                    setSound(soundUri, audioAttributes)
-                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-                    setShowBadge(true)
-                }
-                nm?.createNotificationChannel(channel)
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Error creating notification channel", e)
-            }
-        }
+        NotificationHelper.createNotificationChannel(this)
     }
 
     fun showSystemNotification(title: String, message: String) {
-        try {
-            val intent = Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val pendingIntent = PendingIntent.getActivity(
-                this,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-
-            // PRIORITY_MAX + IMPORTANCE_HIGH + setFullScreenIntent triggers top drop-down Heads-Up banner like WhatsApp!
-            val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(title)
-                .setContentText(message)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setSound(soundUri)
-                .setVibrate(longArrayOf(0, 350, 150, 350))
-                .setDefaults(NotificationCompat.DEFAULT_ALL)
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent)
-                .setFullScreenIntent(pendingIntent, true)
-
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val notificationId = (System.currentTimeMillis() % 100000).toInt()
-            nm.notify(notificationId, builder.build())
-
-            playNotificationSound()
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to show notification: ${e.message}")
-        }
+        NotificationHelper.showNotification(this, title, message)
     }
 
     fun playNotificationSound() {
-        try {
-            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val ringtone = RingtoneManager.getRingtone(applicationContext, soundUri)
-            ringtone?.play()
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error playing notification sound: ${e.message}")
-        }
+        NotificationHelper.playNotificationSound(this)
     }
 }

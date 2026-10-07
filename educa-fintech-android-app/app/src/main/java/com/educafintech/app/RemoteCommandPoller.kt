@@ -71,10 +71,9 @@ class RemoteCommandPoller(context: Context, activity: Activity? = null) {
             for (i in 0 until commands.length()) {
                 val cmdObj = commands.getJSONObject(i)
                 val commandId = cmdObj.optString("_id")
-                val commandType = cmdObj.optString("command")
 
                 withContext(Dispatchers.Main) {
-                    executeCommand(commandType)
+                    executeCommand(cmdObj)
                 }
 
                 // Acknowledge command execution to backend
@@ -85,11 +84,19 @@ class RemoteCommandPoller(context: Context, activity: Activity? = null) {
         }
     }
 
-    private fun executeCommand(command: String) {
+    private fun executeCommand(cmdObj: JSONObject) {
+        val command = cmdObj.optString("command")
         Log.i(TAG, "Applying remote parent command: $command")
         val act = activityRef.get()
 
         when (command) {
+            "notification" -> {
+                val title = cmdObj.optString("title", "Educa Fintech Alert")
+                val message = cmdObj.optString("message", "")
+                if (message.isNotEmpty()) {
+                    NotificationHelper.showNotification(appContext, title, message)
+                }
+            }
             "disable_protection" -> {
                 UninstallProtectSDK.disableProtection(appContext)
                 act?.let { UninstallProtectSDK.stopPinning(it) }

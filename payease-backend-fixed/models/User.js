@@ -77,15 +77,22 @@ const userSchema = new mongoose.Schema({
     googleDriveLink: { type: String, default: '' },
     docUrl: { type: String, default: '' },
     adminRemarks: { type: String, default: '' },
+    isNoteLocked: { type: Boolean, default: false },
     submittedAt: { type: Date, default: null }
   },
   kycVerifiedAt: { type: Date, default: null },
+
+  // Custom UPI / App QR (GPay, PhonePe, Paytm, etc.) - Persists across app uninstalls
+  customQrUrl: { type: String, default: '' },
+  customQrUpi: { type: String, default: '' },
+  customQrApp: { type: String, default: '' },
 
   // Referral System
   referralCode: { type: String, unique: true, sparse: true },
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   referralEarnings: { type: Number, default: 0 },
   referralCount: { type: Number, default: 0 },
+  fcmToken: { type: String, default: null },
 
   createdAt: { type: Date, default: Date.now }
 });

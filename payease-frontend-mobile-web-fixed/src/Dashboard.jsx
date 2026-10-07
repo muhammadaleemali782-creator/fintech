@@ -375,8 +375,33 @@ export default function Dashboard() {
     } catch { return "silver"; }
   });
   const [activatingWallet, setActivatingWallet] = useState("");
-  const [claimingCard, setClaimingCard] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [qrTab, setQrTab] = useState("fintech"); // "fintech" | "custom"
+  const [customQrUrl, setCustomQrUrl] = useState(() => {
+    try {
+      const uId = userStored?.id || userStored?._id || "guest";
+      return localStorage.getItem(`educa_custom_qr_${uId}`) || "";
+    } catch { return ""; }
+  });
+  const [customQrUpi, setCustomQrUpi] = useState(() => {
+    try {
+      const uId = userStored?.id || userStored?._id || "guest";
+      return localStorage.getItem(`educa_custom_upi_${uId}`) || "";
+    } catch { return ""; }
+  });
+  const [customQrApp, setCustomQrApp] = useState(() => {
+    try {
+      const uId = userStored?.id || userStored?._id || "guest";
+      return localStorage.getItem(`educa_custom_app_${uId}`) || "Google Pay / PhonePe";
+    } catch { return "Google Pay / PhonePe"; }
+  });
+  const [customQrUploadDraft, setCustomQrUploadDraft] = useState("");
+  const [customQrUpiDraft, setCustomQrUpiDraft] = useState("");
+  const [customQrAppDraft, setCustomQrAppDraft] = useState("Google Pay");
+  const [savingCustomQr, setSavingCustomQr] = useState(false);
+  const [editLoanLimitCustomer, setEditLoanLimitCustomer] = useState(null);
+  const [editLimitVal, setEditLimitVal] = useState("");
+  const [updatingLimit, setUpdatingLimit] = useState(false);
 
   // Dues & Loan Installment states
   const [activeLoanDetails, setActiveLoanDetails] = useState(() => {
@@ -542,7 +567,7 @@ export default function Dashboard() {
     pendingPinActionRef.current = pendingPinAction;
   }, [pendingPinAction]);
 
-  // Personal Loan Application State (₹5k-₹50k, 15-30 Easy Installments, 1.34% per installment)
+  // Personal Loan Application State (₹5k-₹100k, 15-30 Easy Installments, 1.34% or 1.0% per installment)
   const [loanForm, setLoanForm] = useState({
     amount: 5000,
     hasChequeFacility: true,
@@ -550,6 +575,7 @@ export default function Dashboard() {
     chequeUrl: "",
     chequeBackUrl: "",
     installmentsCount: 15,
+    useSpecialRate: false,
     purpose: "Personal Needs",
     aadharNumber: "",
     aadharUrl: "",
@@ -1498,6 +1524,169 @@ export default function Dashboard() {
       .catch(() => {});
   }, [activeUpiId, userProfile.name, userStored.name]);
 
+  // Custom QR persistence (survives app reinstallation & backed up to user account)
+  useEffect(() => {
+    const uId = userProfile?._id || userStored?.id || userStored?._id;
+    if (!uId) return;
+    const localQr = localStorage.getItem(`educa_custom_qr_${uId}`);
+    if (userProfile.customQrUrl && (!localQr || localQr !== userProfile.customQrUrl)) {
+      try { localStorage.setItem(`educa_custom_qr_${uId}`, userProfile.customQrUrl); } catch (e) {}
+      setCustomQrUrl(userProfile.customQrUrl);
+    } else if (localQr && !customQrUrl) {
+      setCustomQrUrl(localQr);
+    }
+    if (userProfile.customQrUpi) {
+      try { localStorage.setItem(`educa_custom_upi_${uId}`, userProfile.customQrUpi); } catch (e) {}
+      setCustomQrUpi(userProfile.customQrUpi);
+    }
+    if (userProfile.customQrApp) {
+      try { localStorage.setItem(`educa_custom_app_${uId}`, userProfile.customQrApp); } catch (e) {}
+      setCustomQrApp(userProfile.customQrApp);
+    }
+  }, [userProfile?._id, userProfile?.customQrUrl, userProfile?.customQrUpi, userProfile?.customQrApp]);
+
+  const handleQrFilePick = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 800;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+        setCustomQrUploadDraft(compressedBase64);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveCustomQr = async (overrideDataUrl) => {
+    const uId = userProfile?._id || userStored?.id || userStored?._id;
+    const finalUrl = overrideDataUrl || customQrUploadDraft;
+    const finalUpi = customQrUpiDraft.trim();
+    const finalApp = customQrAppDraft.trim() || "Google Pay / PhonePe";
+
+    if (!finalUrl) {
+      alert("Kripya pehle QR code image upload karein!");
+      return;
+    }
+
+    if (uId) {
+      try {
+        localStorage.setItem(`educa_custom_qr_${uId}`, finalUrl);
+        if (finalUpi) localStorage.setItem(`educa_custom_upi_${uId}`, finalUpi);
+        if (finalApp) localStorage.setItem(`educa_custom_app_${uId}`, finalApp);
+      } catch (err) {}
+    }
+
+    setCustomQrUrl(finalUrl);
+    setCustomQrUpi(finalUpi);
+    setCustomQrApp(finalApp);
+    setCustomQrUploadDraft("");
+
+    setSavingCustomQr(true);
+    try {
+      const res = await fetch(`${API}/user/custom-qr`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          customQrUrl: finalUrl,
+          customQrUpi: finalUpi,
+          customQrApp: finalApp
+        })
+      });
+      if (res.ok) {
+        setUserProfile(prev => ({
+          ...prev,
+          customQrUrl: finalUrl,
+          customQrUpi: finalUpi,
+          customQrApp: finalApp
+        }));
+      }
+    } catch (e) {
+      console.warn("Could not sync custom QR to server, saved in local device:", e);
+    } finally {
+      setSavingCustomQr(false);
+    }
+  };
+
+  const handleRemoveCustomQr = async () => {
+    const uId = userProfile?._id || userStored?.id || userStored?._id;
+    if (uId) {
+      try {
+        localStorage.removeItem(`educa_custom_qr_${uId}`);
+        localStorage.removeItem(`educa_custom_upi_${uId}`);
+        localStorage.removeItem(`educa_custom_app_${uId}`);
+      } catch (err) {}
+    }
+    setCustomQrUrl("");
+    setCustomQrUpi("");
+    setCustomQrApp("Google Pay");
+    try {
+      await fetch(`${API}/user/custom-qr`, { method: "DELETE", headers });
+      setUserProfile(prev => ({ ...prev, customQrUrl: "", customQrUpi: "", customQrApp: "" }));
+    } catch (e) {}
+  };
+
+  const handleUpdateCustomerLoanLimit = async () => {
+    if (!editLoanLimitCustomer) return;
+    const limitNum = Number(editLimitVal);
+    if (!limitNum || limitNum < 5000 || limitNum > 100000) {
+      alert("Valid loan limit dalein (₹5,000 se ₹1,00,000)");
+      return;
+    }
+    setUpdatingLimit(true);
+    try {
+      const res = await fetch(`${API}/user/agent/update-loan-limit`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          customerId: editLoanLimitCustomer.customerId,
+          newLimit: limitNum
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || "Loan limit updated!");
+        setAgentMetrics(prev => {
+          if (!prev || !prev.customers) return prev;
+          return {
+            ...prev,
+            customers: prev.customers.map(c =>
+              (c.id === editLoanLimitCustomer.customerId || c._id === editLoanLimitCustomer.customerId)
+                ? { ...c, loanLimit: limitNum }
+                : c
+            )
+          };
+        });
+        setEditLoanLimitCustomer(null);
+        setEditLimitVal("");
+      } else {
+        alert(data.message || "Loan limit update failed");
+      }
+    } catch (e) {
+      alert("Failed to update limit");
+    } finally {
+      setUpdatingLimit(false);
+    }
+  };
+
   // Recipient Auto-Lookup with Debounce
   useEffect(() => {
     const q = sendForm.recipient.trim();
@@ -1829,14 +2018,15 @@ export default function Dashboard() {
   const msElapsedToday = Math.max(0, liveMs - startOfToday);
   const liveTodayEarned = msElapsedToday * perMsYield;
 
-  // Loan Calculations (First time borrower strictly ₹5,000 across ALL loans; doubles for repeat borrowers)
+  // Loan Calculations (First time borrower starts at userProfile.loanLimit or 5,000; can be raised by Agent/Admin)
   const isFirstTime = (userProfile.loansCount || 0) === 0;
-  const maxLimit = isFirstTime ? 5000 : (userProfile.loanLimit || 10000);
+  const maxLimit = userProfile.loanLimit ? userProfile.loanLimit : (isFirstTime ? 5000 : 10000);
 
   // Personal Loan Calculations
   const quoteAmount = Math.min(Math.max(Number(loanForm.amount) || 5000, 5000), maxLimit);
   const quoteCount = Math.min(Math.max(Number(loanForm.installmentsCount) || 15, 15), 30);
-  const quoteRate = 1.34;
+  // Option: For loans > ₹20,000, 1.0% per installment option is supported (optional)!
+  const quoteRate = (quoteAmount > 20000 && loanForm.useSpecialRate) ? 1.0 : 1.34;
   const principalPerInstallment = quoteAmount / quoteCount;
   const interestPerInstallment = (quoteAmount * quoteRate) / 100;
   const installmentAmount = Math.round(principalPerInstallment + interestPerInstallment);
@@ -2948,6 +3138,7 @@ export default function Dashboard() {
           loanType: "personal",
           amount: quoteAmount,
           installmentsCount: quoteCount,
+          interestRateOption: quoteRate,
           hasChequeFacility: true,
           chequeNumber: loanForm.chequeNumber.trim(),
           purpose: loanForm.purpose || "Personal Needs",
@@ -3963,6 +4154,24 @@ export default function Dashboard() {
                             </span>
                           </div>
                         </div>
+
+                        {/* Loan Limit & Agent Limit Increase */}
+                        <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-gray-300">Eligible Loan Limit:</span>
+                            <span className="font-mono font-bold text-amber-300">₹{Number(c.loanLimit || 5000).toLocaleString("en-IN")}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditLoanLimitCustomer({ customerId: c.id || c._id, name: c.name, currentLimit: c.loanLimit || 5000 });
+                              setEditLimitVal(String(c.loanLimit || 5000));
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[10px] font-bold transition active:scale-95 cursor-pointer flex items-center gap-1"
+                          >
+                            <span>✏️</span> Limit Badhayein
+                          </button>
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -3973,6 +4182,66 @@ export default function Dashboard() {
                     : "Abhi tak koi referred customer onboard nahi hua hai. Upar diye gaye link se customers ko onboard karein."}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* AGENT EDIT CUSTOMER LOAN LIMIT MODAL */}
+        {editLoanLimitCustomer && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 space-y-4 text-gray-900">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <h4 className="font-extrabold text-sm text-gray-900 flex items-center gap-1.5">
+                  <span>📈</span> Customer Loan Limit Badhayein
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setEditLoanLimitCustomer(null)}
+                  className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-1 text-xs">
+                <p className="text-gray-600">
+                  Customer: <strong>{editLoanLimitCustomer.name}</strong>
+                </p>
+                <p className="text-gray-500 text-[11px]">
+                  Vartamaan Limit: ₹{Number(editLoanLimitCustomer.currentLimit).toLocaleString("en-IN")}
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Nayi Loan Limit (₹5,000 se ₹1,00,000 tak)
+                </label>
+                <input
+                  type="number"
+                  step="1000"
+                  min="5000"
+                  max="100000"
+                  value={editLimitVal}
+                  onChange={e => setEditLimitVal(e.target.value)}
+                  placeholder="e.g. 20000, 30000, 50000"
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono font-bold text-gray-900 outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditLoanLimitCustomer(null)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={updatingLimit}
+                  onClick={handleUpdateCustomerLoanLimit}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {updatingLimit ? "Updating..." : "Limit Update Karein →"}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -4579,88 +4848,290 @@ export default function Dashboard() {
       </div>
 
       {/* ══════════════════════════════════════════════════════
-          1. MY QR CODE SHEET
+          1. MY QR CODE SHEET (DUAL TAB: FINTECH & CUSTOM UPI)
       ══════════════════════════════════════════════════════ */}
       <Sheet open={modal === "my_qr"} onClose={closeModal} title={txt.myQrCode || "My QR Code"} icon="📱">
-        <div className="text-center space-y-4">
-          <p className="text-xs text-gray-600 font-medium">
-            {lang === "hindi"
-              ? "किसी भी UPI ऐप (GPay, PhonePe, Paytm) या Educa यूज़र से डायरेक्ट पेमेंट प्राप्त करने के लिए यह QR कोड स्कैन कराएं:"
-              : "Scan this QR code from any UPI app (GPay, PhonePe, Paytm) or Educa User to receive instant payments:"}
-          </p>
-
-          <div className="p-4 bg-white rounded-3xl border-2 border-indigo-100 shadow-xl inline-block mx-auto relative">
-            <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-blue-600 rounded-tl" />
-            <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-blue-600 rounded-tr" />
-            <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-blue-600 rounded-bl" />
-            <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-blue-600 rounded-br" />
-            {qrDataUrl ? (
-              <img src={qrDataUrl} alt="Educa QR" className="w-56 h-56 mx-auto rounded-2xl" />
-            ) : (
-              <div className="w-56 h-56 flex items-center justify-center text-xs text-gray-400">Generating QR...</div>
-            )}
+        <div className="space-y-4">
+          {/* Dual Tab Switcher */}
+          <div className="flex bg-gray-100 p-1 rounded-2xl text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setQrTab("fintech")}
+              className={`flex-1 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                qrTab === "fintech"
+                  ? "bg-white text-indigo-900 shadow-xs"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              <span>🏛️</span> Fintech QR
+            </button>
+            <button
+              type="button"
+              onClick={() => setQrTab("custom")}
+              className={`flex-1 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                qrTab === "custom"
+                  ? "bg-white text-indigo-900 shadow-xs"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              <span>📱</span> Other App QR {customQrUrl ? "✓" : ""}
+            </button>
           </div>
 
-          {/* Official Bank Passbook & App UPI Identity Card */}
-          <div className="bg-slate-900 text-white rounded-2xl p-4 text-left space-y-2.5 shadow-md border border-white/10">
-            <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <span className="text-base">🏛️</span>
-                <div>
-                  <h4 className="font-extrabold text-xs text-white leading-tight">{userProfile.name || userStored.name || "Educa Customer"}</h4>
-                  <p className="text-[10px] text-indigo-300">{txt.branchName} • IFSC: EFS0000JHAL</p>
+          {qrTab === "fintech" ? (
+            /* TAB 1: FINTECH SYSTEM QR */
+            <div className="text-center space-y-4">
+              <p className="text-xs text-gray-600 font-medium">
+                {lang === "hindi"
+                  ? "किसी भी UPI ऐप (GPay, PhonePe, Paytm) या Educa यूज़र से डायरेक्ट पेमेंट प्राप्त करने के लिए यह QR कोड स्कैन कराएं:"
+                  : "Scan this QR code from any UPI app (GPay, PhonePe, Paytm) or Educa User to receive instant payments:"}
+              </p>
+
+              <div className="p-4 bg-white rounded-3xl border-2 border-indigo-100 shadow-xl inline-block mx-auto relative">
+                <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-blue-600 rounded-tl" />
+                <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-blue-600 rounded-tr" />
+                <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-blue-600 rounded-bl" />
+                <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-blue-600 rounded-br" />
+                {qrDataUrl ? (
+                  <img src={qrDataUrl} alt="Educa QR" className="w-56 h-56 mx-auto rounded-2xl" />
+                ) : (
+                  <div className="w-56 h-56 flex items-center justify-center text-xs text-gray-400">Generating QR...</div>
+                )}
+              </div>
+
+              {/* Official Bank Passbook & App UPI Identity Card */}
+              <div className="bg-slate-900 text-white rounded-2xl p-4 text-left space-y-2.5 shadow-md border border-white/10">
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🏛️</span>
+                    <div>
+                      <h4 className="font-extrabold text-xs text-white leading-tight">{userProfile.name || userStored.name || "Educa Customer"}</h4>
+                      <p className="text-[10px] text-indigo-300">{txt.branchName} • IFSC: EFS0000JHAL</p>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    ✓ Active
+                  </span>
+                </div>
+
+                {/* App UPI ID Row */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10">
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.upiIdLabel}</span>
+                    <span className="font-mono font-black text-xs text-emerald-300">{activeUpiId}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(activeUpiId, "qr_upi")}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                  >
+                    {copiedField === "qr_upi" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                  </button>
+                </div>
+
+                {/* Account Number Row */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10">
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.accountNumberLabel}</span>
+                    <span className="font-mono font-black text-xs text-white tracking-wider">{activeAccountNum}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(activeAccountNum, "qr_acc")}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                  >
+                    {copiedField === "qr_acc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                  </button>
                 </div>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                ✓ Active
-              </span>
-            </div>
 
-            {/* App UPI ID Row */}
-            <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10">
-              <div>
-                <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.upiIdLabel}</span>
-                <span className="font-mono font-black text-xs text-emerald-300">{activeUpiId}</span>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(activeUpiId, "qr_upi_btn")}
+                  className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <span>📋</span> {copiedField === "qr_upi_btn" ? txt.copied : "Copy UPI ID"}
+                </button>
+                <button
+                  type="button"
+                  onClick={shareFullBankDetails}
+                  className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <span>📤</span> {txt.shareBankDetails}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(activeUpiId, "qr_upi")}
-                className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 transition active:scale-95 cursor-pointer"
-              >
-                {copiedField === "qr_upi" ? "✓ " + txt.copied : "📋 " + txt.copy}
-              </button>
             </div>
+          ) : (
+            /* TAB 2: CUSTOM OTHER APP QR (GPAY, PHONEPE, PAYTM, ETC.) */
+            <div className="space-y-3.5 text-center">
+              {customQrUrl && !customQrUploadDraft ? (
+                /* ALREADY SAVED CUSTOM QR */
+                <div className="space-y-3">
+                  <div className="p-4 bg-white rounded-3xl border-2 border-emerald-200 shadow-xl inline-block mx-auto relative">
+                    <img
+                      src={customQrUrl}
+                      alt="My Custom QR"
+                      className="w-56 h-56 mx-auto rounded-2xl object-contain bg-white"
+                    />
+                  </div>
 
-            {/* Account Number Row */}
-            <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10">
-              <div>
-                <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.accountNumberLabel}</span>
-                <span className="font-mono font-black text-xs text-white tracking-wider">{activeAccountNum}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(activeAccountNum, "qr_acc")}
-                className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 transition active:scale-95 cursor-pointer"
-              >
-                {copiedField === "qr_acc" ? "✓ " + txt.copied : "📋 " + txt.copy}
-              </button>
+                  <div className="bg-slate-900 text-white rounded-2xl p-3.5 text-left space-y-2 border border-white/10">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">📱</span>
+                        <div>
+                          <h4 className="font-black text-xs text-white">{customQrApp || "Custom UPI QR"}</h4>
+                          <p className="text-[10px] text-gray-400">Direct Payment QR</p>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        ✓ Saved
+                      </span>
+                    </div>
+
+                    {customQrUpi && (
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10">
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase block">Custom UPI ID</span>
+                          <span className="font-mono font-black text-xs text-emerald-300">{customQrUpi}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(customQrUpi, "custom_upi_copy")}
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 transition active:scale-95 cursor-pointer"
+                        >
+                          {copiedField === "custom_upi_copy" ? "✓ Copied" : "📋 Copy"}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="p-2 rounded-xl bg-blue-950/60 border border-blue-500/30 text-[10px] text-blue-200 flex items-center gap-1.5">
+                      <span>💾</span>
+                      <span>Yeh QR aapke device me hamesha save rahega aur app re-install karne par bhi restore ho jayega.</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <label
+                      htmlFor="custom-qr-replace-file"
+                      className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <span>🔄</span> Dusra QR Lagayein
+                    </label>
+                    <input
+                      id="custom-qr-replace-file"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleQrFilePick(e.target.files[0]);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveCustomQr}
+                      className="py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <span>🗑️</span> Remove QR
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* UPLOAD NEW CUSTOM QR DRAFT */
+                <div className="space-y-3 text-left">
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-900 space-y-1">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <span>📲</span> Apna Personal UPI QR Code Lagayein
+                    </p>
+                    <p className="text-[11px] text-blue-700">
+                      Aap kisi bhi payment app (Google Pay, PhonePe, Paytm, BHIM, BharatPe) ka QR code apni profile me laga sakte hain. Yeh QR aapke phone aur ID me permanently save rahega.
+                    </p>
+                  </div>
+
+                  {customQrUploadDraft ? (
+                    <div className="text-center space-y-2">
+                      <div className="p-3 bg-white rounded-2xl border-2 border-indigo-200 shadow-md inline-block mx-auto">
+                        <img
+                          src={customQrUploadDraft}
+                          alt="QR Preview"
+                          className="w-48 h-48 mx-auto rounded-xl object-contain"
+                        />
+                      </div>
+                      <p className="text-[11px] text-emerald-700 font-bold">✓ QR Image Selected</p>
+                    </div>
+                  ) : (
+                    <label className="border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/40 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition">
+                      <span className="text-3xl mb-1.5">📷</span>
+                      <span className="text-xs font-bold text-indigo-900">Gallery / Camera se QR Upload Karein</span>
+                      <span className="text-[10px] text-gray-500 mt-0.5">Google Pay, PhonePe, Paytm ya kisi bhi app ka QR</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleQrFilePick(e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Select App</label>
+                      <select
+                        value={customQrAppDraft}
+                        onChange={e => setCustomQrAppDraft(e.target.value)}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none"
+                      >
+                        <option value="Google Pay">Google Pay (GPay)</option>
+                        <option value="PhonePe">PhonePe</option>
+                        <option value="Paytm">Paytm</option>
+                        <option value="BharatPe">BharatPe</option>
+                        <option value="BHIM UPI">BHIM UPI</option>
+                        <option value="Other UPI">Other UPI App</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">UPI ID (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. mobile@okaxis, user@ybl"
+                        value={customQrUpiDraft}
+                        onChange={e => setCustomQrUpiDraft(e.target.value)}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {customQrUploadDraft && (
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setCustomQrUploadDraft("")}
+                        className="py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingCustomQr}
+                        onClick={() => handleSaveCustomQr()}
+                        className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 disabled:opacity-50"
+                      >
+                        {savingCustomQr ? "Saving..." : "Save QR to Device & ID →"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <button
-              onClick={() => copyToClipboard(activeUpiId, "qr_upi_btn")}
-              className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <span>📋</span> {copiedField === "qr_upi_btn" ? txt.copied : "Copy UPI ID"}
-            </button>
-            <button
-              onClick={shareFullBankDetails}
-              className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <span>📤</span> {txt.shareBankDetails}
-            </button>
-          </div>
+          )}
         </div>
       </Sheet>
 
@@ -5425,6 +5896,49 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Optional Special Rate for Loans > ₹20,000 */}
+            {quoteAmount > 20000 && (
+              <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                    <span>✨</span> Special Interest Rate Option (&gt;₹20,000)
+                  </span>
+                  <span className="text-[10px] font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded-full">
+                    Optional
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-800">
+                  ₹20,000 se upar ke loan par aap optional 1.0% per installment rate select kar sakte hain:
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLoanForm({ ...loanForm, useSpecialRate: false })}
+                    className={`p-2.5 rounded-xl text-left transition border cursor-pointer ${
+                      !loanForm.useSpecialRate
+                        ? "bg-white border-emerald-600 ring-2 ring-emerald-500 shadow-xs font-bold text-gray-900"
+                        : "bg-emerald-50/60 border-emerald-200 text-gray-600 hover:bg-white"
+                    }`}
+                  >
+                    <div className="text-[11px] font-semibold text-gray-700">Standard Rate</div>
+                    <div className="font-mono text-xs font-black text-slate-800">1.34% / installment</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLoanForm({ ...loanForm, useSpecialRate: true })}
+                    className={`p-2.5 rounded-xl text-left transition border cursor-pointer ${
+                      loanForm.useSpecialRate
+                        ? "bg-white border-emerald-600 ring-2 ring-emerald-500 shadow-xs font-bold text-emerald-900"
+                        : "bg-emerald-50/60 border-emerald-200 text-gray-600 hover:bg-white"
+                    }`}
+                  >
+                    <div className="text-[11px] text-emerald-700 font-extrabold">🌟 Special Rate</div>
+                    <div className="font-mono text-xs font-black text-emerald-800">1.00% / installment</div>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Live Auto-Disbursal Breakdown */}
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3.5 space-y-1.5 text-xs">
               <div className="font-bold text-gray-800 text-[11px] uppercase tracking-wider border-b border-gray-200 pb-1">
@@ -5436,7 +5950,9 @@ export default function Dashboard() {
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Rate of Interest:</span>
-                <span className="font-bold text-emerald-700">1.34% per installment</span>
+                <span className="font-bold text-emerald-700">
+                  {quoteRate}% per installment {quoteAmount > 20000 && loanForm.useSpecialRate ? " (Special 1% Option)" : ""}
+                </span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Per Easy Installment:</span>

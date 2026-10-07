@@ -751,12 +751,14 @@ export default function AdminPanel() {
     710000
   );
 
+  const chartCumulativeProfit = (analytics?.dailyProfitChart || []).reduce((acc, row) => acc + (Number(row.amount) || 0), 0);
   const totalProfitBase = Number(
+    chartCumulativeProfit > 0 ? chartCumulativeProfit :
     analytics?.stats?.totalUserProfits ||
     stats?.totalUserProfits ||
     analytics?.stats?.totalYieldCredited ||
     stats?.totalYield ||
-    49.82
+    260.78
   );
 
   // Live Mini-Second Profit & Reserves Stream (Admin)
@@ -765,9 +767,9 @@ export default function AdminPanel() {
   const [adminCachedProfit, setAdminCachedProfit] = useState(() => {
     try {
       const saved = localStorage.getItem("educa_admin_cached_profit");
-      return saved ? Number(saved) : 49.82;
+      return saved ? Number(saved) : 260.78;
     } catch {
-      return 49.82;
+      return 260.78;
     }
   });
 
@@ -797,15 +799,11 @@ export default function AdminPanel() {
     }
   }, [analytics?.stats?.serverTime, stats?.serverTime, totalProfitBase]);
 
-  const adminDailyRate = totalReservesBase > 0 ? (totalReservesBase * 0.12) / 365 : 0;
-  const adminPerSec = adminDailyRate / 86400;
-  const adminPerMs = adminPerSec / 1000;
-
   const baseAdminProfit = Math.max(totalProfitBase, adminCachedProfit);
-  const adminElapsedMs = Math.max(0, adminLiveMs - adminAnchorTime);
-  const liveAdminProfit = baseAdminProfit + (adminElapsedMs * adminPerMs);
-  // Fintech Reserves: Total Deposits + Live Accrued Profit Added
-  const liveAdminReserves = totalReservesBase + liveAdminProfit;
+  const totalDepositsDisplay = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || adminCachedReserves || 710000);
+  const liveAdminProfit = Number(baseAdminProfit.toFixed(2));
+  // Fintech Reserves: Total Deposits + Live Profit
+  const liveAdminReserves = Number((totalDepositsDisplay + liveAdminProfit).toFixed(2));
 
   useEffect(() => {
     if (liveAdminProfit > 0) {
@@ -815,12 +813,10 @@ export default function AdminPanel() {
     }
   }, [liveAdminProfit]);
 
-  const totalDepositsDisplay = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || adminCachedReserves || 710000);
-
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, g: "from-emerald-500 to-teal-600" },
     { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-indigo-600 to-violet-600" },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, g: "from-indigo-600 to-violet-600" },
     { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 2, g: "from-blue-500 to-blue-600" },
     { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, g: "from-yellow-500 to-orange-500" },
   ];
@@ -1045,7 +1041,7 @@ export default function AdminPanel() {
                     {loadingAnalytics && !analytics && !liveAdminReserves ? (
                       <span className="inline-block h-8 w-44 bg-white/20 rounded-xl animate-pulse" />
                     ) : (
-                      <span className="font-mono tabular-nums text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
+                      <span className="font-mono tabular-nums text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     )}
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-300 mt-2 max-w-2xl">
@@ -1083,7 +1079,7 @@ export default function AdminPanel() {
                       <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
                     ) : (
                       <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-emerald-600 tracking-tight truncate">
-                        ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                        ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     )}
                   </div>
@@ -1123,7 +1119,7 @@ export default function AdminPanel() {
                       <div className="h-9 w-40 bg-indigo-100/70 rounded-xl animate-pulse my-1" />
                     ) : (
                       <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-indigo-600 tracking-tight truncate">
-                        ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                        ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     )}
                   </div>
@@ -2053,7 +2049,11 @@ export default function AdminPanel() {
                     {kycUsers.map(u => (
                       <div
                         key={u._id}
-                        className="p-3.5 sm:p-4 bg-gray-50 hover:bg-gray-100/80 border border-gray-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 transition"
+                        onClick={() => {
+                          setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
+                          setPreviewKycUser(u);
+                        }}
+                        className="p-3.5 sm:p-4 bg-gray-50 hover:bg-indigo-50/40 hover:border-indigo-300 border border-gray-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 transition cursor-pointer shadow-2xs group"
                       >
                         <div className="flex items-start gap-3 min-w-0">
                           {/* Both Document Thumbnails */}
@@ -2063,11 +2063,7 @@ export default function AdminPanel() {
                                 src={u.kycDocuments.doc1Url || u.kycDocuments.docUrl}
                                 alt="Doc 1 Aadhaar"
                                 title="Doc 1: Aadhaar Card"
-                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white cursor-pointer shadow-2xs hover:scale-105 transition"
-                                onClick={() => {
-                                  setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
-                                  setPreviewKycUser(u);
-                                }}
+                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover:scale-105 transition"
                               />
                             ) : (
                               <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-xs font-bold">🆔</div>
@@ -2078,11 +2074,7 @@ export default function AdminPanel() {
                                 src={u.kycDocuments.doc2Url}
                                 alt="Doc 2"
                                 title={`Doc 2: ${u.kycDocuments.doc2Type === "cheque" ? "Cheque" : "PAN"}`}
-                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white cursor-pointer shadow-2xs hover:scale-105 transition"
-                                onClick={() => {
-                                  setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
-                                  setPreviewKycUser(u);
-                                }}
+                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover:scale-105 transition"
                               />
                             ) : (
                               <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center text-xs font-bold">💳</div>
@@ -2091,7 +2083,7 @@ export default function AdminPanel() {
 
                           <div className="min-w-0 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-gray-900 text-sm">{u.name}</span>
+                              <span className="font-bold text-gray-900 text-sm group-hover:text-indigo-900 transition">{u.name}</span>
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                                   u.kycStatus === "verified"
@@ -2136,8 +2128,12 @@ export default function AdminPanel() {
                             </div>
 
                             {u.kycDocuments?.adminRemarks && (
-                              <p className="text-[11px] text-blue-700 font-medium bg-blue-50/80 px-2 py-0.5 rounded border border-blue-100">
-                                💬 Note: {u.kycDocuments.adminRemarks}
+                              <p className="text-[11px] text-blue-700 font-medium bg-blue-50/80 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
+                                <span>💬 Note:</span>
+                                <span>{u.kycDocuments.adminRemarks}</span>
+                                {(u.kycStatus === "verified" || u.kycStatus === "rejected" || u.kycDocuments?.isNoteLocked) && (
+                                  <span className="text-[9px] text-gray-400 font-bold ml-1">🔒 Locked</span>
+                                )}
                               </p>
                             )}
                           </div>
@@ -2146,15 +2142,17 @@ export default function AdminPanel() {
                         {/* Action */}
                         <div className="flex items-center gap-2 w-full md:w-auto shrink-0 md:self-center">
                           <button
-                            onClick={() => {
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
                               setPreviewKycUser(u);
                             }}
                             className={`w-full md:w-auto justify-center px-4 py-2.5 rounded-xl text-xs font-bold shadow-md active:scale-95 transition flex items-center gap-1.5 cursor-pointer ${
                               u.kycStatus === "rejected"
-                                ? "bg-rose-100 text-rose-700 border border-rose-200 shadow-none"
+                                ? "bg-rose-100 text-rose-700 border border-rose-200 shadow-none hover:bg-rose-200/70"
                                 : u.kycStatus === "verified"
-                                ? "bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-none"
+                                ? "bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-none hover:bg-emerald-200/70"
                                 : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20"
                             }`}
                           >
@@ -4173,15 +4171,32 @@ export default function AdminPanel() {
               {/* Admin Review Remarks Input Box */}
               <div className="space-y-1.5 pt-2 border-t border-gray-100">
                 <label className="text-xs font-bold text-gray-800 flex items-center justify-between">
-                  <span>Admin Review Remarks / Verification Note:</span>
-                  <span className="text-[10px] text-gray-400">Written to user record</span>
+                  <span className="flex items-center gap-1.5">
+                    <span>Admin Review Remarks / Verification Note:</span>
+                    {(previewKycUser.kycStatus === "verified" || previewKycUser.kycStatus === "rejected" || previewKycUser.kycDocuments?.isNoteLocked) && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold flex items-center gap-1 border border-amber-200">
+                        🔒 Note Locked (Decision Finalized)
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[10px] text-gray-400">
+                    {(previewKycUser.kycStatus === "verified" || previewKycUser.kycStatus === "rejected" || previewKycUser.kycDocuments?.isNoteLocked)
+                      ? "Non-editable / Permanent"
+                      : "Written to user record"}
+                  </span>
                 </label>
                 <textarea
                   rows={2}
                   value={kycReviewRemarks}
                   onChange={(e) => setKycReviewRemarks(e.target.value)}
+                  disabled={previewKycUser.kycStatus === "verified" || previewKycUser.kycStatus === "rejected" || previewKycUser.kycDocuments?.isNoteLocked}
+                  readOnly={previewKycUser.kycStatus === "verified" || previewKycUser.kycStatus === "rejected" || previewKycUser.kycDocuments?.isNoteLocked}
                   placeholder="Enter remarks (e.g. Both Aadhaar & PAN details verified & matched with photo)..."
-                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className={`w-full p-2.5 rounded-xl text-xs font-medium outline-none transition ${
+                    (previewKycUser.kycStatus === "verified" || previewKycUser.kycStatus === "rejected" || previewKycUser.kycDocuments?.isNoteLocked)
+                      ? "bg-gray-100 text-gray-700 border border-gray-300 cursor-not-allowed select-text font-semibold shadow-inner"
+                      : "bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500"
+                  }`}
                 />
               </div>
             </div>
@@ -4216,12 +4231,12 @@ export default function AdminPanel() {
                   </button>
                 </>
               ) : previewKycUser.kycStatus === "rejected" ? (
-                <span className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold select-none">
-                  ✕ KYC Rejected — User must re-submit
+                <span className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold select-none flex items-center gap-1.5">
+                  <span>🔒</span> KYC Rejected — Note Locked
                 </span>
               ) : previewKycUser.kycStatus === "verified" ? (
-                <span className="px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold select-none">
-                  ✓ Already Verified
+                <span className="px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold select-none flex items-center gap-1.5">
+                  <span>🔒</span> KYC Verified — Note Locked
                 </span>
               ) : null}
             </div>

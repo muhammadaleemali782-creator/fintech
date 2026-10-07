@@ -610,7 +610,7 @@ router.get('/agent/stats', protect, async (req, res) => {
 
     // 1. Find all customers referred by this agent
     const customers = await User.find({ referredBy: agent._id })
-      .select('name email phone balance duesBalance loansCount createdAt kycStatus');
+      .select('name email phone balance duesBalance loansCount createdAt kycStatus loanLimit customQrUrl');
     const customerIds = customers.map(c => c._id);
 
     // 2. Total Deposits from agent's customers
@@ -681,6 +681,7 @@ router.get('/agent/stats', protect, async (req, res) => {
           preClosingCount: cPreCount,
           preClosingAmount: Number(cPreAmount.toFixed(2)),
           loansCount: c.loansCount || 0,
+          loanLimit: c.loanLimit || 5000,
           kycStatus: c.kycStatus || 'none',
           joinedAt: c.createdAt
         };
@@ -744,6 +745,92 @@ router.post('/agent/broadcast', protect, async (req, res) => {
   } catch (err) {
     console.error('Agent broadcast error:', err);
     res.status(500).json({ message: 'Broadcast message send karne me error aaya' });
+  }
+});
+
+// ------------------ CUSTOM UPI / APP QR (PERSISTENT ACROSS UNINSTALLS) ------------------
+// Save or update custom QR (Google Pay, PhonePe, Paytm, etc.)
+router.post('/custom-qr', protect, async (req, res) => {
+  try {
+    const { customQrUrl, customQrUpi, customQrApp } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.customQrUrl = customQrUrl || '';
+    user.customQrUpi = (customQrUpi || '').trim();
+    user.customQrApp = (customQrApp || 'custom').trim();
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Custom QR code safaltapoorvak save ho gaya!',
+      customQrUrl: user.customQrUrl,
+      customQrUpi: user.customQrUpi,
+      customQrApp: user.customQrApp
+    });
+  } catch (err) {
+    console.error('Custom QR save error:', err);
+    res.status(500).json({ message: 'Custom QR save karne me error aaya' });
+  }
+});
+
+// Delete or remove custom QR
+router.delete('/custom-qr', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.customQrUrl = '';
+    user.customQrUpi = '';
+    user.customQrApp = '';
+    await user.save();
+
+    res.json({ success: true, message: 'Custom QR safaltapoorvak remove ho gaya!' });
+  } catch (err) {
+    console.error('Custom QR delete error:', err);
+    res.status(500).json({ message: 'Custom QR remove karne me error aaya' });
+  }
+});
+
+// ------------------ AGENT: UPDATE CUSTOMER LOAN LIMIT ------------------
+// Agent can increase loan limit for their referred customers
+router.post('/agent/update-loan-limit', protect, async (req, res) => {
+  try {
+    const agent = await User.findById(req.user._id);
+    if (!agent) return res.status(404).json({ message: 'User not found' });
+
+    const isAgent = agent.role === 'agent' || agent.agentProfile?.status === 'approved' || agent.role === 'admin';
+    if (!isAgent) return res.status(403).json({ message: 'Agent access required' });
+
+    const { customerId, newLimit } = req.body;
+    const limitNum = Number(newLimit);
+    if (!limitNum || limitNum < 5000 || limitNum > 100000) {
+      return res.status(400).json({ message: 'Loan limit ₹5,000 se ₹1,00,000 ke beech honi chahiye.' });
+    }
+
+    const customer = await User.findById(customerId);
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+
+    // Agent can only update their own referred users (admins can update anyone)
+    if (agent.role !== 'admin' && String(customer.referredBy) !== String(agent._id)) {
+      return res.status(403).json({ message: 'Aap sirf apne registered customer ki loan limit badha sakte hain.' });
+    }
+
+    customer.loanLimit = limitNum;
+    await customer.save();
+
+    res.json({
+      success: true,
+      message: `${customer.name} ki loan limit safaltapoorvak ₹${limitNum.toLocaleString('en-IN')} kar di gayi hai!`,
+      customer: {
+        _id: customer._id,
+        name: customer.name,
+        loanLimit: customer.loanLimit
+      }
+    });
+  } catch (err) {
+    console.error('Agent update loan limit error:', err);
+    res.status(500).json({ message: 'Loan limit update karne me error aaya' });
   }
 });
 

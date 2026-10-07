@@ -799,11 +799,18 @@ export default function AdminPanel() {
     }
   }, [analytics?.stats?.serverTime, stats?.serverTime, totalProfitBase]);
 
-  const baseAdminProfit = Math.max(totalProfitBase, adminCachedProfit);
   const totalDepositsDisplay = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || adminCachedReserves || 710000);
-  const liveAdminProfit = Number(baseAdminProfit.toFixed(2));
-  // Fintech Reserves: Total Deposits + Live Profit
-  const liveAdminReserves = Number((totalDepositsDisplay + liveAdminProfit).toFixed(2));
+  const baseAdminProfit = Math.max(totalProfitBase, adminCachedProfit);
+
+  // Exact 12% p.a. Live Millisecond Ticking Accrual Rate (Real-Time "Tic Tic")
+  const dailyAdminYield = totalDepositsDisplay > 0 ? (totalDepositsDisplay * 0.12) / 365 : 0;
+  const perMsAdminYield = dailyAdminYield / 86400000;
+  const elapsedAdminMs = Math.max(0, adminLiveMs - adminAnchorTime);
+  const liveAccruedAdmin = elapsedAdminMs * perMsAdminYield;
+
+  // Real-Time Monotonically Increasing Live Profit & Reserves
+  const liveAdminProfit = baseAdminProfit + liveAccruedAdmin;
+  const liveAdminReserves = totalDepositsDisplay + liveAdminProfit;
 
   useEffect(() => {
     if (liveAdminProfit > 0) {
@@ -811,12 +818,12 @@ export default function AdminPanel() {
         localStorage.setItem("educa_admin_cached_profit", String(liveAdminProfit));
       } catch {}
     }
-  }, [liveAdminProfit]);
+  }, [adminLiveMs]);
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, g: "from-emerald-500 to-teal-600" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600" },
     { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, g: "from-indigo-600 to-violet-600" },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-indigo-600 to-violet-600" },
     { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 2, g: "from-blue-500 to-blue-600" },
     { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, g: "from-yellow-500 to-orange-500" },
   ];
@@ -988,11 +995,20 @@ export default function AdminPanel() {
             {statCards.map(({ icon, label, value, g }) => {
               const valStr = String(value);
               const isLong = valStr.length > 11;
+              const isLive = label === "Fintech Reserves" || label === "Profit Credited";
               return (
                 <div key={label} className={`bg-gradient-to-br ${g} text-white p-3 sm:p-4 lg:p-3.5 xl:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between`}>
-                  <div>
-                    <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
-                    <p className="text-white/80 text-[11px] sm:text-xs font-medium truncate">{label}</p>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
+                      <p className="text-white/80 text-[11px] sm:text-xs font-medium truncate">{label}</p>
+                    </div>
+                    {isLive && (
+                      <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                        Live
+                      </span>
+                    )}
                   </div>
                   <div className="mt-1">
                     <p
@@ -1005,6 +1021,13 @@ export default function AdminPanel() {
                     >
                       {value}
                     </p>
+                    {isLive && (
+                      <p className="text-[10px] text-white/75 font-mono mt-0.5 truncate">
+                        {label === "Fintech Reserves"
+                          ? `≈ ₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (2 dec)`
+                          : `≈ ₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (2 dec)`}
+                      </p>
+                    )}
                   </div>
                 </div>
               );
@@ -1041,7 +1064,7 @@ export default function AdminPanel() {
                     {loadingAnalytics && !analytics && !liveAdminReserves ? (
                       <span className="inline-block h-8 w-44 bg-white/20 rounded-xl animate-pulse" />
                     ) : (
-                      <span className="font-mono tabular-nums text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-mono tabular-nums text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
                     )}
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-300 mt-2 max-w-2xl">
@@ -1071,16 +1094,27 @@ export default function AdminPanel() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 w-full">
                 <div className="bg-white rounded-3xl p-5 border border-emerald-100/80 shadow-xs flex flex-col justify-between min-w-0">
                   <div>
-                    <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
-                      <span>🏦</span>
-                      <span>Total Fintech Reserves</span>
-                    </p>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
+                        <span>🏦</span>
+                        <span>Total Fintech Reserves</span>
+                      </p>
+                      <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Live Ticking
+                      </span>
+                    </div>
                     {loadingAnalytics && !analytics && !liveAdminReserves ? (
                       <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
                     ) : (
-                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-emerald-600 tracking-tight truncate">
-                        ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
+                      <>
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-emerald-600 tracking-tight truncate">
+                          ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                        </p>
+                        <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
+                          ≈ ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net Reserves)
+                        </p>
+                      </>
                     )}
                   </div>
                   <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
@@ -1111,16 +1145,27 @@ export default function AdminPanel() {
 
                 <div className="bg-white rounded-3xl p-5 border border-indigo-100/80 shadow-xs flex flex-col justify-between min-w-0">
                   <div>
-                    <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
-                      <span>⚡</span>
-                      <span>Total Profit Credited</span>
-                    </p>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
+                        <span>⚡</span>
+                        <span>Total Profit Credited</span>
+                      </p>
+                      <span className="inline-flex items-center gap-1 bg-indigo-100 text-indigo-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                        Live Ticking
+                      </span>
+                    </div>
                     {loadingAnalytics && !analytics && !liveAdminProfit ? (
                       <div className="h-9 w-40 bg-indigo-100/70 rounded-xl animate-pulse my-1" />
                     ) : (
-                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-indigo-600 tracking-tight truncate">
-                        ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
+                      <>
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-indigo-600 tracking-tight truncate">
+                          ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                        </p>
+                        <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
+                          ≈ ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (12% p.a. Earned)
+                        </p>
+                      </>
                     )}
                   </div>
                   <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
@@ -1704,8 +1749,12 @@ export default function AdminPanel() {
                   const annual12Pct = currentBase * 0.12;
                   const monthly1Pct = currentBase * 0.01;
                   const perDay31 = monthly1Pct / 31;
-                  const todayAccrued = Number(analytics?.dailyProfitChart?.find(d => d.date?.includes("2026-10-07") || d.date?.endsWith("-07"))?.amount || 37.68);
-                  const prevAccrued = Number(analytics?.dailyProfitChart?.find(d => d.date?.includes("2026-10-06") || d.date?.endsWith("-06"))?.amount || 43.64);
+                  const perDay365 = annual12Pct / 365;
+                  const todayRow = analytics?.dailyProfitChart?.find(d => d.date?.includes("2026-10-07") || d.date?.endsWith("-07"));
+                  const prevRow = analytics?.dailyProfitChart?.find(d => d.date?.includes("2026-10-06") || d.date?.endsWith("-06"));
+                  const prevAccrued = Number(prevRow?.amount || 43.64);
+                  const baseToday = Number(todayRow?.amount || 233.24);
+                  const liveTodayAccrued = baseToday + liveAccruedAdmin;
 
                   return (
                     <div className="mb-6 p-5 bg-gradient-to-br from-indigo-50/95 via-blue-50/80 to-emerald-50/90 border border-indigo-200/80 rounded-3xl shadow-xs">
@@ -1760,11 +1809,11 @@ export default function AdminPanel() {
                         {/* Step 3 */}
                         <div className="p-3.5 bg-white/95 rounded-2xl border border-indigo-100 shadow-2xs">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-extrabold text-purple-600 uppercase tracking-wider">Step 3 • October (31 Days)</span>
+                            <span className="text-[10px] font-extrabold text-purple-600 uppercase tracking-wider">Step 3 • Daily Yield (24h)</span>
                             <span className="text-xs">🗓️</span>
                           </div>
-                          <p className="font-mono font-black text-base text-purple-700">₹{perDay31.toFixed(2)} / full day</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">₹{monthly1Pct.toLocaleString("en-IN")} ÷ 31 din (Poora 24 Ghante)</p>
+                          <p className="font-mono font-black text-base text-purple-700">₹{perDay365.toFixed(2)} / full day</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">₹{annual12Pct.toLocaleString("en-IN")} ÷ 365 din (~₹{perDay31.toFixed(2)} in Oct)</p>
                         </div>
 
                         {/* Step 4 */}
@@ -1773,8 +1822,12 @@ export default function AdminPanel() {
                             <span className="text-[10px] font-extrabold text-emerald-100 uppercase tracking-wider">Step 4 • Aaj Ka Live Status</span>
                             <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
                           </div>
-                          <p className="font-mono font-black text-base text-white">+₹{todayAccrued.toFixed(2)}</p>
-                          <p className="text-[11px] text-emerald-100 mt-0.5">Abhi tak credit hua (raat tak ~₹{perDay31.toFixed(2)})</p>
+                          <p className="font-mono font-black text-base text-white">
+                            +₹{liveTodayAccrued.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                          </p>
+                          <p className="text-[11px] text-emerald-100 mt-0.5">
+                            +₹{liveTodayAccrued.toFixed(2)} (Live Ticking ⚡)
+                          </p>
                         </div>
                       </div>
 
@@ -1784,7 +1837,7 @@ export default function AdminPanel() {
                           <span className="text-base mt-0.5">💡</span>
                           <div className="space-y-1 text-gray-700 leading-relaxed">
                             <p className="font-extrabold text-indigo-950">
-                              Kyun din ka pura amount (+₹{perDay31.toFixed(2)}) ek baar me nahi, balki dheere-dheere badhta hai?
+                              Kyun din ka pura amount (+₹{perDay365.toFixed(2)}) ek baar me nahi, balki dheere-dheere badhta hai?
                             </p>
                             <p className="text-gray-600">
                               Educa Fintech me interest raat ko ek baar flat nahi judta, balki <strong>live real-time (har ghante aur minute)</strong> user ke wallet me add hota hai:
@@ -1792,14 +1845,16 @@ export default function AdminPanel() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
                               <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
                                 <span className="font-bold text-gray-800 text-[11px] block">🗓️ 06 Oct (+₹{prevAccrued.toFixed(2)})</span>
-                                <span className="text-[11px] text-gray-500">Deposit dopahar ko activate hua tha, isiliye us din jitne ghante deposit raha utne bache huye waqt ka munafa judaa.</span>
+                                <span className="text-[11px] text-gray-500">Deposit dopahar ko activate hua tha, isiliye us din ka bacha hua munafa judaa.</span>
                               </div>
                               <div className="p-2.5 bg-emerald-50/80 rounded-xl border border-emerald-200">
                                 <span className="font-bold text-emerald-900 text-[11px] flex items-center justify-between">
-                                  <span>🗓️ 07 Oct (+₹{todayAccrued.toFixed(2)} 🟢 Live)</span>
-                                  <span className="text-[9px] font-black text-emerald-700 bg-emerald-200/80 px-1.5 py-0.5 rounded">In-Progress</span>
+                                  <span>🗓️ 07 Oct (+₹{liveTodayAccrued.toFixed(2)} 🟢 Live)</span>
+                                  <span className="text-[9px] font-black text-emerald-700 bg-emerald-200/80 px-1.5 py-0.5 rounded">Ticking</span>
                                 </span>
-                                <span className="text-[11px] text-emerald-800">Aaj ka din abhi chal raha hai. Yeh live bar har ghante badhta rahega aur raat 11:59 PM tak poore din ka total (~₹{perDay31.toFixed(2)}) complete ho jayega.</span>
+                                <span className="text-[11px] text-emerald-800">
+                                  Live counter real-time tick ho raha hai: +₹{liveTodayAccrued.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} • Total Reserves: ₹{liveAdminReserves.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -1831,22 +1886,39 @@ export default function AdminPanel() {
                           </td>
                         </tr>
                       ) : (
-                        analytics.dailyProfitChart.map((row, idx) => (
-                          <tr key={row.date || idx} className="hover:bg-gray-50/70 transition">
-                            <td className="py-3 pr-4 font-mono text-gray-400">{idx + 1}</td>
-                            <td className="py-3 pr-4 font-bold text-gray-900">{row.displayDate || row.date}</td>
-                            <td className="py-3 pr-4 font-mono text-gray-600">₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}</td>
-                            <td className="py-3 pr-4 text-gray-500">12% p.a.</td>
-                            <td className="py-3 pr-4 font-black text-emerald-600">+₹{Number(row.amount).toFixed(2)}</td>
-                            <td className="py-3 pr-4 font-bold font-mono text-indigo-700">₹{Number(row.cumulativeYield).toFixed(2)}</td>
-                            <td className="py-3 pr-4 text-gray-500">{row.uniqueUsers ? `${row.uniqueUsers} User(s)` : "Active User"}</td>
-                            <td className="py-3">
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
-                                ✓ Credited
-                              </span>
-                            </td>
-                          </tr>
-                        ))
+                        analytics.dailyProfitChart.map((row, idx) => {
+                          const isToday = row.date?.includes("2026-10-07") || idx === analytics.dailyProfitChart.length - 1;
+                          const rowAmount = isToday ? (Number(row.amount) + liveAccruedAdmin) : Number(row.amount);
+                          const rowCumulative = isToday ? liveAdminProfit : Number(row.cumulativeYield);
+                          return (
+                            <tr key={row.date || idx} className="hover:bg-gray-50/70 transition">
+                              <td className="py-3 pr-4 font-mono text-gray-400">{idx + 1}</td>
+                              <td className="py-3 pr-4 font-bold text-gray-900 flex items-center gap-1.5">
+                                <span>{row.displayDate || row.date}</span>
+                                {isToday && (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full border border-emerald-300">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    Live
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 pr-4 font-mono text-gray-600">₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}</td>
+                              <td className="py-3 pr-4 text-gray-500">12% p.a.</td>
+                              <td className="py-3 pr-4 font-black text-emerald-600 font-mono">
+                                +₹{rowAmount.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
+                              </td>
+                              <td className="py-3 pr-4 font-bold font-mono text-indigo-700">
+                                ₹{rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
+                              </td>
+                              <td className="py-3 pr-4 text-gray-500">{row.uniqueUsers ? `${row.uniqueUsers} User(s)` : "Active User"}</td>
+                              <td className="py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isToday ? "bg-emerald-500 text-white shadow-2xs" : "bg-emerald-100 text-emerald-700"}`}>
+                                  {isToday ? "⚡ Live Crediting" : "✓ Credited"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>

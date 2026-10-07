@@ -447,13 +447,20 @@ export default function Dashboard() {
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastSending, setBroadcastSending] = useState(false);
 
-  // AI Financial Advisor Agent State ("Kya aap bhi unchaiyon pe jaana chahte hain?")
+  const getAdvisorGreeting = (l = "hinglish") => {
+    if (l === "english") {
+      return "Hello! What would you like to know? Are you facing any issue or do you need assistance?\n\nYou can ask anything regarding Loans, EMI calculations, 12% Interest, Deposits, or your Account.";
+    }
+    return "Namaste! Aapko kya poochna hai? Kya aapko kisi cheez me koi dikkat ya pareshani hai?\n\nAap mujhse Loan, EMI hisaab, 12% Byaj (Interest), Deposit ya Account se juda koi bhi sawaal pooch sakte hain.";
+  };
+
+  // AI Financial Advisor Agent State
   const [showAiAdvisor, setShowAiAdvisor] = useState(false);
   const [advisorInput, setAdvisorInput] = useState("");
   const [advisorMessages, setAdvisorMessages] = useState([
     {
       sender: "ai",
-      text: "Namaste! Main hoon aapka Educa Financial Advisor 🤖.\n\nKya aap bhi unchaiyon pe jaana chahte hain? 🚀\n\nAap mujhse platform, 12% p.a. Savings Interest, live profit growth, loan limits aur deposits ke baare me kuch bhi puch sakte hain!",
+      text: "Namaste! Aapko kya poochna hai? Kya aapko kisi cheez me koi dikkat ya pareshani hai?\n\nAap mujhse Loan, EMI hisaab, 12% Byaj (Interest), Deposit ya Account se juda koi bhi sawaal pooch sakte hain.",
       time: "Just now"
     }
   ]);
@@ -2202,16 +2209,41 @@ export default function Dashboard() {
     }, 400);
   };
 
+  const handleAdvisorLangChange = (newLang) => {
+    setAdvisorLang(newLang);
+    setAdvisorMessages(prev => {
+      if (prev.length <= 1) {
+        return [
+          {
+            sender: "ai",
+            text: getAdvisorGreeting(newLang),
+            time: "Just now"
+          }
+        ];
+      }
+      return [
+        ...prev,
+        {
+          sender: "ai",
+          text: newLang === "english"
+            ? "Language switched to English. How can I help you?"
+            : "Bhasha Hinglish me badal di gayi hai. Aap kya poochna chahte hain?",
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        }
+      ];
+    });
+  };
+
   const handleResolveAdvisorChat = () => {
     setAdvisorMessages([
       {
         sender: "ai",
-        text: "Namaste! Main hoon aapka Educa Financial Advisor 🤖.\n\nKya aap bhi unchaiyon pe jaana chahte hain? 🚀\n\nAap mujhse platform, 12% p.a. Savings Interest, live profit growth, loan limits aur deposits ke baare me kuch bhi puch sakte hain!",
+        text: getAdvisorGreeting(advisorLang),
         time: "Just now"
       }
     ]);
     setShowAiAdvisor(false);
-    showToast("Aapka issue resolve ho gaya! Chat clear kar di gayi hai.", "success");
+    showToast(advisorLang === "english" ? "Issue resolved! Chat cleared." : "Aapka issue resolve ho gaya! Chat clear kar di gayi hai.", "success");
   };
 
   const copyText = (text) => {
@@ -9351,22 +9383,22 @@ export default function Dashboard() {
       )}
 
       {/* ══════════════════════════════════════════════════════
-          EDUCA AI FINANCIAL ADVISOR SHEET
+          EDUCA SUPPORT & ADVISOR SHEET
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={showAiAdvisor} onClose={() => setShowAiAdvisor(false)} title="Educa AI Financial Advisor" icon="⚡">
-        <div className="space-y-3.5">
-          {/* Header Row: Live Status + Compact Language Toggle */}
-          <div className="flex items-center justify-between pb-1.5 border-b border-gray-100">
-            <span className="text-[11px] font-bold text-gray-500 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              <span>Instant Wealth & EMI Advisor</span>
+      <Sheet open={showAiAdvisor} onClose={() => setShowAiAdvisor(false)} title="Educa Support & Advisor" icon="💬">
+        <div className="space-y-3 bg-white">
+          {/* Header Row: Live Status + Language Toggle */}
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+            <span className="text-[11px] font-semibold text-gray-500 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>{advisorLang === "english" ? "24/7 Live Support & Advisor" : "24/7 Live Sahayata & Advisor"}</span>
             </span>
             <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200">
               <button
                 type="button"
-                onClick={() => setAdvisorLang("hinglish")}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-black transition cursor-pointer ${
-                  advisorLang === "hinglish" ? "bg-amber-500 text-white shadow-xs" : "text-gray-600 hover:text-gray-900"
+                onClick={() => handleAdvisorLangChange("hinglish")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                  advisorLang === "hinglish" ? "bg-blue-600 text-white shadow-xs" : "text-gray-600 hover:text-gray-900"
                 }`}
                 title="Hinglish / हिंदी"
               >
@@ -9374,9 +9406,9 @@ export default function Dashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => setAdvisorLang("english")}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-black transition cursor-pointer ${
-                  advisorLang === "english" ? "bg-amber-500 text-white shadow-xs" : "text-gray-600 hover:text-gray-900"
+                onClick={() => handleAdvisorLangChange("english")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                  advisorLang === "english" ? "bg-blue-600 text-white shadow-xs" : "text-gray-600 hover:text-gray-900"
                 }`}
                 title="Global English"
               >
@@ -9385,61 +9417,46 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 3 MAGNETIC HIGH-CONVERTING LINES */}
-          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-amber-500/30 rounded-2xl p-3.5 text-white shadow-md space-y-2">
-            <div className="flex items-start gap-2">
-              <span className="text-base shrink-0">🚀</span>
-              <p className="text-xs font-black text-amber-300 leading-snug">
-                "Educa Fintech me aap sirf upar hi jayenge!" — 12% p.a. live compounding munafa bank se 4x tezi se daulat badhata hai.
-              </p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-base shrink-0">💼</span>
-              <p className="text-xs font-bold text-emerald-300 leading-snug">
-                Instant Business Capital: Cheque ke sath ₹20,000 aur direct ₹10,000 tak bina kisi paper chakkar ke.
-              </p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-base shrink-0">🧮</span>
-              <p className="text-xs font-semibold text-blue-200 leading-snug">
-                Turant EMI & Fayde: Koi bhi amount likhein ya click karein — turant 18 kiston ka hisaab aur motivation paayein!
-              </p>
-            </div>
-          </div>
-
-          {/* Horizontal Scrolling Quick Action Chips */}
-          <div className="overflow-x-auto no-scrollbar flex items-center gap-1.5 py-1">
-            {[
-              { label: "🧮 ₹10,000 EMI Hisaab", q: "10000 loan ka emi count karo" },
-              { label: "💼 Business Loan ₹20K", q: "Cheque ke sath business loan 20000" },
+          {/* Quick Helpful Questions (Clean Light White Pills - Pure /ponytail) */}
+          <div className="overflow-x-auto no-scrollbar flex items-center gap-1.5 py-0.5">
+            {(advisorLang === "english" ? [
+              { label: "🧮 ₹10K Loan EMI", q: "Calculate EMI for 10000 loan" },
+              { label: "💼 Business Loan", q: "Tell me about business loan with cheque" },
+              { label: "⚡ ₹5K Instant Loan", q: "5000 loan emi calculation" },
+              { label: "🎯 Loan Benefits", q: "What are the advantages of Educa loan" },
+              { label: "📈 12% Interest", q: "How does 12% compounding interest work" },
+              { label: "🔄 Profit Transfer", q: "How to transfer profit to primary wallet" },
+            ] : [
+              { label: "🧮 ₹10,000 EMI Hisaab", q: "10000 loan ka emi hisaab batao" },
+              { label: "💼 Business Loan Niyam", q: "Cheque ke sath business loan 20000" },
               { label: "⚡ ₹5,000 Instant Loan", q: "5000 loan emi calculation" },
               { label: "🎯 Loan Ke Fayde", q: "Loan ke fayde ginwao motivation wale" },
-              { label: "📈 12% Compounding Munafa", q: "12% interest compounding kaise milta hai" },
-              { label: "🔄 Profit Transfer Niyam", q: "Profit wallet se main wallet transfer" },
-            ].map((chip) => (
+              { label: "📈 12% Munafa Byaj", q: "12% interest compounding kaise milta hai" },
+              { label: "🔄 Profit Transfer Help", q: "Profit wallet se main wallet transfer" },
+            ]).map((chip) => (
               <button
                 key={chip.label}
                 type="button"
                 onClick={() => handleAdvisorSend(chip.q)}
-                className="text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/90 px-3 py-1.5 rounded-full transition active:scale-95 cursor-pointer whitespace-nowrap shadow-2xs shrink-0"
+                className="text-[11px] font-medium bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-700 border border-gray-200 hover:border-blue-300 px-3 py-1.5 rounded-full transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0 shadow-2xs"
               >
                 {chip.label}
               </button>
             ))}
           </div>
 
-          {/* Chat Messages Feed */}
-          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 max-h-72 overflow-y-auto space-y-3">
+          {/* Chat Messages Feed - Clean White Container */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-3.5 max-h-72 sm:max-h-80 overflow-y-auto space-y-3 shadow-inner">
             {advisorMessages.map((msg, index) => (
               <div
                 key={index}
                 className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
               >
                 <div
-                  className={`max-w-[88%] rounded-2xl p-3 text-xs leading-relaxed whitespace-pre-line shadow-2xs ${
+                  className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-line shadow-2xs ${
                     msg.sender === "user"
                       ? "bg-blue-600 text-white rounded-tr-none font-medium"
-                      : "bg-white text-gray-800 border border-gray-200/80 rounded-tl-none font-normal"
+                      : "bg-gray-50 text-gray-800 border border-gray-200/90 rounded-tl-none font-normal"
                   }`}
                 >
                   {msg.text}
@@ -9449,7 +9466,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Input & Send Form */}
+          {/* Input & Send Form - Clean White & Blue */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -9461,27 +9478,27 @@ export default function Dashboard() {
               type="text"
               value={advisorInput}
               onChange={(e) => setAdvisorInput(e.target.value)}
-              placeholder={advisorLang === "english" ? "Type amount or question (e.g. 10000, 20000, EMI...)" : "Amount ya sawaal likhein (e.g. 10000, 20000, loan fayde...)"}
-              className="flex-1 px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 bg-white"
+              placeholder={advisorLang === "english" ? "Type amount or question (e.g. 10000, EMI, Loan...)" : "Amount ya sawaal likhein (e.g. 10000, 20000, EMI...)"}
+              className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-gray-800"
             />
             <button
               type="submit"
               disabled={!advisorInput.trim()}
-              className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs rounded-xl transition active:scale-95 disabled:opacity-50 shadow-2xs cursor-pointer"
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition active:scale-95 disabled:opacity-50 shadow-xs cursor-pointer"
             >
-              {advisorLang === "english" ? "Ask 🚀" : "Poochhein 🚀"}
+              {advisorLang === "english" ? "Send" : "Bhejein"}
             </button>
           </form>
 
-          {/* Clear Chat Action Button */}
+          {/* Clear Chat / Issue Resolved Action Button */}
           <div className="pt-1 border-t border-gray-100 flex justify-center">
             <button
               type="button"
               onClick={handleResolveAdvisorChat}
-              className="w-full py-2 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-2xs cursor-pointer"
+              className="w-full py-2 px-4 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl font-medium text-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
             >
-              <span>✅</span>
-              <span>Aapka issue resolve hua? (Chat Clear Karein)</span>
+              <span>✓</span>
+              <span>{advisorLang === "english" ? "Issue resolved? (Clear Chat)" : "Aapka issue resolve hua? (Chat Clear Karein)"}</span>
             </button>
           </div>
         </div>

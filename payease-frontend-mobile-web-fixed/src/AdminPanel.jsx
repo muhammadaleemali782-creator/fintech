@@ -61,6 +61,7 @@ export default function AdminPanel() {
   });
   const [savingDepositDetails, setSavingDepositDetails] = useState(false);
   const [previewKycUser, setPreviewKycUser] = useState(null);
+  const [kycReviewRemarks, setKycReviewRemarks] = useState("");
   const [kycFilter, setKycFilter] = useState("all");
   const [userFilter, setUserFilter] = useState("all"); // 'all' | 'customers' | 'agents'
   const [agentFilter, setAgentFilter] = useState("all"); // 'all' | 'approved' | 'pending'
@@ -2563,8 +2564,9 @@ export default function AdminPanel() {
                 <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
                   {[
                     { key: "all", label: "All History", icon: "🌐" },
-                    { key: "deposit", label: "Deposits", icon: "💰" },
-                    { key: "withdrawal", label: "Withdrawals", icon: "💸" },
+                    { key: "deposit", label: "Deposits (Add)", icon: "💰" },
+                    { key: "withdrawal", label: "Withdrawals (Out)", icon: "💸" },
+                    { key: "transfer", label: "P2P Transfers", icon: "🔄" },
                     { key: "kyc", label: "All KYC", icon: "📄" },
                     { key: "normal_kyc", label: "Normal KYC", icon: "👤" },
                     { key: "loan_kyc", label: "Loan/Lending KYC", icon: "🏦" },
@@ -2627,12 +2629,12 @@ export default function AdminPanel() {
                   <table className="w-full min-w-[850px] table-fixed border-collapse bg-white text-left text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-gray-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4 w-[160px]">Timestamp</th>
+                        <th className="py-3 px-4 w-[150px]">Timestamp</th>
                         <th className="py-3 px-4 w-[170px]">Category & Action</th>
-                        <th className="py-3 px-4 w-[200px]">User / Account</th>
-                        <th className="py-3 px-4 w-[130px]">Amount / Value</th>
-                        <th className="py-3 px-4 w-[110px]">Status</th>
-                        <th className="py-3 px-4">Audit Reference / Details</th>
+                        <th className="py-3 px-4 w-[190px]">User / Account</th>
+                        <th className="py-3 px-4 w-[120px]">Amount / Value</th>
+                        <th className="py-3 px-4 w-[100px]">Status</th>
+                        <th className="py-3 px-4">Audit Reference / Details & Docs</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -2663,21 +2665,24 @@ export default function AdminPanel() {
                                 item.category === "deposit"
                                   ? "bg-emerald-100 text-emerald-800"
                                   : item.category === "withdrawal"
-                                  ? "bg-blue-100 text-blue-800"
+                                  ? "bg-rose-100 text-rose-800"
+                                  : item.category === "transfer"
+                                  ? "bg-violet-100 text-violet-800"
                                   : item.category === "kyc"
                                   ? item.subCategory === "loan_lending_kyc"
                                     ? "bg-indigo-100 text-indigo-800"
                                     : "bg-amber-100 text-amber-800"
                                   : item.category === "loan"
-                                  ? "bg-indigo-100 text-indigo-800"
+                                  ? "bg-blue-100 text-blue-800"
                                   : item.category === "agent"
                                   ? "bg-purple-100 text-purple-800"
                                   : "bg-teal-100 text-teal-800"
                               }`}>
-                                {item.category === "deposit" ? "💰 Deposit" :
-                                 item.category === "withdrawal" ? "💸 Withdrawal" :
+                                {item.category === "deposit" ? "💰 Deposit (Add)" :
+                                 item.category === "withdrawal" ? "💸 Withdrawal (Out)" :
+                                 item.category === "transfer" ? "🔄 P2P Transfer" :
                                  item.category === "kyc"
-                                   ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan KYC" : "📄 Normal KYC" :
+                                   ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan/Lending KYC" : "📄 Normal KYC" :
                                  item.category === "loan" ? "🏦 Loan" :
                                  item.category === "agent" ? "🤝 Agent" : "📈 Yield"}
                               </span>
@@ -2687,7 +2692,7 @@ export default function AdminPanel() {
                             {/* User */}
                             <td className="py-3.5 px-4 align-top">
                               <p className="font-bold text-gray-900 text-xs leading-tight">{item.userName}</p>
-                              <p className="text-[11px] text-gray-500 truncate max-w-[190px]">{item.userEmail}</p>
+                              <p className="text-[11px] text-gray-500 truncate max-w-[180px]">{item.userEmail}</p>
                               {item.userPhone && <p className="text-[10px] text-gray-400 font-mono">{item.userPhone}</p>}
                             </td>
 
@@ -2699,6 +2704,8 @@ export default function AdminPanel() {
                                     ? "text-emerald-600"
                                     : item.category === "withdrawal"
                                     ? "text-rose-600"
+                                    : item.category === "transfer"
+                                    ? "text-violet-700"
                                     : "text-slate-900"
                                 }`}>
                                   ₹{Number(item.amount).toLocaleString("en-IN")}
@@ -2723,17 +2730,88 @@ export default function AdminPanel() {
                               </span>
                             </td>
 
-                            {/* Reference / Details */}
+                            {/* Reference / Details & KYC Document Thumbnails */}
                             <td className="py-3.5 px-4 align-top text-[11px] text-slate-600">
                               {refVal && (
-                                <p className="font-mono text-[10px] text-slate-500 truncate max-w-[280px]" title={refVal}>
+                                <p className="font-mono text-[10px] text-slate-700 font-bold break-all" title={refVal}>
                                   Ref: {refVal}
                                 </p>
                               )}
                               {noteVal && (
-                                <p className="text-slate-700 text-[11px] mt-0.5" title={noteVal}>
+                                <p className="text-slate-600 text-[11px] mt-0.5" title={noteVal}>
                                   {noteVal}
                                 </p>
+                              )}
+
+                              {/* KYC Photos / Documents View */}
+                              {item.category === "kyc" && (
+                                <div className="mt-2 pt-1 border-t border-gray-100">
+                                  {item.hasPhotos && item.documents ? (
+                                    <div className="space-y-1">
+                                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">
+                                        Uploaded KYC Photos (Click to Zoom):
+                                      </span>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        {item.documents.doc1Url && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setLightboxImg(item.documents.doc1Url)}
+                                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-[10px] font-bold text-blue-800 cursor-pointer transition active:scale-95 group/doc"
+                                          >
+                                            {item.documents.doc1Url.startsWith("data:image") ? (
+                                              <img src={item.documents.doc1Url} alt="UID Front" className="w-4 h-4 object-cover rounded border border-blue-300" />
+                                            ) : <span>🪪</span>}
+                                            <span>UID Front</span>
+                                            <span className="text-blue-500 group-hover/doc:scale-110">🔍</span>
+                                          </button>
+                                        )}
+                                        {item.documents.doc1BackUrl && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setLightboxImg(item.documents.doc1BackUrl)}
+                                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-[10px] font-bold text-blue-800 cursor-pointer transition active:scale-95 group/doc"
+                                          >
+                                            {item.documents.doc1BackUrl.startsWith("data:image") ? (
+                                              <img src={item.documents.doc1BackUrl} alt="UID Back" className="w-4 h-4 object-cover rounded border border-blue-300" />
+                                            ) : <span>🔄</span>}
+                                            <span>UID Back</span>
+                                            <span className="text-blue-500 group-hover/doc:scale-110">🔍</span>
+                                          </button>
+                                        )}
+                                        {item.documents.doc2Url && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setLightboxImg(item.documents.doc2Url)}
+                                            className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-[10px] font-bold text-amber-800 cursor-pointer transition active:scale-95 group/doc"
+                                          >
+                                            {item.documents.doc2Url.startsWith("data:image") ? (
+                                              <img src={item.documents.doc2Url} alt="Doc2 Front" className="w-4 h-4 object-cover rounded border border-amber-300" />
+                                            ) : <span>📑</span>}
+                                            <span>{item.subCategory === "loan_lending_kyc" ? "Cheque Front" : "PAN Front"}</span>
+                                            <span className="text-amber-600 group-hover/doc:scale-110">🔍</span>
+                                          </button>
+                                        )}
+                                        {item.documents.doc2BackUrl && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setLightboxImg(item.documents.doc2BackUrl)}
+                                            className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-[10px] font-bold text-amber-800 cursor-pointer transition active:scale-95 group/doc"
+                                          >
+                                            {item.documents.doc2BackUrl.startsWith("data:image") ? (
+                                              <img src={item.documents.doc2BackUrl} alt="Doc2 Back" className="w-4 h-4 object-cover rounded border border-amber-300" />
+                                            ) : <span>📄</span>}
+                                            <span>{item.subCategory === "loan_lending_kyc" ? "Cheque Back" : "PAN Back"}</span>
+                                            <span className="text-amber-600 group-hover/doc:scale-110">🔍</span>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
+                                      <span>📷</span> Photos Not Uploaded (Pending Submission)
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </td>
                           </tr>

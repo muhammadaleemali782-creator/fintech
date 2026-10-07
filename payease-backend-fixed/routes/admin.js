@@ -792,46 +792,54 @@ router.get('/audit-history', protect, admin, async (req, res) => {
 
     const historyItems = [];
 
-    // 1. Transactions (Deposits, Withdrawals, Yields, Early Closures, Referral bonuses)
-    const txQuery = {};
-    if (category === 'deposit') txQuery.type = 'deposit';
-    else if (category === 'withdrawal') txQuery.type = 'withdrawal';
-    else if (category === 'yield') txQuery.type = 'daily_yield';
-    else if (category === 'loan') txQuery.type = { $in: ['loan_repayment', 'loan_disbursal', 'loan_early_closure', 'loan_installment'] };
+    // 1. Transactions (Deposits, Withdrawals, P2P Transfers, Yields, Loan events)
+    const isTxCategory = ['all', 'deposit', 'withdrawal', 'transfer', 'yield'].includes(category);
+    if (isTxCategory) {
+      const txQuery = {};
+      if (category === 'deposit') txQuery.type = 'deposit';
+      else if (category === 'withdrawal') txQuery.type = 'withdrawal';
+      else if (category === 'transfer') txQuery.type = 'transfer';
+      else if (category === 'yield') txQuery.type = 'daily_yield';
 
-    if (status !== 'all') {
-      if (status === 'approved') txQuery.status = { $in: ['approved', 'completed'] };
-      else txQuery.status = status;
+      if (status !== 'all') {
+        if (status === 'approved') txQuery.status = { $in: ['approved', 'completed'] };
+        else txQuery.status = status;
+      }
+
+      const txns = await Transaction.find(txQuery)
+        .populate('userId', 'name email phone accountNumber upiId')
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit) || 150);
+
+      for (const t of txns) {
+        const ref = t.utrNumber ? `UTR: ${t.utrNumber}` : (t.referenceId || `TXN_${t._id.toString().slice(-6).toUpperCase()}`);
+        const isTransfer = t.type === 'transfer';
+        const isDeposit = t.type === 'deposit';
+        const isWithdrawal = t.type === 'withdrawal';
+        const isYield = t.type === 'daily_yield';
+
+        historyItems.push({
+          id: t._id,
+          category: isDeposit ? 'deposit' : isWithdrawal ? 'withdrawal' : isTransfer ? 'transfer' : isYield ? 'yield' : 'loan',
+          type: t.type,
+          title: isDeposit ? 'Deposit Request' : isWithdrawal ? 'Withdrawal Request' : isTransfer ? 'P2P Wallet Transfer' : isYield ? '12% Daily Yield Credited' : t.type === 'loan_early_closure' ? 'Loan Pre-Closure Payoff' : t.type === 'loan_installment' ? 'Loan Installment Repayment' : 'Transaction',
+          userName: t.userId?.name || 'User',
+          userEmail: t.userId?.email || 'N/A',
+          userPhone: t.userId?.phone || 'N/A',
+          accountNumber: t.userId?.accountNumber || '—',
+          amount: t.amount || 0,
+          status: t.status,
+          timestamp: t.createdAt,
+          createdAt: t.createdAt,
+          reference: ref,
+          referenceId: ref,
+          notes: t.remarks || (isTransfer ? 'Peer-to-Peer Wallet Transfer' : t.method ? `Mode: ${t.method}` : 'Platform record'),
+          remarks: t.remarks || ref
+        });
+      }
     }
 
-    const txns = await Transaction.find(txQuery)
-      .populate('userId', 'name email phone accountNumber upiId')
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit) || 150);
-
-    for (const t of txns) {
-      const ref = t.utrNumber ? `UTR: ${t.utrNumber}` : (t.referenceId || `TXN_${t._id.toString().slice(-6).toUpperCase()}`);
-      historyItems.push({
-        id: t._id,
-        category: t.type === 'deposit' ? 'deposit' : t.type === 'withdrawal' ? 'withdrawal' : t.type === 'daily_yield' ? 'yield' : 'transaction',
-        type: t.type,
-        title: t.type === 'deposit' ? 'Deposit Request' : t.type === 'withdrawal' ? 'Withdrawal Request' : t.type === 'daily_yield' ? '12% Daily Yield Credited' : t.type === 'loan_early_closure' ? 'Loan Pre-Closure Payoff' : t.type === 'loan_installment' ? 'Loan Installment Repayment' : 'Transaction',
-        userName: t.userId?.name || 'User',
-        userEmail: t.userId?.email || 'N/A',
-        userPhone: t.userId?.phone || 'N/A',
-        accountNumber: t.userId?.accountNumber || '—',
-        amount: t.amount || 0,
-        status: t.status,
-        timestamp: t.createdAt,
-        createdAt: t.createdAt,
-        reference: ref,
-        referenceId: ref,
-        notes: t.remarks || (t.method ? `Mode: ${t.method}` : 'Platform record'),
-        remarks: t.remarks || ref
-      });
-    }
-
-    // 2. KYC History (Distinguishing Normal User KYC vs Lending/Loan KYC)
+    // 2. KYC History (Strictly Isolated: Normal User KYC vs Lending/Loan KYC with Document Photos)
     if (category === 'all' || category === 'kyc' || category === 'normal_kyc' || category === 'loan_kyc') {
       const kycUsers = await User.find({
         $or: [
@@ -842,24 +850,70 @@ router.get('/audit-history', protect, admin, async (req, res) => {
 
       const userIds = kycUsers.map(u => u._id);
       const [loansForUsers, bondsForUsers] = await Promise.all([
-        Loan.find({ userId: { $in: userIds } }).select('userId').lean(),
-        Bond.find({ userId: { $in: userIds } }).select('userId').lean()
+        Loan.find({ userId: { $in: userIds } }).select('userId amount status loanType').lean(),
+        Bond.find({ userId: { $in: userIds } }).select('userId principalAmount planName monthlyPayout status documents').lean()
       ]);
-      const loanUserSet = new Set(loansForUsers.map(l => String(l.userId)));
-      const bondUserSet = new Set(bondsForUsers.map(b => String(b.userId)));
+
+      const loanMap = {};
+      for (const l of loansForUsers) {
+        const uid = String(l.userId);
+        if (!loanMap[uid]) loanMap[uid] = [];
+        loanMap[uid].push(l);
+      }
+
+      const bondMap = {};
+      for (const b of bondsForUsers) {
+        const uid = String(b.userId);
+        if (!bondMap[uid]) bondMap[uid] = [];
+        bondMap[uid].push(b);
+      }
 
       for (const u of kycUsers) {
         if (status !== 'all' && u.kycStatus !== status && !(status === 'approved' && u.kycStatus === 'verified')) continue;
 
         const uIdStr = String(u._id);
-        const isLoanLending = u.kycDocuments?.doc2Type === 'cheque' || !!u.kycDocuments?.chequeNumber || loanUserSet.has(uIdStr) || bondUserSet.has(uIdStr);
+        const userLoans = loanMap[uIdStr] || [];
+        const userBonds = bondMap[uIdStr] || [];
+        const docs = u.kycDocuments || {};
+
+        const doc1Front = docs.doc1Url || docs.docUrl || docs.aadharUrl || '';
+        const doc1Back = docs.doc1BackUrl || docs.aadharBackUrl || '';
+        const doc2Front = docs.doc2Url || docs.panUrl || docs.chequeUrl || '';
+        const doc2Back = docs.doc2BackUrl || docs.panBackUrl || docs.chequeBackUrl || '';
+
+        let bondCheque = '';
+        let bondChequeBack = '';
+        if (userBonds.length > 0 && userBonds[0].documents) {
+          bondCheque = userBonds[0].documents.chequeUrl || '';
+          bondChequeBack = userBonds[0].documents.chequeBackUrl || '';
+        }
+
+        const isLoanLending = docs.doc2Type === 'cheque' || !!docs.chequeNumber || userLoans.length > 0 || userBonds.length > 0;
 
         if (category === 'normal_kyc' && isLoanLending) continue;
         if (category === 'loan_kyc' && !isLoanLending) continue;
 
-        const ts = u.kycVerifiedAt || u.kycDocuments?.submittedAt || u.createdAt;
-        const kycRef = u.kycDocuments?.panNumber ? `PAN: ${u.kycDocuments.panNumber}` : (u.kycDocuments?.aadharNumber ? `UID: ${u.kycDocuments.aadharNumber}` : (u.accountNumber || `KYC_${u._id.toString().slice(-6)}`));
-        const kycNote = u.kycDocuments?.adminRemarks ? `Admin Note: ${u.kycDocuments.adminRemarks}` : `Docs: Aadhaar + ${u.kycDocuments?.doc2Type === 'cheque' ? 'Cheque' : 'PAN'}`;
+        const ts = u.kycVerifiedAt || docs.submittedAt || u.createdAt;
+        const aadharNo = docs.aadharNumber || '';
+        const panNo = docs.panNumber || '';
+        const chequeNo = docs.chequeNumber || '';
+        const hasPhotos = !!(doc1Front || doc1Back || doc2Front || doc2Back || bondCheque);
+
+        const refParts = [];
+        if (aadharNo) refParts.push(`UID: ${aadharNo}`);
+        if (panNo) refParts.push(`PAN: ${panNo}`);
+        if (chequeNo) refParts.push(`Cheque: ${chequeNo}`);
+        const kycRef = refParts.join(' • ') || (u.accountNumber || `KYC_${u._id.toString().slice(-6)}`);
+
+        let detailsNote = '';
+        if (isLoanLending) {
+          const loanSummary = userLoans.map(l => `Loan ₹${Number(l.amount || 0).toLocaleString('en-IN')} (${l.status})`).join(', ');
+          const bondSummary = userBonds.map(b => `Lending ₹${Number(b.principalAmount || 0).toLocaleString('en-IN')} (${b.status})`).join(', ');
+          detailsNote = [loanSummary, bondSummary, docs.adminRemarks ? `Admin: ${docs.adminRemarks}` : ''].filter(Boolean).join(' • ');
+          if (!detailsNote) detailsNote = 'Lending / Loan Barrier Cheque KYC';
+        } else {
+          detailsNote = docs.adminRemarks ? `Admin: ${docs.adminRemarks}` : (hasPhotos ? 'Aadhaar + PAN Documents Attached' : 'Details Submitted (No photos uploaded)');
+        }
 
         historyItems.push({
           id: 'kyc_' + u._id,
@@ -877,8 +931,21 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           createdAt: ts,
           reference: kycRef,
           referenceId: kycRef,
-          notes: kycNote,
-          remarks: kycNote
+          notes: detailsNote,
+          remarks: detailsNote,
+          hasPhotos,
+          documents: {
+            doc1Url: doc1Front,
+            doc1BackUrl: doc1Back,
+            doc2Url: doc2Front || bondCheque,
+            doc2BackUrl: doc2Back || bondChequeBack
+          },
+          docLabels: {
+            doc1: 'Aadhaar Front',
+            doc1Back: 'Aadhaar Back',
+            doc2: isLoanLending ? 'Cheque / PAN Front' : 'PAN Front',
+            doc2Back: isLoanLending ? 'Cheque / PAN Back' : 'PAN Back'
+          }
         });
       }
     }

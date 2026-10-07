@@ -73,6 +73,8 @@ const userSchema = new mongoose.Schema({
     aadharNumber: { type: String, default: '' },
     panNumber: { type: String, default: '' },
     chequeNumber: { type: String, default: '' },
+    chequeUrl: { type: String, default: '' },
+    chequeBackUrl: { type: String, default: '' },
     address: { type: String, default: '' },
     googleDriveLink: { type: String, default: '' },
     docUrl: { type: String, default: '' },

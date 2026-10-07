@@ -884,9 +884,8 @@ export default function AdminPanel() {
         amount: Number(issueLoanAmount),
         installmentsCount: Number(issueInstallmentsCount),
         interestRateOption: Number(issueInterestRate),
-        customRate: Number(issueInterestRate),
-        hasChequeFacility: issueHasCheque,
-        chequeNumber: issueChequeNumber,
+        hasChequeFacility: issueHasCheque || Boolean(issueChequeNumber) || Boolean(issueDocuments.chequeUrl),
+        chequeNumber: issueChequeNumber ? String(issueChequeNumber).trim() : "",
         purpose: issuePurpose || (issueLoanType === "student" ? "Student Loan" : issueLoanType === "micro" ? "Micro Enterprise Loan" : "Personal Loan"),
         documents: issueDocuments,
         adminNote: `Applied by Admin on behalf of ${issueBorrowerType === "new" ? issueNewUser.name : issueSelectedUser?.name} (${actualLoanType})`
@@ -4256,72 +4255,345 @@ export default function AdminPanel() {
                               </button>
                             </div>
 
-                            {/* Returning Borrower Detection & Documents Status */}
+                            {/* Borrower KYC & Loan History Intelligence (State A: Purana Loan Borrower | State B: Normal KYC Done - Cheque Required | State C: First Time Borrower) */}
                             {(() => {
                               const userPrevLoans = loans.filter(l => String(l.userId?._id || l.userId) === String(issueSelectedUser._id));
-                              const isReturningBorrower = userPrevLoans.length > 0 || issueSelectedUser.kycStatus === "verified" || !!issueSelectedUser.kycDocuments?.doc1Url;
+                              const hasLoanHistory = userPrevLoans.length > 0;
+                              const hasNormalKyc = issueSelectedUser.kycStatus === "verified" || Boolean(issueSelectedUser.kycDocuments?.doc1Url || issueSelectedUser.kycDocuments?.docUrl);
 
-                              return (
-                                <div className="space-y-2">
-                                  {isReturningBorrower ? (
-                                    <div className="p-3.5 bg-emerald-50/80 border border-emerald-300 rounded-xl space-y-1.5">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-base">✅</span>
-                                        <span className="text-xs font-black text-emerald-950">
-                                          Purana Verified Borrower: Documents already on file ({userPrevLoans.length} Loans Record)
-                                        </span>
-                                      </div>
-                                      <p className="text-[11px] text-emerald-800 leading-relaxed">
-                                        Is borrower ke KYC documents aur loan history system me pehle se registered hain. <strong>Aapko dobara documents upload karne ki koi zaroorat nahi hai.</strong>
-                                      </p>
-                                      {userPrevLoans.length > 0 && (
-                                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                                          <span className="text-[10px] font-bold text-emerald-900">Previous Loans:</span>
-                                          {userPrevLoans.map((pl, idx) => (
-                                            <span key={pl._id || idx} className="text-[10px] font-mono font-bold bg-white px-2 py-0.5 rounded border border-emerald-200 text-emerald-900">
-                                              #{idx + 1}: ₹{Number(pl.amount || 0).toLocaleString("en-IN")} ({pl.status})
+                              // STATE A: Genuine Returning Loan Borrower (has past loan history)
+                              if (hasLoanHistory) {
+                                return (
+                                  <div className="space-y-3 p-4 bg-emerald-50/80 border border-emerald-300 rounded-2xl">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/70 pb-2.5">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shadow-2xs">
+                                          🛡️
+                                        </div>
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-black text-emerald-950">
+                                              Purana Verified Loan Borrower
                                             </span>
-                                          ))}
+                                            <span className="text-[10px] font-black bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+                                              {userPrevLoans.length} Purane Loan Record
+                                            </span>
+                                          </div>
+                                          <p className="text-[11px] text-emerald-800 leading-tight mt-0.5">
+                                            Is borrower ke KYC documents aur loan history system me verified hain. <strong>Dobara document upload karne ki koi zaroorat nahi hai.</strong>
+                                          </p>
                                         </div>
-                                      )}
+                                      </div>
                                     </div>
-                                  ) : (
-                                    <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl space-y-2.5">
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-base">📁</span>
-                                          <span className="text-xs font-black text-amber-950">
-                                            First Time Borrower — Please Upload KYC Documents
-                                          </span>
+
+                                    {/* Detailed breakdown of all previous loans */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between text-[11px] font-black text-emerald-950">
+                                        <span>📊 Purane Loans Ki Puri Jankari ({userPrevLoans.length}):</span>
+                                        <span className="text-[10px] text-emerald-700 font-bold">Total Borrowed History</span>
+                                      </div>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-0.5 no-scrollbar">
+                                        {userPrevLoans.map((pl, idx) => {
+                                          const isOverdue = pl.status === "overdue";
+                                          const isActive = pl.status === "active" || pl.status === "approved" || pl.status === "disbursed";
+                                          const isClosed = pl.status === "closed" || pl.status === "completed" || pl.status === "paid";
+                                          const badgeColor = isOverdue
+                                            ? "bg-rose-100 text-rose-800 border-rose-300"
+                                            : isActive
+                                            ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                            : isClosed
+                                            ? "bg-slate-100 text-slate-700 border-slate-300"
+                                            : "bg-amber-100 text-amber-800 border-amber-300";
+
+                                          return (
+                                            <div
+                                              key={pl._id || idx}
+                                              className="p-3 bg-white border border-emerald-200 rounded-xl space-y-2 shadow-2xs hover:shadow-xs transition"
+                                            >
+                                              <div className="flex items-start justify-between gap-1.5 border-b border-gray-100 pb-1.5">
+                                                <div>
+                                                  <div className="flex items-center gap-1.5">
+                                                    <span className="text-xs font-black text-gray-900">
+                                                      #{idx + 1} {pl.loanType === "student" ? "🎓 Student" : pl.loanType === "micro_business" || pl.loanType === "micro" ? "🏪 Micro" : "👤 Personal"} Loan
+                                                    </span>
+                                                    <span className={`text-[9px] font-black px-1.5 py-0.2 rounded border uppercase ${badgeColor}`}>
+                                                      {pl.status}
+                                                    </span>
+                                                  </div>
+                                                  <span className="text-[10px] font-mono text-gray-400 block">
+                                                    Acc: {pl.accountNumber || pl._id?.slice(-8)}
+                                                  </span>
+                                                </div>
+                                                <div className="text-right">
+                                                  <span className="text-xs font-black font-mono text-emerald-700 block">
+                                                    ₹{Number(pl.amount || 0).toLocaleString("en-IN")}
+                                                  </span>
+                                                  <span className="text-[9px] text-gray-400 font-bold block">Sanctioned</span>
+                                                </div>
+                                              </div>
+
+                                              {/* Financial Grid */}
+                                              <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                                                <div className="p-1.5 bg-slate-50 rounded-lg">
+                                                  <span className="text-gray-500 block text-[9px]">Disbursed</span>
+                                                  <span className="font-mono font-bold text-gray-900">
+                                                    ₹{Number(pl.disbursalAmount || pl.amount || 0).toLocaleString("en-IN")}
+                                                  </span>
+                                                </div>
+                                                <div className="p-1.5 bg-slate-50 rounded-lg">
+                                                  <span className="text-gray-500 block text-[9px]">Tenure / Kist</span>
+                                                  <span className="font-mono font-bold text-blue-800">
+                                                    {pl.installmentsCount || pl.tenure || 15} Kist
+                                                  </span>
+                                                </div>
+                                                <div className="p-1.5 bg-slate-50 rounded-lg">
+                                                  <span className="text-gray-500 block text-[9px]">Per Kist (EMI)</span>
+                                                  <span className="font-mono font-bold text-gray-900">
+                                                    ₹{Number(pl.installmentAmount || pl.emiAmount || 0).toLocaleString("en-IN")}
+                                                  </span>
+                                                </div>
+                                                <div className="p-1.5 bg-slate-50 rounded-lg">
+                                                  <span className="text-gray-500 block text-[9px]">Interest Rate</span>
+                                                  <span className="font-mono font-bold text-indigo-700">
+                                                    {pl.interestRatePerInstallment || pl.interestRate || 1.34}%
+                                                  </span>
+                                                </div>
+                                                <div className="p-1.5 bg-slate-50 rounded-lg col-span-2">
+                                                  <span className="text-gray-500 block text-[9px]">Remaining Due / Balance</span>
+                                                  <span className="font-mono font-black text-rose-700">
+                                                    ₹{Number(pl.remainingAmount !== undefined ? pl.remainingAmount : (pl.totalPayable || 0)).toLocaleString("en-IN")}
+                                                  </span>
+                                                </div>
+                                              </div>
+
+                                              {/* Footer date & cheque info */}
+                                              <div className="flex items-center justify-between text-[9px] text-gray-500 pt-1 border-t border-gray-100">
+                                                <span>📅 {pl.createdAt ? new Date(pl.createdAt).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : "N/A"}</span>
+                                                {pl.chequeNumber || pl.documents?.chequeNumber ? (
+                                                  <span className="font-mono font-bold text-gray-700 bg-gray-100 px-1.5 py-0.2 rounded">
+                                                    Cheque: #{pl.chequeNumber || pl.documents?.chequeNumber}
+                                                  </span>
+                                                ) : pl.hasChequeFacility ? (
+                                                  <span className="text-emerald-700 font-bold">Cheque Facility Active</span>
+                                                ) : null}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // STATE B: Normal KYC Done, BUT No Loan Ever Taken (Full Loan KYC / Barrier Cheque Required!)
+                              if (hasNormalKyc) {
+                                return (
+                                  <div className="space-y-3 p-4 bg-amber-50/90 border-2 border-amber-300 rounded-2xl">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-2.5">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-base shadow-2xs">
+                                          ⚠️
                                         </div>
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-black text-amber-950">
+                                              Normal KYC Done — Loan / Lending Full KYC (Barrier Cheque) Required
+                                            </span>
+                                            <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full">
+                                              Wallet KYC Verified
+                                            </span>
+                                          </div>
+                                          <p className="text-[11px] text-amber-900 leading-tight mt-0.5">
+                                            Is customer ka normal wallet KYC complete hai (Aadhaar & PAN file par hain). Par <strong>Loan / Lending ke liye Security / Barrier Cheque compulsory hai</strong>.
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Status of Aadhaar & PAN */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+                                      <div className="p-2 bg-white/80 border border-emerald-200 rounded-lg flex items-center justify-between">
+                                        <span className="font-bold text-gray-700">🪪 Aadhaar Front</span>
+                                        <span className="font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">✓ Verified</span>
+                                      </div>
+                                      <div className="p-2 bg-white/80 border border-emerald-200 rounded-lg flex items-center justify-between">
+                                        <span className="font-bold text-gray-700">🔄 Aadhaar Back</span>
+                                        <span className="font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">✓ Verified</span>
+                                      </div>
+                                      <div className="p-2 bg-white/80 border border-emerald-200 rounded-lg flex items-center justify-between">
+                                        <span className="font-bold text-gray-700">📑 PAN Card</span>
+                                        <span className="font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">✓ Verified</span>
+                                      </div>
+                                      <div className="p-2 bg-amber-100 border border-amber-300 rounded-lg flex items-center justify-between">
+                                        <span className="font-bold text-amber-900">🏦 Barrier Cheque</span>
+                                        <span className="font-black text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">Pending Upload</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Dedicated Barrier Cheque Upload Fields */}
+                                    <div className="p-3 bg-white border border-amber-300 rounded-xl space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
+                                          <span>🏦</span> Compulsory Barrier Cheque Details for Loan / Lending
+                                        </span>
                                         <span className="text-[10px] text-amber-700 font-bold">Image / PDF (Max 5MB)</span>
                                       </div>
-                                      <p className="text-[11px] text-amber-800">
-                                        Is borrower ke KYC documents file par nahi hain. Niche diye gaye 4 documents upload karein:
-                                      </p>
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
-                                        {[
-                                          { key: "doc1Url", label: "Aadhaar Card Front", icon: "🪪" },
-                                          { key: "doc1BackUrl", label: "Aadhaar Card Back", icon: "🔄" },
-                                          { key: "doc2Url", label: "PAN / Cheque Front", icon: "📑" },
-                                          { key: "doc2BackUrl", label: "PAN / Cheque Back", icon: "📄" },
-                                        ].map(doc => (
-                                          <div key={doc.key} className="p-2 bg-white border border-amber-200 rounded-lg space-y-1">
-                                            <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
-                                              <span>{doc.icon} {doc.label}</span>
-                                              {issueDocuments[doc.key] && <span className="text-emerald-600 text-[10px]">✓</span>}
-                                            </div>
-                                            <input
-                                              type="file"
-                                              accept="image/*,application/pdf"
-                                              onChange={(e) => handleDocFileUpload(doc.key, e.target.files[0])}
-                                              className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
-                                            />
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                        {/* Cheque Front */}
+                                        <div className="p-2.5 bg-slate-50 border border-gray-200 rounded-lg space-y-1.5">
+                                          <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
+                                            <span>🏦 Cheque Front Image</span>
+                                            {issueDocuments.chequeUrl ? (
+                                              <span className="text-emerald-600 text-[10px] font-black">✓ Uploaded</span>
+                                            ) : (
+                                              <span className="text-rose-500 text-[10px] font-bold">* Required</span>
+                                            )}
                                           </div>
-                                        ))}
+                                          {issueDocuments.chequeUrl && (
+                                            <div className="relative group w-full h-16 bg-black/5 rounded overflow-hidden flex items-center justify-center">
+                                              <img
+                                                src={issueDocuments.chequeUrl}
+                                                alt="Cheque Front"
+                                                className="max-h-full max-w-full object-contain cursor-zoom-in"
+                                                onClick={() => { setLightboxImg(issueDocuments.chequeUrl); setZoomLevel(1); }}
+                                              />
+                                              <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">🔍 Zoom</span>
+                                            </div>
+                                          )}
+                                          <input
+                                            type="file"
+                                            accept="image/*,application/pdf"
+                                            onChange={(e) => handleDocFileUpload("chequeUrl", e.target.files[0])}
+                                            className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
+                                          />
+                                        </div>
+
+                                        {/* Cheque Back */}
+                                        <div className="p-2.5 bg-slate-50 border border-gray-200 rounded-lg space-y-1.5">
+                                          <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
+                                            <span>🔄 Cheque Back Image</span>
+                                            {issueDocuments.chequeBackUrl ? (
+                                              <span className="text-emerald-600 text-[10px] font-black">✓ Uploaded</span>
+                                            ) : (
+                                              <span className="text-rose-500 text-[10px] font-bold">* Required</span>
+                                            )}
+                                          </div>
+                                          {issueDocuments.chequeBackUrl && (
+                                            <div className="relative group w-full h-16 bg-black/5 rounded overflow-hidden flex items-center justify-center">
+                                              <img
+                                                src={issueDocuments.chequeBackUrl}
+                                                alt="Cheque Back"
+                                                className="max-h-full max-w-full object-contain cursor-zoom-in"
+                                                onClick={() => { setLightboxImg(issueDocuments.chequeBackUrl); setZoomLevel(1); }}
+                                              />
+                                              <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">🔍 Zoom</span>
+                                            </div>
+                                          )}
+                                          <input
+                                            type="file"
+                                            accept="image/*,application/pdf"
+                                            onChange={(e) => handleDocFileUpload("chequeBackUrl", e.target.files[0])}
+                                            className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
+                                          />
+                                        </div>
+
+                                        {/* Cheque Number Input */}
+                                        <div className="p-2.5 bg-slate-50 border border-gray-200 rounded-lg space-y-1.5 flex flex-col justify-between">
+                                          <div>
+                                            <label className="text-[11px] font-bold text-gray-800 block">
+                                              🔢 Barrier Cheque Number <span className="text-rose-500">*</span>
+                                            </label>
+                                            <span className="text-[9px] text-gray-500 block">Bank cheque par likha 6-digit number</span>
+                                          </div>
+                                          <input
+                                            type="text"
+                                            value={issueChequeNumber}
+                                            onChange={(e) => setIssueChequeNumber(e.target.value)}
+                                            placeholder="e.g. 000452"
+                                            className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-mono font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          />
+                                        </div>
                                       </div>
                                     </div>
-                                  )}
+                                  </div>
+                                );
+                              }
+
+                              // STATE C: First Time Borrower (Neither past loans nor Normal KYC on file)
+                              return (
+                                <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-2xl space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-lg">📁</span>
+                                      <div>
+                                        <span className="text-xs font-black text-amber-950 block">
+                                          First Time Borrower — Full Loan KYC Required (Aadhaar, PAN & Cheque)
+                                        </span>
+                                        <span className="text-[10px] text-amber-800 block">
+                                          Is borrower ke KYC documents file par nahi hain. Niche diye gaye sabhi 6 documents upload karein:
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <span className="text-[10px] text-amber-700 font-bold hidden sm:inline">Image / PDF (Max 5MB)</span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                    {[
+                                      { key: "doc1Url", label: "Aadhaar Card Front", icon: "🪪" },
+                                      { key: "doc1BackUrl", label: "Aadhaar Card Back", icon: "🔄" },
+                                      { key: "doc2Url", label: "PAN Card Front", icon: "📑" },
+                                      { key: "doc2BackUrl", label: "PAN Card Back", icon: "📄" },
+                                      { key: "chequeUrl", label: "Barrier Cheque Front", icon: "🏦" },
+                                      { key: "chequeBackUrl", label: "Barrier Cheque Back", icon: "🔄" },
+                                    ].map(doc => (
+                                      <div key={doc.key} className="p-2.5 bg-white border border-amber-200 rounded-xl space-y-1.5">
+                                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
+                                          <span>{doc.icon} {doc.label}</span>
+                                          {issueDocuments[doc.key] ? (
+                                            <span className="text-emerald-600 text-[10px] font-black">✓ Uploaded</span>
+                                          ) : (
+                                            <span className="text-gray-400 text-[10px]">Select</span>
+                                          )}
+                                        </div>
+                                        {issueDocuments[doc.key] && (
+                                          <div className="relative group w-full h-14 bg-black/5 rounded overflow-hidden flex items-center justify-center">
+                                            <img
+                                              src={issueDocuments[doc.key]}
+                                              alt={doc.label}
+                                              className="max-h-full max-w-full object-contain cursor-zoom-in"
+                                              onClick={() => { setLightboxImg(issueDocuments[doc.key]); setZoomLevel(1); }}
+                                            />
+                                            <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">🔍 Zoom</span>
+                                          </div>
+                                        )}
+                                        <input
+                                          type="file"
+                                          accept="image/*,application/pdf"
+                                          onChange={(e) => handleDocFileUpload(doc.key, e.target.files[0])}
+                                          className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {/* Cheque Number input for First Time Borrower */}
+                                  <div className="p-2.5 bg-white border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div>
+                                      <span className="text-xs font-bold text-gray-800 block">
+                                        🔢 Barrier Cheque Number (Compulsory for Loan Security)
+                                      </span>
+                                      <span className="text-[10px] text-gray-500">Security barrier cheque ka 6-digit number enter karein</span>
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={issueChequeNumber}
+                                      onChange={(e) => setIssueChequeNumber(e.target.value)}
+                                      placeholder="e.g. 000452"
+                                      className="w-full sm:w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-mono font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
                                 </div>
                               );
                             })()}
@@ -4363,6 +4635,28 @@ export default function AdminPanel() {
                                               Direct User
                                             </span>
                                           )}
+                                          {(() => {
+                                            const uLoans = loans.filter(l => String(l.userId?._id || l.userId) === String(u._id));
+                                            if (uLoans.length > 0) {
+                                              return (
+                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                                  🛡️ {uLoans.length} Purane Loan
+                                                </span>
+                                              );
+                                            }
+                                            if (u.kycStatus === "verified" || Boolean(u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl)) {
+                                              return (
+                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                                  ⚠️ Normal KYC (Cheque Chahiye)
+                                                </span>
+                                              );
+                                            }
+                                            return (
+                                              <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-100 text-gray-500">
+                                                📁 No KYC
+                                              </span>
+                                            );
+                                          })()}
                                         </div>
                                         <p className="text-[11px] text-gray-400">
                                           {u.phone} • {u.email} • Balance: ₹{Number(u.balance || 0).toLocaleString("en-IN")}
@@ -4489,22 +4783,38 @@ export default function AdminPanel() {
                         </div>
 
                         {/* Document Upload for New User */}
-                        <div className="pt-2 border-t border-gray-200">
-                          <label className="text-[11px] font-bold text-gray-700 block mb-2">
-                            Upload Verification Documents (Aadhaar & PAN/Cheque)
-                          </label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+                        <div className="pt-2 border-t border-gray-200 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[11px] font-bold text-gray-800 block">
+                              Upload Full Loan KYC Documents (Aadhaar, PAN & Barrier Cheque)
+                            </label>
+                            <span className="text-[10px] text-gray-500 font-bold">Image / PDF (Max 5MB)</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                             {[
                               { key: "doc1Url", label: "Aadhaar Card Front", icon: "🪪" },
                               { key: "doc1BackUrl", label: "Aadhaar Card Back", icon: "🔄" },
-                              { key: "doc2Url", label: "PAN / Cheque Front", icon: "📑" },
-                              { key: "doc2BackUrl", label: "PAN / Cheque Back", icon: "📄" },
+                              { key: "doc2Url", label: "PAN Card Front", icon: "📑" },
+                              { key: "doc2BackUrl", label: "PAN Card Back", icon: "📄" },
+                              { key: "chequeUrl", label: "Barrier Cheque Front", icon: "🏦" },
+                              { key: "chequeBackUrl", label: "Barrier Cheque Back", icon: "🔄" },
                             ].map(doc => (
-                              <div key={doc.key} className="p-2 bg-slate-50 border border-gray-200 rounded-lg space-y-1">
+                              <div key={doc.key} className="p-2.5 bg-slate-50 border border-gray-200 rounded-xl space-y-1.5">
                                 <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
                                   <span>{doc.icon} {doc.label}</span>
-                                  {issueDocuments[doc.key] && <span className="text-emerald-600 text-[10px]">✓</span>}
+                                  {issueDocuments[doc.key] && <span className="text-emerald-600 text-[10px] font-black">✓ Uploaded</span>}
                                 </div>
+                                {issueDocuments[doc.key] && (
+                                  <div className="relative group w-full h-12 bg-black/5 rounded overflow-hidden flex items-center justify-center">
+                                    <img
+                                      src={issueDocuments[doc.key]}
+                                      alt={doc.label}
+                                      className="max-h-full max-w-full object-contain cursor-zoom-in"
+                                      onClick={() => { setLightboxImg(issueDocuments[doc.key]); setZoomLevel(1); }}
+                                    />
+                                    <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">🔍 Zoom</span>
+                                  </div>
+                                )}
                                 <input
                                   type="file"
                                   accept="image/*,application/pdf"
@@ -4513,6 +4823,23 @@ export default function AdminPanel() {
                                 />
                               </div>
                             ))}
+                          </div>
+
+                          {/* Cheque Number input for New User */}
+                          <div className="p-2.5 bg-slate-50 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <span className="text-[11px] font-bold text-gray-800 block">
+                                🔢 Barrier Cheque Number (Compulsory for Loan Security)
+                              </span>
+                              <span className="text-[9px] text-gray-500">Security barrier cheque ka 6-digit number enter karein</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={issueChequeNumber}
+                              onChange={(e) => setIssueChequeNumber(e.target.value)}
+                              placeholder="e.g. 000452"
+                              className="w-full sm:w-48 px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-mono font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
                           </div>
                         </div>
                       </div>

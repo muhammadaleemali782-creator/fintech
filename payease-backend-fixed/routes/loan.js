@@ -1113,6 +1113,19 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
       }
     });
 
+    // Sync newly uploaded documents and cheque to targetUser's KYC profile
+    const docUpdates = {};
+    if (req.body.documents?.doc1Url) docUpdates['kycDocuments.doc1Url'] = req.body.documents.doc1Url;
+    if (req.body.documents?.doc1BackUrl) docUpdates['kycDocuments.doc1BackUrl'] = req.body.documents.doc1BackUrl;
+    if (req.body.documents?.doc2Url) docUpdates['kycDocuments.doc2Url'] = req.body.documents.doc2Url;
+    if (req.body.documents?.doc2BackUrl) docUpdates['kycDocuments.doc2BackUrl'] = req.body.documents.doc2BackUrl;
+    if (req.body.documents?.chequeUrl) docUpdates['kycDocuments.chequeUrl'] = req.body.documents.chequeUrl;
+    if (req.body.documents?.chequeBackUrl) docUpdates['kycDocuments.chequeBackUrl'] = req.body.documents.chequeBackUrl;
+    if (chequeNumber) docUpdates['kycDocuments.chequeNumber'] = String(chequeNumber).trim();
+    if (Object.keys(docUpdates).length > 0) {
+      await User.findByIdAndUpdate(targetUser._id, { $set: docUpdates });
+    }
+
     // Notify admins via SSE
     if (req.app.locals.sseClients) {
       const payload = JSON.stringify({

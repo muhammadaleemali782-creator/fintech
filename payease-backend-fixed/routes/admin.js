@@ -214,6 +214,30 @@ router.post('/agent-applications/:id/reject', protect, admin, async (req, res) =
   }
 });
 
+// Convert / Switch Agent Commission Model (Solo Direct <-> Team System)
+router.post('/agent-applications/:id/switch-model', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const { model } = req.body; // 'team_1' | 'solo_2' | 'team' | 'solo'
+    const targetModel = (model === 'team' || model === 'team_1') ? 'team_1' : 'solo_2';
+
+    if (!user.agentProfile) user.agentProfile = {};
+    user.agentProfile.commissionModel = targetModel;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `Agent converted to ${targetModel === 'team_1' ? 'Team System' : 'Solo Direct'} successfully!`,
+      user
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update agent model: ' + err.message });
+  }
+});
+
 // Block/Unblock user
 router.post('/user/:id/toggle-block', protect, admin, async (req, res) => {
   try {
@@ -755,6 +779,133 @@ router.get('/bonds', protect, admin, async (req, res) => {
     res.json(bonds);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch bonds' });
+  }
+});
+
+// Comprehensive Multi-Category Audit History Endpoint
+router.get('/audit-history', protect, admin, async (req, res) => {
+  try {
+    const { category = 'all', status = 'all', search = '', limit = 150 } = req.query;
+
+    const historyItems = [];
+
+    // 1. Transactions (Deposits, Withdrawals, Yields, Early Closures, Referral bonuses)
+    const txQuery = {};
+    if (category === 'deposit') txQuery.type = 'deposit';
+    else if (category === 'withdrawal') txQuery.type = 'withdrawal';
+    else if (category === 'yield') txQuery.type = 'daily_yield';
+    else if (category === 'loan') txQuery.type = { $in: ['loan_repayment', 'loan_disbursal', 'loan_early_closure', 'loan_installment'] };
+
+    if (status !== 'all') {
+      if (status === 'approved') txQuery.status = { $in: ['approved', 'completed'] };
+      else txQuery.status = status;
+    }
+
+    const txns = await Transaction.find(txQuery)
+      .populate('userId', 'name email phone accountNumber upiId')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit) || 150);
+
+    for (const t of txns) {
+      historyItems.push({
+        id: t._id,
+        category: t.type === 'deposit' ? 'deposit' : t.type === 'withdrawal' ? 'withdrawal' : t.type === 'daily_yield' ? 'yield' : 'transaction',
+        type: t.type,
+        title: t.type === 'deposit' ? 'Deposit Request' : t.type === 'withdrawal' ? 'Withdrawal Request' : t.type === 'daily_yield' ? '12% Daily Yield Credited' : t.type === 'loan_early_closure' ? 'Loan Pre-Closure Payoff' : 'Transaction',
+        userName: t.userId?.name || 'User',
+        userEmail: t.userId?.email || 'N/A',
+        userPhone: t.userId?.phone || 'N/A',
+        accountNumber: t.userId?.accountNumber || '—',
+        amount: t.amount || 0,
+        status: t.status,
+        timestamp: t.createdAt,
+        remarks: t.remarks || t.referenceId || 'System entry'
+      });
+    }
+
+    // 2. KYC History
+    if (category === 'all' || category === 'kyc') {
+      const kycUsers = await User.find({
+        $or: [
+          { kycStatus: { $in: ['verified', 'rejected', 'pending'] } },
+          { 'kycDocuments.submittedAt': { $ne: null } }
+        ]
+      }).select('name email phone accountNumber kycStatus kycDocuments kycVerifiedAt createdAt');
+
+      for (const u of kycUsers) {
+        if (status !== 'all' && u.kycStatus !== status && !(status === 'approved' && u.kycStatus === 'verified')) continue;
+
+        historyItems.push({
+          id: 'kyc_' + u._id,
+          category: 'kyc',
+          type: 'kyc_verification',
+          title: `KYC Submission (${u.kycStatus?.toUpperCase()})`,
+          userName: u.name,
+          userEmail: u.email,
+          userPhone: u.phone,
+          accountNumber: u.accountNumber || '—',
+          amount: 0,
+          status: u.kycStatus === 'verified' ? 'approved' : u.kycStatus,
+          timestamp: u.kycVerifiedAt || u.kycDocuments?.submittedAt || u.createdAt,
+          remarks: u.kycDocuments?.adminRemarks ? `Admin Note: ${u.kycDocuments.adminRemarks}` : (u.kycDocuments?.panNumber ? `PAN: ${u.kycDocuments.panNumber}` : 'Document Verification')
+        });
+      }
+    }
+
+    // 3. Agent Application History
+    if (category === 'all' || category === 'agent') {
+      const agentUsers = await User.find({
+        $or: [
+          { 'agentProfile.status': { $in: ['approved', 'rejected', 'pending'] } },
+          { role: 'agent' }
+        ]
+      }).select('name email phone accountNumber agentProfile createdAt');
+
+      for (const a of agentUsers) {
+        const aStatus = a.agentProfile?.status || 'approved';
+        if (status !== 'all' && aStatus !== status && !(status === 'approved' && aStatus === 'approved')) continue;
+
+        historyItems.push({
+          id: 'agent_' + a._id,
+          category: 'agent',
+          type: 'agent_application',
+          title: `Agent Partner (${a.agentProfile?.commissionModel === 'team_1' ? 'Team System' : 'Solo Direct'})`,
+          userName: a.name,
+          userEmail: a.email,
+          userPhone: a.phone,
+          accountNumber: a.accountNumber || '—',
+          amount: a.agentProfile?.commissionRate || 0,
+          status: aStatus === 'approved' ? 'approved' : aStatus,
+          timestamp: a.agentProfile?.approvedAt || a.agentProfile?.appliedAt || a.createdAt,
+          remarks: `Rate: ${a.agentProfile?.commissionRate || 0}% • Shop: ${a.agentProfile?.businessName || 'Business'} (${a.agentProfile?.city || 'India'})`
+        });
+      }
+    }
+
+    // Sort descending by timestamp
+    historyItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    // Search filter if provided
+    let filtered = historyItems;
+    if (search && search.trim()) {
+      const s = search.trim().toLowerCase();
+      filtered = filtered.filter(item =>
+        item.userName.toLowerCase().includes(s) ||
+        item.userEmail.toLowerCase().includes(s) ||
+        item.userPhone.toLowerCase().includes(s) ||
+        item.accountNumber.toLowerCase().includes(s) ||
+        item.remarks.toLowerCase().includes(s)
+      );
+    }
+
+    res.json({
+      success: true,
+      total: filtered.length,
+      history: filtered.slice(0, parseInt(limit) || 150)
+    });
+  } catch (err) {
+    console.error('Audit history error:', err);
+    res.status(500).json({ message: 'Failed to fetch audit history' });
   }
 });
 

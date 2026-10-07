@@ -95,6 +95,27 @@ export default function AdminPanel() {
   const [rejectLoadingId, setRejectLoadingId] = useState(null);
   const [adminHeroFlyId, setAdminHeroFlyId] = useState(null);
 
+  // Issue Loan Desk Form State
+  const [issueBorrowerType, setIssueBorrowerType] = useState("existing"); // "existing" | "new"
+  const [issueSelectedUser, setIssueSelectedUser] = useState(null);
+  const [issueUserSearch, setIssueUserSearch] = useState("");
+  const [issueNewUser, setIssueNewUser] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    aadharNumber: "",
+    panNumber: "",
+    referredByAgentId: ""
+  });
+  const [issueLoanAmount, setIssueLoanAmount] = useState(15000);
+  const [issueInstallmentsCount, setIssueInstallmentsCount] = useState(15);
+  const [issueInterestRate, setIssueInterestRate] = useState(1.34);
+  const [issueHasCheque, setIssueHasCheque] = useState(false);
+  const [issueChequeNumber, setIssueChequeNumber] = useState("");
+  const [issuePurpose, setIssuePurpose] = useState("Micro Enterprise / Personal Loan");
+  const [issueSubmitting, setIssueSubmitting] = useState(false);
+
   const triggerAdminHeroFly = (id = "generic") => {
     setAdminHeroFlyId(id);
     setTimeout(() => {
@@ -719,18 +740,145 @@ export default function AdminPanel() {
   const pendingAgentsCount = agents.filter(a => a.agentProfile?.status === "pending").length;
   const pendingKycCount = users.filter(u => u.kycStatus === "pending").length;
 
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("educa_admin_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem("educa_admin_sidebar_collapsed", String(next)); } catch {}
+      return next;
+    });
+  };
+
   const tabs = [
     { key: "analytics", label: "Profit & Reserves", icon: "📈" },
     { key: "pending", label: "Pending", icon: "⏳", badge: pending.length },
     { key: "kyc", label: "KYC Requests", icon: "📄", badge: pendingKycCount },
+    { key: "history", label: "Audit History", icon: "📜" },
     { key: "alerts", label: "Live Alerts", icon: "🔔", badge: unreadNotifs },
     { key: "agents", label: "Agent Partners", icon: "🤝", badge: pendingAgentsCount },
     { key: "loans", label: "Loans", icon: "🏦" },
+    { key: "issue-loan", label: "Issue Loan Desk", icon: "➕🏦" },
     { key: "lending", label: "Lending Accounts", icon: "🤝", badge: bonds.length },
     { key: "users", label: "Users & Accounts", icon: "👥" },
     { key: "devices", label: "App Lock", icon: "🔒", badge: devices.filter(d => d.adminStatus === "active").length },
     { key: "settings", label: "Settings", icon: "⚙️" },
   ];
+
+  // Dedicated Multi-Category Audit History State
+  const [auditHistory, setAuditHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyCategory, setHistoryCategory] = useState("all");
+  const [historyStatus, setHistoryStatus] = useState("all");
+  const [historySearch, setHistorySearch] = useState("");
+
+  const loadAuditHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const query = new URLSearchParams({
+        category: historyCategory,
+        status: historyStatus,
+        search: historySearch
+      });
+      const res = await fetch(`${API}/admin/audit-history?${query}`, { headers });
+      const data = await res.json();
+      if (data && data.history) setAuditHistory(data.history);
+    } catch (err) {
+      console.error("Failed to load audit history:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "history") {
+      loadAuditHistory();
+    }
+  }, [tab, historyCategory, historyStatus, historySearch]);
+
+  // Switch / Convert Agent Commission Model (Solo <-> Team)
+  const switchAgentModel = async (agentId, targetModel) => {
+    try {
+      const res = await fetch(`${API}/admin/agent-applications/${agentId}/switch-model`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ model: targetModel })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || `Agent converted to ${targetModel === 'team_1' ? 'Team System' : 'Solo Direct'}!`, "success");
+        loadAgents();
+      } else {
+        showToast(data.message || "Failed to switch agent model", "error");
+      }
+    } catch {
+      showToast("Network error switching agent model", "error");
+    }
+  };
+
+  // Submit Loan on behalf of existing user or new borrower
+  const handleIssueLoanSubmit = async (e) => {
+    e?.preventDefault();
+    if (issueBorrowerType === "existing" && !issueSelectedUser) {
+      return showToast("Kripya ek borrower / customer select karein", "error");
+    }
+    if (issueBorrowerType === "new" && (!issueNewUser.name || !issueNewUser.phone)) {
+      return showToast("New borrower ka naam aur phone number zaroori hai", "error");
+    }
+
+    setIssueSubmitting(true);
+    try {
+      const payload = {
+        borrowerType: issueBorrowerType,
+        userId: issueSelectedUser?._id,
+        name: issueNewUser.name,
+        phone: issueNewUser.phone,
+        email: issueNewUser.email,
+        address: issueNewUser.address,
+        aadharNumber: issueNewUser.aadharNumber,
+        panNumber: issueNewUser.panNumber,
+        referredByAgentId: issueNewUser.referredByAgentId || undefined,
+        loanType: "personal",
+        amount: Number(issueLoanAmount),
+        installmentsCount: Number(issueInstallmentsCount),
+        interestRateOption: Number(issueInterestRate),
+        hasChequeFacility: issueHasCheque,
+        chequeNumber: issueChequeNumber,
+        purpose: issuePurpose,
+        adminNote: `Applied by Admin on behalf of ${issueBorrowerType === "new" ? issueNewUser.name : issueSelectedUser?.name}`
+      };
+
+      const res = await fetch(`${API}/loan/admin/create-on-behalf`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        showToast(data.message || "Loan application submitted! Review and approve below.", "success");
+        loadLoans();
+        loadUsers();
+        // Reset form
+        setIssueSelectedUser(null);
+        setIssueNewUser({ name: "", phone: "", email: "", address: "", aadharNumber: "", panNumber: "", referredByAgentId: "" });
+        // Switch to loans tab so admin can review and approve it
+        setTab("loans");
+      } else {
+        showToast(data.message || "Failed to create loan application", "error");
+      }
+    } catch {
+      showToast("Network error submitting loan application", "error");
+    } finally {
+      setIssueSubmitting(false);
+    }
+  };
 
   const logout = () => { localStorage.clear(); window.location.href = "/"; };
 
@@ -823,13 +971,13 @@ export default function AdminPanel() {
   const statCards = [
     { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600" },
     { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-indigo-600 to-violet-600" },
-    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 2, g: "from-blue-500 to-blue-600" },
-    { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, g: "from-yellow-500 to-orange-500" },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600" },
+    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? 2, g: "from-slate-700 to-slate-800" },
+    { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? 0, g: "from-amber-500 to-orange-500" },
   ];
 
   return (
-    <div className="bg-gray-50 min-h-[100dvh] lg:flex">
+    <div className="bg-gray-50 min-h-screen lg:h-screen lg:overflow-hidden lg:flex">
       {/* FULLSCREEN LIGHTBOX WITH INTERACTIVE ZOOM & PAN */}
       {lightboxImg && (
         <div
@@ -926,45 +1074,91 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* DESKTOP SIDEBAR */}
-      <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-gray-900 to-gray-800 text-white sticky top-0 h-screen overflow-hidden">
-        <div className="shrink-0 flex items-center gap-3 px-6 py-5 border-b border-white/10">
-          <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs" />
-          <div>
-            <h1 className="font-black text-lg leading-none">Admin Panel</h1>
-            <p className="text-blue-400 text-xs font-semibold mt-1">Educa Finance</p>
-          </div>
+      {/* DESKTOP SIDEBAR (COLLAPSIBLE & FULL-HEIGHT) */}
+      <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? "w-20" : "w-64"} shrink-0 bg-slate-900 border-r border-slate-800 text-slate-100 h-screen transition-all duration-200 z-30 select-none`}>
+        {/* Header with Title & Collapse Toggle */}
+        <div className={`shrink-0 flex items-center ${isSidebarCollapsed ? "flex-col justify-center p-3 gap-2" : "justify-between px-4 py-4"} border-b border-slate-800`}>
+          {!isSidebarCollapsed ? (
+            <div className="flex items-center gap-2.5 min-w-0">
+              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs shrink-0" />
+              <div className="min-w-0">
+                <h1 className="font-black text-base leading-tight truncate">Admin Panel</h1>
+                <p className="text-blue-400 text-[11px] font-semibold truncate">Educa Finance</p>
+              </div>
+            </div>
+          ) : (
+            <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs shrink-0" title="Educa Admin Panel" />
+          )}
+
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            title={isSidebarCollapsed ? "Expand Sidebar (Wider)" : "Collapse Sidebar (Compact)"}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer border border-slate-700 text-xs flex items-center justify-center shrink-0"
+          >
+            {isSidebarCollapsed ? "▶" : "◀"}
+          </button>
         </div>
-        <nav className="flex-1 px-3 py-2.5 space-y-1 overflow-y-auto no-scrollbar">
+
+        {/* Navigation Items */}
+        <nav className="flex-1 px-2.5 py-3 space-y-1 overflow-y-auto no-scrollbar">
           {tabs.map(({ key, label, icon, badge }) => (
             <button
-              key={key} onClick={() => setTab(key)}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition cursor-pointer ${
-                tab === key ? "bg-indigo-600 text-white shadow" : "text-gray-300 hover:bg-white/5 hover:text-white"
+              key={key}
+              onClick={() => setTab(key)}
+              title={isSidebarCollapsed ? label : undefined}
+              className={`w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3 py-2.5"} rounded-xl font-semibold text-xs transition cursor-pointer relative group ${
+                tab === key
+                  ? "bg-blue-600 text-white shadow-sm font-bold"
+                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
               }`}
             >
-              <span className="flex items-center gap-2.5"><span>{icon}</span>{label}</span>
-              {!!badge && <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{badge}</span>}
+              <span className="flex items-center gap-2.5">
+                <span className="text-base shrink-0">{icon}</span>
+                {!isSidebarCollapsed && <span className="truncate">{label}</span>}
+              </span>
+              {!!badge && (
+                isSidebarCollapsed ? (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-slate-900" title={`${badge} alerts`} />
+                ) : (
+                  <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                    {badge}
+                  </span>
+                )
+              )}
             </button>
           ))}
         </nav>
-        <div className="shrink-0 px-4 py-3.5 border-t border-white/10 space-y-2 bg-gray-900/95">
+
+        {/* Footer Area */}
+        <div className={`shrink-0 ${isSidebarCollapsed ? "p-2 space-y-2" : "px-3.5 py-3 space-y-2"} border-t border-slate-800 bg-slate-950/60`}>
           <Link
             to="/dashboard"
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 border border-indigo-500/40 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
+            title={isSidebarCollapsed ? "Customer App View" : undefined}
+            className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
           >
-            <span>📱</span> Customer App View
+            <span>📱</span>
+            {!isSidebarCollapsed && <span className="truncate">Customer App View</span>}
           </Link>
-          <div className="flex items-center justify-between text-xs pt-0.5">
-            <span className="text-gray-400 text-[11px]">Admin: <strong className="text-white font-semibold">{user.name}</strong></span>
-          </div>
-          <button onClick={logout} className="w-full px-3 py-1.5 bg-red-500/90 hover:bg-red-600 text-white rounded-lg transition text-xs font-semibold cursor-pointer">Logout</button>
+          {!isSidebarCollapsed && (
+            <div className="flex items-center justify-between text-xs px-1 pt-0.5">
+              <span className="text-slate-400 text-[11px] truncate">Admin: <strong className="text-white font-semibold">{user.name}</strong></span>
+            </div>
+          )}
+          <button
+            onClick={logout}
+            title={isSidebarCollapsed ? "Logout" : undefined}
+            className="w-full px-2.5 py-1.5 bg-rose-600/90 hover:bg-rose-600 text-white rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <span>🚪</span>
+            {!isSidebarCollapsed && <span>Logout</span>}
+          </button>
         </div>
       </aside>
 
-      <div className="flex-1 min-w-0 overflow-x-hidden">
+      <div className="flex-1 min-w-0 h-full overflow-y-auto">
         {/* MOBILE / TABLET TOP NAV */}
-        <nav className="lg:hidden bg-gradient-to-r from-gray-900 to-gray-800 shadow-lg sticky top-0 z-40 safe-top">
+        <nav className="lg:hidden bg-slate-900 border-b border-slate-800 shadow-lg sticky top-0 z-40 safe-top">
           <div className="px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs" />
@@ -976,15 +1170,15 @@ export default function AdminPanel() {
             <div className="flex items-center gap-2 sm:gap-3">
               <Link
                 to="/dashboard"
-                className="px-2.5 py-1.5 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 border border-indigo-500/40 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
               >
                 <span>📱</span> <span className="hidden sm:inline">App View</span>
               </Link>
               <div className="text-right hidden sm:block">
-                <p className="text-gray-400 text-xs">Logged in as</p>
+                <p className="text-slate-400 text-xs">Logged in as</p>
                 <p className="text-white font-semibold text-sm">{user.name}</p>
               </div>
-              <button onClick={logout} className="px-3 sm:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs sm:text-sm font-semibold">Logout</button>
+              <button onClick={logout} className="px-3 sm:px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition text-xs sm:text-sm font-semibold">Logout</button>
             </div>
           </div>
         </nav>
@@ -1051,11 +1245,11 @@ export default function AdminPanel() {
           {tab === "analytics" && (
             <div className="space-y-6 w-full min-w-0">
               {/* Header */}
-              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
+              <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-2xl">📈</span>
-                    <span className="text-xs font-black tracking-widest text-indigo-300 uppercase px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30">
+                    <span className="text-xs font-black tracking-widest text-blue-300 uppercase px-2.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/30">
                       Fintech Liquidity & Reserves Audit
                     </span>
                   </div>
@@ -1067,7 +1261,7 @@ export default function AdminPanel() {
                       <span className="font-mono tabular-nums text-emerald-300">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
                     )}
                   </h2>
-                  <p className="text-xs sm:text-sm text-gray-300 mt-2 max-w-2xl">
+                  <p className="text-xs sm:text-sm text-slate-300 mt-2 max-w-2xl">
                     Real-time capital balance, customer deposits, compounding 12% p.a. daily yield distribution, and liquidity reserve health.
                   </p>
                 </div>
@@ -1075,14 +1269,14 @@ export default function AdminPanel() {
                   <button
                     onClick={loadAnalytics}
                     disabled={loadingAnalytics}
-                    className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold border border-white/20 transition active:scale-95 flex items-center gap-2"
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition active:scale-95 flex items-center gap-2"
                   >
                     <span>{loadingAnalytics ? "⏳" : "🔄"}</span>
                     <span>{loadingAnalytics ? "Refreshing..." : "Refresh Data"}</span>
                   </button>
                   <button
                     onClick={() => setTab("settings")}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95 flex items-center gap-2"
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95 flex items-center gap-2"
                   >
                     <span>⚙️</span>
                     <span>Deposit & UPI Config</span>
@@ -1143,23 +1337,23 @@ export default function AdminPanel() {
                   </p>
                 </div>
 
-                <div className="bg-white rounded-3xl p-5 border border-indigo-100/80 shadow-xs flex flex-col justify-between min-w-0">
+                <div className="bg-white rounded-3xl p-5 border border-sky-100/80 shadow-xs flex flex-col justify-between min-w-0">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
                         <span>⚡</span>
                         <span>Total Profit Credited</span>
                       </p>
-                      <span className="inline-flex items-center gap-1 bg-indigo-100 text-indigo-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                      <span className="inline-flex items-center gap-1 bg-sky-100 text-sky-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
                         Live Ticking
                       </span>
                     </div>
                     {loadingAnalytics && !analytics && !liveAdminProfit ? (
-                      <div className="h-9 w-40 bg-indigo-100/70 rounded-xl animate-pulse my-1" />
+                      <div className="h-9 w-40 bg-sky-100/70 rounded-xl animate-pulse my-1" />
                     ) : (
                       <>
-                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-indigo-600 tracking-tight truncate">
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-sky-600 tracking-tight truncate">
                           ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                         </p>
                         <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
@@ -1169,7 +1363,7 @@ export default function AdminPanel() {
                     )}
                   </div>
                   <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block shrink-0" />
+                    <span className="w-2 h-2 rounded-full bg-sky-500 inline-block shrink-0" />
                     <span className="truncate">12% p.a. Compounding Daily Yield</span>
                   </p>
                 </div>
@@ -1190,7 +1384,7 @@ export default function AdminPanel() {
                     <button
                       onClick={() => setChartMode("daily")}
                       className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                        chartMode === "daily" ? "bg-white text-indigo-700 shadow-xs" : "text-gray-500 hover:text-gray-900"
+                        chartMode === "daily" ? "bg-white text-blue-700 shadow-xs" : "text-gray-500 hover:text-gray-900"
                       }`}
                     >
                       📊 Daily Yield Added
@@ -1198,7 +1392,7 @@ export default function AdminPanel() {
                     <button
                       onClick={() => setChartMode("cumulative")}
                       className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                        chartMode === "cumulative" ? "bg-white text-indigo-700 shadow-xs" : "text-gray-500 hover:text-gray-900"
+                        chartMode === "cumulative" ? "bg-white text-blue-700 shadow-xs" : "text-gray-500 hover:text-gray-900"
                       }`}
                     >
                       📈 Cumulative Growth
@@ -2076,7 +2270,7 @@ export default function AdminPanel() {
                     <span>📥</span> Export to Excel
                   </button>
 
-                  <div className="w-full sm:w-auto overflow-x-auto no-scrollbar flex gap-1 bg-gray-100 p-1 rounded-xl text-xs font-bold shrink-0">
+                    <div className="w-full sm:w-auto overflow-x-auto no-scrollbar flex gap-1 bg-gray-100 p-1 rounded-xl text-xs font-bold shrink-0">
                     {[
                       { key: "all", label: "All Submissions" },
                       { key: "pending", label: `Pending (${pendingKycCount})` },
@@ -2088,7 +2282,7 @@ export default function AdminPanel() {
                         onClick={() => setKycFilter(f.key)}
                         className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg transition cursor-pointer ${
                           kycFilter === f.key
-                            ? "bg-white text-indigo-700 shadow-xs"
+                            ? "bg-white text-blue-700 shadow-xs"
                             : "text-gray-500 hover:text-gray-800"
                         }`}
                       >
@@ -2125,17 +2319,22 @@ export default function AdminPanel() {
                           setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
                           setPreviewKycUser(u);
                         }}
-                        className="p-3.5 sm:p-4 bg-gray-50 hover:bg-indigo-50/40 hover:border-indigo-300 border border-gray-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 transition cursor-pointer shadow-2xs group"
+                        className="p-3.5 sm:p-4 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 border border-gray-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 transition cursor-pointer shadow-2xs group"
                       >
                         <div className="flex items-start gap-3 min-w-0">
-                          {/* Both Document Thumbnails */}
+                          {/* Both Document Thumbnails with Direct Lightbox Opening */}
                           <div className="flex items-center gap-1.5 shrink-0">
-                            {previewKycUser?.kycDocuments?.doc1Url || u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl ? (
+                            {u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl ? (
                               <img
                                 src={u.kycDocuments.doc1Url || u.kycDocuments.docUrl}
                                 alt="Doc 1 Aadhaar"
-                                title="Doc 1: Aadhaar Card"
-                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover:scale-105 transition"
+                                title="Click to view Aadhaar Card"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxImg(u.kycDocuments.doc1Url || u.kycDocuments.docUrl);
+                                  setZoomLevel(1);
+                                }}
+                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
                               />
                             ) : (
                               <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-xs font-bold">🆔</div>
@@ -2145,17 +2344,22 @@ export default function AdminPanel() {
                               <img
                                 src={u.kycDocuments.doc2Url}
                                 alt="Doc 2"
-                                title={`Doc 2: ${u.kycDocuments.doc2Type === "cheque" ? "Cheque" : "PAN"}`}
-                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover:scale-105 transition"
+                                title={`Click to view ${u.kycDocuments.doc2Type === "cheque" ? "Cheque" : "PAN"}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxImg(u.kycDocuments.doc2Url);
+                                  setZoomLevel(1);
+                                }}
+                                className="w-12 h-12 object-cover rounded-xl border border-gray-300 bg-white shadow-2xs group-hover:scale-105 hover:ring-2 hover:ring-blue-500 transition cursor-zoom-in"
                               />
                             ) : (
-                              <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center text-xs font-bold">💳</div>
+                              <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center text-xs font-bold">💳</div>
                             )}
                           </div>
 
                           <div className="min-w-0 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-gray-900 text-sm group-hover:text-indigo-900 transition">{u.name}</span>
+                              <span className="font-bold text-gray-900 text-sm group-hover:text-blue-900 transition">{u.name}</span>
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                                   u.kycStatus === "verified"
@@ -2166,6 +2370,9 @@ export default function AdminPanel() {
                                 }`}
                               >
                                 {u.kycStatus}
+                              </span>
+                              <span className="text-[10px] text-gray-400 font-mono">
+                                🕒 {u.kycDocuments?.submittedAt ? new Date(u.kycDocuments.submittedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Recent"}
                               </span>
                             </div>
 
@@ -2179,7 +2386,7 @@ export default function AdminPanel() {
                                   UID: {u.kycDocuments.aadharNumber}
                                 </span>
                               )}
-                              <span className="font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase text-[10px]">
+                              <span className="font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 uppercase text-[10px]">
                                 {u.kycDocuments?.doc2Type === "cheque" ? "Cheque" : "PAN"}
                               </span>
                               {u.kycDocuments?.panNumber && (
@@ -2225,7 +2432,7 @@ export default function AdminPanel() {
                                 ? "bg-rose-100 text-rose-700 border border-rose-200 shadow-none hover:bg-rose-200/70"
                                 : u.kycStatus === "verified"
                                 ? "bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-none hover:bg-emerald-200/70"
-                                : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20"
+                                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
                             }`}
                           >
                             <span>{u.kycStatus === "rejected" ? "🚫" : u.kycStatus === "verified" ? "✓" : "🔍"}</span>
@@ -2238,6 +2445,212 @@ export default function AdminPanel() {
                   </div>
                 );
               })()}
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════
+              DEDICATED MULTI-CATEGORY AUDIT HISTORY VIEW
+          ══════════════════════════════════════════════════════ */}
+          {tab === "history" && (
+            <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100 space-y-4">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
+                    <span>📜</span> Activity Audit History
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Comprehensive traceable history of deposits, withdrawals, KYC verifications, loans, and yield distributions.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadAuditHistory}
+                  disabled={historyLoading}
+                  className="self-start sm:self-auto px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 disabled:opacity-50"
+                >
+                  <span className={historyLoading ? "animate-spin" : ""}>🔄</span>
+                  <span>{historyLoading ? "Refreshing..." : "Refresh Logs"}</span>
+                </button>
+              </div>
+
+              {/* Multi-Type Filter Bar */}
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                {/* Category Pills */}
+                <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
+                  {[
+                    { key: "all", label: "All History", icon: "🌐" },
+                    { key: "deposit", label: "Deposits", icon: "💰" },
+                    { key: "withdrawal", label: "Withdrawals", icon: "💸" },
+                    { key: "kyc", label: "KYC Audits", icon: "📄" },
+                    { key: "loan", label: "Loans", icon: "🏦" },
+                    { key: "agent", label: "Agents", icon: "🤝" },
+                    { key: "yield", label: "12% Yield", icon: "📈" },
+                  ].map(c => (
+                    <button
+                      key={c.key}
+                      onClick={() => setHistoryCategory(c.key)}
+                      className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 active:scale-95 ${
+                        historyCategory === c.key
+                          ? "bg-blue-600 text-white shadow-xs font-black"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+                      }`}
+                    >
+                      <span>{c.icon}</span>
+                      <span>{c.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Status Filter & Search */}
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                  <select
+                    value={historyStatus}
+                    onChange={(e) => setHistoryStatus(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="approved">Approved / Done</option>
+                    <option value="pending">Pending</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+
+                  <input
+                    type="text"
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    placeholder="Search by user, phone, UTR..."
+                    className="flex-1 sm:w-56 px-3 py-1.5 rounded-xl border border-gray-200 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Audit History Records Table */}
+              {historyLoading ? (
+                <div className="py-16 text-center text-gray-400">
+                  <span className="text-3xl block mb-2 animate-spin">🔄</span>
+                  <p className="text-xs font-semibold">Loading audit records...</p>
+                </div>
+              ) : auditHistory.length === 0 ? (
+                <div className="py-16 text-center text-gray-400 bg-slate-50 rounded-2xl border border-dashed border-gray-200">
+                  <span className="text-4xl block mb-2">📜</span>
+                  <p className="text-sm font-semibold">No audit records found matching this filter.</p>
+                  <p className="text-xs text-gray-400 mt-1">Try changing category or clearing search query.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-2xs">
+                  <table className="w-full min-w-[850px] border-collapse bg-white text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-gray-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3 px-4 w-[160px]">Timestamp</th>
+                        <th className="py-3 px-4 w-[140px]">Category & Action</th>
+                        <th className="py-3 px-4 w-[200px]">User / Account</th>
+                        <th className="py-3 px-4 w-[130px]">Amount / Value</th>
+                        <th className="py-3 px-4 w-[110px]">Status</th>
+                        <th className="py-3 px-4">Audit Reference / Details</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {auditHistory.map((item, idx) => {
+                        const isApproved = item.status === "approved" || item.status === "completed" || item.status === "verified" || item.status === "active";
+                        const isPending = item.status === "pending";
+                        const isRejected = item.status === "rejected";
+
+                        return (
+                          <tr key={item.id || idx} className="hover:bg-slate-50/70 transition-colors">
+                            {/* Timestamp */}
+                            <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600 align-top">
+                              <span className="block font-bold text-slate-900">
+                                {new Date(item.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {new Date(item.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
+                              </span>
+                            </td>
+
+                            {/* Category & Action */}
+                            <td className="py-3.5 px-4 align-top">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                item.category === "deposit"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : item.category === "withdrawal"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : item.category === "kyc"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : item.category === "loan"
+                                  ? "bg-indigo-100 text-indigo-800"
+                                  : item.category === "agent"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : "bg-teal-100 text-teal-800"
+                              }`}>
+                                {item.category === "deposit" ? "💰 Deposit" :
+                                 item.category === "withdrawal" ? "💸 Withdrawal" :
+                                 item.category === "kyc" ? "📄 KYC" :
+                                 item.category === "loan" ? "🏦 Loan" :
+                                 item.category === "agent" ? "🤝 Agent" : "📈 Yield"}
+                              </span>
+                              <p className="font-bold text-gray-900 text-xs mt-1 leading-tight">{item.title}</p>
+                            </td>
+
+                            {/* User */}
+                            <td className="py-3.5 px-4 align-top">
+                              <p className="font-bold text-gray-900 text-xs leading-tight">{item.userName}</p>
+                              <p className="text-[11px] text-gray-500 truncate max-w-[190px]">{item.userEmail}</p>
+                              {item.userPhone && <p className="text-[10px] text-gray-400 font-mono">{item.userPhone}</p>}
+                            </td>
+
+                            {/* Amount */}
+                            <td className="py-3.5 px-4 align-top">
+                              {item.amount != null ? (
+                                <span className={`font-mono font-black text-xs ${
+                                  item.category === "deposit" || item.category === "yield"
+                                    ? "text-emerald-600"
+                                    : item.category === "withdrawal"
+                                    ? "text-rose-600"
+                                    : "text-slate-900"
+                                }`}>
+                                  ₹{Number(item.amount).toLocaleString("en-IN")}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">—</span>
+                              )}
+                            </td>
+
+                            {/* Status */}
+                            <td className="py-3.5 px-4 align-top">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                isApproved
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : isPending
+                                  ? "bg-amber-100 text-amber-800"
+                                  : isRejected
+                                  ? "bg-rose-100 text-rose-800"
+                                  : "bg-slate-100 text-slate-700"
+                              }`}>
+                                {item.status}
+                              </span>
+                            </td>
+
+                            {/* Reference / Details */}
+                            <td className="py-3.5 px-4 align-top text-[11px] text-slate-600">
+                              {item.reference && (
+                                <p className="font-mono text-[10px] text-slate-500 truncate max-w-[280px]">
+                                  Ref: {item.reference}
+                                </p>
+                              )}
+                              {item.notes && (
+                                <p className="text-slate-700 text-[11px] mt-0.5">
+                                  {item.notes}
+                                </p>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
@@ -3493,7 +3906,528 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {/* LENDING / BOND ACCOUNTS */}
+          {/* ══════════════════════════════════════════════════════
+              ISSUE LOAN DESK (ADMIN ON-BEHALF APPLICATION)
+          ══════════════════════════════════════════════════════ */}
+          {tab === "issue-loan" && (() => {
+            const amt = Number(issueLoanAmount) || 10000;
+            const count = Number(issueInstallmentsCount) || 15;
+            const rate = Number(issueInterestRate) || 1.34;
+            const principalPerInst = amt / count;
+            const interestPerInst = (amt * rate) / 100;
+            const installmentAmt = Math.round(principalPerInst + interestPerInst);
+            const totalPayable = installmentAmt * count;
+            const totalInterest = totalPayable - amt;
+            const procFee = Math.round((amt * 5) / 100);
+            const upiCharges = Math.round((amt * 1) / 100);
+            const netDisbursal = Math.max(0, amt - (procFee + upiCharges));
+
+            const filteredSearchUsers = users.filter(u => {
+              if (!issueUserSearch) return true;
+              const q = issueUserSearch.toLowerCase();
+              return (
+                (u.name && u.name.toLowerCase().includes(q)) ||
+                (u.phone && u.phone.includes(q)) ||
+                (u.email && u.email.toLowerCase().includes(q)) ||
+                (u.accountNumber && u.accountNumber.toLowerCase().includes(q))
+              );
+            });
+
+            return (
+              <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100 space-y-6">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-100">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">➕🏦</span>
+                      <h3 className="text-base sm:text-lg font-bold font-display text-gray-900">
+                        Admin Loan Desk — Apply On Behalf
+                      </h3>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 uppercase">
+                        Admin Authority
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Admin kisi bhi agent ke existing user ka loan apply kar sakta hai ya new user register karke loan apply kar sakta hai. Application pending queue me jayegi jahan aap ise final review karke approve karenge.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTab("loans")}
+                    className="self-start sm:self-auto px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <span>📋</span> View All Loans ({loans.length})
+                  </button>
+                </div>
+
+                <form onSubmit={handleIssueLoanSubmit} className="space-y-6">
+                  {/* Step 1: Borrower Selection */}
+                  <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold">1</span>
+                        Borrower Selection (Kiske Liye Loan Apply Karna Hai?)
+                      </h4>
+                      {/* Mode Switcher */}
+                      <div className="flex items-center p-1 bg-white rounded-xl border border-gray-200 text-xs font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setIssueBorrowerType("existing")}
+                          className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+                            issueBorrowerType === "existing"
+                              ? "bg-blue-600 text-white shadow-xs font-black"
+                              : "text-gray-500 hover:text-gray-900"
+                          }`}
+                        >
+                          <span>👤</span> Existing Customer / Agent's User
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIssueBorrowerType("new")}
+                          className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+                            issueBorrowerType === "new"
+                              ? "bg-blue-600 text-white shadow-xs font-black"
+                              : "text-gray-500 hover:text-gray-900"
+                          }`}
+                        >
+                          <span>🆕</span> New User Banake
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* EXISTING USER SELECTION */}
+                    {issueBorrowerType === "existing" && (
+                      <div className="space-y-3">
+                        {issueSelectedUser ? (
+                          /* Selected User Card */
+                          <div className="p-3.5 bg-emerald-50 border-2 border-emerald-400 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                                👤
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-extrabold text-sm text-emerald-950">{issueSelectedUser.name}</span>
+                                  <span className="font-mono text-[11px] font-bold bg-white px-2 py-0.5 rounded border border-emerald-200 text-emerald-800">
+                                    {issueSelectedUser.accountNumber || `A/C: EFS${String(issueSelectedUser._id).slice(-7).toUpperCase()}`}
+                                  </span>
+                                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase bg-emerald-200 text-emerald-900">
+                                    ✓ Selected
+                                  </span>
+                                </div>
+                                <div className="text-xs text-emerald-800/90 mt-0.5 flex flex-wrap gap-x-3">
+                                  <span>📞 {issueSelectedUser.phone}</span>
+                                  <span>✉️ {issueSelectedUser.email}</span>
+                                  <span>💰 Balance: ₹{Number(issueSelectedUser.balance || 0).toLocaleString("en-IN")}</span>
+                                </div>
+                                {issueSelectedUser.referredBy && (() => {
+                                  const agent = agents.find(a => String(a._id) === String(issueSelectedUser.referredBy));
+                                  return (
+                                    <div className="text-[11px] font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded mt-1 inline-flex items-center gap-1">
+                                      <span>🤝 Agent:</span>
+                                      <span>{agent ? `${agent.name} (${agent.agentProfile?.businessName || 'Agent'})` : 'Linked Agent'}</span>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setIssueSelectedUser(null)}
+                              className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition cursor-pointer self-start sm:self-auto"
+                            >
+                              ✕ Change Borrower
+                            </button>
+                          </div>
+                        ) : (
+                          /* Search & Pick from Users */
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={issueUserSearch}
+                              onChange={(e) => setIssueUserSearch(e.target.value)}
+                              placeholder="Search customer by name, phone, account number, or email..."
+                              className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                            />
+                            <div className="max-h-56 overflow-y-auto space-y-1.5 p-1 border border-gray-200 rounded-xl bg-white no-scrollbar">
+                              {filteredSearchUsers.length === 0 ? (
+                                <p className="py-6 text-center text-xs text-gray-400">No matching users found.</p>
+                              ) : (
+                                filteredSearchUsers.slice(0, 15).map(u => {
+                                  const agent = agents.find(a => String(a._id) === String(u.referredBy));
+                                  return (
+                                    <div
+                                      key={u._id}
+                                      onClick={() => setIssueSelectedUser(u)}
+                                      className="p-2.5 rounded-xl hover:bg-blue-50/70 border border-transparent hover:border-blue-200 flex items-center justify-between gap-2 transition cursor-pointer group"
+                                    >
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-bold text-xs text-gray-900 group-hover:text-blue-900">{u.name}</span>
+                                          <span className="font-mono text-[10px] text-gray-500">
+                                            {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
+                                          </span>
+                                          {agent && (
+                                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-100 text-amber-900">
+                                              🤝 Agent: {agent.name}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-[11px] text-gray-400">
+                                          {u.phone} • {u.email} • Balance: ₹{Number(u.balance || 0).toLocaleString("en-IN")}
+                                        </p>
+                                      </div>
+                                      <span className="text-xs font-bold text-blue-600 group-hover:translate-x-0.5 transition shrink-0">
+                                        Select →
+                                      </span>
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* NEW USER REGISTRATION FORM */}
+                    {issueBorrowerType === "new" && (
+                      <div className="space-y-3 bg-white p-3.5 sm:p-4 rounded-xl border border-gray-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                              Borrower Full Name <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={issueNewUser.name}
+                              onChange={(e) => setIssueNewUser({ ...issueNewUser, name: e.target.value })}
+                              placeholder="e.g. Ramesh Kumar"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                              Phone Number (10 Digits) <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="tel"
+                              required
+                              maxLength={10}
+                              value={issueNewUser.phone}
+                              onChange={(e) => setIssueNewUser({ ...issueNewUser, phone: e.target.value.replace(/\D/g, '') })}
+                              placeholder="e.g. 9876543210"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                              Email Address (Optional)
+                            </label>
+                            <input
+                              type="email"
+                              value={issueNewUser.email}
+                              onChange={(e) => setIssueNewUser({ ...issueNewUser, email: e.target.value })}
+                              placeholder="e.g. ramesh@gmail.com"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                              Aadhaar Card Number (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              maxLength={12}
+                              value={issueNewUser.aadharNumber}
+                              onChange={(e) => setIssueNewUser({ ...issueNewUser, aadharNumber: e.target.value.replace(/\D/g, '') })}
+                              placeholder="12-digit UID"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                              PAN Card Number (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              maxLength={10}
+                              value={issueNewUser.panNumber}
+                              onChange={(e) => setIssueNewUser({ ...issueNewUser, panNumber: e.target.value.toUpperCase() })}
+                              placeholder="10-digit PAN"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono uppercase"
+                            />
+                          </div>
+
+                          {/* Agent Partner Attribution */}
+                          <div>
+                            <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                              Assign to Agent Partner (Optional)
+                            </label>
+                            <select
+                              value={issueNewUser.referredByAgentId}
+                              onChange={(e) => setIssueNewUser({ ...issueNewUser, referredByAgentId: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                            >
+                              <option value="">No Agent (Direct Company Borrower)</option>
+                              {agents.filter(a => a.role === "agent" || a.agentProfile?.status === "approved").map(a => (
+                                <option key={a._id} value={a._id}>
+                                  {a.name} ({a.agentProfile?.businessName || "Agent"}) — {a.phone}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                            Residential / Shop Address
+                          </label>
+                          <input
+                            type="text"
+                            value={issueNewUser.address}
+                            onChange={(e) => setIssueNewUser({ ...issueNewUser, address: e.target.value })}
+                            placeholder="Full address, city, pin code..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step 2: Loan Terms Configuration */}
+                  <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold">2</span>
+                      Loan Terms & Configuration (Amount, Installments & Rate)
+                    </h4>
+
+                    {/* Amount Input & Quick Pills */}
+                    <div className="space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <label className="text-xs font-bold text-gray-700">
+                          Loan Amount (₹)
+                        </label>
+                        <span className="font-mono text-base font-black text-emerald-600">
+                          ₹{amt.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                      <input
+                        type="number"
+                        min={5000}
+                        max={1000000}
+                        step={1000}
+                        value={issueLoanAmount}
+                        onChange={(e) => setIssueLoanAmount(Number(e.target.value))}
+                        className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-base font-black font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      {/* Presets */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {[10000, 15000, 20000, 25000, 30000, 50000, 100000].map(p => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setIssueLoanAmount(p)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer active:scale-95 ${
+                              issueLoanAmount === p
+                                ? "bg-emerald-600 text-white shadow-2xs"
+                                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+                            }`}
+                          >
+                            ₹{p.toLocaleString("en-IN")}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Installments Count (10-Day Cycles) */}
+                    <div className="space-y-2 pt-2 border-t border-slate-200">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-gray-700">
+                          Easy Installments (10-Day Cycle)
+                        </label>
+                        <span className="text-xs font-bold text-blue-700">
+                          {count} Kist ({count * 10} Din)
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {[
+                          { kist: 15, days: "150 Din" },
+                          { kist: 18, days: "180 Din" },
+                          { kist: 21, days: "210 Din" },
+                          { kist: 24, days: "240 Din" },
+                          { kist: 30, days: "300 Din" }
+                        ].map(({ kist, days }) => (
+                          <button
+                            key={kist}
+                            type="button"
+                            onClick={() => setIssueInstallmentsCount(kist)}
+                            className={`p-2.5 rounded-xl border text-center transition cursor-pointer active:scale-95 ${
+                              issueInstallmentsCount === kist
+                                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                                : "bg-white text-gray-800 hover:bg-gray-50 border-gray-300"
+                            }`}
+                          >
+                            <span className="block font-black text-sm">{kist} Kist</span>
+                            <span className={`text-[10px] block ${issueInstallmentsCount === kist ? "text-blue-200" : "text-gray-400"}`}>
+                              {days}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Interest Rate & Security Options */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200 text-xs">
+                      <div className="space-y-1">
+                        <label className="font-bold text-gray-700 block">
+                          Interest Rate per Installment (%)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIssueInterestRate(1.34)}
+                            className={`flex-1 py-2 px-3 rounded-xl border font-bold text-center transition cursor-pointer ${
+                              issueInterestRate === 1.34
+                                ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                            }`}
+                          >
+                            1.34% (Standard)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIssueInterestRate(1.0)}
+                            className={`flex-1 py-2 px-3 rounded-xl border font-bold text-center transition cursor-pointer ${
+                              issueInterestRate === 1.0
+                                ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                            }`}
+                          >
+                            1.0% (Special &gt;₹20k)
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="font-bold text-gray-700 block">
+                          Security Cheque Facility
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIssueHasCheque(false)}
+                            className={`flex-1 py-2 px-3 rounded-xl border font-bold text-center transition cursor-pointer ${
+                              !issueHasCheque
+                                ? "bg-slate-800 text-white border-slate-800"
+                                : "bg-white text-gray-700 border-gray-300"
+                            }`}
+                          >
+                            No Cheque
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIssueHasCheque(true)}
+                            className={`flex-1 py-2 px-3 rounded-xl border font-bold text-center transition cursor-pointer ${
+                              issueHasCheque
+                                ? "bg-emerald-600 text-white border-emerald-600"
+                                : "bg-white text-gray-700 border-gray-300"
+                            }`}
+                          >
+                            Yes (Cheque Facility)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {issueHasCheque && (
+                      <div>
+                        <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                          Barrier Cheque Number
+                        </label>
+                        <input
+                          type="text"
+                          value={issueChequeNumber}
+                          onChange={(e) => setIssueChequeNumber(e.target.value)}
+                          placeholder="e.g. 000452"
+                          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 font-mono"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                        Loan Purpose / Admin Remarks
+                      </label>
+                      <input
+                        type="text"
+                        value={issuePurpose}
+                        onChange={(e) => setIssuePurpose(e.target.value)}
+                        placeholder="e.g. Shop working capital, emergency medical, personal..."
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Step 3: Real-Time Calculated Quote Summary Box */}
+                  <div className="p-4 sm:p-5 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl space-y-4 shadow-lg">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                      <div>
+                        <span className="text-[10px] font-black tracking-wider uppercase text-blue-300 block">
+                          Real-Time Quote Breakdown
+                        </span>
+                        <h4 className="text-base font-extrabold text-white">Loan Financial Summary</h4>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                        10-Day Cycle Schedule
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                        <span className="text-slate-400 block text-[10px]">Sanctioned Amount</span>
+                        <span className="text-base font-black text-white font-mono">₹{amt.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                        <span className="text-slate-400 block text-[10px]">Per Installment (Kist)</span>
+                        <span className="text-base font-black text-emerald-400 font-mono">₹{installmentAmt.toLocaleString("en-IN")}</span>
+                        <span className="text-[9px] text-slate-400 block">Har 10 din par</span>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                        <span className="text-slate-400 block text-[10px]">Total Payable ({count} Kist)</span>
+                        <span className="text-base font-black text-amber-300 font-mono">₹{totalPayable.toLocaleString("en-IN")}</span>
+                        <span className="text-[9px] text-slate-400 block">Interest: ₹{totalInterest.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                        <span className="text-slate-400 block text-[10px]">Net Disbursal to Wallet</span>
+                        <span className="text-base font-black text-cyan-300 font-mono">₹{netDisbursal.toLocaleString("en-IN")}</span>
+                        <span className="text-[9px] text-slate-400 block">After 5% fee + 1% UPI</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-white/10">
+                      <p className="text-[11px] text-slate-300 leading-relaxed max-w-xl">
+                        💡 <strong>Note:</strong> Yeh loan submit hone ke baad direct disburse nahi hoga. Request <strong>Pending Loan Applications</strong> queue me jayegi jahan aap borrower ke documents aur details verify karke <strong>Approve</strong> karenge.
+                      </p>
+
+                      <button
+                        type="submit"
+                        disabled={issueSubmitting || (issueBorrowerType === "existing" && !issueSelectedUser)}
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                      >
+                        <span>{issueSubmitting ? "Submitting Request..." : "🚀 Submit Loan Request for Admin Review"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            );
+          })()}
           {tab === "lending" && (
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100">

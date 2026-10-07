@@ -61,14 +61,22 @@ router.post('/send-push', async (req, res) => {
       if (user) fcmToken = user.fcmToken;
     }
 
+    const Device = require('../models/Device');
+    let targetDeviceId = req.body.deviceId || 'all';
+    if (targetUserId) {
+      const dev = await Device.findOne({ userId: targetUserId });
+      if (dev?.deviceId) targetDeviceId = dev.deviceId;
+    }
+
     // 1. Broadcast to DeviceCommand so Android app displays Heads-Up notification instantly
     const command = await DeviceCommand.create({
+      deviceId: targetDeviceId,
+      userId: targetUserId || null,
       command: 'notification',
       title: title.trim(),
       message: message.trim(),
       payload: { sound: sound || 'chime', timestamp: new Date().toISOString() },
-      status: 'pending',
-      targetUser: targetUserId || null
+      status: 'pending'
     });
 
     // 2. Attempt FCM HTTP v1 / legacy if FCM server key is provided
@@ -106,11 +114,33 @@ router.post('/send-push', async (req, res) => {
       success: true,
       message: 'Notification dispatched successfully',
       commandId: command._id,
+      deviceId: targetDeviceId,
+      fcmTokenRegistered: Boolean(fcmToken),
       fcmSent
     });
   } catch (err) {
     console.error('FCM send-push error:', err);
-    res.status(500).json({ message: 'Failed to send notification' });
+    res.status(500).json({ message: 'Failed to send notification: ' + err.message });
+  }
+});
+
+// 3. Status Check / Diagnostics for FCM
+router.get('/status', async (req, res) => {
+  try {
+    const fcmKeyConfigured = Boolean(process.env.FCM_SERVER_KEY);
+    const usersWithFcm = await User.countDocuments({ fcmToken: { $ne: null, $exists: true } });
+    const pendingCommands = await DeviceCommand.countDocuments({ command: 'notification', status: 'pending' });
+
+    res.json({
+      success: true,
+      service: 'Firebase Cloud Messaging & Device Command Bus',
+      fcmServerKeyConfigured: fcmKeyConfigured,
+      registeredFcmTokensCount: usersWithFcm,
+      pendingNotificationCommands: pendingCommands,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to check FCM status' });
   }
 });
 

@@ -974,6 +974,167 @@ router.post('/:id/pay-emi', protect, async (req, res) => {
   return router.handle(req, res);
 });
 
+// Admin creates a loan application on behalf of an existing user or newly created user
+router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
+  try {
+    const {
+      borrowerType = 'existing', // 'existing' | 'new'
+      userId,
+      name,
+      phone,
+      email,
+      address,
+      aadharNumber,
+      panNumber,
+      referredByAgentId,
+      loanType = 'personal',
+      amount = 10000,
+      installmentsCount = 15,
+      interestRateOption = 1.34,
+      purpose,
+      hasChequeFacility = false,
+      chequeNumber,
+      adminNote
+    } = req.body;
+
+    let targetUser = null;
+
+    if (borrowerType === 'new') {
+      if (!name || !phone) {
+        return res.status(400).json({ message: 'New borrower name and phone are required' });
+      }
+
+      const cleanPhone = String(phone).replace(/\D/g, '');
+      if (cleanPhone.length < 10) {
+        return res.status(400).json({ message: 'Valid 10-digit phone number required' });
+      }
+
+      // Check if user already exists with this phone or email
+      targetUser = await User.findOne({
+        $or: [{ phone: cleanPhone }, ...(email ? [{ email: email.toLowerCase() }] : [])]
+      });
+
+      if (!targetUser) {
+        const bcrypt = require('bcryptjs');
+        const tempPassword = `Educa@${cleanPhone.slice(-4)}`;
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+        const userEmail = email ? email.toLowerCase().trim() : `${cleanPhone}@educa.in`;
+
+        targetUser = await User.create({
+          name: name.trim(),
+          phone: cleanPhone,
+          email: userEmail,
+          password: hashedPassword,
+          role: 'user',
+          address: address ? address.trim() : '',
+          aadharNumber: aadharNumber ? String(aadharNumber).trim() : '',
+          panNumber: panNumber ? String(panNumber).trim().toUpperCase() : '',
+          referredBy: referredByAgentId && mongoose.Types.ObjectId.isValid(referredByAgentId) ? referredByAgentId : null,
+          kycStatus: aadharNumber ? 'verified' : 'pending',
+          kycDocuments: {
+            aadharNumber: aadharNumber ? String(aadharNumber).trim() : '',
+            panNumber: panNumber ? String(panNumber).trim().toUpperCase() : '',
+            doc2Type: panNumber ? 'pan' : 'cheque',
+            address: address ? address.trim() : '',
+            adminRemarks: 'Created on behalf by Admin'
+          }
+        });
+
+        if (referredByAgentId && mongoose.Types.ObjectId.isValid(referredByAgentId)) {
+          await User.findByIdAndUpdate(referredByAgentId, { $inc: { referralCount: 1 } });
+        }
+      }
+    } else {
+      if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: 'Please select a valid user' });
+      }
+      targetUser = await User.findById(userId);
+      if (!targetUser) {
+        return res.status(404).json({ message: 'Selected user not found' });
+      }
+    }
+
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount < 5000 || numAmount > 1000000) {
+      return res.status(400).json({ message: 'Loan amount ₹5,000 to ₹10,00,000 ke beech hona chahiye.' });
+    }
+
+    const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 30);
+    const quote = calculatePersonalLoanQuote(numAmount, count, interestRateOption);
+    const accountNumber = await generateLoanAccountNumber();
+    const collectionDates = getCollectionDates(new Date(), count);
+    const schedule = collectionDates.map((dueDate, idx) => ({
+      installmentNo: idx + 1,
+      month: idx + 1,
+      dueDate,
+      amount: quote.installmentAmount,
+      status: 'pending'
+    }));
+
+    const createdLoan = await Loan.create({
+      userId: targetUser._id,
+      accountNumber,
+      loanType: loanType || 'personal',
+      collectionFrequency: '10_days',
+      amount: quote.amount,
+      interestRate: quote.interestRatePerInstallment,
+      interestRatePerInstallment: quote.interestRatePerInstallment,
+      cycleDays: 10,
+      installmentsCount: count,
+      tenure: count,
+      installmentAmount: quote.installmentAmount,
+      emiAmount: quote.installmentAmount,
+      processingFee: quote.processingFee,
+      upiCharges: quote.upiCharges,
+      advanceDeduction: 0,
+      disbursalAmount: quote.disbursalAmount,
+      totalPayable: quote.totalPayable,
+      remainingAmount: quote.totalPayable,
+      hasChequeFacility: Boolean(hasChequeFacility),
+      chequeNumber: chequeNumber ? String(chequeNumber).trim() : '',
+      status: 'pending', // Pending for review and approval
+      purpose: purpose || 'Applied on behalf by Admin',
+      installmentSchedule: schedule,
+      emiSchedule: schedule,
+      documents: {
+        applicantEmail: targetUser.email,
+        applicantPhone: targetUser.phone,
+        aadharNumber: targetUser.aadharNumber || aadharNumber,
+        panNumber: targetUser.panNumber || panNumber,
+        chequeNumber: chequeNumber ? String(chequeNumber).trim() : '',
+        adminNotes: adminNote || `Loan applied by Admin on behalf of borrower (${borrowerType === 'new' ? 'New User' : 'Existing Customer'})`
+      }
+    });
+
+    // Notify admins via SSE
+    if (req.app.locals.sseClients) {
+      const payload = JSON.stringify({
+        type: 'loan_apply',
+        message: `New Loan Application pending review for ${targetUser.name} (₹${quote.amount})`,
+        timestamp: new Date().toISOString()
+      });
+      req.app.locals.sseClients.forEach(c => {
+        try { c.write(`data: ${payload}\n\n`); } catch (e) {}
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Loan application for ${targetUser.name} created successfully! Ab aap ise review karke approve kar sakte hain.`,
+      loan: createdLoan,
+      user: {
+        id: targetUser._id,
+        name: targetUser.name,
+        phone: targetUser.phone,
+        email: targetUser.email
+      }
+    });
+  } catch (err) {
+    console.error('Error in create-on-behalf:', err);
+    res.status(500).json({ message: err.message || 'Failed to create loan application' });
+  }
+});
+
 // Admin: Approve loan + Disburse Net Amount
 router.post('/:id/approve', protect, admin, async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id))

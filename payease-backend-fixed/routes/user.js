@@ -639,12 +639,16 @@ router.get('/agent/stats', protect, async (req, res) => {
     const preClosingCount = preClosedLoans.length;
     const preClosingAmount = Number(preClosedLoans.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(2));
 
+    const isTeamModel = agent.agentProfile?.commissionModel === 'team_1' || agent.agentProfile?.commissionModel === 'team';
+    const subAgents = await User.find({ referredBy: agent._id, role: 'agent' });
+
     res.json({
       success: true,
       agentInfo: {
         name: agent.name,
         referralCode: agent.referralCode,
         commissionModel: agent.agentProfile?.commissionModel || 'solo_2',
+        isTeamModel,
         commissionRate: agent.agentProfile?.commissionRate ?? 0,
         businessName: agent.agentProfile?.businessName || '',
         city: agent.agentProfile?.city || ''
@@ -656,9 +660,10 @@ router.get('/agent/stats', protect, async (req, res) => {
         totalDue,
         preClosingCount,
         preClosingAmount,
-        customerCount: customers.length
+        customerCount: customers.length,
+        teamMembersCount: subAgents.length
       },
-      customers: customers.map(c => {
+      customers: customers.map((c, idx) => {
         const cDeposits = depositTxns
           .filter(d => d.userId.toString() === c._id.toString())
           .reduce((sum, d) => sum + (d.amount || 0), 0);
@@ -671,8 +676,9 @@ router.get('/agent/stats', protect, async (req, res) => {
 
         return {
           id: c._id,
-          name: c.name,
-          phone: c.phone,
+          // Privacy protection: Team system hides customer personal name
+          name: isTeamModel ? `Client #${idx + 1}` : c.name,
+          phone: isTeamModel ? (c.phone ? `${c.phone.slice(0, 2)}******${c.phone.slice(-2)}` : '******') : c.phone,
           balance: c.balance || 0,
           totalDeposit: Number(cDeposits.toFixed(2)),
           totalDisbursal: Number(cDisbursed.toFixed(2)),

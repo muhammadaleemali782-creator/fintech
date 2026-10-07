@@ -4504,15 +4504,6 @@ export default function AdminPanel() {
                                                       <span>🔍</span> Zoom
                                                     </button>
                                                   </div>
-                                                  <label className="text-[9px] text-gray-400 block cursor-pointer hover:text-blue-600">
-                                                    Replace file:
-                                                    <input
-                                                      type="file"
-                                                      accept="image/*,application/pdf"
-                                                      onChange={(e) => handleDocFileUpload(doc.key, e.target.files[0])}
-                                                      className="text-[9px] text-gray-500 file:mr-1 file:py-0.2 file:px-1 file:rounded file:border-0 file:text-[8px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
-                                                    />
-                                                  </label>
                                                 </div>
                                               ) : (
                                                 <div className="space-y-1 pt-1">

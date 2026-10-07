@@ -3541,9 +3541,12 @@ export default function Dashboard() {
     }
   };
 
-  // Settle & Close Loan Early in Full
-  const closeLoanEarly = async (id, payoffAmount) => {
-    if (!window.confirm(`Kya aap loan ko ₹${payoffAmount.toLocaleString("en-IN")} me early payoff karke close karna chahte hain?`)) return;
+  // Settle & Close Loan Early in Full (With 3-Part Pre-Close Discount Calculation)
+  const closeLoanEarly = async (id, payoffAmount, userDiscount = 0, xPercent = 0) => {
+    const confirmMsg = userDiscount > 0
+      ? `Kya aap loan ko ₹${payoffAmount.toLocaleString("en-IN")} me early payoff karke close karna chahte hain?\n\n🎉 Pre-Closure Offer Active:\nTenure 15 kiston se upar hone par ${xPercent}% discount pool me se aapko ₹${userDiscount.toLocaleString("en-IN")} ki chhoot (discount) mili hai!`
+      : `Kya aap loan ko ₹${payoffAmount.toLocaleString("en-IN")} me early payoff karke close karna chahte hain?`;
+    if (!window.confirm(confirmMsg)) return;
     try {
       const res = await fetch(`${API}/loan/${id}/close-early`, { method: "POST", headers });
       const data = await res.json();
@@ -4019,27 +4022,47 @@ export default function Dashboard() {
             </div>
 
             {/* Foreclosure / Early Settlement Commission Slabs Guide */}
-            <div className="mt-3 p-3 bg-white/5 border border-amber-400/25 rounded-2xl text-xs">
-              <div className="flex items-center justify-between mb-1.5">
+            <div className="mt-3 p-3.5 bg-white/5 border border-amber-400/25 rounded-2xl text-xs space-y-2.5">
+              <div className="flex items-center justify-between">
                 <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                  <span>⚡</span> Loan Foreclosure Commission (Pre-Close Slabs)
+                  <span>⚡</span> Loan Pre-Closure Benefits (9 Kist Se Pehle Close Hone Par)
                 </span>
                 <span className="text-[10px] bg-amber-400/20 text-amber-200 border border-amber-400/30 px-2 py-0.5 rounded-full font-bold">
-                  Direct Wallet Credit
+                  1:1:1 Equal Share
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center text-[11px] pt-1">
-                <div className="p-2 bg-black/30 rounded-xl border border-white/5">
-                  <span className="text-gray-400 block text-[10px]">18 EMI (Min 15 paid)</span>
-                  <span className="font-black text-amber-300 text-xs">3% Commission</span>
+              <p className="text-[11px] text-amber-100/80 leading-relaxed">
+                Agar loan <strong>9th installment se pehle</strong> pre-close hota hai, to 15 ke upar jitni kistein hain utna percent (<code className="font-mono text-amber-300 font-bold">Total Kist - 15 = x%</code>) discount pool banta hai aur uske <strong>3 barabar hisse</strong> hote hain:
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
+                <div className="p-2 bg-black/40 rounded-xl border border-white/10">
+                  <span className="text-emerald-400 font-bold block text-[10px]">1️⃣ User Chhoot</span>
+                  <span className="font-black text-white text-xs">x / 3 % Discount</span>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Payoff se minus</p>
                 </div>
-                <div className="p-2 bg-black/30 rounded-xl border border-white/5">
-                  <span className="text-gray-400 block text-[10px]">21 EMI Tenure</span>
-                  <span className="font-black text-amber-300 text-xs">6% Commission</span>
+                <div className="p-2 bg-black/40 rounded-xl border border-amber-400/40">
+                  <span className="text-amber-400 font-bold block text-[10px]">2️⃣ Agent Benefit</span>
+                  <span className="font-black text-amber-300 text-xs">x / 3 % Bonus</span>
+                  <p className="text-[9px] text-amber-200/80 mt-0.5">Wallet me credit</p>
                 </div>
-                <div className="p-2 bg-black/30 rounded-xl border border-white/5">
-                  <span className="text-gray-400 block text-[10px]">24 EMI Tenure</span>
-                  <span className="font-black text-amber-300 text-xs">9% Commission</span>
+                <div className="p-2 bg-black/40 rounded-xl border border-white/10">
+                  <span className="text-blue-400 font-bold block text-[10px]">3️⃣ Company Profit</span>
+                  <span className="font-black text-white text-xs">x / 3 % Profit</span>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Reserves me add</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-[10px] pt-1 border-t border-white/10 text-gray-300 font-medium">
+                <div className="bg-white/5 py-1 px-1.5 rounded-lg">
+                  <span className="font-mono text-amber-200 font-bold block">18 Kist (x=3%)</span>
+                  <span>1% User | 1% Agent | 1% Co.</span>
+                </div>
+                <div className="bg-white/5 py-1 px-1.5 rounded-lg">
+                  <span className="font-mono text-amber-200 font-bold block">21 Kist (x=6%)</span>
+                  <span>2% User | 2% Agent | 2% Co.</span>
+                </div>
+                <div className="bg-white/5 py-1 px-1.5 rounded-lg">
+                  <span className="font-mono text-amber-200 font-bold block">24 Kist (x=9%)</span>
+                  <span>3% User | 3% Agent | 3% Co.</span>
                 </div>
               </div>
             </div>
@@ -4746,9 +4769,14 @@ export default function Dashboard() {
                   const paidCount = schedule.filter(s => s.status === "paid").length;
                   const totalCount = schedule.length || l.installmentsCount || l.dailyTenureDays || l.tenure || 15;
                   const penaltyAmt = l.penaltyDue || 0;
-                  const payoffAmt = (!isDaily && paidCount < 15
+                  const isPrecloseEligible = !isDaily && paidCount < 9 && totalCount > 15;
+                  const xPercent = isPrecloseEligible ? Math.max(0, totalCount - 15) : 0;
+                  const totalPool = (l.amount * xPercent) / 100;
+                  const userDiscount = isPrecloseEligible ? Math.round(totalPool / 3) : 0;
+                  const basePayoff = (!isDaily && paidCount < 15
                     ? (Math.min(15, totalCount) - paidCount) * instAmt
-                    : (l.remainingAmount || (l.totalPayable - l.paidAmount))) + penaltyAmt;
+                    : (l.remainingAmount || (l.totalPayable - l.paidAmount)));
+                  const payoffAmt = Math.max(0, basePayoff - userDiscount) + penaltyAmt;
                   const nextDueAmt = instAmt + penaltyAmt;
                   return (
                     <div key={l._id} className="border border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-md transition">
@@ -4776,6 +4804,12 @@ export default function Dashboard() {
                           ⚠️ Overdue Penalty Due: <strong>₹{penaltyAmt}</strong> (Pehle penalty clear hogi, phir installment)
                         </div>
                       )}
+                      {userDiscount > 0 && (
+                        <div className="mb-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium flex items-center justify-between">
+                          <span>🎉 Pre-Close Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} Chhoot</strong> (1/3rd of {xPercent}% Pool)</span>
+                          <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">Eligible</span>
+                        </div>
+                      )}
                       <div className="grid grid-cols-3 gap-2 sm:gap-3 text-sm mb-3">
                         <div><p className="text-gray-400 text-xs">{isDaily ? "Daily Kist" : "Easy Installment"}</p><p className="font-bold">₹{instAmt}</p></div>
                         <div><p className="text-gray-400 text-xs">Total Duration</p><p className="font-bold">{l.installmentsCount || l.tenure} {isDaily ? "Days" : "Installments"}</p></div>
@@ -4789,8 +4823,8 @@ export default function Dashboard() {
                           <button onClick={() => payInstallment(l._id, nextDueAmt)} className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-xs hover:shadow-lg active:scale-[0.98] transition">
                             Pay Kist ₹{nextDueAmt}{penaltyAmt > 0 ? ` (incl ₹${penaltyAmt} penalty)` : ""}
                           </button>
-                          <button onClick={() => closeLoanEarly(l._id, payoffAmt)} className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs border border-emerald-300 transition active:scale-[0.98]">
-                            ⚡ 15-Kist Payoff (₹{payoffAmt})
+                          <button onClick={() => closeLoanEarly(l._id, payoffAmt, userDiscount, xPercent)} className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs border border-emerald-300 transition active:scale-[0.98]">
+                            ⚡ 15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Chhoot!]` : ""}
                           </button>
                         </div>
                       )}
@@ -5707,10 +5741,14 @@ export default function Dashboard() {
               const instAmt = activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount || 0;
               const penalty = activePersonalLoan.penaltyDue || 0;
               const pendingInst = list.find(x => x.status === "overdue") || list.find(x => x.status === "pending") || list[0];
-              const totalNextDue = (pendingInst ? pendingInst.amount : instAmt) + penalty;
-              const payoffAmount = (paidCount < 15
+              const isPrecloseEligible = paidCount < 9 && totalCount > 15;
+              const xPercent = isPrecloseEligible ? Math.max(0, totalCount - 15) : 0;
+              const totalPool = (activePersonalLoan.amount * xPercent) / 100;
+              const userDiscount = isPrecloseEligible ? Math.round(totalPool / 3) : 0;
+              const basePayoff = (paidCount < 15
                 ? (Math.min(15, totalCount) - paidCount) * instAmt
-                : (activePersonalLoan.remainingAmount || 0)) + penalty;
+                : (activePersonalLoan.remainingAmount || 0));
+              const payoffAmount = Math.max(0, basePayoff - userDiscount) + penalty;
 
               return (
                 <div className="space-y-2.5">
@@ -5727,15 +5765,22 @@ export default function Dashboard() {
                   >
                     Pay Next Easy Installment (₹{totalNextDue.toLocaleString("en-IN")}{penalty > 0 ? ` incl. ₹${penalty} penalty` : ""}) →
                   </button>
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
-                    ⚡ <strong>15-Installment Early Pre-Closure Rule:</strong> Minimum 15 kiston ka bhugtan karke loan samay se pehle band kiya ja sakta hai.
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 space-y-1">
+                    <p>⚡ <strong>15-Installment Early Pre-Closure Rule:</strong> Minimum 15 kiston ka bhugtan karke loan samay se pehle band kiya ja sakta hai.</p>
+                    {userDiscount > 0 ? (
+                      <p className="text-emerald-800 font-bold">
+                        🎉 9 kiston se pehle close karne par {xPercent}% discount pool me se aapko ₹{userDiscount.toLocaleString("en-IN")} ki chhoot mili hai! (Payoff: ₹{payoffAmount.toLocaleString("en-IN")})
+                      </p>
+                    ) : (
+                      paidCount >= 9 && <p className="text-gray-500">Notice: 9 kist ke baad pre-close discount lagu nahi hota hai.</p>
+                    )}
                   </div>
                   <button
                     type="button"
-                    onClick={() => closeLoanEarly(activePersonalLoan._id, payoffAmount)}
+                    onClick={() => closeLoanEarly(activePersonalLoan._id, payoffAmount, userDiscount, xPercent)}
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm active:scale-95 transition cursor-pointer"
                   >
-                    Close Loan Early (15-Kist Payoff ₹{payoffAmount.toLocaleString("en-IN")}) →
+                    Close Loan Early (15-Kist Payoff ₹{payoffAmount.toLocaleString("en-IN")}{userDiscount > 0 ? ` • ₹${userDiscount} Chhoot` : ""}) →
                   </button>
                 </div>
               );
@@ -7002,12 +7047,14 @@ export default function Dashboard() {
             {activeStudentLoan.status === "active" && (() => {
               const studentSchedule = activeStudentLoan.installmentSchedule || [];
               const studentPaidCount = studentSchedule.filter(s => s.status === 'paid').length;
-              const studentTotalCount = activeStudentLoan.installmentsCount || activeStudentLoan.tenure || studentSchedule.length || 15;
-              const studentInstAmt = activeStudentLoan.installmentAmount || 0;
-              const studentPenalty = activeStudentLoan.penaltyDue || 0;
-              const studentPayoff = (studentPaidCount < 15
+              const isPrecloseEligible = studentPaidCount < 9 && studentTotalCount > 15;
+              const xPercent = isPrecloseEligible ? Math.max(0, studentTotalCount - 15) : 0;
+              const totalPool = (activeStudentLoan.amount * xPercent) / 100;
+              const userDiscount = isPrecloseEligible ? Math.round(totalPool / 3) : 0;
+              const basePayoff = (studentPaidCount < 15
                 ? (Math.min(15, studentTotalCount) - studentPaidCount) * studentInstAmt
-                : (activeStudentLoan.remainingAmount || activeStudentLoan.amount)) + studentPenalty;
+                : (activeStudentLoan.remainingAmount || activeStudentLoan.amount));
+              const studentPayoff = Math.max(0, basePayoff - userDiscount) + studentPenalty;
               const studentNextDue = studentInstAmt + studentPenalty;
 
               return (
@@ -7015,6 +7062,11 @@ export default function Dashboard() {
                   {studentPenalty > 0 && (
                     <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
                       ⚠️ Overdue Penalty Due: <strong>₹{studentPenalty}</strong> (Pehle penalty clear hogi)
+                    </div>
+                  )}
+                  {userDiscount > 0 && (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium">
+                      🎉 Pre-Close Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} Chhoot</strong> (1/3rd of {xPercent}% Pool)
                     </div>
                   )}
                   <button
@@ -7030,10 +7082,10 @@ export default function Dashboard() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => closeLoanEarly(activeStudentLoan._id, studentPayoff)}
+                    onClick={() => closeLoanEarly(activeStudentLoan._id, studentPayoff, userDiscount, xPercent)}
                     className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs transition cursor-pointer"
                   >
-                    ⚡ Close Loan Early (15-Kist Payoff ₹{studentPayoff.toLocaleString("en-IN")})
+                    ⚡ Close Loan Early (15-Kist Payoff ₹{studentPayoff.toLocaleString("en-IN")}{userDiscount > 0 ? ` • ₹${userDiscount} Chhoot` : ""})
                   </button>
                 </div>
               );
@@ -7460,9 +7512,14 @@ export default function Dashboard() {
                   const isStudent = l.loanType === "student";
                   const isExpanded = expandedLoanId === l._id;
                   const penaltyAmt = l.penaltyDue || 0;
-                  const payoffAmt = (!isDaily && paidCount < 15
+                  const isPrecloseEligible = !isDaily && paidCount < 9 && totalCount > 15;
+                  const xPercent = isPrecloseEligible ? Math.max(0, totalCount - 15) : 0;
+                  const totalPool = (l.amount * xPercent) / 100;
+                  const userDiscount = isPrecloseEligible ? Math.round(totalPool / 3) : 0;
+                  const basePayoff = (!isDaily && paidCount < 15
                     ? (Math.min(15, totalCount) - paidCount) * instAmt
-                    : (l.remainingAmount ?? (l.totalPayable ? Math.max(0, l.totalPayable - (l.paidAmount || 0)) : l.amount))) + penaltyAmt;
+                    : (l.remainingAmount ?? (l.totalPayable ? Math.max(0, l.totalPayable - (l.paidAmount || 0)) : l.amount)));
+                  const payoffAmt = Math.max(0, basePayoff - userDiscount) + penaltyAmt;
 
                   return (
                     <div key={l._id} className="p-4 bg-white border border-gray-200 rounded-2xl shadow-xs space-y-3">
@@ -7525,6 +7582,12 @@ export default function Dashboard() {
                                 ⚠️ Overdue Penalty Due: <strong>₹{penaltyAmt}</strong> (Pehle penalty clear hogi)
                               </div>
                             )}
+                            {userDiscount > 0 && (
+                              <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium flex items-center justify-between">
+                                <span>🎉 Pre-Close Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} Chhoot</strong> (1/3rd of {xPercent}% Pool)</span>
+                                <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">Eligible</span>
+                              </div>
+                            )}
                             <div className="flex gap-2">
                               <button
                                 type="button"
@@ -7543,11 +7606,11 @@ export default function Dashboard() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => closeLoanEarly(l._id, payoffAmt)}
+                                onClick={() => closeLoanEarly(l._id, payoffAmt, userDiscount, xPercent)}
                                 className="px-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs active:scale-95 transition cursor-pointer"
                                 title="Close loan early with 15-installment payoff"
                               >
-                                ⚡ 15-Kist Payoff (₹{payoffAmt})
+                                ⚡ 15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Chhoot]` : ""}
                               </button>
                             </div>
                           </div>

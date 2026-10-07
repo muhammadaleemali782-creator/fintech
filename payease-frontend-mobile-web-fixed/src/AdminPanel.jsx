@@ -2260,34 +2260,62 @@ export default function AdminPanel() {
               </div>
 
               {/* Agent Foreclosure Commission Structure Guide Card */}
-              <div className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50 to-amber-50 border border-blue-200/70">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-base">⚡</span>
-                  <h4 className="text-xs sm:text-sm font-extrabold text-blue-950">
-                    Agent Loan Foreclosure Commission Slabs (Pre-Close / Early Settlement)
-                  </h4>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-black bg-blue-600 text-white uppercase">
-                    Auto-Credited
+              <div className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50 to-amber-50 border border-blue-200/70 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">⚡</span>
+                    <h4 className="text-xs sm:text-sm font-extrabold text-blue-950">
+                      Loan Pre-Closure 3-Way Sharing Rule (User • Agent • Company)
+                    </h4>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white uppercase tracking-wider">
+                    1:1:1 Equal Split
                   </span>
                 </div>
-                <p className="text-[11px] sm:text-xs text-blue-900/80 mb-3">
-                  Early loan close karne par borrower ko minimum 15 installments ka paisa (with interest) bharna hota hai (chahe borrower 1 kist ke baad hi close kare). Agent dwara band karwane par direct commission wallet me credit hota hai:
-                </p>
+                <div className="text-[11px] sm:text-xs text-blue-900/90 leading-relaxed bg-white/70 p-3 rounded-xl border border-blue-100">
+                  <p className="font-bold text-indigo-950 mb-1">
+                    📌 <strong>Official Pre-Closure Rules:</strong>
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-700">
+                    <li><strong>9 Kist Rule:</strong> Agar 9th installment se pehle close hoga to hi fayda/discount hoga. (9 ya uske baad discount zero).</li>
+                    <li><strong>15 Kist Minimum Payoff:</strong> Borrower ko minimum 15 kiston ka bhugtan karna zaroori hai.</li>
+                    <li><strong>x% Formula:</strong> 15 ke upar jitna installment hai, utna percent chhoot hoga: <code className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900 font-bold">Total Kist - 15 = x% of Loan Amount</code>.</li>
+                    <li><strong>3 Barabar Hisse (1:1:1):</strong> Jo x% pool aayega uske 3 part honge: <strong>1 User ko discount</strong>, <strong>1 Agent ko benefit</strong>, <strong>1 Company ko profit</strong>.</li>
+                  </ul>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                  <div className="p-3 bg-white rounded-xl border border-blue-100 shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-gray-400 block">18 EMI Tenure</span>
-                    <span className="text-base font-black text-blue-700">3% Commission</span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Min 15 installments paid required</p>
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-gray-400 block">21 EMI Tenure</span>
-                    <span className="text-base font-black text-indigo-700">6% Commission</span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Direct 6% commission on pre-closure (15 kist paid)</p>
+                  <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-emerald-600 block">1️⃣ User Ko Chhoot</span>
+                    <span className="text-base font-black text-emerald-700">x / 3 % Discount</span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Payoff amount se direct minus</p>
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-amber-100 shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-gray-400 block">24 EMI Tenure</span>
-                    <span className="text-base font-black text-amber-700">9% Commission</span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Maximum tenure 9% bonus on pre-closure (15 kist paid)</p>
+                    <span className="text-[10px] uppercase font-bold text-amber-600 block">2️⃣ Agent Ko Benefits</span>
+                    <span className="text-base font-black text-amber-700">x / 3 % Commission</span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Direct wallet me auto-credit</p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-indigo-600 block">3️⃣ Company Ko Profit</span>
+                    <span className="text-base font-black text-indigo-700">x / 3 % Profit</span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Company reserves me retained</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[10px] pt-1 border-t border-blue-200/50 text-gray-700 font-medium">
+                  <div className="bg-white/80 py-1.5 px-2 rounded-lg border border-blue-100">
+                    <span className="font-mono text-indigo-900 font-bold block">18 Kist (x=3%)</span>
+                    <span>1% User | 1% Agent | 1% Co.</span>
+                  </div>
+                  <div className="bg-white/80 py-1.5 px-2 rounded-lg border border-blue-100">
+                    <span className="font-mono text-indigo-900 font-bold block">21 Kist (x=6%)</span>
+                    <span>2% User | 2% Agent | 2% Co.</span>
+                  </div>
+                  <div className="bg-white/80 py-1.5 px-2 rounded-lg border border-blue-100">
+                    <span className="font-mono text-indigo-900 font-bold block">24 Kist (x=9%)</span>
+                    <span>3% User | 3% Agent | 3% Co.</span>
+                  </div>
+                  <div className="bg-white/80 py-1.5 px-2 rounded-lg border border-blue-100">
+                    <span className="font-mono text-indigo-900 font-bold block">30 Kist (x=15%)</span>
+                    <span>5% User | 5% Agent | 5% Co.</span>
                   </div>
                 </div>
               </div>
@@ -3088,6 +3116,36 @@ export default function AdminPanel() {
                         {l.referralCommissionPaid && (
                           <div className="mb-3 text-xs bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-orange-700 font-semibold">
                             🎯 Referral commission ₹{l.referralCommissionAmount} paid on this loan
+                          </div>
+                        )}
+                        {l.earlyClosed && (
+                          <div className="mb-3 text-xs bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-950 space-y-1.5">
+                            <div className="flex items-center justify-between font-bold">
+                              <span className="flex items-center gap-1.5">
+                                <span>⚡</span> Early Pre-Closed (Foreclosure 3-Way Split)
+                              </span>
+                              <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-extrabold uppercase">
+                                {l.precloseDiscountPercent ? `${l.precloseDiscountPercent}% Total Pool` : 'Closed Early'}
+                              </span>
+                            </div>
+                            {l.precloseTotalPool > 0 ? (
+                              <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-emerald-200/60 text-[11px]">
+                                <div className="bg-white/90 p-2 rounded-lg border border-emerald-100 shadow-2xs">
+                                  <span className="text-gray-500 block text-[10px] font-semibold">👤 User Discount</span>
+                                  <strong className="text-emerald-700 text-xs">₹{(l.precloseUserDiscount || 0).toLocaleString("en-IN")}</strong>
+                                </div>
+                                <div className="bg-white/90 p-2 rounded-lg border border-emerald-100 shadow-2xs">
+                                  <span className="text-gray-500 block text-[10px] font-semibold">🤝 Agent Benefit</span>
+                                  <strong className="text-amber-700 text-xs">₹{(l.precloseAgentBenefit || 0).toLocaleString("en-IN")}</strong>
+                                </div>
+                                <div className="bg-white/90 p-2 rounded-lg border border-emerald-100 shadow-2xs">
+                                  <span className="text-gray-500 block text-[10px] font-semibold">🏢 Company Profit</span>
+                                  <strong className="text-indigo-700 text-xs">₹{(l.precloseCompanyProfit || 0).toLocaleString("en-IN")}</strong>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-gray-600">Standard 15-installment payoff early closure.</p>
+                            )}
                           </div>
                         )}
                         {/* SUBMITTED LOAN DOCUMENTS */}

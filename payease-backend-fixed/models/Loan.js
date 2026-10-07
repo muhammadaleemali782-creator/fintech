@@ -27,6 +27,11 @@ const loanSchema = new mongoose.Schema({
   earlyClosedAt: { type: Date },
   agentProfitPaid: { type: Boolean, default: false },
   agentProfitAmount: { type: Number, default: 0 },
+  precloseDiscountPercent: { type: Number, default: 0 },
+  precloseTotalPool: { type: Number, default: 0 },
+  precloseUserDiscount: { type: Number, default: 0 },
+  precloseAgentBenefit: { type: Number, default: 0 },
+  precloseCompanyProfit: { type: Number, default: 0 },
   penaltyDue: { type: Number, default: 0 }, // Active penalty amount due
   penaltyPaid: { type: Number, default: 0 }, // Cumulative penalty amount paid
   penaltyCount: { type: Number, default: 0 }, // Number of penalty doubling cycles

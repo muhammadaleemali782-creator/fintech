@@ -760,14 +760,37 @@ router.post('/:id/close-early', protect, async (req, res) => {
       const penaltyAmt = loan.penaltyDue || 0;
 
       // RULE: Borrower MUST pay for at least 15 installments (with interest) even if closing after 1 installment!
-      // ("15 installment ka pasia bhrna hai with intreset cheche user 1 kist ke baad he loan bnd kara de")
-      let payoffAmount = 0;
+      let basePayoffAmount = 0;
       if (paidInstallmentsCount < 15) {
         const installmentsToReach15 = Math.min(15, totalTenure) - paidInstallmentsCount;
-        payoffAmount = (installmentsToReach15 * installmentAmt) + penaltyAmt;
+        basePayoffAmount = (installmentsToReach15 * installmentAmt);
       } else {
-        payoffAmount = Math.max(0, loan.remainingAmount || 0) + penaltyAmt;
+        basePayoffAmount = Math.max(0, loan.remainingAmount || 0);
       }
+
+      // PRE-CLOSURE 3-WAY SPLIT FORMULA:
+      // 1. "AGAR 9 SE PEHLE CLOSE HOGA TO HI FAYDA HOGA" (paidInstallmentsCount < 9)
+      // 2. "15 KE UPAR JITNA BHI INSTALLMENT HAI, UTNA PERCENT KA CHUT HOGA LOAN AMOUNT SE"
+      //    Total installment - 15 = x installment -> x% of loan amount
+      // 3. "Jo x percent aaya hai usme 3 part hoga":
+      //    1 user ko discount
+      //    1 agents ko benefits
+      //    1 company ko profit (1:1:1 equal split)
+      let xPercent = 0;
+      let totalDiscountPool = 0;
+      let userDiscount = 0;
+      let agentBonus = 0;
+      let companyProfit = 0;
+
+      if (paidInstallmentsCount < 9 && totalTenure > 15) {
+        xPercent = totalTenure - 15; // e.g. 18-15=3%, 21-15=6%, 24-15=9%, 30-15=15%
+        totalDiscountPool = Math.round((loan.amount * xPercent) / 100);
+        userDiscount = Math.round(totalDiscountPool / 3);
+        agentBonus = Math.round(totalDiscountPool / 3);
+        companyProfit = totalDiscountPool - userDiscount - agentBonus;
+      }
+
+      const payoffAmount = Math.max(0, basePayoffAmount - userDiscount) + penaltyAmt;
 
       if (payoffAmount <= 0) throw Object.assign(new Error('Loan has no outstanding balance'), { status: 400 });
 
@@ -782,7 +805,12 @@ router.post('/:id/close-early', protect, async (req, res) => {
         },
         { new: true, session }
       );
-      if (!updatedUser) throw Object.assign(new Error(`Borrower wallet me paryapt balance nahi hai. 15-kist early payoff ke liye ₹${payoffAmount.toLocaleString('en-IN')} zaroori hai.`), { status: 400 });
+      if (!updatedUser) {
+        throw Object.assign(
+          new Error(`Borrower wallet me paryapt balance nahi hai. Payoff ke liye ₹${payoffAmount.toLocaleString('en-IN')} zaroori hai (Base: ₹${basePayoffAmount.toLocaleString('en-IN')}${userDiscount > 0 ? `, Chhoot: -₹${userDiscount.toLocaleString('en-IN')}` : ''}${penaltyAmt > 0 ? `, Penalty: +₹${penaltyAmt.toLocaleString('en-IN')}` : ''}).`),
+          { status: 400 }
+        );
+      }
 
       // Mark all schedule entries as paid
       (loan.installmentSchedule || []).forEach(s => {
@@ -805,23 +833,11 @@ router.post('/:id/close-early', protect, async (req, res) => {
       loan.status = 'closed';
       loan.earlyClosed = true;
       loan.earlyClosedAt = new Date();
-
-      // Agent Pre-Closure Commission Rules:
-      // 21 EMI tenure: 6% commission on loan amount ("usee 21 wali me 6 percent milega")
-      // 24 EMI tenure: 9% commission on loan amount ("or 24 waki me 9 percent")
-      // 18 EMI tenure: 3% commission on loan amount
-      let preCloseCommissionPct = 0;
-      if (totalTenure >= 24) {
-        preCloseCommissionPct = 9;
-      } else if (totalTenure >= 21) {
-        preCloseCommissionPct = 6;
-      } else if (totalTenure >= 18) {
-        preCloseCommissionPct = 3;
-      } else {
-        preCloseCommissionPct = 3;
-      }
-
-      agentBonus = Math.round((loan.amount * preCloseCommissionPct) / 100);
+      loan.precloseDiscountPercent = xPercent;
+      loan.precloseTotalPool = totalDiscountPool;
+      loan.precloseUserDiscount = userDiscount;
+      loan.precloseAgentBenefit = agentBonus;
+      loan.precloseCompanyProfit = companyProfit;
 
       const agentId = updatedUser.referredBy;
       if (agentBonus > 0 && agentId) {
@@ -839,7 +855,7 @@ router.post('/:id/close-early', protect, async (req, res) => {
         loan.agentProfitPaid = true;
         loan.agentProfitAmount = agentBonus;
 
-        const commissionRemarks = `Agent Pre-Closure ${preCloseCommissionPct}% Commission for loan ${loan.accountNumber || loan._id} (${totalTenure} EMIs tenure, 15-installment closure)`;
+        const commissionRemarks = `Agent Pre-Closure Benefit (${(xPercent / 3).toFixed(2)}% of ₹${loan.amount.toLocaleString('en-IN')} from 1/3rd of ${xPercent}% Pool) for loan ${loan.accountNumber || loan._id}`;
 
         await Transaction.create([{
           userId: agentId,
@@ -865,7 +881,7 @@ router.post('/:id/close-early', protect, async (req, res) => {
         method: 'wallet',
         status: 'completed',
         referenceId: loan._id.toString(),
-        remarks: `Full Early Closure & Payoff for loan ${loan.accountNumber || 'Loan'}`
+        remarks: `Full Early Closure Payoff for loan ${loan.accountNumber || 'Loan'} (Base: ₹${basePayoffAmount}, User Discount: -₹${userDiscount}, Agent Benefit: ₹${agentBonus}, Company Profit: ₹${companyProfit}, Penalty: +₹${penaltyAmt})`
       }], { session });
 
       resultLoan = loan;
@@ -874,12 +890,71 @@ router.post('/:id/close-early', protect, async (req, res) => {
     res.json({
       message: 'Loan successfully closed in full! Limit upgraded.',
       loan: resultLoan,
-      agentBonus
+      xPercent,
+      totalDiscountPool,
+      userDiscount,
+      agentBonus,
+      companyProfit,
+      payoffAmount
     });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message || 'Early closure failed' });
   } finally {
     session.endSession();
+  }
+});
+
+// Pre-closure Quote & Breakdown Preview Endpoint
+router.get('/:id/preclose-quote', protect, async (req, res) => {
+  try {
+    const loan = await Loan.findById(req.params.id);
+    if (!loan) return res.status(404).json({ message: 'Loan not found' });
+
+    syncLoanOverdueAndPenalties(loan);
+
+    const paidCount = (loan.installmentSchedule || []).filter(s => s.status === 'paid').length;
+    const totalTenure = loan.installmentsCount || loan.tenure || (loan.installmentSchedule || []).length || 15;
+    const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
+    const penaltyAmt = loan.penaltyDue || 0;
+
+    let basePayoff = 0;
+    if (paidCount < 15) {
+      const installmentsToPay = Math.min(15, totalTenure) - paidCount;
+      basePayoff = installmentsToPay * installmentAmt;
+    } else {
+      basePayoff = Math.max(0, loan.remainingAmount || 0);
+    }
+
+    const isEligible = paidCount < 9 && totalTenure > 15;
+    const xPercent = isEligible ? Math.max(0, totalTenure - 15) : 0;
+    const totalDiscountPool = Math.round((loan.amount * xPercent) / 100);
+    const userDiscount = isEligible ? Math.round(totalDiscountPool / 3) : 0;
+    const agentBenefit = isEligible ? Math.round(totalDiscountPool / 3) : 0;
+    const companyProfit = isEligible ? (totalDiscountPool - userDiscount - agentBenefit) : 0;
+
+    const finalPayoff = Math.max(0, basePayoff - userDiscount) + penaltyAmt;
+
+    res.json({
+      success: true,
+      loanId: loan._id,
+      loanAmount: loan.amount,
+      totalTenure,
+      paidCount,
+      isEligibleForDiscount: isEligible,
+      reason: paidCount >= 9
+        ? '9 ya usse zyada kiste bhar chuke hain, isiliye pre-close discount lagu nahi hoga'
+        : (totalTenure <= 15 ? '15 kisto ke loan me discount lagu nahi hota' : 'Eligible for 3-part pre-close discount!'),
+      xPercent,
+      totalDiscountPool,
+      userDiscount,
+      agentBenefit,
+      companyProfit,
+      basePayoff,
+      penaltyAmt,
+      finalPayoff
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to calculate pre-close quote' });
   }
 });
 

@@ -11,7 +11,7 @@ export default function AdminPanel() {
   useEffect(() => { if (!token || user.role !== "admin") window.location.href = "/"; }, []); // eslint-disable-line
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-  const [tab, setTab] = useState("pending");
+  const [tab, setTab] = useState("analytics");
   const [stats, setStats] = useState(() => {
     try {
       const saved = localStorage.getItem("educa_admin_cached_stats");
@@ -980,6 +980,32 @@ export default function AdminPanel() {
     }
   };
 
+  const [sendingTestPush, setSendingTestPush] = useState(false);
+  const sendAdminTestPushNotification = async () => {
+    setSendingTestPush(true);
+    try {
+      const res = await fetch(`${API}/fcm/send-push`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          title: "🔔 Educa Admin Notification",
+          message: "FCM Push & Device Alert Live Test! Sabhi connected phones pe alert deliver ho gaya hai.",
+          deviceId: "all"
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setToast({ text: "🔔 Notification phone pe bhej di gayi hai!", type: "success" });
+      } else {
+        setToast({ text: data.message || "Failed to dispatch alert", type: "error" });
+      }
+    } catch (e) {
+      setToast({ text: "Notification error: " + e.message, type: "error" });
+    } finally {
+      setSendingTestPush(false);
+    }
+  };
+
   const loadAuditHistory = async () => {
     setHistoryLoading(true);
     try {
@@ -1222,7 +1248,7 @@ export default function AdminPanel() {
   ];
 
   return (
-    <div className="bg-slate-50 min-h-screen overflow-x-hidden lg:h-screen lg:overflow-hidden lg:flex">
+    <div className="bg-slate-50 min-h-screen overflow-x-hidden flex flex-col lg:flex-row">
       {/* FULLSCREEN LIGHTBOX WITH INTERACTIVE ZOOM & PAN */}
       {lightboxImg && (
         <div
@@ -1320,7 +1346,7 @@ export default function AdminPanel() {
       )}
 
       {/* DESKTOP SIDEBAR (COLLAPSIBLE & FULL-HEIGHT) */}
-      <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? "w-20" : "w-64"} shrink-0 bg-slate-900 border-r border-slate-800 text-slate-100 h-screen transition-all duration-200 z-30 select-none shadow-xl`}>
+      <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? "w-20" : "w-64"} shrink-0 bg-slate-900 border-r border-slate-800 text-slate-100 lg:sticky lg:top-0 lg:h-screen transition-all duration-200 z-30 select-none shadow-xl`}>
         {/* Header with Title & Collapse Toggle */}
         <div className={`shrink-0 flex items-center ${isSidebarCollapsed ? "flex-col justify-center p-3 gap-2" : "justify-between px-4 py-4"} border-b border-slate-800`}>
           {!isSidebarCollapsed ? (
@@ -1401,7 +1427,7 @@ export default function AdminPanel() {
         </div>
       </aside>
 
-      <div className="flex-1 min-w-0 max-w-full h-full overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 min-w-0 max-w-full min-h-screen">
         {/* MOBILE / TABLET TOP NAV */}
         <nav className="lg:hidden bg-slate-900 border-b border-slate-800 shadow-md sticky top-0 z-40 safe-top">
           <div className="px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center">
@@ -1666,6 +1692,15 @@ export default function AdminPanel() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <button
+                    onClick={sendAdminTestPushNotification}
+                    disabled={sendingTestPush}
+                    className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title="Send instant push notification test to all connected phones"
+                  >
+                    <span>🔔</span>
+                    <span>{sendingTestPush ? "Sending..." : "Test Phone Alert"}</span>
+                  </button>
                   <button
                     onClick={loadAnalytics}
                     disabled={loadingAnalytics}
@@ -3403,7 +3438,7 @@ export default function AdminPanel() {
 
               {/* Audit History Records Table */}
               {historyLoading ? (
-                <div className="py-16 text-center text-gray-400">
+                <div className="py-24 sm:py-32 min-h-[300px] flex flex-col items-center justify-center text-center text-gray-400">
                   <span className="text-3xl block mb-2 animate-spin">🔄</span>
                   <p className="text-xs font-semibold">Loading audit records...</p>
                 </div>
@@ -3570,8 +3605,8 @@ export default function AdminPanel() {
                     })}
                   </div>
 
-                  {/* Desktop / Tablet Table with Vertical Scroll */}
-                  <div className="hidden sm:block overflow-x-auto max-h-[580px] overflow-y-auto rounded-2xl border border-slate-200/90 shadow-2xs">
+                  {/* Desktop / Tablet Table */}
+                  <div className="hidden sm:block overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs">
                     <table className="w-full min-w-[850px] table-fixed border-collapse bg-white text-left text-xs">
                       <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-xs border-b border-slate-200 shadow-2xs">
                         <tr className="text-[10px] font-black text-slate-500 uppercase tracking-wider">

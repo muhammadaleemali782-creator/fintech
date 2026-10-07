@@ -53,8 +53,9 @@ router.post('/send-push', async (req, res) => {
       return res.status(400).json({ message: 'title and message are required' });
     }
 
+    const mongoose = require('mongoose');
     let fcmToken = null;
-    let targetUserId = userId;
+    let targetUserId = (userId && mongoose.isValidObjectId(userId)) ? userId : null;
 
     if (targetUserId) {
       const user = await User.findById(targetUserId);
@@ -78,6 +79,22 @@ router.post('/send-push', async (req, res) => {
       payload: { sound: sound || 'chime', timestamp: new Date().toISOString() },
       status: 'pending'
     });
+
+    // If deviceId is 'all', also deliver to every registered active device
+    if (targetDeviceId === 'all') {
+      const allDevs = await Device.find({});
+      for (const d of allDevs) {
+        await DeviceCommand.create({
+          deviceId: d.deviceId,
+          userId: d.userId,
+          command: 'notification',
+          title: title.trim(),
+          message: message.trim(),
+          payload: { sound: sound || 'chime', timestamp: new Date().toISOString() },
+          status: 'pending'
+        }).catch(() => {});
+      }
+    }
 
     // 2. Attempt FCM HTTP v1 / legacy if FCM server key is provided
     let fcmSent = false;

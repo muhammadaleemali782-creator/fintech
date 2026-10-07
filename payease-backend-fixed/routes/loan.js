@@ -81,8 +81,8 @@ const syncLoanOverdueAndPenalties = (loan) => {
 
 // 1. Personal Loan Quote (10-day cycle, custom rate supported or default 1.34% per installment, min 15 installments)
 const calculatePersonalLoanQuote = (amount, installmentsCount = 15, customRate = null) => {
-  const amt = Math.min(Math.max(Number(amount) || 5000, 5000), 1000000);
-  const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 30);
+  const amt = Math.min(Math.max(Number(amount) || 5000, 5000), 50000);
+  const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 24);
   
   // Rate: If admin specified any custom rate (e.g. 0%, 0.8%, 1.0%, 1.34%, 2.0%), respect it directly!
   let ratePerInstallment = 1.34;
@@ -147,7 +147,7 @@ const calculateMicroBusinessQuote = (amount, days = 60) => {
 // 3. Student Loan Quote (Subsidized: 8% p.a., 10-day cycle)
 const calculateStudentLoanQuote = (amount, installmentsCount = 15) => {
   const amt = Math.min(Math.max(Number(amount) || 5000, 5000), 50000);
-  const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 30);
+  const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 24);
   const ratePerInstallment = 0.67; // Subsidized student rate (~8% p.a.)
 
   const principalPerInstallment = amt / count;
@@ -253,15 +253,15 @@ router.post('/apply', protect, async (req, res) => {
     }
 
     const numAmount = Number(amount);
-    if (!numAmount || numAmount < 5000 || numAmount > 100000) {
+    if (!numAmount || numAmount < 5000 || numAmount > 50000) {
       return res.status(400).json({
-        message: 'Loan amount ₹5,000 se ₹1,00,000 ke beech hona chahiye.'
+        message: 'Loan amount ₹5,000 se ₹50,000 ke beech hona chahiye.'
       });
     }
 
     // Loan Limit Rules:
     // Business Loan: Up to ₹20,000 with cheque, up to ₹10,000 without cheque
-    // Personal & Student Loans: First-time limit ₹5,000 (unless raised by Agent/Admin), repeat limit up to currentLimit
+    // Personal & Student Loans: First-time limit ₹5,000 (unless raised by Agent/Admin), repeat limit up to currentLimit (max ₹50,000)
     const isBusiness = loanType === 'micro_business';
     const hasCheque = Boolean(hasChequeFacility || (documents && (documents.chequeUrl || documents.chequeFrontUrl || documents.chequeNumber)));
 
@@ -276,8 +276,8 @@ router.post('/apply', protect, async (req, res) => {
       }
     } else {
       const isFirstTimeBorrower = (userDoc.loansCount || 0) === 0;
-      // If user has higher loanLimit configured by Agent or Admin, respect it!
-      const currentLimit = userDoc.loanLimit || (isFirstTimeBorrower ? 5000 : 10000);
+      // If user has higher loanLimit configured by Agent or Admin, respect it! (Capped at ₹50,000)
+      const currentLimit = Math.min(userDoc.loanLimit || (isFirstTimeBorrower ? 5000 : 10000), 50000);
       if (numAmount > currentLimit) {
         return res.status(400).json({
           message: `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai. Limit badhane ke liye apne Agent ya Admin se sampark karein.`
@@ -521,8 +521,8 @@ router.post('/apply', protect, async (req, res) => {
     } else {
       // Personal Loan Engine
       const count = Number(installmentsCount);
-      if (!count || count < 15 || count > 30) {
-        return res.status(400).json({ message: 'Easy Installments minimum 15 aur maximum 30 honi chahiye (10-din cycle).' });
+      if (!count || count < 15 || count > 24) {
+        return res.status(400).json({ message: 'Easy Installments minimum 15 aur maximum 24 honi chahiye (10-din cycle).' });
       }
 
       const quote = calculatePersonalLoanQuote(numAmount, count, interestRateOption);
@@ -1056,11 +1056,11 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
     }
 
     const numAmount = Number(amount);
-    if (!numAmount || numAmount < 5000 || numAmount > 1000000) {
-      return res.status(400).json({ message: 'Loan amount ₹5,000 to ₹10,00,000 ke beech hona chahiye.' });
+    if (!numAmount || numAmount < 5000 || numAmount > 50000) {
+      return res.status(400).json({ message: 'Loan amount ₹5,000 to ₹50,000 ke beech hona chahiye.' });
     }
 
-    const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 30);
+    const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 24);
     const quote = calculatePersonalLoanQuote(numAmount, count, interestRateOption);
     const accountNumber = await generateLoanAccountNumber();
     const collectionDates = getCollectionDates(new Date(), count);
@@ -1140,6 +1140,49 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
       req.app.locals.sseClients.forEach(c => {
         try { c.write(`data: ${payload}\n\n`); } catch (e) {}
       });
+    }
+
+    // Sync complete loan documents to Google Drive (background non-blocking)
+    try {
+      const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+      const adminDriveUrl = adminDriveSetting?.value;
+      if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
+        fetch(adminDriveUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'upload_loan_application',
+            loanAccount: createdLoan.accountNumber,
+            loanType: createdLoan.loanType,
+            userId: targetUser._id.toString(),
+            userName: targetUser.name,
+            email: targetUser.email,
+            phone: targetUser.phone,
+            amount: createdLoan.amount,
+            aadharNumber: targetUser.aadharNumber || aadharNumber,
+            doc1Url: createdLoan.documents?.doc1Url,
+            doc1BackUrl: createdLoan.documents?.doc1BackUrl,
+            panNumber: targetUser.panNumber || panNumber,
+            doc2Url: createdLoan.documents?.doc2Url,
+            doc2BackUrl: createdLoan.documents?.doc2BackUrl,
+            chequeNumber: createdLoan.documents?.chequeNumber,
+            chequeUrl: createdLoan.documents?.chequeUrl,
+            chequeBackUrl: createdLoan.documents?.chequeBackUrl,
+            submittedAt: new Date().toISOString()
+          })
+        })
+        .then(r => r.json())
+        .then(async (driveData) => {
+          if (driveData && (driveData.fileUrl || driveData.folderUrl)) {
+            const directLink = driveData.fileUrl || driveData.folderUrl;
+            await Loan.findByIdAndUpdate(createdLoan._id, { 'documents.googleDriveLink': directLink });
+            await User.findByIdAndUpdate(targetUser._id, { 'kycDocuments.googleDriveLink': directLink });
+          }
+        })
+        .catch(e => console.warn('Drive loan sync warning:', e.message));
+      }
+    } catch (driveErr) {
+      console.warn('Drive sync initiation failed:', driveErr.message);
     }
 
     res.json({

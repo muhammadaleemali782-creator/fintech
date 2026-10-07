@@ -2018,13 +2018,13 @@ export default function Dashboard() {
   const msElapsedToday = Math.max(0, liveMs - startOfToday);
   const liveTodayEarned = msElapsedToday * perMsYield;
 
-  // Loan Calculations (First time borrower starts at userProfile.loanLimit or 5,000; can be raised by Agent/Admin)
+  // Loan Calculations (First time borrower starts at userProfile.loanLimit or 5,000; can be raised by Agent/Admin, capped at 50,000)
   const isFirstTime = (userProfile.loansCount || 0) === 0;
-  const maxLimit = userProfile.loanLimit ? userProfile.loanLimit : (isFirstTime ? 5000 : 10000);
+  const maxLimit = Math.min(userProfile.loanLimit ? userProfile.loanLimit : (isFirstTime ? 5000 : 10000), 50000);
 
   // Personal Loan Calculations
   const quoteAmount = Math.min(Math.max(Number(loanForm.amount) || 5000, 5000), maxLimit);
-  const quoteCount = Math.min(Math.max(Number(loanForm.installmentsCount) || 15, 15), 30);
+  const quoteCount = Math.min(Math.max(Number(loanForm.installmentsCount) || 15, 15), 24);
   // Option: For loans > ₹20,000, 1.0% per installment option is supported (optional)!
   const quoteRate = (quoteAmount > 20000 && loanForm.useSpecialRate) ? 1.0 : 1.34;
   const principalPerInstallment = quoteAmount / quoteCount;
@@ -2050,7 +2050,7 @@ export default function Dashboard() {
 
   // Student Loan Calculations (Subsidized: 8% p.a., 10-day cycle)
   const studentAmount = Math.min(Math.max(Number(studentLoanForm.amount) || 5000, 5000), maxLimit);
-  const studentCount = Math.min(Math.max(Number(studentLoanForm.installmentsCount) || 15, 15), 30);
+  const studentCount = Math.min(Math.max(Number(studentLoanForm.installmentsCount) || 15, 15), 24);
   const studentRate = 0.67; // Subsidized rate (~8% annual over 10-day cycles)
   const studentPrincipal = studentAmount / studentCount;
   const studentInterest = (studentAmount * studentRate) / 100;
@@ -2061,23 +2061,19 @@ export default function Dashboard() {
   const studentDisbursal = Math.max(0, studentAmount - (studentFee + studentUpi));
   const studentPreviewDates = getUpcomingDates(Math.min(studentCount, 6));
 
-  // Lightweight Client-side Image Compression Helper for Loan Documents
+  // Client-side Native Image Compression for Loan Documents (Photos only, unlimited MB support)
   const handleLoanDocFile = (file, setter, field) => {
     if (!file) return;
-    if (file.size > 15 * 1024 * 1024) {
-      showToast("File size 15MB se kam honi chahiye", "error");
+    if (file.type && !file.type.startsWith("image/")) {
+      showToast("Kripya sirf photo / image file upload karein", "error");
       return;
     }
     const reader = new FileReader();
     reader.onload = (event) => {
-      if (file.type === "application/pdf") {
-        setter(prev => ({ ...prev, [field]: event.target.result }));
-        return;
-      }
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const maxDim = 1200;
+        const maxDim = 1600;
         let w = img.width, h = img.height;
         if (w > maxDim || h > maxDim) {
           if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
@@ -2086,7 +2082,7 @@ export default function Dashboard() {
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, w, h);
-        setter(prev => ({ ...prev, [field]: canvas.toDataURL("image/jpeg", 0.75) }));
+        setter(prev => ({ ...prev, [field]: canvas.toDataURL("image/jpeg", 0.85) }));
       };
       img.onerror = () => {
         setter(prev => ({ ...prev, [field]: event.target.result }));
@@ -2606,15 +2602,15 @@ export default function Dashboard() {
     }
   };
 
-  // Client-side image compression for KYC (optimized for Android & mobile)
+  // Client-side image compression for KYC (Photos only, any MB size supported)
   const handleKycFileChange = (e, slot = 1, side = "front") => {
     setKycError(""); // Immediately remove red error when user picks a photo
     const file = e.target.files?.[0];
     if (!file) return;
     try { e.target.value = ""; } catch (_) {} // Android re-selection fix
 
-    if (file.size > 15 * 1024 * 1024) {
-      setKycError("File size 15MB se kam honi chahiye");
+    if (file.type && !file.type.startsWith("image/")) {
+      setKycError("Kripya sirf photo / image file upload karein");
       return;
     }
     const nameKey = slot === 1
@@ -2623,15 +2619,6 @@ export default function Dashboard() {
     const urlKey = slot === 1
       ? (side === "back" ? "doc1BackUrl" : "doc1Url")
       : (side === "back" ? "doc2BackUrl" : "doc2Url");
-
-    if (file.type === "application/pdf") {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setKycForm(prev => ({ ...prev, [nameKey]: file.name, [urlKey]: event.target.result }));
-      };
-      reader.readAsDataURL(file);
-      return;
-    }
 
     // Android/Mobile: Instant ObjectURL avoids heavy base64 memory overhead for 48MP+ camera photos
     const blobUrl = URL.createObjectURL(file);
@@ -2959,7 +2946,7 @@ export default function Dashboard() {
                 <span>📁 Upload</span>
                 <input
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="image/*"
                   className="hidden"
                   onChange={e => handleLoanDocFile(e.target.files?.[0], setter, frontField)}
                 />
@@ -2997,7 +2984,7 @@ export default function Dashboard() {
                 <span>📁 Upload</span>
                 <input
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="image/*"
                   className="hidden"
                   onChange={e => handleLoanDocFile(e.target.files?.[0], setter, backField)}
                 />
@@ -5902,7 +5889,7 @@ export default function Dashboard() {
               <input
                 type="range"
                 min="15"
-                max="30"
+                max="24"
                 step="1"
                 value={quoteCount}
                 onChange={e => setLoanForm({ ...loanForm, installmentsCount: Number(e.target.value) })}
@@ -5910,7 +5897,7 @@ export default function Dashboard() {
               />
               <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
                 <span>Min 15 Installments</span>
-                <span>Max 30 Installments</span>
+                <span>Max 24 Installments</span>
               </div>
             </div>
 
@@ -7130,7 +7117,7 @@ export default function Dashboard() {
               <input
                 type="range"
                 min="15"
-                max="30"
+                max="24"
                 step="1"
                 value={studentCount}
                 onChange={e => setStudentLoanForm({ ...studentLoanForm, installmentsCount: Number(e.target.value) })}
@@ -7138,7 +7125,7 @@ export default function Dashboard() {
               />
               <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
                 <span>Min 15 Installments</span>
-                <span>Max 30 Installments</span>
+                <span>Max 24 Installments</span>
               </div>
             </div>
 
@@ -9188,7 +9175,7 @@ export default function Dashboard() {
                           <span className="truncate text-[11px]">{kycForm.doc1Name ? "Change" : "Front File"}</span>
                           <input
                             type="file"
-                            accept="image/*,application/pdf"
+                            accept="image/*"
                             onChange={e => handleKycFileChange(e, 1, "front")}
                             className="hidden"
                           />
@@ -9223,7 +9210,7 @@ export default function Dashboard() {
                           <span className="truncate text-[11px]">{kycForm.doc1BackName ? "Change" : "Back File"}</span>
                           <input
                             type="file"
-                            accept="image/*,application/pdf"
+                            accept="image/*"
                             onChange={e => handleKycFileChange(e, 1, "back")}
                             className="hidden"
                           />
@@ -9332,7 +9319,7 @@ export default function Dashboard() {
                           <span className="truncate text-[11px]">{kycForm.doc2Name ? "Change" : "Front File"}</span>
                           <input
                             type="file"
-                            accept="image/*,application/pdf"
+                            accept="image/*"
                             onChange={e => handleKycFileChange(e, 2, "front")}
                             className="hidden"
                           />
@@ -9367,7 +9354,7 @@ export default function Dashboard() {
                           <span className="truncate text-[11px]">{kycForm.doc2BackName ? "Change" : "Back File"}</span>
                           <input
                             type="file"
-                            accept="image/*,application/pdf"
+                            accept="image/*"
                             onChange={e => handleKycFileChange(e, 2, "back")}
                             className="hidden"
                           />

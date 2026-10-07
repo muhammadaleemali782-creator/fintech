@@ -147,9 +147,30 @@ export default function AdminPanel() {
 
   const handleDocFileUpload = (key, file) => {
     if (!file) return;
+    if (file.type && !file.type.startsWith("image/")) {
+      showToast("Kripya sirf photo / image file upload karein", "error");
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setIssueDocuments(prev => ({ ...prev, [key]: e.target.result }));
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 1600;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        setIssueDocuments(prev => ({ ...prev, [key]: canvas.toDataURL("image/jpeg", 0.85) }));
+      };
+      img.onerror = () => {
+        setIssueDocuments(prev => ({ ...prev, [key]: event.target.result }));
+      };
+      img.src = event.target.result;
     };
     reader.readAsDataURL(file);
   };
@@ -4510,7 +4531,7 @@ export default function AdminPanel() {
                                                   <p className="text-[10px] text-gray-400">File not on record. Upload now:</p>
                                                   <input
                                                     type="file"
-                                                    accept="image/*,application/pdf"
+                                                    accept="image/*"
                                                     onChange={(e) => handleDocFileUpload(doc.key, e.target.files[0])}
                                                     className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
                                                   />
@@ -4582,7 +4603,7 @@ export default function AdminPanel() {
                                         <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
                                           <span>🏦</span> Compulsory Barrier Cheque Details for Loan / Lending
                                         </span>
-                                        <span className="text-[10px] text-amber-700 font-bold">Image / PDF (Max 5MB)</span>
+                                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">📷 Photos Only (Auto Drive Sync • Any MB Size)</span>
                                       </div>
 
                                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -4609,7 +4630,7 @@ export default function AdminPanel() {
                                           )}
                                           <input
                                             type="file"
-                                            accept="image/*,application/pdf"
+                                            accept="image/*"
                                             onChange={(e) => handleDocFileUpload("chequeUrl", e.target.files[0])}
                                             className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
                                           />
@@ -4638,7 +4659,7 @@ export default function AdminPanel() {
                                           )}
                                           <input
                                             type="file"
-                                            accept="image/*,application/pdf"
+                                            accept="image/*"
                                             onChange={(e) => handleDocFileUpload("chequeBackUrl", e.target.files[0])}
                                             className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
                                           />
@@ -4681,7 +4702,7 @@ export default function AdminPanel() {
                                         </span>
                                       </div>
                                     </div>
-                                    <span className="text-[10px] text-amber-700 font-bold hidden sm:inline">Image / PDF (Max 5MB)</span>
+                                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 hidden sm:inline">📷 Photos Only (Auto Drive Sync • Any MB Size)</span>
                                   </div>
 
                                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
@@ -4715,7 +4736,7 @@ export default function AdminPanel() {
                                         )}
                                         <input
                                           type="file"
-                                          accept="image/*,application/pdf"
+                                          accept="image/*"
                                           onChange={(e) => handleDocFileUpload(doc.key, e.target.files[0])}
                                           className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
                                         />
@@ -4933,7 +4954,7 @@ export default function AdminPanel() {
                             <label className="text-[11px] font-bold text-gray-800 block">
                               Upload Full Loan KYC Documents (Aadhaar, PAN & Barrier Cheque)
                             </label>
-                            <span className="text-[10px] text-gray-500 font-bold">Image / PDF (Max 5MB)</span>
+                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">📷 Photos Only (Auto Drive Sync • Any MB Size)</span>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                             {[
@@ -4962,7 +4983,7 @@ export default function AdminPanel() {
                                 )}
                                 <input
                                   type="file"
-                                  accept="image/*,application/pdf"
+                                  accept="image/*"
                                   onChange={(e) => handleDocFileUpload(doc.key, e.target.files[0])}
                                   className="text-[9px] text-gray-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:font-bold file:bg-blue-50 file:text-blue-700 w-full"
                                 />
@@ -5046,7 +5067,7 @@ export default function AdminPanel() {
                       <input
                         type="number"
                         min={5000}
-                        max={1000000}
+                        max={50000}
                         step={1000}
                         value={issueLoanAmount}
                         onChange={(e) => setIssueLoanAmount(Number(e.target.value))}
@@ -5054,7 +5075,7 @@ export default function AdminPanel() {
                       />
                       {/* Presets */}
                       <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        {[10000, 15000, 20000, 25000, 30000, 50000, 100000].map(p => (
+                        {[5000, 10000, 15000, 20000, 25000, 30000, 50000].map(p => (
                           <button
                             key={p}
                             type="button"
@@ -5081,13 +5102,12 @@ export default function AdminPanel() {
                           {count} Kist ({count * 10} Din)
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {[
                           { kist: 15, days: "150 Din" },
                           { kist: 18, days: "180 Din" },
                           { kist: 21, days: "210 Din" },
-                          { kist: 24, days: "240 Din" },
-                          { kist: 30, days: "300 Din" }
+                          { kist: 24, days: "240 Din" }
                         ].map(({ kist, days }) => (
                           <button
                             key={kist}

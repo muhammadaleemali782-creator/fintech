@@ -65,8 +65,8 @@ app.use(cors({
 }));
 
 // ------------------ BODY PARSER (size limit chhota rakha, bade payload attack se bachne ke liye) ------------------
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // ------------------ NoSQL INJECTION PROTECTION ------------------
 // Request body/query/params me se $ aur . operators nikal deta hai

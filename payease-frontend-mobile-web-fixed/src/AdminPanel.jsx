@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
@@ -947,25 +947,31 @@ export default function AdminPanel() {
     260.78
   );
 
-  // Live Mini-Second Profit & Reserves Stream (Admin)
-  const [adminLiveMs, setAdminLiveMs] = useState(Date.now());
-  const [adminAnchorTime, setAdminAnchorTime] = useState(() => Date.now());
-  const [adminCachedProfit, setAdminCachedProfit] = useState(() => {
+  // Live Mini-Second Profit & Reserves Stream (Continuous Monotonic Ticker at 80ms, never resets or freezes)
+  const totalDepositsDisplay = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || adminCachedReserves || 710000);
+  const dailyAdminYield = totalDepositsDisplay > 0 ? (totalDepositsDisplay * 0.12) / 365 : 0;
+  const perMsAdminYield = dailyAdminYield / 86400000;
+
+  const [liveAdminProfit, setLiveAdminProfit] = useState(() => {
     try {
       const saved = localStorage.getItem("educa_admin_cached_profit");
-      return saved ? Number(saved) : 260.78;
+      return saved ? Math.max(Number(saved), totalProfitBase) : totalProfitBase;
     } catch {
-      return 260.78;
+      return totalProfitBase;
     }
   });
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setAdminLiveMs(Date.now());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const lastTickRef = useRef(Date.now());
+  const lastSavedRef = useRef(Date.now());
 
+  // Ratchet upward if fresh higher profit arrives from backend
+  useEffect(() => {
+    if (totalProfitBase > 0) {
+      setLiveAdminProfit(prev => Math.max(prev, totalProfitBase));
+    }
+  }, [totalProfitBase]);
+
+  // Sync cached reserves
   useEffect(() => {
     const net = Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 0);
     if (net > 0) {
@@ -974,37 +980,54 @@ export default function AdminPanel() {
     }
   }, [analytics?.stats?.netFintechReserve, stats?.netFintechReserve, stats?.totalUserBalances]);
 
+  // High-frequency live ticking stream (80ms ticks for buttery smooth digits, never resets)
   useEffect(() => {
-    const sTime = analytics?.stats?.serverTime || stats?.serverTime;
-    if (sTime) {
-      const parsed = new Date(sTime).getTime();
-      if (!isNaN(parsed)) setAdminAnchorTime(parsed);
-    }
-    if (totalProfitBase > 0) {
-      setAdminCachedProfit(prev => Math.max(prev, totalProfitBase));
-    }
-  }, [analytics?.stats?.serverTime, stats?.serverTime, totalProfitBase]);
+    lastTickRef.current = Date.now();
+    let timer = null;
 
-  const totalDepositsDisplay = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || adminCachedReserves || 710000);
-  const baseAdminProfit = Math.max(totalProfitBase, adminCachedProfit);
+    const tick = () => {
+      const now = Date.now();
+      const dt = Math.max(0, now - lastTickRef.current);
+      lastTickRef.current = now;
+      if (dt > 0 && perMsAdminYield > 0) {
+        setLiveAdminProfit(prev => {
+          const updated = prev + (dt * perMsAdminYield);
+          if (now - lastSavedRef.current > 2000) {
+            try { localStorage.setItem("educa_admin_cached_profit", String(updated)); } catch {}
+            lastSavedRef.current = now;
+          }
+          return updated;
+        });
+      }
+    };
 
-  // Exact 12% p.a. Live Millisecond Ticking Accrual Rate (Real-Time "Tic Tic")
-  const dailyAdminYield = totalDepositsDisplay > 0 ? (totalDepositsDisplay * 0.12) / 365 : 0;
-  const perMsAdminYield = dailyAdminYield / 86400000;
-  const elapsedAdminMs = Math.max(0, adminLiveMs - adminAnchorTime);
-  const liveAccruedAdmin = elapsedAdminMs * perMsAdminYield;
+    const startTimer = () => {
+      if (timer) clearInterval(timer);
+      if (typeof document !== "undefined" && !document.hidden) {
+        timer = setInterval(tick, 80); // ~12.5 ticks per second (smooth spinning digits)
+      }
+    };
 
-  // Real-Time Monotonically Increasing Live Profit & Reserves
-  const liveAdminProfit = baseAdminProfit + liveAccruedAdmin;
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (timer) clearInterval(timer);
+      } else {
+        tick();
+        startTimer();
+      }
+    };
+
+    startTimer();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [perMsAdminYield]);
+
+  // Derived live accrual & reserves
+  const liveAccruedAdmin = Math.max(0, liveAdminProfit - totalProfitBase);
   const liveAdminReserves = totalDepositsDisplay + liveAdminProfit;
-
-  useEffect(() => {
-    if (liveAdminProfit > 0) {
-      try {
-        localStorage.setItem("educa_admin_cached_profit", String(liveAdminProfit));
-      } catch {}
-    }
-  }, [adminLiveMs]);
 
   const statCards = [
     { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600" },

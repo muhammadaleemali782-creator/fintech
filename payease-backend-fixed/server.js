@@ -79,28 +79,48 @@ app.use(mongoSanitize());
 app.use(hpp());
 
 // ------------------ GENERAL RATE LIMIT (bot / flooding protection) ------------------
-// Har IP se 15 min me max 100 request -> uske baad block
+// Admin, health checks aur authenticated requests ko kabhi block na kare
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 3000, // Generous limit for real-time SPA polling & dashboard operations
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    const url = req.originalUrl || req.url || '';
+    return url.includes('/admin') ||
+           url.includes('/health') ||
+           url.includes('/notifications') ||
+           url.includes('/devices') ||
+           url.includes('/settings') ||
+           url.includes('/loan') ||
+           !!req.headers['authorization'];
+  },
   message: { message: 'Too many requests, please try again after some time.' }
 });
 app.use('/api/', generalLimiter);
 
-// ------------------ SLOW DOWN (bot/script tarah tarah repeated request bhejein to unhe artificially slow kar deta hai) ------------------
+// ------------------ SLOW DOWN ------------------
 const speedLimiter = slowDown({
   windowMs: 15 * 60 * 1000,
-  delayAfter: 50,       // pehle 50 request normal speed
-  delayMs: () => 500     // uske baad har request 500ms slow
+  delayAfter: 1500,
+  delayMs: () => 200,
+  skip: (req) => {
+    const url = req.originalUrl || req.url || '';
+    return url.includes('/admin') ||
+           url.includes('/health') ||
+           url.includes('/notifications') ||
+           url.includes('/devices') ||
+           url.includes('/settings') ||
+           url.includes('/loan') ||
+           !!req.headers['authorization'];
+  }
 });
 app.use('/api/', speedLimiter);
 
-// ------------------ STRICT LIMIT sirf LOGIN/REGISTER pe (brute-force / credential-stuffing bot attack se bachne ke liye) ------------------
+// ------------------ AUTH LIMIT ------------------
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 8, // 15 min me sirf 8 login/register attempt per IP
+  max: 40,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many login attempts. Please try again after 15 minutes.' }

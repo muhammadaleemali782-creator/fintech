@@ -311,8 +311,9 @@ export default function AdminPanel() {
   const loadStats = useCallback(async () => {
     try {
       const res = await fetch(`${API}/admin/stats`, { headers });
+      if (!res.ok) return;
       const d = await res.json();
-      if (d && typeof d === "object") {
+      if (d && typeof d === "object" && !d.message) {
         setStats(d);
         try { localStorage.setItem("educa_admin_cached_stats", JSON.stringify(d)); } catch {}
       }
@@ -323,6 +324,7 @@ export default function AdminPanel() {
   const loadNotifications = useCallback(async () => {
     try {
       const res = await fetch(`${API}/admin/notifications`, { headers });
+      if (!res.ok) return;
       const data = await res.json();
       if (data.notifications) {
         setNotifications(data.notifications);
@@ -334,6 +336,7 @@ export default function AdminPanel() {
   const loadSettings = useCallback(async () => {
     try {
       const res = await fetch(`${API}/settings`, { headers });
+      if (!res.ok) return;
       const data = await res.json();
       setInterestRate(data.loanInterestRate || 12);
       setCommissionRate(data.referralCommissionRate || 2);
@@ -343,28 +346,45 @@ export default function AdminPanel() {
   }, []); // eslint-disable-line
 
   const loadPending = useCallback(async () => {
-    try { const res = await fetch(`${API}/admin/transactions/pending`, { headers }); const d = await res.json(); setPending(Array.isArray(d) ? d : []); } catch {}
+    try {
+      const res = await fetch(`${API}/admin/transactions/pending`, { headers });
+      if (!res.ok) return;
+      const d = await res.json();
+      if (Array.isArray(d)) setPending(d);
+    } catch {}
   }, []); // eslint-disable-line
 
   const loadUsers = useCallback(async () => {
     try {
       const res = await fetch(`${API}/admin/users`, { headers });
+      if (!res.ok) return;
       const d = await res.json();
-      setUsers(Array.isArray(d) ? d.filter(u => u.role !== "admin") : []);
+      if (Array.isArray(d)) setUsers(d.filter(u => u.role !== "admin"));
     } catch {}
   }, []); // eslint-disable-line
 
   const loadLoans = useCallback(async () => {
-    try { const res = await fetch(`${API}/loan/all`, { headers }); const d = await res.json(); setLoans(Array.isArray(d) ? d : []); } catch {}
+    try {
+      const res = await fetch(`${API}/loan/all`, { headers });
+      if (!res.ok) return;
+      const d = await res.json();
+      if (Array.isArray(d)) setLoans(d);
+    } catch {}
   }, []); // eslint-disable-line
 
   const loadBonds = useCallback(async () => {
-    try { const res = await fetch(`${API}/admin/bonds`, { headers }); const d = await res.json(); setBonds(Array.isArray(d) ? d : []); } catch {}
+    try {
+      const res = await fetch(`${API}/admin/bonds`, { headers });
+      if (!res.ok) return;
+      const d = await res.json();
+      if (Array.isArray(d)) setBonds(d);
+    } catch {}
   }, []); // eslint-disable-line
 
   const loadDevices = useCallback(async () => {
     try {
       const res = await fetch(`${API}/v1/admin/devices`, { headers });
+      if (!res.ok) return;
       const d = await res.json();
       if (d.devices) setDevices(d.devices);
     } catch {}
@@ -395,8 +415,9 @@ export default function AdminPanel() {
   const loadAgents = useCallback(async () => {
     try {
       const res = await fetch(`${API}/admin/agent-applications`, { headers });
+      if (!res.ok) return;
       const d = await res.json();
-      setAgents(Array.isArray(d) ? d : []);
+      if (Array.isArray(d)) setAgents(d);
     } catch {}
   }, []); // eslint-disable-line
 

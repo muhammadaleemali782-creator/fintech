@@ -2221,144 +2221,32 @@ export default function AdminPanel() {
           ══════════════════════════════════════════════════════ */}
           {tab === "analytics" && (
             <div className="space-y-6 w-full min-w-0">
-              {/* Header */}
-              <div className="bg-white text-slate-900 rounded-3xl p-5 sm:p-7 shadow-xs border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">📈</span>
-                    <span className="text-[10px] sm:text-xs font-black tracking-widest text-blue-700 uppercase px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200">
-                      Fintech Liquidity & Reserves Audit
-                    </span>
-                  </div>
-                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-black font-display flex flex-wrap items-baseline gap-1.5 text-slate-900">
-                    <span>Total Fintech Reserves:</span>
-                    {loadingAnalytics ? (
-                      <span className="inline-block h-8 sm:h-9 w-44 bg-emerald-100/90 rounded-xl animate-pulse" />
-                    ) : (
-                      <span className="font-mono tabular-nums text-emerald-600 font-black">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
-                    )}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-                    Real-time capital balance, customer deposits, compounding 12% p.a. daily yield distribution, and liquidity reserve health.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                  <button
-                    onClick={sendAdminTestPushNotification}
-                    disabled={sendingTestPush}
-                    className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    title="Send instant push notification test to all connected phones"
-                  >
-                    <span>🔔</span>
-                    <span>{sendingTestPush ? "Sending..." : "Test Phone Alert"}</span>
-                  </button>
-                  <button
-                    onClick={loadAnalytics}
-                    disabled={loadingAnalytics}
-                    className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>{loadingAnalytics ? "⏳" : "🔄"}</span>
-                    <span>{loadingAnalytics ? "Refreshing..." : "Refresh Data"}</span>
-                  </button>
-                  <button
-                    onClick={() => setTab("settings")}
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>⚙️</span>
-                    <span>Deposit & UPI Config</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* 3 Major Metric Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 w-full">
-                <div className="bg-white rounded-3xl p-5 border border-emerald-100/80 shadow-xs flex flex-col justify-between min-w-0">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
-                        <span>🏦</span>
-                        <span>Total Fintech Reserves</span>
-                      </p>
-                      <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Live Ticking
-                      </span>
-                    </div>
-                    {loadingAnalytics ? (
-                      <div className="my-1 space-y-1">
-                        <div className="h-8 sm:h-9 w-44 bg-emerald-100/80 rounded-xl animate-pulse" />
-                        <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
-                      </div>
-                    ) : (
-                      <>
-                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-emerald-600 tracking-tight truncate">
-                          ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                        </p>
-                        <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
-                          ≈ ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net Reserves)
-                        </p>
-                      </>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
-                    <span className="truncate">Active capital reserve pool (live)</span>
-                  </p>
-                </div>
-
-                <div className="bg-white rounded-3xl p-5 border border-blue-100/80 shadow-xs flex flex-col justify-between min-w-0">
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
-                      <span>💰</span>
-                      <span>Total Customer Deposits</span>
-                    </p>
-                    {loadingAnalytics ? (
-                      <div className="h-8 sm:h-9 w-40 bg-blue-100/80 rounded-xl animate-pulse my-1" />
-                    ) : (
-                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-blue-600 tracking-tight truncate">
-                        ₹{Number(analytics?.stats?.totalDeposits || totalDepositsDisplay || 0).toLocaleString("en-IN")}
-                      </p>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
-                    <span className="truncate">{analytics?.stats?.approvedDepositCount ?? 0} Verified Deposits</span>
-                  </p>
-                </div>
-
-                <div className="bg-white rounded-3xl p-5 border border-sky-100/80 shadow-xs flex flex-col justify-between min-w-0">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
-                        <span>⚡</span>
-                        <span>Total Profit Credited</span>
-                      </p>
-                      <span className="inline-flex items-center gap-1 bg-sky-100 text-sky-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
-                        Live Ticking
-                      </span>
-                    </div>
-                    {loadingAnalytics ? (
-                      <div className="my-1 space-y-1">
-                        <div className="h-8 sm:h-9 w-40 bg-sky-100/80 rounded-xl animate-pulse" />
-                        <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
-                      </div>
-                    ) : (
-                      <>
-                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-sky-600 tracking-tight truncate">
-                          ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                        </p>
-                        <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
-                          ≈ ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (12% p.a. Earned)
-                        </p>
-                      </>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-sky-500 inline-block shrink-0" />
-                    <span className="truncate">12% p.a. Compounding Daily Yield</span>
-                  </p>
-                </div>
+              {/* Quick Actions Bar */}
+              <div className="flex items-center justify-end gap-2 flex-wrap">
+                <button
+                  onClick={sendAdminTestPushNotification}
+                  disabled={sendingTestPush}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Send instant push notification test to all connected phones"
+                >
+                  <span>🔔</span>
+                  <span>{sendingTestPush ? "Sending..." : "Test Phone Alert"}</span>
+                </button>
+                <button
+                  onClick={loadAnalytics}
+                  disabled={loadingAnalytics}
+                  className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <span>{loadingAnalytics ? "⏳" : "🔄"}</span>
+                  <span>{loadingAnalytics ? "Refreshing..." : "Refresh Data"}</span>
+                </button>
+                <button
+                  onClick={() => setTab("settings")}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>⚙️</span>
+                  <span>Deposit & UPI Config</span>
+                </button>
               </div>
 
               {/* Interactive Visual SVG Chart Card */}
@@ -2929,153 +2817,29 @@ export default function AdminPanel() {
                   </span>
                 </div>
 
-                {/* 12% Calculation Formula & Live Realtime Accrual Breakdown */}
-                {(() => {
-                  const currentBase = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || 0);
-                  const annual12Pct = currentBase * 0.12;
-                  const monthly1Pct = currentBase * 0.01;
-                  const perDay31 = monthly1Pct / 31;
-                  const perDay365 = annual12Pct / 365;
-                  const chartLen = analytics?.dailyProfitChart?.length || 0;
-                  const todayRow = chartLen > 0 ? analytics.dailyProfitChart[chartLen - 1] : null;
-                  const prevRow = chartLen > 1 ? analytics.dailyProfitChart[chartLen - 2] : null;
-                  const prevAccrued = Number(prevRow?.amount || 0);
-                  const baseToday = Number(todayRow?.amount || 0);
-                  const liveTodayAccrued = baseToday + liveAccruedAdmin;
-
-                  return (
-                    <div className="mb-6 p-5 bg-white border border-slate-200/90 rounded-3xl shadow-xs">
-                      {/* Header */}
-                      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg shadow-sm">
-                            🧮
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-black text-slate-900 tracking-tight">
-                              Transparent Daily Savings Yield & Real-Time Accrual Breakdown
-                            </h4>
-                            <p className="text-[11px] font-semibold text-slate-500">
-                              Har din ka munafa kaise calculate hota hai aur live kaise credit hota hai
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-black text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 shadow-2xs font-mono">
-                            12.00% Annual (p.a.) • 1.00% Monthly
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-300 shadow-2xs">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            Live Accrual Active
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 4 Step Visual Calculation Flow */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                        {/* Step 1 */}
-                        <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Step 1 • Active Capital</span>
-                            <span className="text-xs">💼</span>
-                          </div>
-                          <p className="font-mono font-black text-base text-slate-900">₹{currentBase.toLocaleString("en-IN")}</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">Approved Company Deposit Pool</p>
-                        </div>
-
-                        {/* Step 2 */}
-                        <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-extrabold text-blue-600 uppercase tracking-wider">Step 2 • Monthly (1%)</span>
-                            <span className="text-xs">📅</span>
-                          </div>
-                          <p className="font-mono font-black text-base text-blue-600">₹{monthly1Pct.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">₹{currentBase.toLocaleString("en-IN")} × 1% per month</p>
-                        </div>
-
-                        {/* Step 3 */}
-                        <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-extrabold text-sky-600 uppercase tracking-wider">Step 3 • Daily Yield (24h)</span>
-                            <span className="text-xs">🗓️</span>
-                          </div>
-                          <p className="font-mono font-black text-base text-sky-700">₹{perDay365.toFixed(2)} / full day</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">₹{annual12Pct.toLocaleString("en-IN")} ÷ 365 din (~₹{perDay31.toFixed(2)} in Oct)</p>
-                        </div>
-
-                        {/* Step 4 */}
-                        <div className="p-3.5 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl shadow-xs">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-extrabold text-emerald-100 uppercase tracking-wider">Step 4 • Aaj Ka Live Status</span>
-                            <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
-                          </div>
-                          <p className="font-mono font-black text-base text-white">
-                            +₹{liveTodayAccrued.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                          </p>
-                          <p className="text-[11px] text-emerald-100 mt-0.5">
-                            +₹{liveTodayAccrued.toFixed(2)} (Live Ticking ⚡)
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Live Understanding Notice Banner */}
-                      <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-2">
-                        <div className="flex items-start gap-2.5">
-                          <span className="text-base mt-0.5">💡</span>
-                          <div className="space-y-1 text-slate-700 leading-relaxed">
-                            <p className="font-extrabold text-slate-900">
-                              Kyun din ka pura amount (+₹{perDay365.toFixed(2)}) ek baar me nahi, balki dheere-dheere badhta hai?
-                            </p>
-                            <p className="text-gray-600">
-                              Educa Fintech me interest raat ko ek baar flat nahi judta, balki <strong>live real-time (har ghante aur minute)</strong> user ke wallet me add hota hai:
-                            </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
-                              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                                <span className="font-bold text-gray-800 text-[11px] block">🗓️ {prevRow?.displayDate || "Pichhla Din"} (+₹{prevAccrued.toFixed(2)})</span>
-                                <span className="text-[11px] text-gray-500">Pichhle din ka pura munafa wallet me credit ho chuka hai.</span>
-                              </div>
-                              <div className="p-2.5 bg-emerald-50/80 rounded-xl border border-emerald-200">
-                                <span className="font-bold text-emerald-900 text-[11px] flex items-center justify-between">
-                                  <span>🗓️ {todayRow?.displayDate || "Aaj"} (+₹{liveTodayAccrued.toFixed(2)} 🟢 Live)</span>
-                                  <span className="text-[9px] font-black text-emerald-700 bg-emerald-200/80 px-1.5 py-0.5 rounded">Ticking</span>
-                                </span>
-                                <span className="text-[11px] text-emerald-800">
-                                  Live counter real-time tick ho raha hai: +₹{liveTodayAccrued.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} • Total Reserves: ₹{liveAdminReserves.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
                 {/* MOBILE CARD LIST (NO HORIZONTAL SCROLL) */}
                 <div className="sm:hidden space-y-2.5">
-                  {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
-                    loadingAnalytics ? (
-                      [1, 2, 3].map((sIdx) => (
-                        <div key={`m-skel-${sIdx}`} className="p-3 bg-white border border-slate-200/90 rounded-2xl space-y-2.5 animate-pulse">
-                          <div className="flex items-center justify-between">
-                            <div className="h-4 w-24 bg-slate-200 rounded" />
-                            <div className="h-4 w-16 bg-slate-100 rounded-full" />
-                          </div>
-                          <div className="p-2.5 bg-slate-50 rounded-xl space-y-1.5">
-                            <div className="h-3 w-28 bg-slate-200 rounded" />
-                            <div className="h-4 w-36 bg-emerald-100 rounded" />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-                            <div className="h-3 w-20 bg-slate-100 rounded" />
-                            <div className="h-3 w-16 bg-slate-100 rounded ml-auto" />
-                          </div>
+                  {loadingAnalytics ? (
+                    [1, 2, 3, 4].map((sIdx) => (
+                      <div key={`m-skel-${sIdx}`} className="p-3 bg-white border border-slate-200/90 rounded-2xl space-y-2.5 animate-pulse">
+                        <div className="flex items-center justify-between">
+                          <div className="h-4 w-24 bg-slate-200 rounded" />
+                          <div className="h-4 w-16 bg-slate-100 rounded-full" />
                         </div>
-                      ))
-                    ) : (
-                      <div className="py-8 text-center text-gray-400 text-xs font-medium bg-slate-50 rounded-xl border border-slate-200">
-                        Koi daily profit yield abhi tak record nahi hua hai.
+                        <div className="p-2.5 bg-slate-50 rounded-xl space-y-1.5">
+                          <div className="h-3 w-28 bg-slate-200 rounded" />
+                          <div className="h-4 w-36 bg-emerald-100 rounded" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                          <div className="h-3 w-20 bg-slate-100 rounded" />
+                          <div className="h-3 w-16 bg-slate-100 rounded ml-auto" />
+                        </div>
                       </div>
-                    )
+                    ))
+                  ) : (!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
+                    <div className="py-8 text-center text-gray-400 text-xs font-medium bg-slate-50 rounded-xl border border-slate-200">
+                      Koi daily profit yield abhi tak record nahi hua hai.
+                    </div>
                   ) : (
                     analytics.dailyProfitChart.map((row, idx) => {
                       const isToday = idx === analytics.dailyProfitChart.length - 1;
@@ -3217,46 +2981,44 @@ export default function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
-                        loadingAnalytics ? (
-                          [1, 2, 3].map((sIdx) => (
-                            <tr key={`tbl-skel-${sIdx}`} className="animate-pulse">
-                              <td className="py-3 px-3.5 align-middle">
-                                <div className="space-y-1.5">
-                                  <div className="h-4 w-20 bg-slate-200 rounded" />
-                                  <div className="h-3 w-14 bg-slate-100 rounded" />
-                                </div>
-                              </td>
-                              <td className="py-3 px-3.5 align-middle">
-                                <div className="space-y-1.5">
-                                  <div className="h-4 w-28 bg-emerald-100/80 rounded" />
-                                  <div className="h-3 w-36 bg-slate-200 rounded" />
-                                </div>
-                              </td>
-                              <td className="py-3 px-3 align-middle">
-                                <div className="space-y-1.5">
-                                  <div className="h-4 w-16 bg-emerald-100/80 rounded" />
-                                  <div className="h-3 w-12 bg-slate-100 rounded" />
-                                </div>
-                              </td>
-                              <td className="py-3 px-3 align-middle">
-                                <div className="space-y-1.5">
-                                  <div className="h-4 w-16 bg-blue-100/80 rounded" />
-                                  <div className="h-3 w-14 bg-slate-100 rounded" />
-                                </div>
-                              </td>
-                              <td className="py-3 px-3.5 align-middle text-right">
-                                <div className="h-6 w-14 bg-slate-200 rounded ml-auto" />
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="5" className="py-8 text-center text-gray-400 font-medium">
-                              Koi daily profit yield abhi tak record nahi hua hai.
+                      {loadingAnalytics ? (
+                        [1, 2, 3, 4].map((sIdx) => (
+                          <tr key={`tbl-skel-${sIdx}`} className="animate-pulse">
+                            <td className="py-3 px-3.5 align-middle">
+                              <div className="space-y-1.5">
+                                <div className="h-4 w-20 bg-slate-200 rounded" />
+                                <div className="h-3 w-14 bg-slate-100 rounded" />
+                              </div>
+                            </td>
+                            <td className="py-3 px-3.5 align-middle">
+                              <div className="space-y-1.5">
+                                <div className="h-4 w-28 bg-emerald-100/80 rounded" />
+                                <div className="h-3 w-36 bg-slate-200 rounded" />
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 align-middle">
+                              <div className="space-y-1.5">
+                                <div className="h-4 w-16 bg-emerald-100/80 rounded" />
+                                <div className="h-3 w-12 bg-slate-100 rounded" />
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 align-middle">
+                              <div className="space-y-1.5">
+                                <div className="h-4 w-16 bg-blue-100/80 rounded" />
+                                <div className="h-3 w-14 bg-slate-100 rounded" />
+                              </div>
+                            </td>
+                            <td className="py-3 px-3.5 align-middle text-right">
+                              <div className="h-6 w-14 bg-slate-200 rounded ml-auto" />
                             </td>
                           </tr>
-                        )
+                        ))
+                      ) : (!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
+                        <tr>
+                          <td colSpan="5" className="py-8 text-center text-gray-400 font-medium">
+                            Koi daily profit yield abhi tak record nahi hua hai.
+                          </td>
+                        </tr>
                       ) : (
                         analytics.dailyProfitChart.map((row, idx) => {
                           const isToday = idx === analytics.dailyProfitChart.length - 1;

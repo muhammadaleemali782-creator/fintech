@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { API } from "./config";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -12,8 +13,6 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
   const [isSuccess, setIsSuccess] = useState(false);
-
-  const API = import.meta.env.VITE_API_URL || "/api";
 
   const handleSubmit = async (e) => {
     e.preventDefault();

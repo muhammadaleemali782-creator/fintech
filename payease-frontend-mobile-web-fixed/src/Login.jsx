@@ -46,13 +46,18 @@ export default function Login({ isApp = false }) {
   const handleStandardLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
+    let identifier = loginData.email.trim();
+    if (identifier.toLowerCase().endsWith('@gmail.com')) {
+      identifier = identifier.replace(/@gmail\.com$/i, '@educa.com');
+    }
+
     try {
       const res = await fetch(`${API}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          identifier: loginData.email.trim(),
-          email: loginData.email.trim(),
+          identifier,
+          email: identifier,
           password: loginData.password,
           rememberMe,
         }),
@@ -121,11 +126,18 @@ export default function Login({ isApp = false }) {
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
+    let cleanEmail = regData.email.trim().toLowerCase();
+    if (cleanEmail.endsWith('@gmail.com')) {
+      cleanEmail = cleanEmail.replace(/@gmail\.com$/, '@educa.com');
+    } else if (!cleanEmail.includes('@')) {
+      cleanEmail = `${cleanEmail}@educa.com`;
+    }
+
     try {
       const res = await fetch(`${API}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(regData),
+        body: JSON.stringify({ ...regData, email: cleanEmail }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Registration failed");
@@ -158,11 +170,18 @@ export default function Login({ isApp = false }) {
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setLoading(true);
+    let cleanForgot = forgotEmail.trim().toLowerCase();
+    if (cleanForgot.endsWith('@gmail.com')) {
+      cleanForgot = cleanForgot.replace(/@gmail\.com$/, '@educa.com');
+    } else if (!cleanForgot.includes('@')) {
+      cleanForgot = `${cleanForgot}@educa.com`;
+    }
+
     try {
       const res = await fetch(`${API}/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: forgotEmail }),
+        body: JSON.stringify({ email: cleanForgot }),
       });
       const data = await res.json();
       showMsg(data.message || "Password reset instructions sent to your Educa Mail", "success");
@@ -281,7 +300,7 @@ export default function Login({ isApp = false }) {
                     required
                     value={loginData.email}
                     onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                    placeholder="9876543210 ya name@email.com"
+                    placeholder="9876543210 ya name@educa.com"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition"
                   />
                   <span className="absolute right-3.5 top-3.5 text-slate-400 text-sm">👤</span>
@@ -409,7 +428,7 @@ export default function Login({ isApp = false }) {
                   required
                   value={regData.email}
                   onChange={(e) => setRegData({ ...regData, email: e.target.value })}
-                  placeholder="rahul@email.com"
+                  placeholder="rahul@educa.com"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 outline-none"
                 />
               </div>
@@ -596,7 +615,7 @@ export default function Login({ isApp = false }) {
                   required
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="your@email.com"
+                  placeholder="your@educa.com"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 outline-none"
                 />
               </div>

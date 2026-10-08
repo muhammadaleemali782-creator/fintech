@@ -7439,7 +7439,7 @@ export default function AdminPanel() {
                               type="email"
                               value={issueNewUser.email}
                               onChange={(e) => setIssueNewUser({ ...issueNewUser, email: e.target.value })}
-                              placeholder="e.g. ramesh@gmail.com"
+                              placeholder="e.g. ramesh@educa.com"
                               className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>

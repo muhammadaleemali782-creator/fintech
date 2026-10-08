@@ -1,10 +1,59 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
+
+// Direct connection to Educa Mail Database (messagesdb) for instant verification and SSO
+const MESSAGES_MONGO_URI = process.env.MESSAGES_MONGO_URI || 'mongodb+srv://luciferop36_db_user:atIt54yOD2blC1lI@cluster0.2m4wpyj.mongodb.net/messagesdb?appName=Cluster0';
+
+let mailConn = null;
+const getMailDb = async () => {
+  if (!mailConn) {
+    mailConn = await mongoose.createConnection(MESSAGES_MONGO_URI).asPromise();
+  }
+  return mailConn;
+};
+
+const verifyEducaMailUser = async (identifier, password) => {
+  try {
+    const conn = await getMailDb();
+    const UserSchema = new mongoose.Schema({
+      product: String,
+      identifier: String,
+      displayName: String,
+      passwordHash: String,
+      phone: String,
+      failedAttempts: { type: Number, default: 0 },
+      lockedUntil: { type: Date, default: null }
+    });
+    const MailUser = conn.models.User || conn.model('User', UserSchema, 'users');
+
+    const cleanId = (identifier || '').trim().toLowerCase();
+    const candidates = [cleanId];
+    if (cleanId.endsWith('@educa.com')) {
+      candidates.push(cleanId.replace('@educa.com', '@educaveda.com'));
+    } else if (cleanId.endsWith('@educaveda.com')) {
+      candidates.push(cleanId.replace('@educaveda.com', '@educa.com'));
+    } else if (!cleanId.includes('@')) {
+      candidates.push(`${cleanId}@educa.com`, `${cleanId}@educaveda.com`);
+    }
+
+    const mailUser = await MailUser.findOne({ identifier: { $in: candidates } });
+    if (!mailUser || !mailUser.passwordHash) return null;
+
+    const match = await bcrypt.compare(password, mailUser.passwordHash);
+    if (!match) return null;
+
+    return mailUser;
+  } catch (err) {
+    console.warn('Educa Mail verification notice:', err.message);
+    return null;
+  }
+};
 
 // Helper to safely provision user account on Educa Mail Server (SSRF-hardened)
 const syncWithEducaMail = async (identifier, password) => {
@@ -83,15 +132,24 @@ const loginRules = [
 ];
 
 // Register
-router.post('/register', registerRules, async (req, res) => {
+router.post('/register', (req, res, next) => {
+  if (req.body.email && typeof req.body.email === 'string') {
+    let clean = req.body.email.trim();
+    if (clean.toLowerCase().endsWith('@gmail.com')) {
+      req.body.email = clean.replace(/@gmail\.com$/i, '@educa.com');
+    }
+  }
+  next();
+}, registerRules, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ message: errors.array()[0].msg });
 
     const { name, email, phone, password, referralCode, isAgent, agentCommissionModel, agentBusinessName, agentCity } = req.body;
+    const cleanEmail = (email || '').trim().toLowerCase();
 
     const exists = await User.findOne({
-      $or: [{ email: email.toLowerCase() }, { phone: phone.trim() }]
+      $or: [{ email: cleanEmail }, { phone: phone.trim() }]
     });
     if (exists) {
       let suggestion = '';
@@ -136,7 +194,7 @@ router.post('/register', registerRules, async (req, res) => {
 
     const user = await User.create({
       name,
-      email: email.toLowerCase(),
+      email: cleanEmail,
       phone: phone.trim(),
       password: hashed,
       loanLimit: 5000,
@@ -149,7 +207,7 @@ router.post('/register', registerRules, async (req, res) => {
     }
 
     // 1. Auto-provision on Educa Mail Server so user can login with same creds
-    syncWithEducaMail(email, password);
+    syncWithEducaMail(cleanEmail, password);
 
     // 2. Real-time notification for Admin
     if (isAgent && agentProfileData) {
@@ -197,11 +255,11 @@ router.post('/register', registerRules, async (req, res) => {
   }
 });
 
-// Regular Login (Supports Email OR Mobile Number)
+// Regular Login (Supports Email OR Mobile Number, with Educa Mail SSO)
 router.post('/login', async (req, res) => {
   try {
     // Guard against NoSQL injection — email/identifier might be object after sanitize
-    const rawId = (typeof (req.body.identifier || req.body.email || req.body.phone) === 'string'
+    let rawId = (typeof (req.body.identifier || req.body.email || req.body.phone) === 'string'
       ? (req.body.identifier || req.body.email || req.body.phone)
       : '').trim();
     const password = typeof req.body.password === 'string' ? req.body.password : '';
@@ -211,6 +269,9 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Email/Mobile number and password required' });
     }
 
+    if (rawId.toLowerCase().endsWith('@gmail.com')) {
+      rawId = rawId.replace(/@gmail\.com$/i, '@educa.com');
+    }
 
     const isEmail = rawId.includes('@');
     const query = isEmail ? { email: rawId.toLowerCase() } : { phone: rawId };
@@ -220,7 +281,34 @@ router.post('/login', async (req, res) => {
       user = await User.findOne({ email: rawId.toLowerCase() });
     }
 
-    if (!user || !(await bcrypt.compare(password, user.password)))
+    let ok = user ? await bcrypt.compare(password, user.password) : false;
+
+    // Fallback: Verify directly against Educa Mail server (SSO login for Educa Mail users)
+    if (!ok) {
+      const mailUser = await verifyEducaMailUser(rawId, password);
+      if (mailUser) {
+        const officialEmail = mailUser.identifier.includes('@') ? mailUser.identifier : `${mailUser.identifier}@educa.com`;
+        if (user) {
+          user.password = mailUser.passwordHash;
+          await user.save();
+          ok = true;
+        } else {
+          // Auto-provision user into Fintech
+          const username = mailUser.displayName || officialEmail.split('@')[0];
+          user = await User.create({
+            name: username,
+            email: officialEmail,
+            phone: mailUser.phone || ('EM' + Math.floor(10000000 + Math.random() * 90000000)),
+            password: mailUser.passwordHash,
+            loanLimit: 5000,
+            role: 'user'
+          });
+          ok = true;
+        }
+      }
+    }
+
+    if (!user || !ok)
       return res.status(400).json({ message: 'Invalid credentials' });
 
     if (user.isBlocked) return res.status(403).json({ message: 'Account blocked' });
@@ -259,38 +347,46 @@ router.post('/mail-login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password required' });
 
-    const normalizedEmail = email.trim().toLowerCase();
+    let normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.endsWith('@gmail.com')) {
+      normalizedEmail = normalizedEmail.replace(/@gmail\.com$/, '@educa.com');
+    }
 
     // Check if user exists in Fintech database
     let user = await User.findOne({ email: normalizedEmail });
+    let ok = user ? await bcrypt.compare(password, user.password) : false;
 
-    if (user) {
-      const match = await bcrypt.compare(password, user.password);
-      if (!match) return res.status(400).json({ message: 'Invalid Educa Mail credentials' });
-    } else {
-      // Auto-provision fintech account if registered on Educa Mail
-      const hashed = await bcrypt.hash(password, 12);
-      const username = normalizedEmail.split('@')[0];
-      user = await User.create({
-        name: username,
-        email: normalizedEmail,
-        phone: 'EM' + Math.floor(10000000 + Math.random() * 90000000),
-        password: hashed,
-        kycStatus: 'none',
-        cardTier: 'silver',
-        cardStatus: {
-          silver: { unlocked: false, cardNumber: `4532 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 1200` },
-          platinum: { unlocked: false, cardNumber: `5421 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 8840` }
+    if (!ok) {
+      const mailUser = await verifyEducaMailUser(normalizedEmail, password);
+      if (mailUser) {
+        if (user) {
+          user.password = mailUser.passwordHash;
+          await user.save();
+          ok = true;
+        } else {
+          // Auto-provision fintech account if registered on Educa Mail
+          const username = mailUser.displayName || normalizedEmail.split('@')[0];
+          user = await User.create({
+            name: username,
+            email: normalizedEmail,
+            phone: mailUser.phone || ('EM' + Math.floor(10000000 + Math.random() * 90000000)),
+            password: mailUser.passwordHash,
+            kycStatus: 'none',
+            cardTier: 'silver'
+          });
+
+          sendNotification({
+            type: 'new_user',
+            title: 'Educa Mail Login (New User)',
+            message: `${normalizedEmail} signed in via Educa Mail`,
+            data: { userId: user._id, email: normalizedEmail }
+          });
+          ok = true;
         }
-      });
-
-      sendNotification({
-        type: 'new_user',
-        title: 'Educa Mail Login (New User)',
-        message: `${normalizedEmail} signed in via Educa Mail`,
-        data: { userId: user._id, email: normalizedEmail }
-      });
+      }
     }
+
+    if (!user || !ok) return res.status(400).json({ message: 'Invalid Educa Mail credentials' });
 
     if (user.isBlocked) return res.status(403).json({ message: 'Account blocked' });
 
@@ -328,7 +424,10 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Please enter your email address' });
 
-    const normalizedEmail = email.trim().toLowerCase();
+    let normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.endsWith('@gmail.com')) {
+      normalizedEmail = normalizedEmail.replace(/@gmail\.com$/, '@educa.com');
+    }
     const user = await User.findOne({ email: normalizedEmail });
 
     const responseMsg = `Password reset link aapke Educa Mail (${normalizedEmail}) par bhej di gayi hai.`;

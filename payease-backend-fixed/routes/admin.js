@@ -733,11 +733,25 @@ router.get('/analytics', protect, admin, async (req, res) => {
     }
 
     let runningYieldSum = 0;
+    let runningDepositSum = 0;
     const sortedDailyList = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+    // Calculate any deposits that occurred prior to the first chart date
+    const earliestDate = sortedDailyList[0]?.date;
+    if (earliestDate) {
+      for (const [dKey, depList] of Object.entries(dayDepositsMap)) {
+        if (dKey < earliestDate) {
+          runningDepositSum += depList.reduce((sum, item) => sum + (item.amount || 0), 0);
+        }
+      }
+    }
+
     const dailyProfitChart = sortedDailyList.map(d => {
       runningYieldSum = Number((runningYieldSum + d.amount).toFixed(2));
       const dayDeposits = dayDepositsMap[d.date] || [];
       const dayTotalDeposit = Number(dayDeposits.reduce((sum, item) => sum + (item.amount || 0), 0).toFixed(2));
+      runningDepositSum = Number((runningDepositSum + dayTotalDeposit).toFixed(2));
+
       return {
         date: d.date,
         displayDate: d.displayDate,
@@ -745,8 +759,9 @@ router.get('/analytics', protect, admin, async (req, res) => {
         cumulativeYield: runningYieldSum,
         txnCount: d.txnCount,
         uniqueUsers: d.users.size,
-        estimatedCapital: Number((totalDeposits + runningYieldSum).toFixed(2)),
         dayTotalDeposit,
+        cumulativeDeposit: runningDepositSum,
+        estimatedCapital: runningDepositSum,
         depositsCount: dayDeposits.length,
         deposits: dayDeposits
       };

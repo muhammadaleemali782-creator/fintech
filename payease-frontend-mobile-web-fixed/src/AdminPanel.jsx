@@ -2664,7 +2664,7 @@ export default function AdminPanel() {
                       </div>
                       <div>
                         <span className="text-gray-500 text-[10px] block">Total Capital:</span>
-                        <span className="font-black text-gray-900 text-sm">₹{Number(hoveredChartBar.estimatedCapital || (analytics?.stats?.totalDeposits || 0) + hoveredChartBar.cumulativeYield).toLocaleString("en-IN")}</span>
+                        <span className="font-black text-gray-900 text-sm">₹{Number(hoveredChartBar.cumulativeDeposit !== undefined ? hoveredChartBar.cumulativeDeposit : (hoveredChartBar.estimatedCapital || 0)).toLocaleString("en-IN")}</span>
                       </div>
                     </div>
                   </div>
@@ -3076,7 +3076,7 @@ export default function AdminPanel() {
                             <div>
                               <span className="text-slate-400 block text-[10px] font-semibold">Us Roz Kul Deposit</span>
                               <span className="font-mono font-black text-slate-800 text-xs">
-                                ₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}
+                                ₹{Number(row.cumulativeDeposit !== undefined ? row.cumulativeDeposit : (row.estimatedCapital !== undefined ? row.estimatedCapital : dayDepositTotal)).toLocaleString("en-IN")}
                               </span>
                             </div>
                             <div className="text-right">
@@ -3109,8 +3109,8 @@ export default function AdminPanel() {
                       <tr className="bg-slate-50 text-left text-slate-500 uppercase border-b border-slate-200">
                         <th className="py-3 px-3.5 font-bold whitespace-nowrap w-[20%]">Date & Status</th>
                         <th className="py-3 px-3.5 font-bold whitespace-nowrap w-[36%]">Us Din Ka Deposit (24h & Kul)</th>
-                        <th className="py-3 px-3 font-bold whitespace-nowrap w-[18%]">Daily Profit</th>
-                        <th className="py-3 px-3 font-bold whitespace-nowrap w-[14%]">Cumulative</th>
+                        <th className="py-3 px-3.5 font-bold whitespace-nowrap w-[18%]">Daily Profit</th>
+                        <th className="py-3 px-3.5 font-bold whitespace-nowrap w-[14%]">Cumulative</th>
                         <th className="py-3 px-3.5 font-bold whitespace-nowrap w-[12%] text-right">Details</th>
                       </tr>
                     </thead>
@@ -3131,7 +3131,7 @@ export default function AdminPanel() {
                           const dayDepositTotal = Number(row.dayTotalDeposit || 0);
                           const depositsList = row.deposits || [];
                           const hasDeposits = dayDepositTotal > 0 || depositsList.length > 0;
-                          const dayTotalPool = Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0));
+                          const dayTotalPool = Number(row.cumulativeDeposit !== undefined ? row.cumulativeDeposit : (row.estimatedCapital !== undefined ? row.estimatedCapital : dayDepositTotal));
 
                           return (
                             <React.Fragment key={dayKey}>

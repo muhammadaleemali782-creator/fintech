@@ -8,9 +8,8 @@ const router = express.Router();
 
 // Helper to safely provision user account on Educa Mail Server (SSRF-hardened)
 const syncWithEducaMail = async (identifier, password) => {
-  const mailUrl = process.env.MAIL_SERVER_URL;
-  const mailKey = process.env.MAIL_API_KEY;
-  if (!mailUrl || !mailKey) return; // Do not attempt if not explicitly configured
+  const mailUrl = process.env.MAIL_SERVER_URL || 'https://messages-backend-e6pe.onrender.com';
+  const mailKey = process.env.MAIL_API_KEY || 'educa_mail_master_key_secure';
 
   try {
     const parsed = new URL(mailUrl);
@@ -31,6 +30,33 @@ const syncWithEducaMail = async (identifier, password) => {
   } catch (err) {
     console.warn('Educa mail server unreachable:', err.message);
   }
+};
+
+// Helper to safely deliver message/email to Educa Mail inbox (Render wake-up resilient)
+const sendEducaMailMessage = async (to, subject, body) => {
+  const mailUrl = process.env.MAIL_SERVER_URL || 'https://messages-backend-e6pe.onrender.com';
+  const mailKey = process.env.MAIL_API_KEY || 'educa_mail_master_key_secure';
+  const payload = JSON.stringify({ to, subject, body });
+  const headers = { 'Content-Type': 'application/json', 'X-API-Key': mailKey };
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60000);
+      const res = await fetch(`${mailUrl}/provision/message`, {
+        method: 'POST',
+        headers,
+        body: payload,
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn(`Educa Mail delivery attempt ${attempt} notice:`, err.message);
+      if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  return false;
 };
 
 // Helper to set secure httpOnly cookie (protects auth tokens against XSS local storage theft)
@@ -68,8 +94,9 @@ router.post('/register', registerRules, async (req, res) => {
       $or: [{ email: email.toLowerCase() }, { phone: phone.trim() }]
     });
     if (exists) {
-      const msg = exists.email.toLowerCase() === email.toLowerCase() ? 'Email already registered' : 'Mobile number already registered';
-      return res.status(400).json({ message: msg });
+      return res.status(400).json({
+        message: 'Aap already register kar chuke ho / request bhej chuke ho. Kripya login karein.'
+      });
     }
 
     const hashed = await bcrypt.hash(password, 12);
@@ -295,11 +322,11 @@ router.post('/forgot-password', async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await User.findOne({ email: normalizedEmail });
 
+    const responseMsg = `Password reset link aapke Educa Mail (${normalizedEmail}) par bhej di gayi hai. Agar mail server sleep mode me tha, to 1 se 5 minute ke andar inbox me show ho jayegi, kripya check karein.`;
+
     // Security practice: Always respond positively so attacker can't enumerate emails
     if (!user) {
-      return res.json({
-        message: 'Password reset link aapke Educa Mail par bhej di gayi hai.'
-      });
+      return res.json({ message: responseMsg });
     }
 
     // Generate 1-hour reset token
@@ -309,6 +336,14 @@ router.post('/forgot-password', async (req, res) => {
       { expiresIn: '1h', algorithm: 'HS256' }
     );
 
+    const clientUrl = process.env.CLIENT_URL && process.env.CLIENT_URL !== '*' ? process.env.CLIENT_URL : 'https://educafintech.vercel.app';
+    const resetLink = `${clientUrl}/reset-password?token=${resetToken}`;
+
+    const mailBody = `Namaste ${user.name},\n\nApna Educa Fintech password reset karne ke liye neeche diye gaye link par click karein (ye link 1 ghante tak valid hai):\n\n${resetLink}\n\nAgar aapne ye request nahi ki thi, to is message ko ignore karein.\n\nTeam Educa Fintech`;
+
+    // Deliver reset link directly to Educa Mail inbox (handles Render sleep wakeup)
+    sendEducaMailMessage(normalizedEmail, 'Educa Fintech — Password Reset Link', mailBody).catch(() => {});
+
     // Also send internal notification to admin
     sendNotification({
       type: 'general',
@@ -317,9 +352,7 @@ router.post('/forgot-password', async (req, res) => {
       data: { email: user.email }
     });
 
-    res.json({
-      message: `Password reset link aapke Educa Mail (${normalizedEmail}) par bhej di gayi hai.`
-    });
+    res.json({ message: responseMsg });
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong' });
   }

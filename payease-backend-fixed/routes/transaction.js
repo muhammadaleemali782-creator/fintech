@@ -50,6 +50,9 @@ router.get('/lookup/:identifier', protect, async (req, res) => {
 });
 
 // 2. Instant App-to-App P2P Wallet Transfer (Anti-Burp / Anti-Tamper Security)
+// In-memory transfer lock to prevent double transfers from double-clicks or rapid retransmissions
+const transferLocks = new Map();
+
 router.post('/transfer', protect, async (req, res) => {
   const { recipient: rawRecipient, amount: rawAmount, notes, pin, sourceWallet = 'main' } = req.body;
 
@@ -107,6 +110,17 @@ router.post('/transfer', protect, async (req, res) => {
   if (recipientUser._id.equals(req.user._id)) {
     return res.status(400).json({ message: 'Aap khud ke account me transfer nahi kar sakte.' });
   }
+
+  // Duplicate transfer / rapid tap prevention (6-second idempotency window)
+  const transferLockKey = `${req.user._id}_${recipientUser._id}_${amount}_${sourceWallet}`;
+  const lastTransferTime = transferLocks.get(transferLockKey);
+  if (lastTransferTime && (Date.now() - lastTransferTime < 6000)) {
+    return res.status(429).json({
+      message: 'Yeh transfer pehle se process ho raha hai. Kripya thoda intezar karein.'
+    });
+  }
+  transferLocks.set(transferLockKey, Date.now());
+  setTimeout(() => transferLocks.delete(transferLockKey), 10000);
 
   const isProfitSource = sourceWallet === 'profit';
   const session = await mongoose.startSession();
@@ -238,22 +252,18 @@ router.post('/deposit', protect, async (req, res) => {
       return res.status(400).json({ message: 'UTR number is too long (maximum 50 characters)' });
     }
 
-    let isDuplicateUtr = false;
-    let holdReason = '';
-
     if (cleanUtr) {
       // Check if this UTR has already been submitted in any approved, completed, pending, or hold transaction
       const escapedUtr = cleanUtr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const existingMatch = await Transaction.findOne({
         utrNumber: { $regex: new RegExp(`^${escapedUtr}$`, 'i') },
         status: { $in: ['approved', 'completed', 'pending', 'hold'] }
-      }).populate('userId', 'name phone email');
+      });
 
       if (existingMatch) {
-        isDuplicateUtr = true;
-        const prevStatus = existingMatch.status ? existingMatch.status.toUpperCase() : 'RECORDED';
-        const prevUserName = existingMatch.userId?.name || 'Another user';
-        holdReason = `Duplicate UTR Conflict: UTR "${cleanUtr}" already recorded in system (${prevStatus} by ${prevUserName}). Marked ON HOLD for admin review.`;
+        return res.status(400).json({
+          message: 'Aap already is UTR ki request bhej chuke ho. Kripya verification ka intezar karein.'
+        });
       }
     }
 
@@ -265,18 +275,14 @@ router.post('/deposit', protect, async (req, res) => {
       utrNumber: cleanUtr,
       proofUrl: finalProof,
       screenshotUrl: finalProof,
-      status: isDuplicateUtr ? 'hold' : 'pending',
-      isHold: isDuplicateUtr,
-      holdReason: isDuplicateUtr ? holdReason : '',
-      remarks: isDuplicateUtr
-        ? `Deposit Request (ON HOLD: Duplicate UTR ${cleanUtr})`
-        : `Deposit Request (UTR: ${cleanUtr || 'Evidence attached'})`
+      status: 'pending',
+      isHold: false,
+      holdReason: '',
+      remarks: `Deposit Request (UTR: ${cleanUtr || 'Evidence attached'})`
     });
     
     res.json({
-      message: isDuplicateUtr
-        ? '⚠️ Deposit request submitted. UTR verification in progress.'
-        : '✅ Deposit request with evidence submitted. Awaiting admin approval.',
+      message: '✅ Deposit request with evidence submitted. Awaiting admin approval.',
       txn
     });
   } catch (err) {

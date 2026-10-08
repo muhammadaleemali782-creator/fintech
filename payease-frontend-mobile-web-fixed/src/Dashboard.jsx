@@ -564,6 +564,7 @@ export default function Dashboard() {
   
   // P2P Transfer & 6-Digit UPI PIN Intercept State
   const [sendForm, setSendForm] = useState({ recipient: "", amount: "", notes: "", pin: "", sourceWallet: "main" });
+  const [isSendingMoney, setIsSendingMoney] = useState(false);
   const [recipientInfo, setRecipientInfo] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState("");
@@ -2870,6 +2871,7 @@ export default function Dashboard() {
 
   // Submit P2P Transfer (App-to-App)
   const submitTransfer = async () => {
+    if (isSendingMoney) return; // Prevent double execution
     const amt = Number(sendForm.amount);
     if (!amt || amt < 1 || !Number.isInteger(amt)) {
       return showToast("Valid amount daalein (minimum ₹1, bina decimals)", "error");
@@ -2900,6 +2902,8 @@ export default function Dashboard() {
     if (!sendForm.pin || sendForm.pin.length !== 6) {
       return showToast("Kripya apna 6-digit UPI PIN enter karein", "error");
     }
+
+    setIsSendingMoney(true);
     try {
       const res = await fetch(`${API}/transaction/transfer`, {
         method: "POST",
@@ -2934,6 +2938,8 @@ export default function Dashboard() {
       }
     } catch {
       showToast("Network error transferring funds", "error");
+    } finally {
+      setIsSendingMoney(false);
     }
   };
 
@@ -5667,9 +5673,14 @@ export default function Dashboard() {
 
           <button
             onClick={submitTransfer}
-            className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
+            disabled={isSendingMoney}
+            className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
           >
-            {!userProfile.hasWalletPin ? "Set UPI PIN & Send Money →" : "Send Money Now →"}
+            {isSendingMoney
+              ? "Processing Transfer..."
+              : !userProfile.hasWalletPin
+              ? "Set UPI PIN & Send Money →"
+              : "Send Money Now →"}
           </button>
         </div>
       </Sheet>

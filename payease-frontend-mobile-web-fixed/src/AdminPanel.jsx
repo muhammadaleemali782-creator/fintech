@@ -3074,12 +3074,9 @@ export default function AdminPanel() {
 
                           <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-100">
                             <div>
-                              <span className="text-slate-400 block text-[10px] flex items-center gap-1 font-semibold">
-                                {isToday ? "Live 24h Total Deposit" : "24h Total Deposit (Locked)"}
-                                {isToday && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
-                              </span>
-                              <span className="font-mono font-black text-emerald-700 text-xs">
-                                {dayDepositTotal > 0 ? `+₹${dayDepositTotal.toLocaleString("en-IN")}` : "₹0"}
+                              <span className="text-slate-400 block text-[10px] font-semibold">Us Roz Kul Deposit</span>
+                              <span className="font-mono font-black text-slate-800 text-xs">
+                                ₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}
                               </span>
                             </div>
                             <div className="text-right">
@@ -3105,24 +3102,22 @@ export default function AdminPanel() {
                   )}
                 </div>
 
-                {/* DESKTOP TABLE - Horizontal Scroll with Fixed Widths & No Wrapping */}
-                <div className="hidden sm:block overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
-                  <table className="w-full min-w-[1000px] text-xs text-left">
+                {/* DESKTOP TABLE - 100% Width Fit (No Horizontal Scroll Needed) */}
+                <div className="hidden sm:block rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+                  <table className="w-full text-xs text-left">
                     <thead>
                       <tr className="bg-slate-50 text-left text-slate-500 uppercase border-b border-slate-200">
-                        <th className="py-3 px-3 font-bold whitespace-nowrap text-center w-12">#</th>
-                        <th className="py-3 px-3 font-bold whitespace-nowrap w-44">Date</th>
-                        <th className="py-3 px-3 font-bold whitespace-nowrap w-56">Us Din Ka Deposit (24h)</th>
-                        <th className="py-3 px-3 font-bold whitespace-nowrap w-24">Rate</th>
-                        <th className="py-3 px-3 font-bold whitespace-nowrap w-36">Daily Profit</th>
-                        <th className="py-3 px-3 font-bold whitespace-nowrap w-36">Cumulative Total</th>
-                        <th className="py-3 px-3 font-bold whitespace-nowrap w-48">Status & Details</th>
+                        <th className="py-3 px-3.5 font-bold whitespace-nowrap w-[20%]">Date & Status</th>
+                        <th className="py-3 px-3.5 font-bold whitespace-nowrap w-[36%]">Us Din Ka Deposit (24h & Kul)</th>
+                        <th className="py-3 px-3 font-bold whitespace-nowrap w-[18%]">Daily Profit</th>
+                        <th className="py-3 px-3 font-bold whitespace-nowrap w-[14%]">Cumulative</th>
+                        <th className="py-3 px-3.5 font-bold whitespace-nowrap w-[12%] text-right">Details</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
                         <tr>
-                          <td colSpan="7" className="py-8 text-center text-gray-400 font-medium">
+                          <td colSpan="5" className="py-8 text-center text-gray-400 font-medium">
                             Koi daily profit yield abhi tak record nahi hua hai.
                           </td>
                         </tr>
@@ -3136,69 +3131,90 @@ export default function AdminPanel() {
                           const dayDepositTotal = Number(row.dayTotalDeposit || 0);
                           const depositsList = row.deposits || [];
                           const hasDeposits = dayDepositTotal > 0 || depositsList.length > 0;
+                          const dayTotalPool = Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0));
 
                           return (
                             <React.Fragment key={dayKey}>
                               <tr className="hover:bg-slate-50/70 transition">
-                                <td className="py-3 px-3 font-mono text-slate-400 text-center whitespace-nowrap">{idx + 1}</td>
-                                <td className="py-3 px-3 font-bold text-slate-900 whitespace-nowrap">
-                                  <div className="inline-flex items-center gap-2">
-                                    <span className="font-semibold text-slate-900">{row.displayDate || row.date}</span>
-                                    {isToday ? (
-                                      <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        Live 24h
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
-                                        Locked
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 whitespace-nowrap">
-                                  {dayDepositTotal > 0 ? (
-                                    <div className="inline-flex items-center gap-2">
-                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-mono font-black text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-                                        <span>💰</span>
-                                        <span>+₹{dayDepositTotal.toLocaleString("en-IN")}</span>
-                                      </span>
-                                      <span className="text-[10px] text-slate-500 font-bold">
-                                        ({depositsList.length || 1} {depositsList.length === 1 ? "dep" : "deps"})
-                                      </span>
+                                <td className="py-3 px-3.5 align-middle">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                                      <span className="font-mono text-slate-400 text-[11px]">#{idx + 1}</span>
+                                      <span className="font-extrabold">{row.displayDate || row.date}</span>
                                     </div>
-                                  ) : (
-                                    <span className="text-slate-400 font-mono text-[11px] font-medium">₹0</span>
-                                  )}
-                                </td>
-                                <td className="py-3 px-3 text-slate-600 whitespace-nowrap font-semibold">12% p.a.</td>
-                                <td className="py-3 px-3 font-black text-emerald-600 font-mono whitespace-nowrap">
-                                  +₹{rowAmount.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
-                                </td>
-                                <td className="py-3 px-3 font-black font-mono text-blue-700 whitespace-nowrap">
-                                  ₹{rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
-                                </td>
-                                <td className="py-3 px-3 whitespace-nowrap">
-                                  <div className="inline-flex items-center gap-2">
-                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold whitespace-nowrap ${isToday ? "bg-emerald-500 text-white shadow-2xs" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
-                                      {isToday ? "⚡ Live Crediting" : "✓ Credited"}
-                                    </span>
-                                    {hasDeposits && (
-                                      <button
-                                        type="button"
-                                        onClick={() => setExpandedYieldDays(prev => ({ ...prev, [dayKey]: !prev[dayKey] }))}
-                                        className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-700 rounded-lg text-[10px] font-black border border-blue-200 transition cursor-pointer active:scale-95 shadow-2xs inline-flex items-center gap-1 whitespace-nowrap"
-                                      >
-                                        <span>{isExpanded ? "▲ Hide" : `▼ View ${depositsList.length || 1} Txn`}</span>
-                                      </button>
-                                    )}
+                                    <div>
+                                      {isToday ? (
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                          Live 24h
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                          ✓ Locked
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
+                                </td>
+                                <td className="py-3 px-3.5 align-middle">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {dayDepositTotal > 0 ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-mono font-black text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                                          <span>💰</span>
+                                          <span>+₹{dayDepositTotal.toLocaleString("en-IN")}</span>
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-400 font-mono text-[11px] font-medium">₹0 (No new dep)</span>
+                                      )}
+                                      {depositsList.length > 0 && (
+                                        <span className="text-[10px] text-slate-500 font-bold">
+                                          ({depositsList.length} {depositsList.length === 1 ? "txn" : "txns"})
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+                                      <span>Us roz kul deposit:</span>
+                                      <strong className="text-slate-900 font-bold">₹{dayTotalPool.toLocaleString("en-IN")}</strong>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 align-middle">
+                                  <div className="space-y-0.5">
+                                    <div className="font-mono font-black text-emerald-600 text-xs">
+                                      +₹{rowAmount.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 font-semibold">
+                                      @ 12% p.a.
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 align-middle">
+                                  <div className="font-mono font-black text-blue-700 text-xs">
+                                    ₹{rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-medium">
+                                    Total Yield
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3.5 align-middle text-right">
+                                  {hasDeposits ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedYieldDays(prev => ({ ...prev, [dayKey]: !prev[dayKey] }))}
+                                      className="px-2.5 py-1.5 bg-white hover:bg-blue-50 text-blue-700 rounded-lg text-[10px] font-black border border-blue-200 transition cursor-pointer active:scale-95 shadow-2xs inline-flex items-center gap-1 whitespace-nowrap"
+                                    >
+                                      <span>{isExpanded ? "▲ Hide" : `▼ View ${depositsList.length || 1}`}</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 font-medium">—</span>
+                                  )}
                                 </td>
                               </tr>
                               {/* Desktop Expanded Accordion Row */}
                               {isExpanded && hasDeposits && (
                                 <tr className="bg-blue-50/40 border-b border-blue-100">
-                                  <td colSpan="7" className="p-3">
+                                  <td colSpan="5" className="p-3">
                                     <div className="bg-white rounded-xl border border-blue-200/80 p-3 space-y-2 shadow-2xs">
                                       <div className="flex items-center justify-between text-xs font-bold text-blue-900 border-b border-slate-100 pb-1.5">
                                         <span className="flex items-center gap-1.5">

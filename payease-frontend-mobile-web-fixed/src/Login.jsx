@@ -13,12 +13,17 @@ export default function Login({ isApp = false }) {
 
   // Auto-redirect if already logged in (never kick user to login page)
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const user = JSON.parse(localStorage.getItem("user") || "null");
-    if (token && user) {
-      window.location.replace(user.role === "admin" ? "/admin" : "/dashboard");
+    try {
+      const token = localStorage.getItem("token");
+      const user = JSON.parse(localStorage.getItem("user") || "null");
+      if (token && user) {
+        const target = user.role === "admin" ? "/admin" : "/dashboard";
+        navigate(target, { replace: true });
+      }
+    } catch {
+      // Stale or invalid storage - allow user to login fresh
     }
-  }, []);
+  }, [navigate]);
 
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [mailLoginData, setMailLoginData] = useState({ email: "", password: "" });
@@ -62,9 +67,14 @@ export default function Login({ isApp = false }) {
         }
       }
       showMsg("Login successful! Redirecting...", "success");
+      const target = data.user?.role === "admin" ? "/admin" : "/dashboard";
       setTimeout(() => {
-        window.location.href = data.user.role === "admin" ? "/admin" : "/dashboard";
-      }, 600);
+        try {
+          navigate(target, { replace: true });
+        } catch {
+          window.location.replace(target);
+        }
+      }, 400);
     } catch (err) {
       showMsg(err.message, "error");
     } finally {
@@ -92,9 +102,14 @@ export default function Login({ isApp = false }) {
         }
       }
       showMsg("Logged in with Educa Mail (30 Days Active)! Redirecting...", "success");
+      const target = data.user?.role === "admin" ? "/admin" : "/dashboard";
       setTimeout(() => {
-        window.location.href = data.user.role === "admin" ? "/admin" : "/dashboard";
-      }, 600);
+        try {
+          navigate(target, { replace: true });
+        } catch {
+          window.location.replace(target);
+        }
+      }, 400);
     } catch (err) {
       showMsg(err.message, "error");
     } finally {
@@ -126,8 +141,12 @@ export default function Login({ isApp = false }) {
         "success"
       );
       setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 700);
+        try {
+          navigate("/dashboard", { replace: true });
+        } catch {
+          window.location.replace("/dashboard");
+        }
+      }, 400);
     } catch (err) {
       showMsg(err.message, "error");
     } finally {

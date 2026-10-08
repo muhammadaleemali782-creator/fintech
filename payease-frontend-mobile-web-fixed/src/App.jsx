@@ -1,26 +1,46 @@
 import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import ErrorBoundary from "./components/ErrorBoundary";
 
-// Core Pages (Lazy loaded for blazing performance)
-const LandingPage = lazy(() => import("./LandingPage"));
-const Login = lazy(() => import("./Login"));
-const Dashboard = lazy(() => import("./Dashboard"));
-const AdminPanel = lazy(() => import("./AdminPanel"));
+// Self-healing lazy importer: Retries and refreshes if a chunk is 404 (due to new Vercel deployment)
+function lazyWithRetry(componentImport) {
+  return lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error) {
+      const reloadKey = "educa_chunk_retry";
+      const alreadyRetried = sessionStorage.getItem(reloadKey);
+      if (!alreadyRetried) {
+        sessionStorage.setItem(reloadKey, "true");
+        window.location.reload();
+        return;
+      }
+      throw error;
+    }
+  });
+}
+
+// Core Pages (Lazy loaded with self-healing retry)
+const LandingPage = lazyWithRetry(() => import("./LandingPage"));
+const Login = lazyWithRetry(() => import("./Login"));
+const Dashboard = lazyWithRetry(() => import("./Dashboard"));
+const AdminPanel = lazyWithRetry(() => import("./AdminPanel"));
 
 // Product & Information Pages
-const AboutPage = lazy(() => import("./pages/AboutPage"));
-const AccountsPage = lazy(() => import("./pages/AccountsPage"));
-const LoansPage = lazy(() => import("./pages/LoansPage"));
-const InvestmentsPage = lazy(() => import("./pages/InvestmentsPage"));
-const CardsPage = lazy(() => import("./pages/CardsPage"));
-const SilverCardPage = lazy(() => import("./pages/SilverCardPage"));
-const PlatinumCardPage = lazy(() => import("./pages/PlatinumCardPage"));
-const OffersPage = lazy(() => import("./pages/OffersPage"));
-const RatesPage = lazy(() => import("./pages/RatesPage"));
-const FaqPage = lazy(() => import("./pages/FaqPage"));
-const ContactPage = lazy(() => import("./pages/ContactPage"));
-const KycPage = lazy(() => import("./pages/KycPage"));
-const LegalPage = lazy(() => import("./pages/LegalPage"));
+const AboutPage = lazyWithRetry(() => import("./pages/AboutPage"));
+const AccountsPage = lazyWithRetry(() => import("./pages/AccountsPage"));
+const LoansPage = lazyWithRetry(() => import("./pages/LoansPage"));
+const InvestmentsPage = lazyWithRetry(() => import("./pages/InvestmentsPage"));
+const CardsPage = lazyWithRetry(() => import("./pages/CardsPage"));
+const SilverCardPage = lazyWithRetry(() => import("./pages/SilverCardPage"));
+const PlatinumCardPage = lazyWithRetry(() => import("./pages/PlatinumCardPage"));
+const OffersPage = lazyWithRetry(() => import("./pages/OffersPage"));
+const RatesPage = lazyWithRetry(() => import("./pages/RatesPage"));
+const FaqPage = lazyWithRetry(() => import("./pages/FaqPage"));
+const ContactPage = lazyWithRetry(() => import("./pages/ContactPage"));
+const KycPage = lazyWithRetry(() => import("./pages/KycPage"));
+const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
+
 
 function PrivateRoute({ children, adminOnly = false }) {
   const token = localStorage.getItem("token");
@@ -99,8 +119,9 @@ function RootRoute() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Suspense fallback={<LoadingScreen />}>
-        <Routes>
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
           {/* 1. Smart Root: Landing page for Website, Direct Login for App */}
           <Route path="/" element={<RootRoute />} />
           <Route path="/home" element={<LandingPage />} />
@@ -181,6 +202,8 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
-    </BrowserRouter>
+    </ErrorBoundary>
+  </BrowserRouter>
   );
 }
+

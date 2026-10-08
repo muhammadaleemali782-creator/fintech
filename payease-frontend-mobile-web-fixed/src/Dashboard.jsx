@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import { Html5Qrcode } from "html5-qrcode";
 import Sheet from "./components/Sheet";
@@ -313,6 +314,7 @@ const tourSteps = [
 ];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const userStored = JSON.parse(localStorage.getItem("user") || "{}");
   useEffect(() => { if (!token) window.location.href = "/"; }, [token]);

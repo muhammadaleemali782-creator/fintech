@@ -1577,7 +1577,12 @@ export default function AdminPanel() {
 
   const logout = () => { localStorage.clear(); window.location.href = "/"; };
 
-  const [adminCachedReserves, setAdminCachedReserves] = useState(0);
+  const [adminCachedReserves, setAdminCachedReserves] = useState(() => {
+    try {
+      const saved = localStorage.getItem("educa_admin_cached_reserves");
+      return saved ? Number(saved) : 0;
+    } catch { return 0; }
+  });
 
   const totalReservesBase = Number(
     analytics?.stats?.netFintechReserve ||
@@ -1598,12 +1603,22 @@ export default function AdminPanel() {
   );
 
   // Live Mini-Second Profit & Compounding Deposits Stream (Continuous Monotonic Ticker at 80ms)
-  const totalDepositsDisplay = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || 0);
+  const totalDepositsDisplay = Number(
+    analytics?.stats?.totalDeposits ||
+    stats?.totalDeposits ||
+    (typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_deposits") : 0) ||
+    0
+  );
   const dailyAdminYield = totalDepositsDisplay > 0 ? (totalDepositsDisplay * 0.12) / 365 : 0;
   const perMsAdminYield = dailyAdminYield / 86400000;
 
   // Single authoritative baseline: directly anchored to backend so Mobile and Desktop are 100% IDENTICAL
-  const [liveAdminProfit, setLiveAdminProfit] = useState(totalProfitBase);
+  const [liveAdminProfit, setLiveAdminProfit] = useState(() => {
+    try {
+      const saved = localStorage.getItem("educa_admin_cached_profit");
+      return saved ? Number(saved) : totalProfitBase;
+    } catch { return totalProfitBase; }
+  });
 
   const lastTickRef = useRef(Date.now());
 
@@ -1612,18 +1627,21 @@ export default function AdminPanel() {
     if (totalProfitBase > 0) {
       setLiveAdminProfit(totalProfitBase);
       lastTickRef.current = Date.now();
-      try { localStorage.removeItem("educa_admin_cached_profit"); } catch {}
+      try { localStorage.setItem("educa_admin_cached_profit", String(totalProfitBase)); } catch {}
     }
   }, [totalProfitBase]);
 
-  // Sync cached reserves
+  // Sync cached reserves & deposits
   useEffect(() => {
     const net = Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 0);
     if (net > 0) {
       setAdminCachedReserves(net);
       try { localStorage.setItem("educa_admin_cached_reserves", String(net)); } catch {}
     }
-  }, [analytics?.stats?.netFintechReserve, stats?.netFintechReserve, stats?.totalUserBalances]);
+    if (totalDepositsDisplay > 0) {
+      try { localStorage.setItem("educa_admin_cached_deposits", String(totalDepositsDisplay)); } catch {}
+    }
+  }, [analytics?.stats?.netFintechReserve, stats?.netFintechReserve, stats?.totalUserBalances, totalDepositsDisplay]);
 
   // High-frequency live ticking stream (80ms ticks for buttery smooth digits, synced across devices)
   useEffect(() => {
@@ -1667,10 +1685,12 @@ export default function AdminPanel() {
   const liveAccruedAdmin = Math.max(0, liveAdminProfit - totalProfitBase);
   const liveAdminReserves = totalDepositsDisplay + liveAdminProfit;
 
+  const isMetricsLoading = (loadingAnalytics && !analytics) || (loadingStats && !stats);
+
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600", isLoading: (loadingAnalytics && !analytics) || (loadingStats && !stats && !liveAdminReserves) },
-    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: (loadingAnalytics && !analytics) || (loadingStats && !stats && !totalDepositsDisplay) },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600", isLoading: (loadingAnalytics && !analytics) || (loadingStats && !stats && !liveAdminProfit) },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading && liveAdminReserves === 0 },
+    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: isMetricsLoading && totalDepositsDisplay === 0 },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600", isLoading: isMetricsLoading && liveAdminProfit === 0 },
     { icon: "👥", label: "Total Users", value: stats?.totalUsers ?? users.length ?? 0, isWhite: true, isLoading: loadingStats && !stats },
     { icon: "⏳", label: "Pending Txns", value: stats?.pendingTxns ?? pending.length ?? 0, g: "from-amber-500 to-orange-500", isLoading: loadingStats && !stats },
     { icon: "📑", label: "Active Loans", value: stats?.totalLoans ?? loans.length ?? 0, g: "from-sky-500 to-blue-600", isLoading: loadingStats && !stats },
@@ -2687,7 +2707,7 @@ export default function AdminPanel() {
                   </div>
 
                   {(() => {
-                    const dep = Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 0);
+                    const dep = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || totalDepositsDisplay || 0);
                     const yld = Number(liveAdminProfit || analytics?.stats?.totalYieldCredited || 0);
                     const pool = dep + yld;
                     const depPct = pool > 0 ? ((dep / pool) * 100).toFixed(2) : "100.00";
@@ -2971,9 +2991,28 @@ export default function AdminPanel() {
                 {/* MOBILE CARD LIST (NO HORIZONTAL SCROLL) */}
                 <div className="sm:hidden space-y-2.5">
                   {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
-                    <div className="py-8 text-center text-gray-400 text-xs font-medium bg-slate-50 rounded-xl border border-slate-200">
-                      Koi daily profit yield abhi tak record nahi hua hai.
-                    </div>
+                    loadingAnalytics ? (
+                      [1, 2, 3].map((sIdx) => (
+                        <div key={`m-skel-${sIdx}`} className="p-3 bg-white border border-slate-200/90 rounded-2xl space-y-2.5 animate-pulse">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 w-24 bg-slate-200 rounded" />
+                            <div className="h-4 w-16 bg-slate-100 rounded-full" />
+                          </div>
+                          <div className="p-2.5 bg-slate-50 rounded-xl space-y-1.5">
+                            <div className="h-3 w-28 bg-slate-200 rounded" />
+                            <div className="h-4 w-36 bg-emerald-100 rounded" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                            <div className="h-3 w-20 bg-slate-100 rounded" />
+                            <div className="h-3 w-16 bg-slate-100 rounded ml-auto" />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-8 text-center text-gray-400 text-xs font-medium bg-slate-50 rounded-xl border border-slate-200">
+                        Koi daily profit yield abhi tak record nahi hua hai.
+                      </div>
+                    )
                   ) : (
                     analytics.dailyProfitChart.map((row, idx) => {
                       const isToday = idx === analytics.dailyProfitChart.length - 1;
@@ -3116,11 +3155,45 @@ export default function AdminPanel() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
-                        <tr>
-                          <td colSpan="5" className="py-8 text-center text-gray-400 font-medium">
-                            Koi daily profit yield abhi tak record nahi hua hai.
-                          </td>
-                        </tr>
+                        loadingAnalytics ? (
+                          [1, 2, 3].map((sIdx) => (
+                            <tr key={`tbl-skel-${sIdx}`} className="animate-pulse">
+                              <td className="py-3 px-3.5 align-middle">
+                                <div className="space-y-1.5">
+                                  <div className="h-4 w-20 bg-slate-200 rounded" />
+                                  <div className="h-3 w-14 bg-slate-100 rounded" />
+                                </div>
+                              </td>
+                              <td className="py-3 px-3.5 align-middle">
+                                <div className="space-y-1.5">
+                                  <div className="h-4 w-28 bg-emerald-100/80 rounded" />
+                                  <div className="h-3 w-36 bg-slate-200 rounded" />
+                                </div>
+                              </td>
+                              <td className="py-3 px-3 align-middle">
+                                <div className="space-y-1.5">
+                                  <div className="h-4 w-16 bg-emerald-100/80 rounded" />
+                                  <div className="h-3 w-12 bg-slate-100 rounded" />
+                                </div>
+                              </td>
+                              <td className="py-3 px-3 align-middle">
+                                <div className="space-y-1.5">
+                                  <div className="h-4 w-16 bg-blue-100/80 rounded" />
+                                  <div className="h-3 w-14 bg-slate-100 rounded" />
+                                </div>
+                              </td>
+                              <td className="py-3 px-3.5 align-middle text-right">
+                                <div className="h-6 w-14 bg-slate-200 rounded ml-auto" />
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="5" className="py-8 text-center text-gray-400 font-medium">
+                              Koi daily profit yield abhi tak record nahi hua hai.
+                            </td>
+                          </tr>
+                        )
                       ) : (
                         analytics.dailyProfitChart.map((row, idx) => {
                           const isToday = idx === analytics.dailyProfitChart.length - 1;

@@ -33,34 +33,26 @@ export default function LoansPage() {
     {
       title: "Personal Loan Account",
       amount: "₹5,000 to ₹50,000",
-      interest: "1.34% per Easy Installment",
+      interest: "1.34% per 10-Day Installment",
       badge: "10-Day Cycle",
-      desc: "1st time ₹5k without cheque, ₹10k with cheque. Min 15 Easy Installments. 9th installment se pehle close karne par agent ko 1:1 profit reward.",
+      desc: "Flexible 18 installments scheduled on 1st, 11th, and 21st. First time ₹5,000 without cheque, ₹10,000 with cheque. Early closure before 9th installment unlocks 1:1 profit reward.",
       icon: "🏦",
     },
     {
       title: "Micro Business Loan (Daily)",
       amount: "₹5,000 to ₹50,000",
-      interest: "18% to 36% (Daily Kist)",
+      interest: "18% to 36% (Daily Collection)",
       badge: "Daily Collection",
-      desc: "Dukandaaro aur vendors ke liye rozana collection: 60 din (18%), 80 din (24%), 100 din (30%), 120 din (36%). Same-day disbursal.",
+      desc: "Designed for retailers and local merchants. Transparent daily tiers: 60 days (18%), 80 days (24%), 100 days (30%), 120 days (36%). Same-day fast disbursal.",
       icon: "🏬",
     },
     {
-      title: "School & College Fee Loan",
-      amount: "Up to ₹1,00,000",
-      interest: "Subsidized @ 8.0% p.a.",
-      badge: "Student Special",
-      desc: "Bachho ki school ya college fee ki chinta chhodein. Direct institute transfer aur aasaan Easy Installments.",
-      icon: "🎓",
-    },
-    {
-      title: "Bike & Two-Wheeler Loan",
-      amount: "Up to ₹1,50,000",
-      interest: "Starting @ 9.5% p.a.",
-      badge: "Fast Sanction",
-      desc: "Apni nayi bike ya scooter kharidein aasaan Easy Installments par. Minimal documentation aur zero hidden charges.",
-      icon: "🏍️",
+      title: "Instant Micro-Credit",
+      amount: "₹199 to ₹5,000",
+      interest: "0% Interest for 15 Days (₹199)",
+      badge: "Instant Disbursal",
+      desc: "Emergency micro-recharge loan with 0% interest on ₹199 for 15 days. Repay on time to build credit score and unlock higher credit limits.",
+      icon: "⚡",
     },
   ];
 
@@ -76,14 +68,14 @@ export default function LoansPage() {
             Transparent Loans with <span className="text-[#1D6AE5]">Flexible Collection Cycles</span>
           </h1>
           <p className="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base">
-            Personal Loans (10-din cycle: 1st, 11th, 21st) aur Micro Business Loans (Daily Collection 60-120 Days). Bina kisi hidden charge ke.
+            Personal Loans (10-day cycle: 1st, 11th, 21st) and Micro Business Loans (Daily Collection 60-120 Days). Zero hidden charges.
           </p>
         </div>
       </section>
 
       {/* LOAN CARDS */}
       <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
           {loans.map((loan, i) => (
             <div key={i} className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-md hover:shadow-xl transition flex flex-col justify-between">
               <div>

@@ -6,10 +6,36 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [cardsOpen, setCardsOpen] = useState(false);
+  const [siteLang, setSiteLang] = useState(() => {
+    try {
+      return localStorage.getItem("educa_site_lang") || "en";
+    } catch {
+      return "en";
+    }
+  });
+
+  const toggleLang = (code) => {
+    setSiteLang(code);
+    try {
+      localStorage.setItem("educa_site_lang", code);
+      window.dispatchEvent(new Event("site_language_changed"));
+    } catch {}
+  };
+
   const location = useLocation();
   const navigate = useNavigate();
   const token = tokenStorage.getToken();
   const user = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user") || "{}") : {};
+
+  useEffect(() => {
+    const handleLangChange = () => {
+      try {
+        setSiteLang(localStorage.getItem("educa_site_lang") || "en");
+      } catch {}
+    };
+    window.addEventListener("site_language_changed", handleLangChange);
+    return () => window.removeEventListener("site_language_changed", handleLangChange);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -125,6 +151,28 @@ export default function Header() {
 
         {/* CTA */}
         <div className="hidden sm:flex items-center gap-3">
+          {/* LANGUAGE SWITCHER (EN DEFAULT / HI TOGGLE) */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => toggleLang("en")}
+              className={`px-2 py-1 rounded-lg transition cursor-pointer ${
+                siteLang === "en" ? "bg-white text-blue-600 shadow-2xs font-black" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleLang("hi")}
+              className={`px-2 py-1 rounded-lg transition cursor-pointer ${
+                siteLang === "hi" ? "bg-white text-blue-600 shadow-2xs font-black" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              हिंदी
+            </button>
+          </div>
+
           {token ? (
             user.role === "admin" ? (
               <>
@@ -180,6 +228,30 @@ export default function Header() {
       {/* MOBILE DRAWER */}
       {menuOpen && (
         <div className="lg:hidden bg-white border-b border-gray-200 px-6 py-4 space-y-2 max-h-[80vh] overflow-y-auto">
+          {/* MOBILE LANGUAGE SWITCHER */}
+          <div className="flex items-center justify-between py-2 border-b border-gray-100 text-xs">
+            <span className="font-bold text-gray-700">Language / भाषा:</span>
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => toggleLang("en")}
+                className={`px-3 py-1 rounded-lg transition ${
+                  siteLang === "en" ? "bg-white text-blue-600 shadow-2xs font-black" : "text-slate-600"
+                }`}
+              >
+                English
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleLang("hi")}
+                className={`px-3 py-1 rounded-lg transition ${
+                  siteLang === "hi" ? "bg-white text-blue-600 shadow-2xs font-black" : "text-slate-600"
+                }`}
+              >
+                हिंदी
+              </button>
+            </div>
+          </div>
           {navLinks.map((item) => (
             <div key={item.label}>
               <Link

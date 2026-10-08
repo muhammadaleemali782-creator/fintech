@@ -6,7 +6,7 @@ export default function OffersPage() {
     {
       title: "Refer & Earn ₹50 Cash",
       tag: "Referral Promo",
-      desc: "Apne dosto ko Educa Fintech par invite karein. Har referral par aapko milenge flat ₹50 direct wallet me.",
+      desc: "Invite your friends to Educa Fintech. Receive flat ₹50 cash reward credited directly to your wallet for every verified referral.",
       code: "REFER50",
       cta: "Share Referral Code",
       color: "border-blue-200 bg-blue-50/50",
@@ -14,7 +14,7 @@ export default function OffersPage() {
     {
       title: "12% APY Welcome Boost",
       tag: "Account Opening",
-      desc: "Aaj hi naya account kholein aur pehle hi din se apne savings balance par flat 12% annual interest paayein.",
+      desc: "Open your account today and earn 12% annual compounding interest on your liquid savings balance from day one.",
       code: "SAVE12",
       cta: "Open Account",
       color: "border-emerald-200 bg-emerald-50/50",
@@ -22,7 +22,7 @@ export default function OffersPage() {
     {
       title: "0% Interest on ₹199 Loan",
       tag: "Micro Recharge",
-      desc: "Pehle ₹199 recharge loan par 15 din tak zero interest. Repay on time and boost your VIP credit score.",
+      desc: "Enjoy zero interest on your first ₹199 recharge loan for 15 days. Repay on time and elevate your credit limit.",
       code: "RECHARGE199",
       cta: "Claim ₹199",
       color: "border-amber-200 bg-amber-50/50",
@@ -30,7 +30,7 @@ export default function OffersPage() {
     {
       title: "Platinum VIP 2.5% Cashback",
       tag: "Card Spends",
-      desc: "Platinum Card holders ke liye sabhi grocery, fuel, aur online shopping spends par flat 2.5% instant cashback.",
+      desc: "Earn flat 2.5% instant cashback across all grocery, fuel, and online shopping purchases with the Educa Platinum Card.",
       code: "VIPCASH",
       cta: "Unlock Platinum",
       color: "border-indigo-200 bg-indigo-50/50",
@@ -48,7 +48,7 @@ export default function OffersPage() {
             Educa <span className="text-[#1D6AE5]">Rewards & Offers</span>
           </h1>
           <p className="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base">
-            Har transaction par cashback, referral bonuses, aur zero-fee festival loan offers.
+            Get instant cashback on transactions, referral bonuses, and promotional micro-credit benefits.
           </p>
         </div>
       </section>

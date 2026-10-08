@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
 
 export default function Login({ isApp = false }) {
   const navigate = useNavigate();
+  const isAppClient = isApp || (typeof window !== "undefined" && (new URLSearchParams(window.location.search).get("app") === "true" || localStorage.getItem("educa_app_mode") === "true" || (navigator.userAgent || "").toLowerCase().includes("wv") || (navigator.userAgent || "").toLowerCase().includes("educafintech") || !!window.AndroidBiometric));
   const [tab, setTab] = useState("login"); // "login" | "mail-login" | "register" | "forgot"
   const [msg, setMsg] = useState({ text: "", type: "" });
   const [loading, setLoading] = useState(false);
@@ -197,7 +198,7 @@ export default function Login({ isApp = false }) {
       {/* SOFT TOP ACCENTS (LIGHT THEME) */}
       <div className="absolute top-0 inset-x-0 h-72 bg-gradient-to-b from-blue-50 to-transparent pointer-events-none -z-10" />
 
-      {/* TOP BRAND BAR (NO BACK BUTTON) */}
+      {/* TOP BRAND BAR */}
       <div className="w-full max-w-md pt-2 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-2.5">
           <img
@@ -215,9 +216,20 @@ export default function Login({ isApp = false }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] text-slate-600 shadow-xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>RBI NBFC Gateway</span>
+        <div className="flex items-center gap-2">
+          {!isAppClient && (
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 hover:text-blue-600 transition shadow-2xs active:scale-95"
+            >
+              <span>←</span>
+              <span>Back to Home</span>
+            </Link>
+          )}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] text-slate-600 shadow-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>RBI Gateway</span>
+          </div>
         </div>
       </div>
 

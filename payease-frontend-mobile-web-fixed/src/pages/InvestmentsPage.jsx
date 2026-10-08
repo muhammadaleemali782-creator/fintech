@@ -8,42 +8,57 @@ export default function InvestmentsPage() {
       returns: "12.0% p.a.",
       min: "₹100",
       lockIn: "Zero (Anytime Withdrawal)",
-      risk: "Low Risk",
-      features: ["Daily interest credit", "Zero penalty on withdrawal", "Automated compounding", "Direct UPI payout"],
-      badge: "Most Liquid",
+      risk: "Liquid Compounding",
+      features: [
+        "Real-time second-by-second live interest credit",
+        "Zero lock-in & instant penalty-free withdrawal",
+        "Daily automated compounding to Profit Wallet",
+        "Direct 24/7 UPI & bank withdrawal",
+      ],
+      badge: "Most Popular",
     },
     {
-      title: "14% Wealth Growth Term",
-      returns: "14.0% p.a.",
-      min: "₹1,000",
-      lockIn: "12 Months",
-      risk: "Guaranteed Return",
-      features: ["Fixed quarterly payouts", "14% flat annualized yield", "Senior citizen +0.5% extra", "Reinvestment option"],
-      badge: "Highest Return",
+      title: "365-Day Fixed Bond (18% Profit)",
+      returns: "18.0% Guaranteed",
+      min: "₹1,00,000 / Unit",
+      lockIn: "365 Days",
+      risk: "100% Capital Guaranteed",
+      features: [
+        "Flat 18% annual profit guaranteed on maturity",
+        "Multi-unit flexible investment (₹1L, ₹2L, ₹3L...)",
+        "Auto-credited directly to your Profit Wallet",
+        "100% backed by fintech liquidity reserves",
+      ],
+      badge: "18% Fixed Bond",
     },
     {
-      title: "Student Goal Builder",
-      returns: "11.5% p.a.",
-      min: "₹50 / week",
-      lockIn: "Flexible",
-      risk: "Super Safe",
-      features: ["Round-up micro savings", "Laptop & fee goal tracker", "Bonus ₹100 on completing goal", "Zero account charges"],
-      badge: "Student Special",
+      title: "Monthly Lending Bonds (40 & 80 Mo)",
+      returns: "Up to 100% Total Return",
+      min: "₹1,00,000 / Unit",
+      lockIn: "40 or 80 Months",
+      risk: "Monthly Passive Cashflow",
+      features: [
+        "40 Months Option: ₹3,500/month (Total ₹1,40,000 return)",
+        "80 Months Option: ₹2,500/month (Total ₹2,00,000 return - 2x money)",
+        "Guaranteed monthly cashflow to your account",
+        "Multi-unit scalable allocation with full transparency",
+      ],
+      badge: "High Cashflow",
     },
   ];
 
   return (
-    <PageLayout title="Investments — 12% to 14% Annual Returns">
+    <PageLayout title="Investments — 12% Daily Savings & 18% Fixed Bonds">
       <section className="py-16 bg-gradient-to-b from-blue-50 to-white text-center px-4">
         <div className="max-w-4xl mx-auto space-y-4">
           <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-black rounded-full uppercase tracking-wider">
             Wealth & Passive Income
           </span>
           <h1 className="text-3xl sm:text-5xl font-black text-[#0A192F] tracking-tight">
-            Apne Paise Ko Badhao, <span className="text-emerald-600">12% Se 14% Return</span> Ke Sath
+            Grow Your Wealth with <span className="text-emerald-600">12% to 18% Returns</span>
           </h1>
           <p className="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base">
-            Inflation 6% hai, aur traditional bank FD deti hai sirf 6.5%. Educa Fintech ke sath payein safe aur transparent returns.
+            While traditional savings accounts offer only 3-4% and fixed deposits 6.5%, Educa Fintech delivers transparent 12% daily compounding savings and up to 18% fixed bonds.
           </p>
         </div>
       </section>
@@ -87,7 +102,7 @@ export default function InvestmentsPage() {
       <section className="py-10 bg-gray-50 border-t border-gray-200 text-center px-4">
         <div className="max-w-3xl mx-auto space-y-2">
           <p className="text-xs text-gray-500">
-            ⚠️ <strong>Risk Disclosure:</strong> All investment strategies are audited and backed by diversified lending protocols. Past performance does not guarantee future results. Please read the scheme information document carefully before investing.
+            ⚠️ <strong>Risk Disclosure:</strong> All investment accounts are audited and backed by verifiable capital reserves and structured lending portfolios.
           </p>
         </div>
       </section>

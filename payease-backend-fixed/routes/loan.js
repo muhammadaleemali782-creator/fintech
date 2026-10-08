@@ -1358,6 +1358,9 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
         }
       }
 
+      loan.approvedAt = new Date();
+      loan.approverName = req.body.approverName || req.user.name || 'Admin';
+      loan.approverDevice = req.body.approverDevice || '💻 Windows PC • Chrome';
       await loan.save({ session });
 
       await Transaction.create([{

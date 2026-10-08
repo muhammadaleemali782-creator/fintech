@@ -83,6 +83,11 @@ const userSchema = new mongoose.Schema({
     submittedAt: { type: Date, default: null }
   },
   kycVerifiedAt: { type: Date, default: null },
+  kycApprovedBy: {
+    name: { type: String, default: '' },
+    device: { type: String, default: '' },
+    at: { type: Date, default: null }
+  },
 
   // Custom UPI / App QR (GPay, PhonePe, Paytm, etc.) - Persists across app uninstalls
   customQrUrl: { type: String, default: '' },

@@ -46,6 +46,9 @@ const transactionSchema = new mongoose.Schema({
   referenceId: String, // e.g. loanId or bondId
   remarks: String,
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  approvedAt: { type: Date },
+  approverName: { type: String },
+  approverDevice: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 

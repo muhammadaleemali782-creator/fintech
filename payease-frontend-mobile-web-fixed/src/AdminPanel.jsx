@@ -1,9 +1,181 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
 
 import { API } from "./config";
+
+// --- IN-MEMORY CACHE & REQUEST DEDUPLICATION (Zero redundant network calls) ---
+const apiCache = new Map();
+const inFlightRequests = new Map();
+
+async function cachedAdminFetch(url, options = {}, ttlMs = 45000, forceRefresh = false) {
+  const method = (options.method || "GET").toUpperCase();
+  if (method !== "GET") {
+    apiCache.clear();
+    return fetch(url, options);
+  }
+
+  const cacheKey = `${url}`;
+  const now = Date.now();
+
+  if (!forceRefresh && apiCache.has(cacheKey)) {
+    const cached = apiCache.get(cacheKey);
+    if (now - cached.timestamp < ttlMs) {
+      return {
+        ok: true,
+        status: 200,
+        fromCache: true,
+        json: async () => structuredClone(cached.data)
+      };
+    }
+  }
+
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey);
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) {
+        try {
+          const data = await res.json();
+          apiCache.set(cacheKey, { timestamp: Date.now(), data });
+          return {
+            ok: true,
+            status: res.status,
+            fromCache: false,
+            json: async () => structuredClone(data)
+          };
+        } catch {
+          return res;
+        }
+      }
+      return res;
+    } finally {
+      inFlightRequests.delete(cacheKey);
+    }
+  })();
+
+  inFlightRequests.set(cacheKey, fetchPromise);
+  return fetchPromise;
+}
+
+// --- CLIENT DEVICE & BROWSER DETECTOR (For Approval Audits) ---
+const getClientDeviceInfo = () => {
+  if (typeof window === "undefined" || !navigator) return "Web Console";
+  const ua = navigator.userAgent || "";
+  let device = "PC / Desktop";
+  let browser = "Browser";
+
+  if (/android/i.test(ua)) {
+    const match = ua.match(/;\s*([^;)]+)\s*Build/i);
+    device = match && match[1] ? `📱 Android (${match[1].trim()})` : "📱 Android Phone";
+  } else if (/iphone/i.test(ua)) {
+    device = "📱 iPhone (iOS)";
+  } else if (/ipad/i.test(ua)) {
+    device = "📱 iPad (iOS)";
+  } else if (/windows/i.test(ua)) {
+    device = "💻 Windows PC";
+  } else if (/macintosh|mac os x/i.test(ua)) {
+    device = "💻 Mac";
+  } else if (/linux/i.test(ua)) {
+    device = "💻 Linux PC";
+  }
+
+  if (/chrome|crios/i.test(ua) && !/edg/i.test(ua) && !/opr/i.test(ua)) {
+    browser = "Chrome";
+  } else if (/edg/i.test(ua)) {
+    browser = "Edge";
+  } else if (/firefox|fxios/i.test(ua)) {
+    browser = "Firefox";
+  } else if (/safari/i.test(ua) && !/chrome/i.test(ua)) {
+    browser = "Safari";
+  } else if (/opr|opera/i.test(ua)) {
+    browser = "Opera";
+  }
+
+  return `${device} • ${browser}`;
+};
+
+// --- BORROWER LINEAGE RESOLVER (Direct Customer, Agent, Sub-Agent, etc.) ---
+const getUserLineage = (u, allUsers = [], allAgents = []) => {
+  if (!u) return { type: "direct", label: "Direct Customer", subLabel: "", badge: "👤 Direct Customer" };
+
+  let refId = null;
+  let refObj = null;
+
+  if (u.referredBy && typeof u.referredBy === "object") {
+    refId = String(u.referredBy._id || "");
+    refObj = u.referredBy;
+  } else if (u.referredBy) {
+    refId = String(u.referredBy);
+  }
+
+  if (!refId && u.referredByCode) {
+    const codeMatch = allAgents.find(a => a.referralCode === u.referredByCode) || allUsers.find(x => x.referralCode === u.referredByCode);
+    if (codeMatch) refId = String(codeMatch._id);
+  }
+
+  if (!refId) {
+    return {
+      type: "direct",
+      label: "Direct Customer",
+      subLabel: "Platform Direct Signup",
+      badge: "👤 Direct Customer"
+    };
+  }
+
+  const agentMatch = allAgents.find(a => String(a._id) === refId);
+  const userMatch = allUsers.find(x => String(x._id) === refId);
+  const referrer = agentMatch || userMatch || refObj;
+
+  if (!referrer) {
+    return {
+      type: "agent_user",
+      label: `Referred (ID: ${refId.slice(-6)})`,
+      subLabel: "",
+      badge: "🤝 Agent Customer",
+      agentId: refId
+    };
+  }
+
+  // Check if the referrer was referred by someone else (Sub-Agent hierarchy)
+  let parentAgent = null;
+  const referrerParentId = referrer.referredBy && typeof referrer.referredBy === "object"
+    ? String(referrer.referredBy._id || "")
+    : referrer.referredBy ? String(referrer.referredBy) : null;
+
+  if (referrerParentId) {
+    parentAgent = allAgents.find(a => String(a._id) === referrerParentId) || allUsers.find(x => String(x._id) === referrerParentId);
+  }
+
+  const refName = referrer.name || "Agent";
+  const refCode = referrer.referralCode || "";
+
+  if (parentAgent) {
+    const parentName = parentAgent.name || "Master Agent";
+    return {
+      type: "sub_agent_user",
+      label: `User of Sub-Agent: ${refName}`,
+      subLabel: `Master Agent: ${parentName}`,
+      badge: `🤝 Sub-Agent: ${refName} (via ${parentName})`,
+      agentName: refName,
+      masterName: parentName,
+      agentId: refId
+    };
+  }
+
+  return {
+    type: "agent_user",
+    label: `Agent: ${refName}${refCode ? ` (${refCode})` : ""}`,
+    subLabel: referrer.agentProfile?.businessName || "",
+    badge: `🤝 Agent: ${refName}`,
+    agentName: refName,
+    agentId: refId
+  };
+};
 
 export default function AdminPanel() {
   const token = localStorage.getItem("token");
@@ -12,15 +184,18 @@ export default function AdminPanel() {
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const [tab, setTab] = useState("analytics");
-  const [stats, setStats] = useState(() => {
-    try {
-      const saved = localStorage.getItem("educa_admin_cached_stats");
-      return saved ? JSON.parse(saved) : { totalUsers: 2, pendingTxns: 0, totalDeposits: 710000, netFintechReserve: 710000 };
-    } catch {
-      return { totalUsers: 2, pendingTxns: 0, totalDeposits: 710000, netFintechReserve: 710000 };
-    }
-  });
-  const [loadingStats, setLoadingStats] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [rateLimitError, setRateLimitError] = useState(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [expandedYieldDays, setExpandedYieldDays] = useState({});
+  const [assignAgentModalUser, setAssignAgentModalUser] = useState(null);
+  const [assigningAgent, setAssigningAgent] = useState(false);
+  const [selectedAgentForAssign, setSelectedAgentForAssign] = useState("");
+  // Dual Universal Filters for Issue Loan Desk
+  const [issueHierarchyFilter, setIssueHierarchyFilter] = useState("all");
+  const [issueSelectedAgentFilter, setIssueSelectedAgentFilter] = useState("all");
+  const [issueTimeFilter, setIssueTimeFilter] = useState("all");
   const [pending, setPending] = useState([]);
   const [agents, setAgents] = useState([]);
   const [agentCommissionInput, setAgentCommissionInput] = useState({});
@@ -352,22 +527,31 @@ export default function AdminPanel() {
     }
   }, []);
 
-  const loadStats = useCallback(async () => {
+  const loadStats = useCallback(async (force = false) => {
+    setLoadingStats(true);
     try {
-      const res = await fetch(`${API}/admin/stats`, { headers });
+      const res = await cachedAdminFetch(`${API}/admin/stats`, { headers }, 45000, force);
+      if (res.status === 429) {
+        setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
+        return;
+      }
       if (!res.ok) return;
       const d = await res.json();
       if (d && typeof d === "object" && !d.message) {
         setStats(d);
-        try { localStorage.setItem("educa_admin_cached_stats", JSON.stringify(d)); } catch {}
+        setRateLimitError(null);
       }
-    } catch {}
-    finally { setLoadingStats(false); }
+    } catch (e) {
+      console.warn("Failed to load stats:", e);
+    } finally {
+      setLoadingStats(false);
+    }
   }, []); // eslint-disable-line
 
-  const loadNotifications = useCallback(async () => {
+  const loadNotifications = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API}/admin/notifications`, { headers });
+      const res = await cachedAdminFetch(`${API}/admin/notifications`, { headers }, 45000, force);
+      if (res.status === 429) return;
       if (!res.ok) return;
       const data = await res.json();
       if (data.notifications) {
@@ -377,9 +561,10 @@ export default function AdminPanel() {
     } catch {}
   }, []); // eslint-disable-line
 
-  const loadSettings = useCallback(async () => {
+  const loadSettings = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API}/settings`, { headers });
+      const res = await cachedAdminFetch(`${API}/settings`, { headers }, 60000, force);
+      if (res.status === 429) return;
       if (!res.ok) return;
       const data = await res.json();
       setInterestRate(data.loanInterestRate || 12);
@@ -389,45 +574,62 @@ export default function AdminPanel() {
     } catch {}
   }, []); // eslint-disable-line
 
-  const loadPending = useCallback(async () => {
+  const loadPending = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API}/admin/transactions/pending`, { headers });
+      const res = await cachedAdminFetch(`${API}/admin/transactions/pending`, { headers }, 30000, force);
+      if (res.status === 429) {
+        setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
+        return;
+      }
       if (!res.ok) return;
       const d = await res.json();
-      if (Array.isArray(d)) setPending(d);
+      if (Array.isArray(d)) {
+        setPending(d);
+        setRateLimitError(null);
+      }
     } catch {}
   }, []); // eslint-disable-line
 
-  const loadUsers = useCallback(async () => {
+  const loadUsers = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API}/admin/users`, { headers });
+      const res = await cachedAdminFetch(`${API}/admin/users`, { headers }, 45000, force);
+      if (res.status === 429) {
+        setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
+        return;
+      }
       if (!res.ok) return;
       const d = await res.json();
-      if (Array.isArray(d)) setUsers(d.filter(u => u.role !== "admin"));
+      if (Array.isArray(d)) {
+        setUsers(d.filter(u => u.role !== "admin"));
+        setRateLimitError(null);
+      }
     } catch {}
   }, []); // eslint-disable-line
 
-  const loadLoans = useCallback(async () => {
+  const loadLoans = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API}/loan/all`, { headers });
+      const res = await cachedAdminFetch(`${API}/loan/all`, { headers }, 45000, force);
+      if (res.status === 429) return;
       if (!res.ok) return;
       const d = await res.json();
       if (Array.isArray(d)) setLoans(d);
     } catch {}
   }, []); // eslint-disable-line
 
-  const loadBonds = useCallback(async () => {
+  const loadBonds = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API}/admin/bonds`, { headers });
+      const res = await cachedAdminFetch(`${API}/admin/bonds`, { headers }, 45000, force);
+      if (res.status === 429) return;
       if (!res.ok) return;
       const d = await res.json();
       if (Array.isArray(d)) setBonds(d);
     } catch {}
   }, []); // eslint-disable-line
 
-  const loadDevices = useCallback(async () => {
+  const loadDevices = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API}/v1/admin/devices`, { headers });
+      const res = await cachedAdminFetch(`${API}/v1/admin/devices`, { headers }, 45000, force);
+      if (res.status === 429) return;
       if (!res.ok) return;
       const d = await res.json();
       if (d.devices) setDevices(d.devices);
@@ -439,7 +641,7 @@ export default function AdminPanel() {
       const res = await fetch(`${API}/v1/admin/devices/${deviceId}/lock`, { method: "POST", headers });
       const d = await res.json();
       showToast(d.message || "Lock command sent to device!", "success");
-      setTimeout(loadDevices, 1000);
+      setTimeout(() => loadDevices(true), 1000);
     } catch {
       showToast("Failed to lock device", "error");
     }
@@ -450,15 +652,16 @@ export default function AdminPanel() {
       const res = await fetch(`${API}/v1/admin/devices/${deviceId}/unlock`, { method: "POST", headers });
       const d = await res.json();
       showToast(d.message || "Unlock command sent to device!", "success");
-      setTimeout(loadDevices, 1000);
+      setTimeout(() => loadDevices(true), 1000);
     } catch {
       showToast("Failed to unlock device", "error");
     }
   };
 
-  const loadAgents = useCallback(async () => {
+  const loadAgents = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API}/admin/agent-applications`, { headers });
+      const res = await cachedAdminFetch(`${API}/admin/agent-applications`, { headers }, 45000, force);
+      if (res.status === 429) return;
       if (!res.ok) return;
       const d = await res.json();
       if (Array.isArray(d)) setAgents(d);
@@ -471,13 +674,18 @@ export default function AdminPanel() {
       const res = await fetch(`${API}/admin/agent-applications/${id}/approve`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ commissionRate: rateVal })
+        body: JSON.stringify({
+          commissionRate: rateVal,
+          approverName: user.name || "Admin",
+          approverDevice: getClientDeviceInfo()
+        })
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.message);
       showToast(d.message || "Agent approved successfully!", "success");
-      loadAgents();
-      loadUsers();
+      apiCache.clear();
+      loadAgents(true);
+      loadUsers(true);
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -499,7 +707,8 @@ export default function AdminPanel() {
       const d = await res.json();
       if (!res.ok) throw new Error(d.message);
       showToast(d.message || `Commission rate updated to ${rateVal}%!`, "success");
-      loadAgents();
+      apiCache.clear();
+      loadAgents(true);
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -513,19 +722,46 @@ export default function AdminPanel() {
       const d = await res.json();
       if (!res.ok) throw new Error(d.message);
       showToast("Agent application rejected", "success");
-      loadAgents();
+      apiCache.clear();
+      loadAgents(true);
     } catch (err) {
       showToast(err.message, "error");
     }
   };
 
-  const loadAnalytics = useCallback(async () => {
+  const handleAssignAgent = async () => {
+    if (!assignAgentModalUser) return;
+    setAssigningAgent(true);
     try {
-      const res = await fetch(`${API}/admin/analytics`, { headers });
+      const res = await fetch(`${API}/admin/users/${assignAgentModalUser._id}/assign-agent`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId: selectedAgentForAssign || null })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || "Failed to update agent assignment");
+      showToast(d.message || "Agent assignment updated successfully!", "success");
+      setUsers(prev => prev.map(u => String(u._id) === String(assignAgentModalUser._id) ? { ...u, referredBy: selectedAgentForAssign || null } : u));
+      if (issueSelectedUser && String(issueSelectedUser._id) === String(assignAgentModalUser._id)) {
+        setIssueSelectedUser(prev => ({ ...prev, referredBy: selectedAgentForAssign || null }));
+      }
+      apiCache.clear();
+      setAssignAgentModalUser(null);
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setAssigningAgent(false);
+    }
+  };
+
+  const loadAnalytics = useCallback(async (force = false) => {
+    setLoadingAnalytics(true);
+    try {
+      const res = await cachedAdminFetch(`${API}/admin/analytics`, { headers }, 45000, force);
+      if (res.status === 429) return;
       const data = await res.json();
       if (data && data.success) {
         setAnalytics(data);
-        try { localStorage.setItem("educa_admin_cached_analytics", JSON.stringify(data)); } catch {}
       }
     } catch (e) {
       console.warn("Failed to load analytics", e);
@@ -534,9 +770,10 @@ export default function AdminPanel() {
     }
   }, []); // eslint-disable-line
 
-  const loadDepositDetails = useCallback(async () => {
+  const loadDepositDetails = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`${API}/settings/deposit-details`);
+      const res = await cachedAdminFetch(`${API}/settings/deposit-details`, {}, 60000, force);
+      if (res.status === 429) return;
       const data = await res.json();
       if (data && data.upiId) setDepositDetails(data);
     } catch (e) {
@@ -560,6 +797,7 @@ export default function AdminPanel() {
       if (res.ok && data.success) {
         showToast("✅ Admin Deposit Details (UPI & Bank) save ho gayi!", "success");
         if (data.depositDetails) setDepositDetails(data.depositDetails);
+        apiCache.clear();
       } else {
         showToast(data.message || "Failed to update deposit details", "error");
       }
@@ -570,18 +808,66 @@ export default function AdminPanel() {
     }
   };
 
-  const loadAll = useCallback(() => {
-    loadStats(); loadPending(); loadAgents(); loadUsers(); loadLoans(); loadBonds(); loadSettings(); loadNotifications(); loadDevices(); loadAnalytics(); loadDepositDetails();
-  }, [loadStats, loadPending, loadAgents, loadUsers, loadLoans, loadBonds, loadSettings, loadNotifications, loadDevices, loadAnalytics, loadDepositDetails]);
+  // Manual Retry Handler with In-Flight Clearance
+  const handleManualRetry = async () => {
+    setIsRetrying(true);
+    apiCache.clear();
+    setRateLimitError(null);
+    try {
+      await Promise.all([loadStats(true), loadPending(true), loadUsers(true)]);
+      showToast("Data refreshed successfully!", "success");
+    } catch {
+      showToast("Retry failed. Please wait a few moments.", "error");
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
+  const loadAll = useCallback(() => {
+    apiCache.clear();
+    loadStats(true);
+    loadPending(true);
+    loadUsers(true);
+  }, [loadStats, loadPending, loadUsers]);
+
+  // PRIORITY LOADING: Only 3 calls on initial mount!
   useEffect(() => {
-    loadAll();
+    loadStats();
+    loadPending();
+    loadUsers();
+
+    // Gentle 90s heartbeat interval (replaces aggressive 10s polling)
     const i = setInterval(() => {
-      loadStats();
-      loadAnalytics();
-    }, 10000);
+      loadStats(true);
+      loadPending(true);
+    }, 90000);
     return () => clearInterval(i);
   }, []); // eslint-disable-line
+
+  // LAZY LOADING: Sections only fetch when admin navigates to that tab
+  useEffect(() => {
+    if (tab === "analytics") {
+      loadAnalytics();
+    } else if (tab === "pending") {
+      loadPending();
+      loadDepositDetails();
+    } else if (tab === "agents") {
+      loadAgents();
+    } else if (tab === "loans") {
+      loadLoans();
+    } else if (tab === "bonds") {
+      loadBonds();
+    } else if (tab === "devices") {
+      loadDevices();
+    } else if (tab === "settings") {
+      loadSettings();
+      loadDepositDetails();
+    } else if (tab === "issue-loan") {
+      loadLoans();
+      loadAgents();
+      loadUsers();
+    }
+  }, [tab, loadAnalytics, loadPending, loadDepositDetails, loadAgents, loadLoans, loadBonds, loadDevices, loadSettings, loadUsers]);
 
   // REAL-TIME SSE CONNECTION FOR LIVE ALERTS & SOUND
   useEffect(() => {
@@ -661,24 +947,46 @@ export default function AdminPanel() {
 
   const approve = async (id) => {
     if (!window.confirm("Approve this transaction?")) return;
-    const res = await fetch(`${API}/admin/transaction/${id}/approve`, { method: "POST", headers });
+    const res = await fetch(`${API}/admin/transaction/${id}/approve`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        approverName: user.name || "Admin",
+        approverDevice: getClientDeviceInfo()
+      })
+    });
     const data = await res.json();
     showToast(data.message, res.ok ? "success" : "error");
-    if (res.ok) loadAll();
+    if (res.ok) {
+      apiCache.clear();
+      loadPending(true);
+      loadStats(true);
+    }
   };
 
   const reject = async (id) => {
     const remarks = window.prompt("Rejection reason:");
     if (!remarks) return;
-    const res = await fetch(`${API}/admin/transaction/${id}/reject`, { method: "POST", headers, body: JSON.stringify({ remarks }) });
+    const res = await fetch(`${API}/admin/transaction/${id}/reject`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        remarks,
+        approverName: user.name || "Admin",
+        approverDevice: getClientDeviceInfo()
+      })
+    });
     showToast((await res.json()).message, "success");
-    loadAll();
+    apiCache.clear();
+    loadPending(true);
+    loadStats(true);
   };
 
   const toggleBlock = async (id) => {
     const res = await fetch(`${API}/admin/user/${id}/toggle-block`, { method: "POST", headers });
     showToast((await res.json()).message);
-    loadUsers();
+    apiCache.clear();
+    loadUsers(true);
   };
 
   const toggleUninstallLock = async (userId) => {
@@ -687,8 +995,9 @@ export default function AdminPanel() {
       const data = await res.json();
       showToast(data.message || "Uninstall lock updated!", res.ok ? "success" : "error");
       if (res.ok) {
-        loadUsers();
-        loadDevices();
+        apiCache.clear();
+        loadUsers(true);
+        loadDevices(true);
       }
     } catch {
       showToast("Failed to toggle uninstall protection", "error");
@@ -706,7 +1015,10 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       showToast(data.message, res.ok ? "success" : "error");
-      if (res.ok) loadUsers();
+      if (res.ok) {
+        apiCache.clear();
+        loadUsers(true);
+      }
     } catch {
       showToast("Failed to update custom interest rate", "error");
     }
@@ -724,7 +1036,10 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       showToast(data.message, res.ok ? "success" : "error");
-      if (res.ok) loadUsers();
+      if (res.ok) {
+        apiCache.clear();
+        loadUsers(true);
+      }
     } catch {
       showToast("Failed to update card status", "error");
     }
@@ -734,12 +1049,19 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`${API}/admin/kyc/${userId}/approve`, {
         method: "POST",
-        headers,
-        body: JSON.stringify({ remarks })
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          remarks,
+          approverName: user.name || "Admin",
+          approverDevice: getClientDeviceInfo()
+        })
       });
       const data = await res.json();
       showToast(data.message, res.ok ? "success" : "error");
-      if (res.ok) loadUsers();
+      if (res.ok) {
+        apiCache.clear();
+        loadUsers(true);
+      }
     } catch {
       showToast("Failed to approve KYC", "error");
     }
@@ -749,12 +1071,19 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`${API}/admin/kyc/${userId}/reject`, {
         method: "POST",
-        headers,
-        body: JSON.stringify({ remarks })
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          remarks,
+          approverName: user.name || "Admin",
+          approverDevice: getClientDeviceInfo()
+        })
       });
       const data = await res.json();
       showToast(data.message, res.ok ? "success" : "error");
-      if (res.ok) loadUsers();
+      if (res.ok) {
+        apiCache.clear();
+        loadUsers(true);
+      }
     } catch {
       showToast("Failed to reject KYC", "error");
     }
@@ -767,13 +1096,19 @@ export default function AdminPanel() {
       const res = await fetch(`${API}/loan/${loanApproveModal._id}/approve`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ advanceOption })
+        body: JSON.stringify({
+          advanceOption,
+          approverName: user.name || "Admin",
+          approverDevice: getClientDeviceInfo()
+        })
       });
       const data = await res.json();
       showToast(data.message, res.ok ? "success" : "error");
       if (res.ok) {
         setLoanApproveModal(null);
-        loadAll();
+        apiCache.clear();
+        loadLoans(true);
+        loadStats(true);
       }
     } catch {
       showToast("Network error approving loan", "error");
@@ -789,7 +1124,10 @@ export default function AdminPanel() {
       const res = await fetch(`${API}/loan/${id}/reject`, { method: "POST", headers });
       const data = await res.json();
       showToast(data.message, res.ok ? "success" : "error");
-      if (res.ok) loadLoans();
+      if (res.ok) {
+        apiCache.clear();
+        loadLoans(true);
+      }
     } catch {
       showToast("Network error rejecting loan", "error");
     } finally {
@@ -802,11 +1140,18 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`${API}/loan/admin/${loanId}/installment/${installmentNo}/approve`, {
         method: "POST",
-        headers
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          approverName: user.name || "Admin",
+          approverDevice: getClientDeviceInfo()
+        })
       });
       const data = await res.json();
       showToast(data.message, res.ok ? "success" : "error");
-      if (res.ok) loadLoans();
+      if (res.ok) {
+        apiCache.clear();
+        loadLoans(true);
+      }
     } catch {
       showToast("Network error approving installment", "error");
     }
@@ -1196,21 +1541,14 @@ export default function AdminPanel() {
 
   const logout = () => { localStorage.clear(); window.location.href = "/"; };
 
-  const [adminCachedReserves, setAdminCachedReserves] = useState(() => {
-    try {
-      const saved = localStorage.getItem("educa_admin_cached_reserves");
-      return saved ? Number(saved) : 710000;
-    } catch {
-      return 710000;
-    }
-  });
+  const [adminCachedReserves, setAdminCachedReserves] = useState(0);
 
   const totalReservesBase = Number(
     analytics?.stats?.netFintechReserve ||
     stats?.netFintechReserve ||
     stats?.totalUserBalances ||
     adminCachedReserves ||
-    710000
+    0
   );
 
   const chartCumulativeProfit = (analytics?.dailyProfitChart || []).reduce((acc, row) => acc + (Number(row.amount) || 0), 0);
@@ -1224,7 +1562,7 @@ export default function AdminPanel() {
   );
 
   // Live Mini-Second Profit & Compounding Deposits Stream (Continuous Monotonic Ticker at 80ms)
-  const totalDepositsDisplay = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || 712000);
+  const totalDepositsDisplay = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || 0);
   const dailyAdminYield = totalDepositsDisplay > 0 ? (totalDepositsDisplay * 0.12) / 365 : 0;
   const perMsAdminYield = dailyAdminYield / 86400000;
 
@@ -1297,9 +1635,9 @@ export default function AdminPanel() {
     { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600" },
     { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
     { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600" },
-    { icon: "👥", label: "Total Users", value: stats.totalUsers ?? users.length ?? 0, isWhite: true },
-    { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? pending.length ?? 0, g: "from-amber-500 to-orange-500" },
-    { icon: "📑", label: "Active Loans", value: stats.totalLoans ?? loans.length ?? 0, g: "from-sky-500 to-blue-600" },
+    { icon: "👥", label: "Total Users", value: stats?.totalUsers ?? users.length ?? 0, isWhite: true },
+    { icon: "⏳", label: "Pending Txns", value: stats?.pendingTxns ?? pending.length ?? 0, g: "from-amber-500 to-orange-500" },
+    { icon: "📑", label: "Active Loans", value: stats?.totalLoans ?? loans.length ?? 0, g: "from-sky-500 to-blue-600" },
   ];
 
   return (
@@ -1518,9 +1856,30 @@ export default function AdminPanel() {
         </nav>
 
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0">
+          {/* Rate Limit (429) & Network Error Alert Banner */}
+          {rateLimitError && (
+            <div className="mb-4 sm:mb-6 p-4 bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-sm animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⚠️</span>
+                <div>
+                  <p className="text-xs sm:text-sm font-black">{rateLimitError}</p>
+                  <p className="text-[11px] text-amber-800 mt-0.5">Existing table aur data bilkul safe hai. 30 second baad retry karein.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleManualRetry}
+                disabled={isRetrying}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 shadow-xs"
+              >
+                <span>{isRetrying ? "⏳ Refreshing..." : "🔄 Retry Now"}</span>
+              </button>
+            </div>
+          )}
+
           {/* Stats — Only in Profit & Reserves View */}
           {tab === "analytics" && (
-            loadingStats && !stats?.totalUsers ? (
+            loadingStats && !stats ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div
@@ -2476,7 +2835,7 @@ export default function AdminPanel() {
 
                 {/* 12% Calculation Formula & Live Realtime Accrual Breakdown */}
                 {(() => {
-                  const currentBase = Number(analytics?.stats?.totalDeposits || stats.totalDeposits || 710000);
+                  const currentBase = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || 0);
                   const annual12Pct = currentBase * 0.12;
                   const monthly1Pct = currentBase * 0.01;
                   const perDay31 = monthly1Pct / 31;
@@ -2607,8 +2966,14 @@ export default function AdminPanel() {
                       const isToday = idx === analytics.dailyProfitChart.length - 1;
                       const rowAmount = isToday ? (Number(row.amount) + liveAccruedAdmin) : Number(row.amount);
                       const rowCumulative = isToday ? liveAdminProfit : Number(row.cumulativeYield);
+                      const dayKey = row.date || `day-${idx}`;
+                      const isExpanded = !!expandedYieldDays[dayKey];
+                      const dayDepositTotal = Number(row.dayTotalDeposit || 0);
+                      const depositsList = row.deposits || [];
+                      const hasDeposits = dayDepositTotal > 0 || depositsList.length > 0;
+
                       return (
-                        <div key={row.date || idx} className="p-3 bg-white border border-slate-200/90 rounded-xl space-y-2 shadow-2xs">
+                        <div key={dayKey} className="p-3 bg-white border border-slate-200/90 rounded-2xl space-y-2.5 shadow-2xs">
                           <div className="flex items-center justify-between text-xs">
                             <div className="flex items-center gap-1.5 font-bold text-slate-900">
                               <span className="font-mono text-slate-400 text-[11px]">#{idx + 1}</span>
@@ -2624,6 +2989,66 @@ export default function AdminPanel() {
                               {isToday ? "⚡ Live Crediting" : "✓ Credited"}
                             </span>
                           </div>
+
+                          {/* Din Ke Hisaab Se Total Deposit Banner */}
+                          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">💰</span>
+                              <div>
+                                <span className="text-[10px] text-slate-500 font-bold block">Us Din Ka Total Deposit:</span>
+                                <span className="font-mono font-black text-slate-900 text-xs">
+                                  {dayDepositTotal > 0 ? `+₹${dayDepositTotal.toLocaleString("en-IN")}` : "₹0 (No new deposit)"}
+                                </span>
+                              </div>
+                            </div>
+                            {hasDeposits && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedYieldDays(prev => ({ ...prev, [dayKey]: !prev[dayKey] }))}
+                                className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1 active:scale-95 shadow-2xs"
+                              >
+                                <span>{isExpanded ? "▲ Hide" : `▼ View ${depositsList.length || 1} Txn`}</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Collapsible Accordion for Individual Deposit Entries */}
+                          {isExpanded && hasDeposits && (
+                            <div className="p-2.5 bg-blue-50/60 rounded-xl border border-blue-200 space-y-2 animate-in fade-in duration-150">
+                              <div className="flex items-center justify-between text-[10px] font-black text-blue-900 uppercase tracking-wider border-b border-blue-200/70 pb-1">
+                                <span>📋 Approved Deposits ({depositsList.length}):</span>
+                                <span>12% p.a. Calculation</span>
+                              </div>
+                              {depositsList.map((dep, dIdx) => (
+                                <div key={dep.id || dIdx} className="p-2 bg-white rounded-lg border border-blue-100 text-[11px] space-y-1 shadow-2xs">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                                      <span className="text-[10px] text-slate-400 font-mono">🕒 {dep.time || "Approved"}</span>
+                                      <span>•</span>
+                                      <span className="text-slate-900">{dep.user || "Depositor"}</span>
+                                    </div>
+                                    <span className="font-mono font-black text-emerald-600">+₹{Number(dep.amount).toLocaleString("en-IN")}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-50">
+                                    <span>Rate: <strong className="text-slate-700">{dep.rateText || "12% p.a."}</strong></span>
+                                    {dep.utr && <span>UTR: <strong className="text-slate-700">{dep.utr}</strong></span>}
+                                  </div>
+                                  {dep.proofUrl && (
+                                    <div className="pt-1 flex items-center justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => { setLightboxImg(dep.proofUrl); setZoomLevel(1); }}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 text-blue-700 border border-slate-200 rounded text-[9px] font-bold cursor-pointer active:scale-95"
+                                      >
+                                        <img src={dep.proofUrl} alt="Receipt" className="w-3 h-3 object-cover rounded" />
+                                        <span>View Receipt Photo 🔍</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
 
                           <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-100">
                             <div>
@@ -2660,12 +3085,12 @@ export default function AdminPanel() {
                       <tr className="bg-slate-50 text-left text-slate-500 uppercase border-b border-slate-200">
                         <th className="py-2.5 px-3 font-bold">#</th>
                         <th className="py-2.5 px-3 font-bold">Date</th>
+                        <th className="py-2.5 px-3 font-bold">Us Din Ka Deposit</th>
                         <th className="py-2.5 px-3 font-bold">Principal Base</th>
                         <th className="py-2.5 px-3 font-bold">Rate</th>
                         <th className="py-2.5 px-3 font-bold">Daily Profit</th>
                         <th className="py-2.5 px-3 font-bold">Cumulative Total</th>
-                        <th className="py-2.5 px-3 font-bold">User</th>
-                        <th className="py-2.5 px-3 font-bold">Status</th>
+                        <th className="py-2.5 px-3 font-bold">Status & Details</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -2680,33 +3105,103 @@ export default function AdminPanel() {
                           const isToday = idx === analytics.dailyProfitChart.length - 1;
                           const rowAmount = isToday ? (Number(row.amount) + liveAccruedAdmin) : Number(row.amount);
                           const rowCumulative = isToday ? liveAdminProfit : Number(row.cumulativeYield);
+                          const dayKey = row.date || `day-${idx}`;
+                          const isExpanded = !!expandedYieldDays[dayKey];
+                          const dayDepositTotal = Number(row.dayTotalDeposit || 0);
+                          const depositsList = row.deposits || [];
+                          const hasDeposits = dayDepositTotal > 0 || depositsList.length > 0;
+
                           return (
-                            <tr key={row.date || idx} className="hover:bg-slate-50/70 transition">
-                              <td className="py-3 px-3 font-mono text-slate-400">{idx + 1}</td>
-                              <td className="py-3 px-3 font-bold text-slate-900 flex items-center gap-1.5">
-                                <span>{row.displayDate || row.date}</span>
-                                {isToday && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    Live
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-3 px-3 font-mono text-slate-700">₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}</td>
-                              <td className="py-3 px-3 text-slate-600">12% p.a.</td>
-                              <td className="py-3 px-3 font-black text-emerald-600 font-mono">
-                                +₹{rowAmount.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
-                              </td>
-                              <td className="py-3 px-3 font-bold font-mono text-blue-700">
-                                ₹{rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
-                              </td>
-                              <td className="py-3 px-3 text-slate-600">{row.uniqueUsers ? `${row.uniqueUsers} User(s)` : "Active User"}</td>
-                              <td className="py-3 px-3">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isToday ? "bg-emerald-500 text-white shadow-2xs" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
-                                  {isToday ? "⚡ Live Crediting" : "✓ Credited"}
-                                </span>
-                              </td>
-                            </tr>
+                            <React.Fragment key={dayKey}>
+                              <tr className="hover:bg-slate-50/70 transition">
+                                <td className="py-3 px-3 font-mono text-slate-400">{idx + 1}</td>
+                                <td className="py-3 px-3 font-bold text-slate-900 flex items-center gap-1.5">
+                                  <span>{row.displayDate || row.date}</span>
+                                  {isToday && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      Live
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-3">
+                                  {dayDepositTotal > 0 ? (
+                                    <div className="space-y-0.5">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-black text-xs bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                        💰 +₹{dayDepositTotal.toLocaleString("en-IN")}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 block font-medium">({depositsList.length || 1} deposit)</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400 font-mono text-[11px]">₹0</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-3 font-mono text-slate-700">₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}</td>
+                                <td className="py-3 px-3 text-slate-600">12% p.a.</td>
+                                <td className="py-3 px-3 font-black text-emerald-600 font-mono">
+                                  +₹{rowAmount.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
+                                </td>
+                                <td className="py-3 px-3 font-bold font-mono text-blue-700">
+                                  ₹{rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
+                                </td>
+                                <td className="py-3 px-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isToday ? "bg-emerald-500 text-white shadow-2xs" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+                                      {isToday ? "⚡ Live Crediting" : "✓ Credited"}
+                                    </span>
+                                    {hasDeposits && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedYieldDays(prev => ({ ...prev, [dayKey]: !prev[dayKey] }))}
+                                        className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-md text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
+                                      >
+                                        {isExpanded ? "▲ Hide" : `▼ View ${depositsList.length || 1}`}
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                              {/* Desktop Expanded Accordion Row */}
+                              {isExpanded && hasDeposits && (
+                                <tr className="bg-blue-50/40 border-b border-blue-100">
+                                  <td colSpan="8" className="p-3">
+                                    <div className="bg-white rounded-xl border border-blue-200/80 p-3 space-y-2 shadow-2xs">
+                                      <div className="flex items-center justify-between text-xs font-bold text-blue-900 border-b border-slate-100 pb-1.5">
+                                        <span>📋 Approved Deposits on {row.displayDate || row.date} ({depositsList.length}):</span>
+                                        <span className="font-mono text-[11px] text-emerald-700">Total: +₹{dayDepositTotal.toLocaleString("en-IN")}</span>
+                                      </div>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                        {depositsList.map((dep, dIdx) => (
+                                          <div key={dep.id || dIdx} className="p-2.5 bg-slate-50/80 rounded-lg border border-slate-200 text-xs space-y-1">
+                                            <div className="flex items-center justify-between font-bold">
+                                              <span className="text-slate-800 truncate">{dep.user || "Depositor"}</span>
+                                              <span className="font-mono font-black text-emerald-600 shrink-0">+₹{Number(dep.amount).toLocaleString("en-IN")}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                                              <span>🕒 {dep.time || "Approved"}</span>
+                                              <span>{dep.rateText || "12% p.a."}</span>
+                                            </div>
+                                            {dep.utr && <p className="text-[10px] text-slate-500 font-mono">UTR: {dep.utr}</p>}
+                                            {dep.proofUrl && (
+                                              <div className="pt-1">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => { setLightboxImg(dep.proofUrl); setZoomLevel(1); }}
+                                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-white hover:bg-blue-50 text-blue-700 border border-slate-200 rounded text-[10px] font-bold cursor-pointer active:scale-95"
+                                                >
+                                                  <img src={dep.proofUrl} alt="Receipt" className="w-3.5 h-3.5 object-cover rounded" />
+                                                  <span>View Receipt Photo 🔍</span>
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })
                       )}
@@ -3604,10 +4099,10 @@ export default function AdminPanel() {
                     <table className="w-full min-w-[850px] table-fixed border-collapse text-left text-xs">
                       <thead className="bg-slate-50/95 border-b border-slate-200">
                         <tr className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                          <th className="py-3 px-3.5 w-[130px]">Timestamp</th>
+                          <th className="py-3 px-3.5 w-[150px]">Timestamp & Audit</th>
                           <th className="py-3 px-3.5 w-[175px]">Category & Action</th>
                           <th className="py-3 px-3.5 w-[185px]">User / Account</th>
-                          <th className="py-3 px-3.5 w-[110px]">Amount / Value</th>
+                          <th className="py-3 px-3.5 w-[140px] text-right">Amount / Value</th>
                           <th className="py-3 px-3.5 w-[95px]">Status</th>
                           <th className="py-3 px-3.5">Reference / Details & Docs</th>
                         </tr>
@@ -3616,7 +4111,7 @@ export default function AdminPanel() {
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                           <tr key={i} className="animate-pulse">
                             <td className="py-3.5 px-3.5">
-                              <div className="h-3.5 bg-slate-200 rounded w-20" />
+                              <div className="h-3.5 bg-slate-200 rounded w-24" />
                             </td>
                             <td className="py-3.5 px-3.5">
                               <div className="h-5 bg-slate-200 rounded-full w-28" />
@@ -3625,8 +4120,8 @@ export default function AdminPanel() {
                               <div className="h-3.5 bg-slate-200 rounded w-28" />
                               <div className="h-2.5 bg-slate-100 rounded w-36" />
                             </td>
-                            <td className="py-3.5 px-3.5">
-                              <div className="h-4 bg-slate-200 rounded w-16" />
+                            <td className="py-3.5 px-3.5 text-right">
+                              <div className="h-4 bg-slate-200 rounded w-16 ml-auto" />
                             </td>
                             <td className="py-3.5 px-3.5">
                               <div className="h-5 bg-slate-100 rounded-full w-16" />
@@ -3655,7 +4150,7 @@ export default function AdminPanel() {
                       const isApproved = item.status === "approved" || item.status === "completed" || item.status === "verified" || item.status === "active";
                       const isPending = item.status === "pending";
                       const isRejected = item.status === "rejected";
-                      const d = new Date(item.timestamp || item.createdAt || Date.now());
+                      const d = new Date(item.requestedAt || item.timestamp || item.createdAt || Date.now());
                       const isDateValid = !isNaN(d.getTime());
                       const refVal = item.reference || item.referenceId;
                       const noteVal = item.notes || item.remarks;
@@ -3704,11 +4199,11 @@ export default function AdminPanel() {
                             </span>
                           </div>
 
-                          {/* Row 2: Title & Amount (no fake ₹0 for non-monetary items) */}
+                          {/* Row 2: Title & Amount (Strictly No Wrap on +) */}
                           <div className="flex items-baseline justify-between gap-2">
                             <p className="font-extrabold text-slate-900 text-xs leading-snug">{item.title}</p>
                             {isMonetary ? (
-                              <span className={`font-mono font-black text-sm shrink-0 ${
+                              <span className={`font-mono tabular-nums whitespace-nowrap font-black text-sm shrink-0 ${
                                 item.category === "deposit" || item.category === "yield"
                                   ? "text-emerald-600"
                                   : item.category === "withdrawal"
@@ -3723,22 +4218,57 @@ export default function AdminPanel() {
                             )}
                           </div>
 
-                          {/* Row 3: User Details & Date */}
+                          {/* Row 3: User Details */}
                           <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
                             <div className="min-w-0 pr-2">
                               <span className="font-bold text-slate-800 truncate block">{item.userName || "Direct User"}</span>
                               {item.userEmail && <span className="font-mono text-[10px] text-slate-400 truncate block">{item.userEmail}</span>}
                             </div>
-                            <span className="font-mono text-[10px] text-slate-400 shrink-0 text-right">
-                              {isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Recent"}
-                            </span>
                           </div>
 
-                          {/* Row 4: Ref & Details */}
+                          {/* Row 4: Request vs Approval Audit Timestamps & Approver Device Badge */}
+                          <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 text-[10px] font-mono space-y-1">
+                            <div className="flex items-center justify-between text-slate-600">
+                              <span className="text-slate-400">📥 Requested:</span>
+                              <span className="font-bold text-slate-800">{isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Recent"}</span>
+                            </div>
+                            {isApproved && item.approvedAt && (() => {
+                              const ad = new Date(item.approvedAt);
+                              return (
+                                <div className="flex items-center justify-between text-emerald-800">
+                                  <span>✅ Approved:</span>
+                                  <span className="font-bold">{!isNaN(ad.getTime()) ? ad.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + ad.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Approved"} {item.turnaround ? `(${item.turnaround})` : ""}</span>
+                                </div>
+                              );
+                            })()}
+                            {isApproved && (item.approverName || item.approverDevice) && (
+                              <div className="text-[9px] text-slate-600 font-bold pt-0.5 border-t border-slate-200/60 flex items-center gap-1 truncate">
+                                <span>🛡️</span>
+                                <span className="truncate">{item.approverName || "Admin"} • {item.approverDevice || "Web Console"}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Row 5: Ref & Details */}
                           {(refVal || noteVal) && (
                             <div className="bg-slate-50/80 rounded-xl p-2 text-[10px] font-mono text-slate-600 break-all space-y-0.5 border border-slate-100">
                               {refVal && <div>Ref: <span className="font-bold text-slate-800">{refVal}</span></div>}
                               {noteVal && <div className="text-slate-500 font-sans italic">{noteVal}</div>}
+                            </div>
+                          )}
+
+                          {/* Evidence Photo preview on mobile */}
+                          {item.proofUrl && (
+                            <div className="pt-1 border-t border-slate-100">
+                              <button
+                                type="button"
+                                onClick={() => { setLightboxImg(item.proofUrl); setZoomLevel(1); }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95 shadow-2xs"
+                              >
+                                <img src={item.proofUrl} alt="Evidence" className="w-4 h-4 object-cover rounded border border-slate-200" />
+                                <span>Evidence Photo / Receipt</span>
+                                <span>🔍</span>
+                              </button>
                             </div>
                           )}
 
@@ -3809,10 +4339,10 @@ export default function AdminPanel() {
                     <table className="w-full min-w-[850px] table-fixed border-collapse bg-white text-left text-xs">
                       <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-xs border-b border-slate-200 shadow-2xs">
                         <tr className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                          <th className="py-3 px-3.5 w-[130px]">Timestamp</th>
+                          <th className="py-3 px-3.5 w-[150px]">Timestamp & Audit</th>
                           <th className="py-3 px-3.5 w-[175px]">Category & Action</th>
                           <th className="py-3 px-3.5 w-[185px]">User / Account</th>
-                          <th className="py-3 px-3.5 w-[110px]">Amount / Value</th>
+                          <th className="py-3 px-3.5 w-[140px] text-right">Amount / Value</th>
                           <th className="py-3 px-3.5 w-[95px]">Status</th>
                           <th className="py-3 px-3.5">Reference / Details & Docs</th>
                         </tr>
@@ -3822,7 +4352,7 @@ export default function AdminPanel() {
                           const isApproved = item.status === "approved" || item.status === "completed" || item.status === "verified" || item.status === "active";
                           const isPending = item.status === "pending";
                           const isRejected = item.status === "rejected";
-                          const d = new Date(item.timestamp || item.createdAt || Date.now());
+                          const d = new Date(item.requestedAt || item.timestamp || item.createdAt || Date.now());
                           const isDateValid = !isNaN(d.getTime());
                           const refVal = item.reference || item.referenceId;
                           const noteVal = item.notes || item.remarks;
@@ -3830,14 +4360,32 @@ export default function AdminPanel() {
 
                           return (
                             <tr key={item.id || idx} className="hover:bg-slate-50/80 transition-colors">
-                              {/* Timestamp */}
+                              {/* Timestamp & Approval Audit */}
                               <td className="py-3.5 px-3.5 font-mono text-[11px] text-slate-600 align-top">
-                                <span className="block font-bold text-slate-900">
-                                  {isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent"}
-                                </span>
-                                <span className="text-[10px] text-slate-400">
-                                  {isDateValid ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }) : ""}
-                                </span>
+                                <div className="space-y-0.5">
+                                  <span className="block font-bold text-slate-900" title="Request Time">
+                                    📥 Req: {isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent"}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 block">
+                                    {isDateValid ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}
+                                  </span>
+                                  {isApproved && item.approvedAt && (() => {
+                                    const ad = new Date(item.approvedAt);
+                                    const isAdValid = !isNaN(ad.getTime());
+                                    return (
+                                      <span className="block text-[10px] text-emerald-700 font-semibold mt-1" title="Approval Time">
+                                        ✅ Appr: {isAdValid ? ad.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + ad.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Approved"}
+                                        {item.turnaround ? ` (${item.turnaround})` : ""}
+                                      </span>
+                                    );
+                                  })()}
+                                  {isApproved && (item.approverName || item.approverDevice) && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[9px] font-bold mt-1 max-w-[145px] truncate">
+                                      <span>🛡️</span>
+                                      <span className="truncate">{item.approverName || "Admin"} • {item.approverDevice || "Web"}</span>
+                                    </span>
+                                  )}
+                                </div>
                               </td>
 
                               {/* Category & Action */}
@@ -3877,10 +4425,10 @@ export default function AdminPanel() {
                                 {item.userPhone && <p className="text-[10px] text-slate-400 font-mono">{item.userPhone}</p>}
                               </td>
 
-                              {/* Amount / Value */}
-                              <td className="py-3.5 px-3.5 align-top">
+                              {/* Amount / Value (Strictly No Line-Wrapping on +) */}
+                              <td className="py-3.5 px-3.5 align-top text-right w-[140px] whitespace-nowrap font-mono tabular-nums font-black text-xs sm:text-sm">
                                 {isMonetary ? (
-                                  <span className={`font-mono font-black text-xs ${
+                                  <span className={`inline-block ${
                                     item.category === "deposit" || item.category === "yield"
                                       ? "text-emerald-600"
                                       : item.category === "withdrawal"
@@ -3921,6 +4469,21 @@ export default function AdminPanel() {
                                   <p className="text-slate-600 text-[11px] mt-0.5 font-sans" title={noteVal}>
                                     {noteVal}
                                   </p>
+                                )}
+
+                                {/* Evidence Photo Preview Thumbnail */}
+                                {item.proofUrl && (
+                                  <div className="mt-1.5 pt-1 border-t border-slate-100">
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(item.proofUrl); setZoomLevel(1); }}
+                                      className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-blue-700 cursor-pointer transition active:scale-95 shadow-2xs"
+                                    >
+                                      <img src={item.proofUrl} alt="Evidence" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
+                                      <span>Evidence Receipt</span>
+                                      <span>🔍</span>
+                                    </button>
+                                  </div>
                                 )}
 
                                 {/* KYC Photos / Documents Pill Gallery */}
@@ -5466,20 +6029,51 @@ export default function AdminPanel() {
             const netDisbursal = Math.max(0, amt - (procFee + upiCharges));
 
             const filteredSearchUsers = users.filter(u => {
-              if (!issueUserSearch) return true;
-              const q = issueUserSearch.toLowerCase();
-              const agent = agents.find(a => String(a._id) === String(u.referredBy));
-              return (
-                (u.name && u.name.toLowerCase().includes(q)) ||
-                (u.phone && u.phone.includes(q)) ||
-                (u.email && u.email.toLowerCase().includes(q)) ||
-                (u.accountNumber && u.accountNumber.toLowerCase().includes(q)) ||
-                (agent && (
-                  (agent.name && agent.name.toLowerCase().includes(q)) ||
-                  (agent.phone && agent.phone.includes(q)) ||
-                  (agent.agentProfile?.businessName && agent.agentProfile.businessName.toLowerCase().includes(q))
-                ))
-              );
+              const lineage = getUserLineage(u, users, agents);
+
+              // 1. Text Search Filter (name, phone, email, account, agent name, master name)
+              if (issueUserSearch) {
+                const q = issueUserSearch.toLowerCase();
+                const matches =
+                  (u.name && u.name.toLowerCase().includes(q)) ||
+                  (u.phone && u.phone.includes(q)) ||
+                  (u.email && u.email.toLowerCase().includes(q)) ||
+                  (u.accountNumber && u.accountNumber.toLowerCase().includes(q)) ||
+                  (lineage.label && lineage.label.toLowerCase().includes(q)) ||
+                  (lineage.agentName && lineage.agentName.toLowerCase().includes(q)) ||
+                  (lineage.masterName && lineage.masterName.toLowerCase().includes(q));
+                if (!matches) return false;
+              }
+
+              // 2. Dual Universal Filter 1: Hierarchy ("Kis Ka")
+              if (issueHierarchyFilter === "direct") {
+                if (lineage.type !== "direct") return false;
+              } else if (issueHierarchyFilter === "agent") {
+                if (lineage.type !== "agent_user") return false;
+              } else if (issueHierarchyFilter === "subagent") {
+                if (lineage.type !== "sub_agent_user") return false;
+              }
+
+              // Specific agent selection
+              if (issueSelectedAgentFilter !== "all") {
+                if (String(lineage.agentId) !== String(issueSelectedAgentFilter)) return false;
+              }
+
+              // 3. Dual Universal Filter 2: Time ("Kab Ka")
+              if (issueTimeFilter !== "all") {
+                const userCreated = new Date(u.createdAt || Date.now());
+                const now = new Date();
+                const diffDays = (now - userCreated) / (1000 * 60 * 60 * 24);
+                if (issueTimeFilter === "today") {
+                  if (userCreated.toDateString() !== now.toDateString()) return false;
+                } else if (issueTimeFilter === "week") {
+                  if (diffDays > 7) return false;
+                } else if (issueTimeFilter === "month") {
+                  if (diffDays > 30) return false;
+                }
+              }
+
+              return true;
             });
 
             return (
@@ -5570,31 +6164,35 @@ export default function AdminPanel() {
                                     <span>✉️ {issueSelectedUser.email}</span>
                                     <span>💰 Balance: ₹{Number(issueSelectedUser.balance || 0).toLocaleString("en-IN")}</span>
                                   </div>
-                                  {issueSelectedUser.referredBy && (() => {
-                                    const agent = agents.find(a => String(a._id) === String(issueSelectedUser.referredBy));
-                                    if (!agent) {
-                                      return (
-                                        <div className="text-[11px] font-bold text-amber-800 bg-amber-100/70 px-2.5 py-1 rounded-lg mt-1.5 inline-flex items-center gap-1">
-                                          <span>🤝 Linked Agent</span>
-                                        </div>
-                                      );
-                                    }
-                                    const prof = agent.agentProfile || {};
-                                    const isTeam = prof.commissionModel === "team_1";
+                                  {(() => {
+                                    const lin = getUserLineage(issueSelectedUser, users, agents);
                                     return (
-                                      <div className="text-[11px] font-bold text-amber-950 bg-amber-100/80 border border-amber-300 px-2.5 py-1 rounded-xl mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 shadow-2xs">
-                                        <span className="font-extrabold text-amber-900">🤝 Referring Agent:</span>
-                                        <span className="text-gray-900 font-black">{agent.name}</span>
-                                        <span className="px-1.5 py-0.5 bg-amber-200 text-amber-950 rounded text-[9px] font-black">
-                                          {isTeam ? "👑 Team Agent" : "👤 Solo Agent"}
+                                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                                        <span className={`px-2.5 py-1 rounded-xl text-xs font-bold border inline-flex items-center gap-1.5 shadow-2xs ${
+                                          lin.type === 'direct'
+                                            ? 'bg-emerald-100/70 text-emerald-950 border-emerald-300'
+                                            : lin.type === 'agent'
+                                            ? 'bg-amber-100 text-amber-950 border-amber-300'
+                                            : lin.type === 'sub_agent'
+                                            ? 'bg-purple-100 text-purple-950 border-purple-300'
+                                            : 'bg-indigo-100 text-indigo-950 border-indigo-300'
+                                        }`}>
+                                          <span>{lin.badge}</span>
+                                          {lin.subLabel && <span className="opacity-75 font-normal text-[10px]">({lin.subLabel})</span>}
                                         </span>
-                                        {prof.businessName && (
-                                          <span className="text-amber-900 font-bold">🏢 {prof.businessName}</span>
-                                        )}
-                                        {prof.city && (
-                                          <span className="text-gray-600 font-medium">📍 {prof.city}</span>
-                                        )}
-                                        <span className="text-gray-600 font-mono">📞 {agent.phone}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setAssignAgentModalUser(issueSelectedUser);
+                                            const refId = issueSelectedUser.referredBy && typeof issueSelectedUser.referredBy === "object"
+                                              ? String(issueSelectedUser.referredBy._id || "")
+                                              : issueSelectedUser.referredBy ? String(issueSelectedUser.referredBy) : "";
+                                            setSelectedAgentForAssign(refId);
+                                          }}
+                                          className="px-2.5 py-1 bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 rounded-xl text-[11px] font-bold transition cursor-pointer shadow-2xs"
+                                        >
+                                          ✏️ Reassign / Link Agent
+                                        </button>
                                       </div>
                                     );
                                   })()}
@@ -6121,47 +6719,123 @@ export default function AdminPanel() {
                           </div>
                         ) : (
                           /* Search & Pick from Users */
-                          <div className="space-y-2">
+                          <div className="space-y-3">
+                            {/* Search Box */}
                             <input
                               type="text"
                               value={issueUserSearch}
                               onChange={(e) => setIssueUserSearch(e.target.value)}
-                              placeholder="Search customer by name, phone, account number, or referring agent..."
+                              placeholder="Search customer by name, phone, account number, or referring agent / sub-agent..."
                               className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
                             />
-                            <div className="max-h-56 overflow-y-auto space-y-1.5 p-1 border border-gray-200 rounded-xl bg-white no-scrollbar">
+
+                            {/* DUAL UNIVERSAL FILTERS (KIS KA & KAB KA) */}
+                            <div className="p-3 bg-slate-100/90 border border-slate-200 rounded-xl space-y-2.5 text-xs">
+                              {/* Filter 1: Hierarchy ("Kis Ka") */}
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[11px] font-black text-slate-700 flex items-center gap-1">
+                                    <span>👥</span> Kis Ka (Hierarchy):
+                                  </span>
+                                  {[
+                                    { key: "all", label: "Sabhi Users" },
+                                    { key: "direct", label: "👤 Direct" },
+                                    { key: "agent", label: "🤝 Agent" },
+                                    { key: "subagent", label: "👑 Sub-Agent" },
+                                  ].map((f) => (
+                                    <button
+                                      key={f.key}
+                                      type="button"
+                                      onClick={() => setIssueHierarchyFilter(f.key)}
+                                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer active:scale-95 ${
+                                        issueHierarchyFilter === f.key
+                                          ? "bg-blue-600 text-white shadow-2xs"
+                                          : "bg-white hover:bg-slate-200 text-slate-700 border border-slate-200"
+                                      }`}
+                                    >
+                                      {f.label}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                {/* Specific Agent Dropdown */}
+                                <select
+                                  value={issueSelectedAgentFilter}
+                                  onChange={(e) => setIssueSelectedAgentFilter(e.target.value)}
+                                  className="px-2 py-1 bg-white border border-slate-300 rounded-lg text-[10px] font-bold text-slate-800 focus:outline-none"
+                                >
+                                  <option value="all">Sabhi Agents</option>
+                                  {agents.map((ag) => (
+                                    <option key={ag._id} value={ag._id}>
+                                      {ag.name} ({ag.referralCode || "Agent"})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Filter 2: Time ("Kab Ka") */}
+                              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/70">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[11px] font-black text-slate-700 flex items-center gap-1">
+                                    <span>🕒</span> Kab Ka (Date/Time):
+                                  </span>
+                                  {[
+                                    { key: "all", label: "All Time" },
+                                    { key: "today", label: "Aaj (Today)" },
+                                    { key: "week", label: "Is Hafte (7 Days)" },
+                                    { key: "month", label: "Is Mahine (30 Days)" },
+                                  ].map((t) => (
+                                    <button
+                                      key={t.key}
+                                      type="button"
+                                      onClick={() => setIssueTimeFilter(t.key)}
+                                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer active:scale-95 ${
+                                        issueTimeFilter === t.key
+                                          ? "bg-emerald-600 text-white shadow-2xs"
+                                          : "bg-white hover:bg-slate-200 text-slate-700 border border-slate-200"
+                                      }`}
+                                    >
+                                      {t.label}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                <span className="text-[10px] font-mono font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                                  {filteredSearchUsers.length} of {users.length} Users
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="max-h-60 overflow-y-auto space-y-1.5 p-1 border border-gray-200 rounded-xl bg-white no-scrollbar">
                               {filteredSearchUsers.length === 0 ? (
-                                <p className="py-6 text-center text-xs text-gray-400">No matching users found.</p>
+                                <p className="py-6 text-center text-xs text-gray-400">No matching users found matching selected filters.</p>
                               ) : (
-                                filteredSearchUsers.slice(0, 20).map(u => {
-                                  const agent = agents.find(a => String(a._id) === String(u.referredBy));
+                                filteredSearchUsers.slice(0, 30).map(u => {
+                                  const lineage = getUserLineage(u, users, agents);
                                   return (
                                     <div
                                       key={u._id}
                                       onClick={() => setIssueSelectedUser(u)}
-                                      className="p-2.5 rounded-xl hover:bg-blue-50/70 border border-transparent hover:border-blue-200 flex items-center justify-between gap-2 transition cursor-pointer group"
+                                      className="p-2.5 rounded-xl hover:bg-blue-50/70 border border-slate-200 hover:border-blue-300 flex items-center justify-between gap-2 transition cursor-pointer group shadow-2xs"
                                     >
-                                      <div>
+                                      <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2 flex-wrap">
                                           <span className="font-bold text-xs text-gray-900 group-hover:text-blue-900">{u.name}</span>
                                           <span className="font-mono text-[10px] text-gray-500">
                                             {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
                                           </span>
-                                          {agent ? (
-                                            <span className="px-2 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-950 border border-amber-300 inline-flex items-center gap-1.5 flex-wrap">
-                                              <span>🤝 Agent: {agent.name}</span>
-                                              <span className="px-1 py-0.2 bg-amber-200 text-amber-900 rounded font-bold text-[8px]">
-                                                {agent.agentProfile?.commissionModel === "team_1" ? "👑 Team" : "👤 Solo"}
-                                              </span>
-                                              {agent.agentProfile?.businessName && (
-                                                <span className="text-amber-800 font-semibold">🏢 {agent.agentProfile.businessName}</span>
-                                              )}
-                                            </span>
-                                          ) : (
-                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-100 text-slate-600">
-                                              Direct User
-                                            </span>
-                                          )}
+
+                                          {/* Clear Lineage Badge */}
+                                          <span className={`px-2 py-0.5 rounded text-[9px] font-black inline-flex items-center gap-1 ${
+                                            lineage.type === "sub_agent_user"
+                                              ? "bg-purple-100 text-purple-950 border border-purple-300"
+                                              : lineage.type === "agent_user"
+                                              ? "bg-amber-100 text-amber-950 border border-amber-300"
+                                              : "bg-slate-100 text-slate-700 border border-slate-200"
+                                          }`}>
+                                            <span>{lineage.badge}</span>
+                                          </span>
+
                                           {(() => {
                                             const uLoans = loans.filter(l => String(l.userId?._id || l.userId) === String(u._id));
                                             if (uLoans.length > 0) {
@@ -6185,13 +6859,28 @@ export default function AdminPanel() {
                                             );
                                           })()}
                                         </div>
-                                        <p className="text-[11px] text-gray-400">
+                                        <p className="text-[11px] text-gray-400 mt-0.5">
                                           {u.phone} • {u.email} • Balance: ₹{Number(u.balance || 0).toLocaleString("en-IN")}
                                         </p>
                                       </div>
-                                      <span className="text-xs font-bold text-blue-600 group-hover:translate-x-0.5 transition shrink-0">
-                                        Select →
-                                      </span>
+
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setAssignAgentModalUser(u);
+                                            setSelectedAgentForAssign(u.referredBy?._id || u.referredBy || "");
+                                          }}
+                                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
+                                          title="Reassign or Link Agent"
+                                        >
+                                          ✏️ Agent
+                                        </button>
+                                        <span className="text-xs font-bold text-blue-600 group-hover:translate-x-0.5 transition">
+                                          Select →
+                                        </span>
+                                      </div>
                                     </div>
                                   );
                                 })
@@ -7645,6 +8334,82 @@ export default function AdminPanel() {
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition cursor-pointer disabled:opacity-50"
               >
                 {adminPayLoading ? "Saving..." : "Confirm & Mark Paid →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ASSIGN / LINK AGENT MODAL */}
+      {assignAgentModalUser && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🤝</span>
+                <div>
+                  <h3 className="font-extrabold text-base text-gray-900 leading-tight">
+                    Link / Reassign Agent
+                  </h3>
+                  <p className="text-[11px] text-gray-500 font-medium">
+                    Borrower: <span className="font-bold text-gray-800">{assignAgentModalUser.name}</span> ({assignAgentModalUser.phone || "No phone"})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssignAgentModalUser(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 space-y-1">
+              <p className="font-bold">Hierarchy & Commission Linking</p>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                Yahan se aap is borrower ko kisi bhi Master Agent ya Sub-Agent se connect kar sakte hain ya Direct Customer bana sakte hain.
+              </p>
+            </div>
+
+            <div>
+              <label className="block font-bold text-gray-700 text-xs mb-1.5">
+                Select Agent / Referrer
+              </label>
+              <select
+                value={selectedAgentForAssign}
+                onChange={(e) => setSelectedAgentForAssign(e.target.value)}
+                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+              >
+                <option value="">👤 -- Direct Customer (No Agent / Platform Direct) --</option>
+                {agents.map(a => {
+                  const prof = a.agentProfile || {};
+                  const isTeam = prof.commissionModel === "team_1";
+                  const refInfo = a.referredBy ? ` (Sub of ${typeof a.referredBy === 'object' ? a.referredBy.name : 'Master'})` : "";
+                  return (
+                    <option key={a._id} value={a._id}>
+                      🤝 {a.name} ({a.phone}) — {isTeam ? "👑 Team Agent" : "👤 Solo"}{refInfo}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div className="flex gap-2.5 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setAssignAgentModalUser(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={assigningAgent}
+                onClick={handleAssignAgent}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-bold shadow-md shadow-amber-500/20 transition cursor-pointer disabled:opacity-50"
+              >
+                {assigningAgent ? "Saving..." : "Save Assignment →"}
               </button>
             </div>
           </div>

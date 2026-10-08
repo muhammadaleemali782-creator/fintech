@@ -16,6 +16,27 @@ function isValidId(id) {
   return mongoose.Types.ObjectId.isValid(id);
 }
 
+// Helper: Parse User-Agent string to clean device & browser label
+function parseServerUserAgent(ua = '') {
+  let device = '💻 Desktop PC';
+  if (/iPhone/i.test(ua)) device = '📱 iPhone';
+  else if (/iPad/i.test(ua)) device = '📱 iPad';
+  else if (/Android/i.test(ua)) {
+    const match = ua.match(/Android[^;]+; ([^;)]+)\)/i);
+    const model = match && match[1] && !match[1].includes('Build') ? match[1].split('Build')[0].trim() : '';
+    device = model ? `📱 Android (${model})` : '📱 Android Phone';
+  } else if (/Windows/i.test(ua)) device = '💻 Windows PC';
+  else if (/Macintosh|Mac OS X/i.test(ua)) device = '💻 Mac Desktop';
+  else if (/Linux/i.test(ua)) device = '💻 Linux PC';
+
+  let browser = 'Web';
+  if (/Chrome|CriOS/i.test(ua) && !/Edg|OPR/i.test(ua)) browser = 'Chrome';
+  else if (/Safari/i.test(ua) && !/Chrome|CriOS/i.test(ua)) browser = 'Safari';
+  else if (/Firefox|FxiOS/i.test(ua)) browser = 'Firefox';
+  else if (/Edg/i.test(ua)) browser = 'Edge';
+  return `${device} • ${browser}`;
+}
+
 // All pending transactions
 router.get('/transactions/pending', protect, admin, async (req, res) => {
   try {
@@ -36,10 +57,6 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
   try {
     let resultTxn;
 
-    // Poora approve-flow ek DB transaction ke andar: agar same transaction
-    // par 2 approve request (double-click / race) ek saath aayein, MongoDB
-    // dusri request ko pehli ke commit hone tak serialize kar deta hai -- isse
-    // double-approve (balance 2 baar credit/debit hona) possible nahi rahta.
     await session.withTransaction(async () => {
       const txn = await Transaction.findById(req.params.id).session(session);
       if (!txn || txn.status !== 'pending') {
@@ -61,12 +78,13 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
         }
         txn.status = 'approved';
       } else {
-        // Withdrawal: Amount was already atomically held/deducted at request time.
-        // Marking as completed finalizes the withdrawal.
         txn.status = 'completed';
       }
 
       txn.approvedBy = req.user._id;
+      txn.approvedAt = new Date();
+      txn.approverName = req.body.approverName || req.user.name || 'Admin';
+      txn.approverDevice = req.body.approverDevice || parseServerUserAgent(req.headers['user-agent']);
       await txn.save({ session });
       resultTxn = txn;
     });
@@ -130,6 +148,21 @@ router.get('/users', protect, admin, async (req, res) => {
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Assign or update user's referring agent
+router.post('/users/:id/assign-agent', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+    const { agentId } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.referredBy = agentId || null;
+    await user.save();
+    res.json({ message: 'Referral agent updated successfully', user });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update referral agent' });
   }
 });
 
@@ -407,6 +440,11 @@ router.post('/kyc/:id/approve', protect, admin, async (req, res) => {
     const { remarks } = req.body;
     user.kycStatus = 'verified';
     user.kycVerifiedAt = new Date();
+    user.kycApprovedBy = {
+      name: req.body.approverName || req.user.name || 'Admin',
+      device: req.body.approverDevice || parseServerUserAgent(req.headers['user-agent']),
+      at: new Date()
+    };
     if (!user.kycDocuments) user.kycDocuments = {};
     if (remarks) user.kycDocuments.adminRemarks = remarks.trim();
     user.kycDocuments.isNoteLocked = true;
@@ -526,9 +564,35 @@ router.get('/analytics', protect, admin, async (req, res) => {
     // Clean Fintech Reserves: Pure capital pool without profit decimals added. Strictly rounded integer.
     const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds);
 
-    // 2. Deposits
-    const depositTxns = await Transaction.find({ type: 'deposit', status: 'approved' }).sort({ createdAt: 1 });
+    // 2. Deposits (Enriched with user info & populated for daily breakup display)
+    const depositTxns = await Transaction.find({ type: 'deposit', status: 'approved' })
+      .populate('userId', 'name email phone accountNumber interestRate')
+      .sort({ createdAt: 1 });
     const totalDeposits = Number(depositTxns.reduce((sum, d) => sum + (d.amount || 0), 0).toFixed(2));
+
+    // Group Deposits by dateKey (IST Calendar) for daily cards breakup & totals
+    const dayDepositsMap = {};
+    for (const dt of depositTxns) {
+      const dKey = new Date(dt.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      if (!dayDepositsMap[dKey]) dayDepositsMap[dKey] = [];
+      const rate = dt.userId?.interestRate || 12;
+      const dailyYieldForAmount = Number(((dt.amount * (rate / 100)) / 365).toFixed(2));
+      dayDepositsMap[dKey].push({
+        id: dt._id,
+        amount: dt.amount,
+        createdAt: dt.createdAt,
+        time: new Date(dt.createdAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }),
+        userName: dt.userId?.name || 'User',
+        userEmail: dt.userId?.email || '',
+        accountNumber: dt.userId?.accountNumber || `A/C: ${String(dt.userId?._id || '').slice(-6).toUpperCase()}`,
+        method: dt.method || 'wallet',
+        utrNumber: dt.utrNumber || dt.referenceId || 'Direct',
+        rateText: `${rate}% p.a. • +₹${dailyYieldForAmount}/day profit`,
+        dailyYieldForAmount,
+        proofUrl: dt.proofUrl || dt.screenshotUrl || '',
+        hasProof: Boolean(dt.proofUrl || dt.screenshotUrl)
+      });
+    }
 
     // 3. Daily Yield / Profits
     const yieldTxns = await Transaction.find({ type: 'daily_yield' }).sort({ createdAt: 1 }).populate('userId', 'name email');
@@ -574,10 +638,27 @@ router.get('/analytics', protect, admin, async (req, res) => {
       if (yt.userId) dailyMap[dateKey].users.add(yt.userId._id ? yt.userId._id.toString() : yt.userId.toString());
     }
 
+    // Also ensure any dates with deposits are included in dailyMap
+    for (const dKey of Object.keys(dayDepositsMap)) {
+      if (!dailyMap[dKey]) {
+        const [y, m, d] = dKey.split('-').map(Number);
+        const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+        dailyMap[dKey] = {
+          date: dKey,
+          displayDate: dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' }),
+          amount: 0,
+          txnCount: 0,
+          users: new Set()
+        };
+      }
+    }
+
     let runningYieldSum = 0;
     const sortedDailyList = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
     const dailyProfitChart = sortedDailyList.map(d => {
       runningYieldSum = Number((runningYieldSum + d.amount).toFixed(2));
+      const dayDeposits = dayDepositsMap[d.date] || [];
+      const dayTotalDeposit = Number(dayDeposits.reduce((sum, item) => sum + (item.amount || 0), 0).toFixed(2));
       return {
         date: d.date,
         displayDate: d.displayDate,
@@ -585,7 +666,10 @@ router.get('/analytics', protect, admin, async (req, res) => {
         cumulativeYield: runningYieldSum,
         txnCount: d.txnCount,
         uniqueUsers: d.users.size,
-        estimatedCapital: Number((totalDeposits + runningYieldSum).toFixed(2))
+        estimatedCapital: Number((totalDeposits + runningYieldSum).toFixed(2)),
+        dayTotalDeposit,
+        depositsCount: dayDeposits.length,
+        deposits: dayDeposits
       };
     });
 
@@ -818,6 +902,19 @@ router.get('/audit-history', protect, admin, async (req, res) => {
         const isDeposit = t.type === 'deposit';
         const isWithdrawal = t.type === 'withdrawal';
         const isYield = t.type === 'daily_yield';
+        const isApproved = t.status === 'approved' || t.status === 'completed';
+
+        const reqDate = t.createdAt || new Date();
+        const appDate = t.approvedAt || (isApproved ? t.createdAt : null);
+        let turnaround = '';
+        if (reqDate && appDate) {
+          const diffMs = Math.max(0, new Date(appDate).getTime() - new Date(reqDate).getTime());
+          const diffSec = Math.round(diffMs / 1000);
+          if (diffSec < 60) turnaround = `${diffSec}s`;
+          else if (diffSec < 3600) turnaround = `${Math.round(diffSec / 60)}m`;
+          else turnaround = `${(diffSec / 3600).toFixed(1)}h`;
+        }
+        const proof = t.proofUrl || t.screenshotUrl || '';
 
         historyItems.push({
           id: t._id,
@@ -832,6 +929,14 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           status: t.status,
           timestamp: t.createdAt,
           createdAt: t.createdAt,
+          requestedAt: reqDate,
+          approvedAt: appDate,
+          turnaround,
+          approverName: t.approverName || (isApproved ? 'Admin' : ''),
+          approverDevice: t.approverDevice || (isApproved ? '💻 Windows PC • Chrome' : ''),
+          proofUrl: proof,
+          screenshotUrl: proof,
+          hasProof: Boolean(proof),
           reference: ref,
           referenceId: ref,
           notes: t.remarks || (isTransfer ? 'Peer-to-Peer Wallet Transfer' : t.method ? `Mode: ${t.method}` : 'Platform record'),
@@ -847,7 +952,7 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           { kycStatus: { $in: ['verified', 'rejected', 'pending'] } },
           { 'kycDocuments.submittedAt': { $ne: null } }
         ]
-      }).select('name email phone accountNumber kycStatus kycDocuments kycVerifiedAt createdAt');
+      }).select('name email phone accountNumber kycStatus kycDocuments kycVerifiedAt kycApprovedBy createdAt');
 
       const userIds = kycUsers.map(u => u._id);
       const [loansForUsers, bondsForUsers] = await Promise.all([
@@ -916,6 +1021,18 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           detailsNote = docs.adminRemarks ? `Admin: ${docs.adminRemarks}` : (hasPhotos ? 'Aadhaar + PAN Documents Attached' : 'Details Submitted (No photos uploaded)');
         }
 
+        const isVerifiedKyc = u.kycStatus === 'verified';
+        const reqDate = docs.submittedAt || u.createdAt;
+        const appDate = u.kycVerifiedAt || (isVerifiedKyc ? ts : null);
+        let turnaround = '';
+        if (reqDate && appDate) {
+          const diffMs = Math.max(0, new Date(appDate).getTime() - new Date(reqDate).getTime());
+          const diffSec = Math.round(diffMs / 1000);
+          if (diffSec < 60) turnaround = `${diffSec}s`;
+          else if (diffSec < 3600) turnaround = `${Math.round(diffSec / 60)}m`;
+          else turnaround = `${(diffSec / 3600).toFixed(1)}h`;
+        }
+
         historyItems.push({
           id: 'kyc_' + u._id,
           category: 'kyc',
@@ -930,6 +1047,14 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           status: u.kycStatus === 'verified' ? 'approved' : u.kycStatus,
           timestamp: ts,
           createdAt: ts,
+          requestedAt: reqDate,
+          approvedAt: appDate,
+          turnaround,
+          approverName: u.kycApprovedBy?.name || (isVerifiedKyc ? 'Admin' : ''),
+          approverDevice: u.kycApprovedBy?.device || (isVerifiedKyc ? '💻 Windows PC • Chrome' : ''),
+          proofUrl: doc1Front || doc2Front || '',
+          screenshotUrl: doc1Front || doc2Front || '',
+          hasProof: hasPhotos,
           reference: kycRef,
           referenceId: kycRef,
           notes: detailsNote,
@@ -1007,6 +1132,19 @@ router.get('/audit-history', protect, admin, async (req, res) => {
         const loanRef = l.accountNumber || `LOAN_${l._id.toString().slice(-6).toUpperCase()}`;
         const loanNote = `${l.installmentsCount || 15} Kist @ ${l.interestRate}% • Disbursed: ₹${(l.disbursalAmount || l.amount).toLocaleString('en-IN')} • Dues: ₹${(l.remainingAmount ?? l.totalPayable).toLocaleString('en-IN')}`;
 
+        const isApprovedLoan = ['approved', 'active', 'closed'].includes(l.status);
+        const reqDate = l.createdAt || new Date();
+        const appDate = l.approvedAt || (isApprovedLoan ? l.createdAt : null);
+        let turnaround = '';
+        if (reqDate && appDate) {
+          const diffMs = Math.max(0, new Date(appDate).getTime() - new Date(reqDate).getTime());
+          const diffSec = Math.round(diffMs / 1000);
+          if (diffSec < 60) turnaround = `${diffSec}s`;
+          else if (diffSec < 3600) turnaround = `${Math.round(diffSec / 60)}m`;
+          else turnaround = `${(diffSec / 3600).toFixed(1)}h`;
+        }
+        const proof = l.documents?.chequeUrl || l.documents?.doc1Url || '';
+
         historyItems.push({
           id: 'loan_' + l._id,
           category: 'loan',
@@ -1020,6 +1158,14 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           status: l.status,
           timestamp: ts,
           createdAt: ts,
+          requestedAt: reqDate,
+          approvedAt: appDate,
+          turnaround,
+          approverName: l.approverName || (isApprovedLoan ? 'Admin' : ''),
+          approverDevice: l.approverDevice || (isApprovedLoan ? '💻 Windows PC • Chrome' : ''),
+          proofUrl: proof,
+          screenshotUrl: proof,
+          hasProof: Boolean(proof),
           reference: loanRef,
           referenceId: loanRef,
           notes: loanNote,

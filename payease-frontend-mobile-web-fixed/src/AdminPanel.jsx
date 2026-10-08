@@ -104,6 +104,11 @@ const getClientDeviceInfo = () => {
 const getUserLineage = (u, allUsers = [], allAgents = []) => {
   if (!u) return { type: "direct", label: "Direct Customer", subLabel: "", badge: "👤 Direct Customer" };
 
+  // Check if the user themselves is an Agent or approved applicant
+  const isAgent = u.role === "agent" ||
+    u.agentProfile?.status === "approved" ||
+    allAgents.some(a => String(a._id) === String(u._id) && (a.role === "agent" || a.agentProfile?.status === "approved"));
+
   let refId = null;
   let refObj = null;
 
@@ -117,6 +122,37 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
   if (!refId && u.referredByCode) {
     const codeMatch = allAgents.find(a => a.referralCode === u.referredByCode) || allUsers.find(x => x.referralCode === u.referredByCode);
     if (codeMatch) refId = String(codeMatch._id);
+  }
+
+  // If the user themselves is an Agent
+  if (isAgent) {
+    if (refId) {
+      // Sub-Agent (referred by a parent/master agent)
+      const parentAgent = allAgents.find(a => String(a._id) === refId) || allUsers.find(x => String(x._id) === refId);
+      const parentName = parentAgent ? parentAgent.name : "Master Agent";
+      return {
+        type: "sub_agent",
+        label: `Sub-Agent: ${u.name}`,
+        subLabel: `Master Agent: ${parentName}`,
+        badge: `👑 Sub-Agent: ${u.name} (via ${parentName})`,
+        agentId: String(u._id),
+        agentName: u.name,
+        masterName: parentName,
+        isAgentSelf: true
+      };
+    } else {
+      // Direct / Solo Independent Agent (e.g. EDUCA VEDA)
+      const busName = u.agentProfile?.businessName || (u.agentProfile?.commissionModel === "solo_2" ? "Solo Direct Agent" : "Agent Partner");
+      return {
+        type: "agent",
+        label: `Agent: ${u.name}`,
+        subLabel: busName,
+        badge: `🤝 Agent: ${u.name}`,
+        agentId: String(u._id),
+        agentName: u.name,
+        isAgentSelf: true
+      };
+    }
   }
 
   if (!refId) {
@@ -6492,14 +6528,15 @@ export default function AdminPanel() {
             const filteredSearchUsers = users.filter(u => {
               const lineage = getUserLineage(u, users, agents);
 
-              // 1. Text Search Filter (name, phone, email, account, agent name, master name)
+              // 1. Text Search Filter (name, phone, email, account, referral code, agent name, master name)
               if (issueUserSearch) {
-                const q = issueUserSearch.toLowerCase();
+                const q = issueUserSearch.toLowerCase().trim();
                 const matches =
                   (u.name && u.name.toLowerCase().includes(q)) ||
                   (u.phone && u.phone.includes(q)) ||
                   (u.email && u.email.toLowerCase().includes(q)) ||
                   (u.accountNumber && u.accountNumber.toLowerCase().includes(q)) ||
+                  (u.referralCode && u.referralCode.toLowerCase().includes(q)) ||
                   (lineage.label && lineage.label.toLowerCase().includes(q)) ||
                   (lineage.agentName && lineage.agentName.toLowerCase().includes(q)) ||
                   (lineage.masterName && lineage.masterName.toLowerCase().includes(q));
@@ -6510,14 +6547,19 @@ export default function AdminPanel() {
               if (issueHierarchyFilter === "direct") {
                 if (lineage.type !== "direct") return false;
               } else if (issueHierarchyFilter === "agent") {
-                if (lineage.type !== "agent_user") return false;
+                // Matches Agents themselves (like EDUCA VEDA) AND users of agents!
+                if (lineage.type !== "agent" && lineage.type !== "agent_user") return false;
               } else if (issueHierarchyFilter === "subagent") {
-                if (lineage.type !== "sub_agent_user") return false;
+                // Matches Sub-Agents themselves AND users of sub-agents!
+                if (lineage.type !== "sub_agent" && lineage.type !== "subagent" && lineage.type !== "sub_agent_user") return false;
               }
 
               // Specific agent selection
               if (issueSelectedAgentFilter !== "all") {
-                if (String(lineage.agentId) !== String(issueSelectedAgentFilter)) return false;
+                const targetAgentId = String(issueSelectedAgentFilter);
+                const isThisAgent = String(u._id) === targetAgentId;
+                const isUserOfThisAgent = String(lineage.agentId) === targetAgentId;
+                if (!isThisAgent && !isUserOfThisAgent) return false;
               }
 
               // 3. Dual Universal Filter 2: Time ("Kab Ka")
@@ -7288,7 +7330,11 @@ export default function AdminPanel() {
 
                                           {/* Clear Lineage Badge */}
                                           <span className={`px-2 py-0.5 rounded text-[9px] font-black inline-flex items-center gap-1 ${
-                                            lineage.type === "sub_agent_user"
+                                            lineage.type === "agent"
+                                              ? "bg-amber-500 text-white border border-amber-600 shadow-2xs"
+                                              : lineage.type === "sub_agent" || lineage.type === "subagent"
+                                              ? "bg-purple-600 text-white border border-purple-700 shadow-2xs"
+                                              : lineage.type === "sub_agent_user"
                                               ? "bg-purple-100 text-purple-950 border border-purple-300"
                                               : lineage.type === "agent_user"
                                               ? "bg-amber-100 text-amber-950 border border-amber-300"

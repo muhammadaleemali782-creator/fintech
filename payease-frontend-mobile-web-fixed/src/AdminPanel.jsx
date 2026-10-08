@@ -130,6 +130,50 @@ export default function AdminPanel() {
 
   const [lightboxImg, setLightboxImg] = useState(null); // fullscreen doc viewer
   const [zoomLevel, setZoomLevel] = useState(1);
+  const mountTimeRef = useRef(Date.now());
+  const [isApyLocked, setIsApyLocked] = useState(() => {
+    try {
+      const saved = localStorage.getItem("educa_admin_apy_locked");
+      return saved !== null ? saved === "true" : true;
+    } catch {
+      return true;
+    }
+  });
+  const [apyTapCount, setApyTapCount] = useState(0);
+  const lastApyTapTimeRef = useRef(0);
+
+  const handleApyLockTap = () => {
+    if (!isApyLocked) {
+      setIsApyLocked(true);
+      try { localStorage.setItem("educa_admin_apy_locked", "true"); } catch {}
+      setApyTapCount(0);
+      showToast("🔒 APY Editor locked!", "info");
+      return;
+    }
+    const now = Date.now();
+    const count = (now - lastApyTapTimeRef.current > 3500) ? 1 : apyTapCount + 1;
+    lastApyTapTimeRef.current = now;
+    setApyTapCount(count);
+
+    if (count >= 5) {
+      setIsApyLocked(false);
+      try { localStorage.setItem("educa_admin_apy_locked", "false"); } catch {}
+      setApyTapCount(0);
+      showToast("🔓 APY Editor Unlocked! Ab aap custom interest rate edit kar sakte hain.", "success");
+    } else {
+      showToast(`🔒 APY Editor Locked: ${5 - count} baar aur tap karein unlock karne ke liye.`, "info");
+    }
+  };
+
+  const calcLiveUserProfit = (u) => {
+    const base = Number(u.profitBalance || 0);
+    const bal = Number(u.balance || 0);
+    if (bal <= 0) return base;
+    const rate = Number(u.interestRate || 12);
+    const perMs = (bal * rate) / (36500 * 86400000);
+    const elapsed = Math.max(0, Date.now() - mountTimeRef.current);
+    return base + (elapsed * perMs);
+  };
   const [expandedLoanId, setExpandedLoanId] = useState(null);
   const [adminPayModal, setAdminPayModal] = useState(null);
   const [adminPayLoading, setAdminPayLoading] = useState(false);
@@ -1268,32 +1312,40 @@ export default function AdminPanel() {
         >
           {/* Header Controls */}
           <div
-            className="flex items-center justify-between z-10 p-2.5 bg-neutral-900/90 border border-neutral-700/60 rounded-2xl backdrop-blur-xs text-white shadow-xl"
+            className="flex items-center justify-between gap-1.5 sm:gap-2 z-10 p-2 sm:p-2.5 bg-neutral-900/95 border border-neutral-700/70 rounded-2xl backdrop-blur-md text-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-2 text-xs font-bold text-gray-200">
-              <span className="text-base">📄</span>
-              <span className="truncate">Admin Document Viewer</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-mono font-bold">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-xs font-bold text-white cursor-pointer transition border border-white/15 shrink-0"
+                title="Back to Admin"
+              >
+                <span className="text-sm">←</span>
+                <span>Back</span>
+              </button>
+              <span className="hidden sm:inline text-xs font-semibold text-gray-300 truncate">Document Viewer</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 font-mono font-bold text-gray-200 shrink-0">
                 {Math.round(zoomLevel * 100)}%
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               {/* Zoom Out */}
               <button
                 type="button"
                 onClick={() => setZoomLevel((z) => Math.max(0.75, +(z - 0.25).toFixed(2)))}
-                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
                 title="Zoom Out"
               >
-                🔍-
+                −
               </button>
               {/* Reset Zoom */}
               <button
                 type="button"
                 onClick={() => setZoomLevel(1)}
-                className="px-2.5 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-[11px] font-bold text-white cursor-pointer transition border border-white/10"
+                className="px-1.5 sm:px-2 h-7 sm:h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-[10px] sm:text-[11px] font-bold text-white cursor-pointer transition border border-white/10"
                 title="Reset Zoom"
               >
                 100%
@@ -1302,16 +1354,16 @@ export default function AdminPanel() {
               <button
                 type="button"
                 onClick={() => setZoomLevel((z) => Math.min(3.5, +(z + 0.35).toFixed(2)))}
-                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
                 title="Zoom In"
               >
-                🔍+
+                +
               </button>
               {/* Close Button */}
               <button
                 type="button"
                 onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
-                className="w-8 h-8 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 flex items-center justify-center font-black text-xs text-white cursor-pointer transition ml-1.5 shadow-sm"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 flex items-center justify-center font-black text-xs text-white cursor-pointer transition ml-0.5 sm:ml-1 shadow-sm"
                 title="Close Viewer"
               >
                 ✕
@@ -1468,27 +1520,76 @@ export default function AdminPanel() {
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0">
           {/* Stats — Only in Profit & Reserves View */}
           {tab === "analytics" && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
-              {statCards.map(({ icon, label, value, g, isWhite }) => {
-                const valStr = String(value);
-                const isLong = valStr.length > 11;
-                const isLive = label === "Fintech Reserves" || label === "Profit Credited";
+            loadingStats && !stats?.totalUsers ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    className="bg-white border-2 border-slate-200/90 p-3 sm:p-4 rounded-2xl shadow-xs min-w-0 flex flex-col justify-between animate-pulse"
+                  >
+                    <div>
+                      <div className="w-8 h-8 rounded-xl bg-slate-200 mb-2" />
+                      <div className="h-3 w-16 bg-slate-200 rounded-md" />
+                    </div>
+                    <div className="mt-3">
+                      <div className="h-5 sm:h-6 w-24 bg-slate-200 rounded-md" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
+                {statCards.map(({ icon, label, value, g, isWhite }) => {
+                  const valStr = String(value);
+                  const isLong = valStr.length > 11;
+                  const isLive = label === "Fintech Reserves" || label === "Profit Credited";
 
-                if (isWhite) {
+                  if (isWhite) {
+                    return (
+                      <div
+                        key={label}
+                        className="bg-white border-2 border-slate-200/90 hover:border-slate-300 p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
+                            <p className="text-slate-500 text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</p>
+                          </div>
+                        </div>
+                        <div className="mt-1">
+                          <p
+                            className={`font-black font-mono tabular-nums tracking-tight text-slate-900 truncate ${
+                              isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
+                            }`}
+                            title={valStr}
+                          >
+                            {value}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={label}
-                      className="bg-white border-2 border-slate-200/90 hover:border-slate-300 p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5"
+                      className={`bg-gradient-to-br ${g} text-white p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5`}
                     >
                       <div className="flex items-start justify-between">
                         <div>
                           <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
-                          <p className="text-slate-500 text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</p>
+                          <p className="text-white/85 text-[11px] sm:text-xs font-medium truncate">{label}</p>
                         </div>
+                        {isLive && (
+                          <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
+                            Live
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1">
                         <p
-                          className={`font-black font-mono tabular-nums tracking-tight text-slate-900 truncate ${
+                          className={`font-black font-mono tabular-nums tracking-tight whitespace-nowrap overflow-visible ${
                             isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
                           }`}
                           title={valStr}
@@ -1498,39 +1599,9 @@ export default function AdminPanel() {
                       </div>
                     </div>
                   );
-                }
-
-                return (
-                  <div
-                    key={label}
-                    className={`bg-gradient-to-br ${g} text-white p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
-                        <p className="text-white/85 text-[11px] sm:text-xs font-medium truncate">{label}</p>
-                      </div>
-                      {isLive && (
-                        <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
-                          Live
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1">
-                      <p
-                        className={`font-black font-mono tabular-nums tracking-tight whitespace-nowrap overflow-visible ${
-                          isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
-                        }`}
-                        title={valStr}
-                      >
-                        {value}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                })}
+              </div>
+            )
           )}
 
           {/* Tabs — mobile/tablet (Custom Executive Navigation Desk) */}
@@ -1733,89 +1804,107 @@ export default function AdminPanel() {
               </div>
 
               {/* 3 Major Metric Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 w-full">
-                <div className="bg-white rounded-3xl p-5 border border-emerald-100/80 shadow-xs flex flex-col justify-between min-w-0">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
-                        <span>🏦</span>
-                        <span>Total Fintech Reserves</span>
-                      </p>
-                      <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Live Ticking
-                      </span>
+              {loadingAnalytics && !analytics ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 w-full">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs flex flex-col justify-between min-w-0 animate-pulse">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="h-4 w-32 bg-slate-200 rounded-md" />
+                          <div className="h-4 w-16 bg-slate-200 rounded-full" />
+                        </div>
+                        <div className="h-8 w-44 bg-slate-200 rounded-lg my-2" />
+                        <div className="h-3.5 w-36 bg-slate-200 rounded-md" />
+                      </div>
+                      <div className="h-3.5 w-40 bg-slate-200 rounded-md mt-4" />
                     </div>
-                    {loadingAnalytics && !analytics && !liveAdminReserves ? (
-                      <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
-                    ) : (
-                      <>
-                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-emerald-600 tracking-tight truncate">
-                          ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                        </p>
-                        <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
-                          ≈ ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net Reserves)
-                        </p>
-                      </>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
-                    <span className="truncate">Active capital reserve pool (live)</span>
-                  </p>
+                  ))}
                 </div>
-
-                <div className="bg-white rounded-3xl p-5 border border-blue-100/80 shadow-xs flex flex-col justify-between min-w-0">
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
-                      <span>💰</span>
-                      <span>Total Customer Deposits</span>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 w-full">
+                  <div className="bg-white rounded-3xl p-5 border border-emerald-100/80 shadow-xs flex flex-col justify-between min-w-0">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
+                          <span>🏦</span>
+                          <span>Total Fintech Reserves</span>
+                        </p>
+                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live Ticking
+                        </span>
+                      </div>
+                      {loadingAnalytics && !analytics && !liveAdminReserves ? (
+                        <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
+                      ) : (
+                        <>
+                          <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-emerald-600 tracking-tight truncate">
+                            ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                          </p>
+                          <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
+                            ≈ ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net Reserves)
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
+                      <span className="truncate">Active capital reserve pool (live)</span>
                     </p>
-                    {loadingAnalytics && !analytics && !stats.totalDeposits ? (
-                      <div className="h-9 w-40 bg-blue-100/70 rounded-xl animate-pulse my-1" />
-                    ) : (
-                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-blue-600 tracking-tight truncate">
-                        ₹{Number(analytics?.stats?.totalDeposits || totalDepositsDisplay || 0).toLocaleString("en-IN")}
-                      </p>
-                    )}
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
-                    <span className="truncate">{analytics?.stats?.approvedDepositCount ?? 0} Verified Deposits</span>
-                  </p>
-                </div>
 
-                <div className="bg-white rounded-3xl p-5 border border-sky-100/80 shadow-xs flex flex-col justify-between min-w-0">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
-                        <span>⚡</span>
-                        <span>Total Profit Credited</span>
+                  <div className="bg-white rounded-3xl p-5 border border-blue-100/80 shadow-xs flex flex-col justify-between min-w-0">
+                    <div>
+                      <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
+                        <span>💰</span>
+                        <span>Total Customer Deposits</span>
                       </p>
-                      <span className="inline-flex items-center gap-1 bg-sky-100 text-sky-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
-                        Live Ticking
-                      </span>
+                      {loadingAnalytics && !analytics && !stats.totalDeposits ? (
+                        <div className="h-9 w-40 bg-blue-100/70 rounded-xl animate-pulse my-1" />
+                      ) : (
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-blue-600 tracking-tight truncate">
+                          ₹{Number(analytics?.stats?.totalDeposits || totalDepositsDisplay || 0).toLocaleString("en-IN")}
+                        </p>
+                      )}
                     </div>
-                    {loadingAnalytics && !analytics && !liveAdminProfit ? (
-                      <div className="h-9 w-40 bg-sky-100/70 rounded-xl animate-pulse my-1" />
-                    ) : (
-                      <>
-                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-sky-600 tracking-tight truncate">
-                          ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                        </p>
-                        <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
-                          ≈ ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (12% p.a. Earned)
-                        </p>
-                      </>
-                    )}
+                    <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
+                      <span className="truncate">{analytics?.stats?.approvedDepositCount ?? 0} Verified Deposits</span>
+                    </p>
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-sky-500 inline-block shrink-0" />
-                    <span className="truncate">12% p.a. Compounding Daily Yield</span>
-                  </p>
+
+                  <div className="bg-white rounded-3xl p-5 border border-sky-100/80 shadow-xs flex flex-col justify-between min-w-0">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
+                          <span>⚡</span>
+                          <span>Total Profit Credited</span>
+                        </p>
+                        <span className="inline-flex items-center gap-1 bg-sky-100 text-sky-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                          Live Ticking
+                        </span>
+                      </div>
+                      {loadingAnalytics && !analytics && !liveAdminProfit ? (
+                        <div className="h-9 w-40 bg-sky-100/70 rounded-xl animate-pulse my-1" />
+                      ) : (
+                        <>
+                          <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-sky-600 tracking-tight truncate">
+                            ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                          </p>
+                          <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
+                            ≈ ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (12% p.a. Earned)
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-sky-500 inline-block shrink-0" />
+                      <span className="truncate">12% p.a. Compounding Daily Yield</span>
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Interactive Visual SVG Chart Card */}
               <div className="bg-white rounded-3xl p-5 sm:p-7 border border-gray-100 shadow-sm">
@@ -4223,6 +4312,20 @@ export default function AdminPanel() {
                 >
                   🤝 Agents Only ({users.filter(u => u.role === "agent" || u.agentProfile?.status === "approved").length})
                 </button>
+
+                <button
+                  type="button"
+                  onClick={handleApyLockTap}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-1.5 ml-auto ${
+                    isApyLocked
+                      ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
+                      : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300"
+                  }`}
+                  title={isApyLocked ? "Tap 5 times to unlock Custom APY editor" : "Click to lock Custom APY editor"}
+                >
+                  <span>{isApyLocked ? "🔒" : "🔓"}</span>
+                  <span>{isApyLocked ? `APY Locked (${5 - apyTapCount} taps)` : "APY Unlocked (Lock Now)"}</span>
+                </button>
               </div>
 
               {filteredUsers.length === 0 ? (
@@ -4230,20 +4333,21 @@ export default function AdminPanel() {
               ) : (
                 <>
                   <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-100 shadow-xs">
-                    <table className="w-full min-w-[1100px] border-collapse bg-white">
+                    <table className="w-full min-w-[1240px] border-collapse bg-white">
                       <thead>
                         <tr className="bg-slate-50/90 border-b border-gray-200 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                          <th className="py-3.5 px-3 w-[190px]">User & Account</th>
-                          <th className="py-3.5 px-3 w-[160px]">KYC & Documents</th>
-                          <th className="py-3.5 px-3 w-[120px]">Interest Rate</th>
-                          <th className="py-3.5 px-3 w-[130px]">Card Tier</th>
-                          <th className="py-3.5 px-3 w-[120px]">Wallets</th>
+                          <th className="py-3.5 px-3 w-[180px]">User & Account</th>
+                          <th className="py-3.5 px-3 w-[150px]">KYC & Documents</th>
+                          <th className="py-3.5 px-3 w-[140px]">Interest Rate</th>
+                          <th className="py-3.5 px-3 w-[120px]">Card Tier</th>
+                          <th className="py-3.5 px-3 w-[110px]">Wallets</th>
                           <th className="py-3.5 px-3 w-[110px]">Balance</th>
-                          <th className="py-3.5 px-3 w-[135px]">24H Yield (1 Din)</th>
-                          <th className="py-3.5 px-3 w-[135px]">Roz Ka Munafa</th>
+                          <th className="py-3.5 px-3 w-[130px]">24H Yield (1 Din)</th>
+                          <th className="py-3.5 px-3 w-[140px]">Live Profit</th>
+                          <th className="py-3.5 px-3 w-[130px]">Lifetime Profit</th>
                           <th className="py-3.5 px-3 w-[90px]">Referrals</th>
-                          <th className="py-3.5 px-3 w-[100px]">Status</th>
-                          <th className="py-3.5 px-3 w-[120px]">Actions</th>
+                          <th className="py-3.5 px-3 w-[95px]">Status</th>
+                          <th className="py-3.5 px-3 w-[115px]">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-xs">
@@ -4331,27 +4435,52 @@ export default function AdminPanel() {
                             </td>
 
                             {/* CUSTOM INTEREST RATE */}
-                            <td className="py-4 px-4 align-top">
-                              <div className="flex items-center gap-1.5 pt-0.5">
-                                <input
-                                  type="number"
-                                  defaultValue={u.interestRate || 12}
-                                  id={`rate-${u._id}`}
-                                  min="1"
-                                  max="100"
-                                  className="w-14 px-1.5 py-1 border border-gray-300 rounded-lg text-xs font-black text-center text-blue-600 focus:ring-1 focus:ring-blue-500"
-                                />
-                                <span className="text-xs font-bold text-gray-400">%</span>
-                                <button
-                                  onClick={() => {
-                                    const val = document.getElementById(`rate-${u._id}`)?.value;
-                                    updateCustomInterest(u._id, val);
-                                  }}
-                                  className="px-2 py-1 bg-[#1D6AE5] hover:bg-[#1558cc] text-white rounded-lg text-[11px] font-bold shadow-2xs cursor-pointer active:scale-95"
-                                >
-                                  Save
-                                </button>
-                              </div>
+                            <td className="py-4 px-3 align-top">
+                              {isApyLocked ? (
+                                <div className="flex items-center gap-1.5 pt-0.5">
+                                  <span className="font-mono font-black text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
+                                    {u.interestRate || 12}% p.a.
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={handleApyLockTap}
+                                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold border border-slate-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
+                                    title="Tap 5 times to unlock APY editor"
+                                  >
+                                    <span>🔒</span>
+                                    <span>Locked ({5 - apyTapCount})</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1 pt-0.5">
+                                  <input
+                                    type="number"
+                                    defaultValue={u.interestRate || 12}
+                                    id={`rate-${u._id}`}
+                                    min="1"
+                                    max="100"
+                                    className="w-12 px-1 py-0.5 border border-blue-300 rounded-lg text-xs font-black text-center text-blue-600 focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                  <span className="text-xs font-bold text-gray-400">%</span>
+                                  <button
+                                    onClick={() => {
+                                      const val = document.getElementById(`rate-${u._id}`)?.value;
+                                      updateCustomInterest(u._id, val);
+                                    }}
+                                    className="px-2 py-1 bg-[#1D6AE5] hover:bg-[#1558cc] text-white rounded-lg text-[11px] font-bold shadow-2xs cursor-pointer active:scale-95"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleApyLockTap}
+                                    className="px-1.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[10px] font-bold cursor-pointer"
+                                    title="Lock editor"
+                                  >
+                                    🔒
+                                  </button>
+                                </div>
+                              )}
                             </td>
 
                             {/* CARD TIER */}
@@ -4422,16 +4551,32 @@ export default function AdminPanel() {
                               )}
                             </td>
 
-                            {/* ROZ KA MUNAFA (TOTAL PROFIT CREDITED) */}
+                            {/* LIVE PROFIT (TICKING IN REAL TIME) */}
                             <td className="py-4 px-3 align-top">
-                              {Number(u.profitBalance || 0) > 0 ? (
+                              {Number(u.balance || 0) > 0 ? (
                                 <div className="pt-0.5">
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    +₹{calcLiveUserProfit(u).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                  </span>
+                                  <p className="text-[10px] text-emerald-600 font-mono mt-0.5 font-semibold">
+                                    🟢 Live Ticking
+                                  </p>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-xs">₹0.0000</span>
+                              )}
+                            </td>
+
+                            {/* LIFETIME PROFIT (TOTAL PROFIT CREDITED IN DB) */}
+                            <td className="py-4 px-3 align-top">
+                              {Number(u.profitBalance || 0) > 0 ? (
+                                <div className="pt-0.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                     +₹{Number(u.profitBalance).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                                   </span>
                                   <p className="text-[10px] text-gray-400 font-mono mt-0.5">
-                                    {u.interestRate || 12}% p.a. Accrued
+                                    Lifetime Total
                                   </p>
                                 </div>
                               ) : (
@@ -4566,24 +4711,49 @@ export default function AdminPanel() {
                         <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2 mb-3">
                           <div className="flex items-center justify-between text-xs">
                             <span className="font-semibold text-gray-600">Custom Interest APY:</span>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                defaultValue={u.interestRate || 12}
-                                id={`m-rate-${u._id}`}
-                                className="w-12 px-1 py-0.5 border border-gray-300 rounded text-xs font-bold text-center text-blue-600"
-                              />
-                              <span className="text-xs font-bold text-gray-400">%</span>
-                              <button
-                                onClick={() => {
-                                  const val = document.getElementById(`m-rate-${u._id}`)?.value;
-                                  updateCustomInterest(u._id, val);
-                                }}
-                                className="px-2 py-0.5 bg-[#1D6AE5] text-white rounded text-[10px] font-bold"
-                              >
-                                Save
-                              </button>
-                            </div>
+                            {isApyLocked ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-black text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                  {u.interestRate || 12}% p.a.
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={handleApyLockTap}
+                                  className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[10px] font-bold border border-slate-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
+                                  title="Tap 5 times to unlock APY editor"
+                                >
+                                  <span>🔒</span>
+                                  <span>Locked ({5 - apyTapCount})</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  defaultValue={u.interestRate || 12}
+                                  id={`m-rate-${u._id}`}
+                                  className="w-12 px-1 py-0.5 border border-blue-300 rounded text-xs font-bold text-center text-blue-600 focus:ring-1 focus:ring-blue-500 bg-white"
+                                />
+                                <span className="text-xs font-bold text-gray-400">%</span>
+                                <button
+                                  onClick={() => {
+                                    const val = document.getElementById(`m-rate-${u._id}`)?.value;
+                                    updateCustomInterest(u._id, val);
+                                  }}
+                                  className="px-2 py-0.5 bg-[#1D6AE5] hover:bg-[#1558cc] text-white rounded text-[10px] font-bold cursor-pointer active:scale-95"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleApyLockTap}
+                                  className="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded text-[10px] font-bold cursor-pointer"
+                                  title="Lock editor"
+                                >
+                                  🔒
+                                </button>
+                              </div>
+                            )}
                           </div>
 
                           <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-200/60">
@@ -4601,26 +4771,46 @@ export default function AdminPanel() {
                           </div>
                         </div>
 
+                        {/* 4 METRIC SQUARES */}
                         <div className="grid grid-cols-2 gap-2 text-xs mb-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
                           <div>
                             <p className="text-gray-400 text-[10px] uppercase font-bold">Balance</p>
                             <p className="font-bold text-green-600 text-sm">₹{Number(u.balance || 0).toLocaleString("en-IN")}</p>
                           </div>
                           <div>
-                            <p className="text-gray-400 text-[10px] uppercase font-bold">24H Yield (1 Din)</p>
-                            <p className="font-bold font-mono text-blue-600 text-xs">
-                              {Number(u.balance || 0) > 0 ? `+₹${((Number(u.balance) * (u.interestRate || 12)) / 36500).toFixed(2)}/day` : "—"}
+                            <p className="text-gray-400 text-[10px] uppercase font-bold flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                              <span>Live Profit</span>
+                            </p>
+                            <p className="font-black font-mono text-emerald-600 text-xs tabular-nums">
+                              +₹{calcLiveUserProfit(u).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                             </p>
                           </div>
                           <div>
-                            <p className="text-gray-400 text-[10px] uppercase font-bold">Roz Ka Munafa</p>
-                            <p className="font-bold font-mono text-emerald-600 text-xs">
+                            <p className="text-gray-400 text-[10px] uppercase font-bold">Lifetime Profit</p>
+                            <p className="font-bold font-mono text-blue-600 text-xs tabular-nums">
                               +₹{Number(u.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                             </p>
                           </div>
                           <div>
                             <p className="text-gray-400 text-[10px] uppercase font-bold">Referral</p>
                             <p className="font-mono font-bold text-slate-700 text-xs">{u.referralCode || "—"}</p>
+                          </div>
+                        </div>
+
+                        {/* 24-HOUR EXPECTED YIELD BAR (Lamba sa button / bar above Block buttons) */}
+                        <div className="w-full mb-3 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 rounded-xl flex items-center justify-between text-xs shadow-2xs">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-sm">⚡</span>
+                            <span className="font-extrabold text-blue-950 text-xs truncate">24 Hour Me Kitna Milega:</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-mono font-black text-blue-700 text-xs sm:text-sm">
+                              {Number(u.balance || 0) > 0 ? `+₹${((Number(u.balance) * (u.interestRate || 12)) / 36500).toFixed(2)} / din` : "₹0.00 / din"}
+                            </span>
+                            <span className="block text-[9px] font-mono text-blue-500 font-semibold">
+                              (12% p.a. • ≈ ₹{(((Number(u.balance || 0) * (u.interestRate || 12)) / 36500) / 24).toFixed(4)}/hr)
+                            </span>
                           </div>
                         </div>
 
@@ -6950,6 +7140,45 @@ export default function AdminPanel() {
                       "Customer is detail par payment karega, receipt ka UTR daalega, aur aap 'Pending' tab me Approve karenge."
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Custom User APY Security Lock (5 Tap Unlock) */}
+              <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-lg font-bold font-display flex items-center gap-2 text-slate-900">
+                    <span>🔐</span> Custom User APY Editor Security Lock
+                  </h3>
+                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                    isApyLocked ? "bg-rose-100 text-rose-800 border border-rose-200" : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                  }`}>
+                    {isApyLocked ? "🔒 LOCKED (Protected)" : "🔓 UNLOCKED (Editable)"}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-500 mb-4">
+                  Galati se kisi user ka interest rate change na ho sake isliye APY editor default locked rehta hai. Is button ko <strong>5 baar tap</strong> karke aap editor unlock kar sakte hain.
+                </p>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleApyLockTap}
+                    className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition active:scale-95 shadow-xs cursor-pointer ${
+                      isApyLocked
+                        ? "bg-slate-900 hover:bg-slate-800 text-white"
+                        : "bg-rose-600 hover:bg-rose-700 text-white"
+                    }`}
+                  >
+                    <span>{isApyLocked ? "🔒" : "🔓"}</span>
+                    <span>
+                      {isApyLocked
+                        ? `Tap to Unlock (${5 - apyTapCount} taps remaining)`
+                        : "Lock APY Editor Now (Click to Protect)"}
+                    </span>
+                  </button>
+                  <span className="text-xs text-slate-400 font-mono">
+                    Status: {isApyLocked ? "Protected against accidental changes" : "Active editing allowed"}
+                  </span>
                 </div>
               </div>
 

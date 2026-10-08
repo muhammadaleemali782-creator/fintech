@@ -38,66 +38,45 @@ async function processDailyYield(user) {
       // IST calendar date boundaries (Asia/Kolkata)
       const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
       const startOfTodayIST = new Date(`${todayStr}T00:00:00+05:30`);
+      const dailyCap = Number(((baseBal * annualRate) / 365).toFixed(4));
+
+      const recordDailyYield = async (dateStr, earnedToAdd, txnDate) => {
+        if (earnedToAdd <= 0) return;
+        const refId = `yield_${user._id}_${dateStr}`;
+        const existing = await Transaction.findOne({ referenceId: refId });
+        const currentAmt = existing ? (existing.amount || 0) : 0;
+        const newAmt = Math.min(dailyCap, Number((currentAmt + earnedToAdd).toFixed(4)));
+        if (!existing || newAmt > currentAmt) {
+          await Transaction.findOneAndUpdate(
+            { referenceId: refId },
+            {
+              $set: { amount: newAmt },
+              $setOnInsert: {
+                userId: user._id,
+                type: 'daily_yield',
+                method: 'internal',
+                status: 'completed',
+                remarks: `Daily Savings Yield (${user.interestRate || 12}% p.a. on ₹${baseBal.toLocaleString('en-IN')})`,
+                createdAt: txnDate
+              }
+            },
+            { upsert: true }
+          );
+        }
+      };
 
       if (lastCalc < startOfTodayIST) {
         // Split: part before midnight IST belongs to previous day, rest to today
         const prevMs = Math.max(0, startOfTodayIST.getTime() - lastCalc.getTime());
         const earnedPrev = Number((baseBal * perMsRate * prevMs).toFixed(4));
         const prevStr = lastCalc.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-
-        if (earnedPrev > 0) {
-          await Transaction.findOneAndUpdate(
-            { referenceId: `yield_${user._id}_${prevStr}` },
-            {
-              $inc: { amount: earnedPrev },
-              $setOnInsert: {
-                userId: user._id,
-                type: 'daily_yield',
-                method: 'internal',
-                status: 'completed',
-                remarks: `Daily Savings Yield (${user.interestRate || 12}% p.a. on ₹${baseBal.toLocaleString('en-IN')})`,
-                createdAt: new Date(startOfTodayIST.getTime() - 1000)
-              }
-            },
-            { upsert: true }
-          );
-        }
+        await recordDailyYield(prevStr, earnedPrev, new Date(startOfTodayIST.getTime() - 1000));
 
         const todayMs = Math.max(0, now.getTime() - startOfTodayIST.getTime());
         const earnedToday = Number((baseBal * perMsRate * todayMs).toFixed(4));
-        if (earnedToday > 0) {
-          await Transaction.findOneAndUpdate(
-            { referenceId: `yield_${user._id}_${todayStr}` },
-            {
-              $inc: { amount: earnedToday },
-              $setOnInsert: {
-                userId: user._id,
-                type: 'daily_yield',
-                method: 'internal',
-                status: 'completed',
-                remarks: `Daily Savings Yield (${user.interestRate || 12}% p.a. on ₹${baseBal.toLocaleString('en-IN')})`,
-                createdAt: now
-              }
-            },
-            { upsert: true }
-          );
-        }
+        await recordDailyYield(todayStr, earnedToday, now);
       } else {
-        await Transaction.findOneAndUpdate(
-          { referenceId: `yield_${user._id}_${todayStr}` },
-          {
-            $inc: { amount: totalEarned },
-            $setOnInsert: {
-              userId: user._id,
-              type: 'daily_yield',
-              method: 'internal',
-              status: 'completed',
-              remarks: `Daily Savings Yield (${user.interestRate || 12}% p.a. on ₹${baseBal.toLocaleString('en-IN')})`,
-              createdAt: now
-            }
-          },
-          { upsert: true }
-        );
+        await recordDailyYield(todayStr, totalEarned, now);
       }
     }
   }

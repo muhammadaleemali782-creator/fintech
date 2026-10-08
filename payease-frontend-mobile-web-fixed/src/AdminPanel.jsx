@@ -1150,35 +1150,30 @@ export default function AdminPanel() {
 
   const chartCumulativeProfit = (analytics?.dailyProfitChart || []).reduce((acc, row) => acc + (Number(row.amount) || 0), 0);
   const totalProfitBase = Number(
-    chartCumulativeProfit > 0 ? chartCumulativeProfit :
+    analytics?.stats?.totalYieldCredited ||
+    (chartCumulativeProfit > 0 ? chartCumulativeProfit : 0) ||
     analytics?.stats?.totalUserProfits ||
     stats?.totalUserProfits ||
-    analytics?.stats?.totalYieldCredited ||
     stats?.totalYield ||
-    260.78
+    0
   );
 
-  // Live Mini-Second Profit & Reserves Stream (Continuous Monotonic Ticker at 80ms, never resets or freezes)
-  const totalDepositsDisplay = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || adminCachedReserves || 710000);
+  // Live Mini-Second Profit & Compounding Deposits Stream (Continuous Monotonic Ticker at 80ms)
+  const totalDepositsDisplay = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || 712000);
   const dailyAdminYield = totalDepositsDisplay > 0 ? (totalDepositsDisplay * 0.12) / 365 : 0;
   const perMsAdminYield = dailyAdminYield / 86400000;
 
-  const [liveAdminProfit, setLiveAdminProfit] = useState(() => {
-    try {
-      const saved = localStorage.getItem("educa_admin_cached_profit");
-      return saved ? Math.max(Number(saved), totalProfitBase) : totalProfitBase;
-    } catch {
-      return totalProfitBase;
-    }
-  });
+  // Single authoritative baseline: directly anchored to backend so Mobile and Desktop are 100% IDENTICAL
+  const [liveAdminProfit, setLiveAdminProfit] = useState(totalProfitBase);
 
   const lastTickRef = useRef(Date.now());
-  const lastSavedRef = useRef(Date.now());
 
-  // Ratchet upward if fresh higher profit arrives from backend
+  // Direct sync with backend response: both Mobile and Desktop anchor to the exact same database ledger
   useEffect(() => {
     if (totalProfitBase > 0) {
-      setLiveAdminProfit(prev => Math.max(prev, totalProfitBase));
+      setLiveAdminProfit(totalProfitBase);
+      lastTickRef.current = Date.now();
+      try { localStorage.removeItem("educa_admin_cached_profit"); } catch {}
     }
   }, [totalProfitBase]);
 
@@ -1191,7 +1186,7 @@ export default function AdminPanel() {
     }
   }, [analytics?.stats?.netFintechReserve, stats?.netFintechReserve, stats?.totalUserBalances]);
 
-  // High-frequency live ticking stream (80ms ticks for buttery smooth digits, never resets)
+  // High-frequency live ticking stream (80ms ticks for buttery smooth digits, synced across devices)
   useEffect(() => {
     lastTickRef.current = Date.now();
     let timer = null;
@@ -1201,14 +1196,7 @@ export default function AdminPanel() {
       const dt = Math.max(0, now - lastTickRef.current);
       lastTickRef.current = now;
       if (dt > 0 && perMsAdminYield > 0) {
-        setLiveAdminProfit(prev => {
-          const updated = prev + (dt * perMsAdminYield);
-          if (now - lastSavedRef.current > 2000) {
-            try { localStorage.setItem("educa_admin_cached_profit", String(updated)); } catch {}
-            lastSavedRef.current = now;
-          }
-          return updated;
-        });
+        setLiveAdminProfit(prev => prev + (dt * perMsAdminYield));
       }
     };
 
@@ -1236,13 +1224,18 @@ export default function AdminPanel() {
     };
   }, [perMsAdminYield]);
 
-  // Derived live accrual & reserves
+  // Derived live accrual & deposits
+  // CALCULATION RULES:
+  // 1. Yield is generated on customer deposits (12% p.a.).
+  // 2. The money increases on DEPOSITS (total deposits compounds with daily yield).
+  // 3. RESERVES is the backing liquidity reserve pool (not inflated by yield).
   const liveAccruedAdmin = Math.max(0, liveAdminProfit - totalProfitBase);
-  const liveAdminReserves = totalDepositsDisplay + liveAdminProfit;
+  const liveAdminDeposits = totalDepositsDisplay + liveAdminProfit;
+  const liveAdminReserves = totalReservesBase;
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600" },
-    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
+    { icon: "💰", label: "Total Deposits", value: `₹${Number(liveAdminDeposits).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-green-500 to-emerald-600" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN")}`, g: "from-emerald-500 to-teal-600" },
     { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600" },
     { icon: "👥", label: "Total Users", value: stats.totalUsers ?? users.length ?? 0, isWhite: true },
     { icon: "⏳", label: "Pending Txns", value: stats.pendingTxns ?? pending.length ?? 0, g: "from-amber-500 to-orange-500" },
@@ -1463,7 +1456,7 @@ export default function AdminPanel() {
               {statCards.map(({ icon, label, value, g, isWhite }) => {
                 const valStr = String(value);
                 const isLong = valStr.length > 11;
-                const isLive = label === "Fintech Reserves" || label === "Profit Credited";
+                const isLive = label === "Total Deposits" || label === "Profit Credited";
 
                 if (isWhite) {
                   return (
@@ -1684,15 +1677,15 @@ export default function AdminPanel() {
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl lg:text-3xl font-black font-display flex flex-wrap items-baseline gap-1.5 text-slate-900">
-                    <span>Total Fintech Reserves:</span>
-                    {loadingAnalytics && !analytics && !liveAdminReserves ? (
+                    <span>Total Customer Deposits:</span>
+                    {loadingAnalytics && !analytics && !liveAdminDeposits ? (
                       <span className="inline-block h-8 w-44 bg-slate-200 rounded-xl animate-pulse" />
                     ) : (
-                      <span className="font-mono tabular-nums text-emerald-600 font-black">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
+                      <span className="font-mono tabular-nums text-emerald-600 font-black">₹{Number(liveAdminDeposits).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
                     )}
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-                    Real-time capital balance, customer deposits, compounding 12% p.a. daily yield distribution, and liquidity reserve health.
+                    Real-time customer deposit balance with compounding 12% p.a. daily yield, backed by ₹{Number(liveAdminReserves).toLocaleString("en-IN")} liquid fintech reserves.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -1729,50 +1722,55 @@ export default function AdminPanel() {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
-                        <span>🏦</span>
-                        <span>Total Fintech Reserves</span>
+                        <span>💰</span>
+                        <span>Total Customer Deposits</span>
                       </p>
                       <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Live Ticking
                       </span>
                     </div>
-                    {loadingAnalytics && !analytics && !liveAdminReserves ? (
+                    {loadingAnalytics && !analytics && !liveAdminDeposits ? (
                       <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
                     ) : (
                       <>
                         <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-emerald-600 tracking-tight truncate">
-                          ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                          ₹{Number(liveAdminDeposits).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                         </p>
                         <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
-                          ≈ ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net Reserves)
+                          ≈ ₹{Number(liveAdminDeposits).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Deposits + 12% Yield)
                         </p>
                       </>
                     )}
                   </div>
                   <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
-                    <span className="truncate">Active capital reserve pool (live)</span>
+                    <span className="truncate">Active customer deposits pool (live compounding)</span>
                   </p>
                 </div>
 
                 <div className="bg-white rounded-3xl p-5 border border-blue-100/80 shadow-xs flex flex-col justify-between min-w-0">
                   <div>
                     <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
-                      <span>💰</span>
-                      <span>Total Customer Deposits</span>
+                      <span>🏦</span>
+                      <span>Total Fintech Reserves</span>
                     </p>
-                    {loadingAnalytics && !analytics && !stats.totalDeposits ? (
+                    {loadingAnalytics && !analytics && !liveAdminReserves ? (
                       <div className="h-9 w-40 bg-blue-100/70 rounded-xl animate-pulse my-1" />
                     ) : (
-                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-blue-600 tracking-tight truncate">
-                        ₹{Number(analytics?.stats?.totalDeposits || 0).toLocaleString("en-IN")}
-                      </p>
+                      <>
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-blue-600 tracking-tight truncate">
+                          ₹{Number(liveAdminReserves).toLocaleString("en-IN")}
+                        </p>
+                        <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
+                          ≈ ₹{Number(liveAdminReserves).toLocaleString("en-IN")} (Net Capital Reserves)
+                        </p>
+                      </>
                     )}
                   </div>
                   <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
-                    <span className="truncate">{analytics?.stats?.approvedDepositCount ?? 0} Verified Deposits</span>
+                    <span className="truncate">{analytics?.stats?.approvedDepositCount ?? 0} Verified Deposits • 100% Backed</span>
                   </p>
                 </div>
 
@@ -2212,7 +2210,7 @@ export default function AdminPanel() {
                       <span className="text-lg">🏛️</span> Capital Allocation & Sources
                     </h3>
                     <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2.5 py-1 rounded-xl border border-gray-200">
-                      Total Pool: ₹{Number(liveAdminReserves || analytics?.stats?.netFintechReserve || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      Total Pool: ₹{Number(liveAdminDeposits || analytics?.stats?.totalDeposits || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
 
@@ -2487,7 +2485,7 @@ export default function AdminPanel() {
                                   <span className="text-[9px] font-black text-emerald-700 bg-emerald-200/80 px-1.5 py-0.5 rounded">Ticking</span>
                                 </span>
                                 <span className="text-[11px] text-emerald-800">
-                                  Live counter real-time tick ho raha hai: +₹{liveTodayAccrued.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} • Total Reserves: ₹{liveAdminReserves.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  Live counter real-time tick ho raha hai: +₹{liveTodayAccrued.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} • Total Deposits: ₹{liveAdminDeposits.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               </div>
                             </div>

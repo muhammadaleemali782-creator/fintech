@@ -532,7 +532,8 @@ router.get('/analytics', protect, admin, async (req, res) => {
 
     // 3. Daily Yield / Profits
     const yieldTxns = await Transaction.find({ type: 'daily_yield' }).sort({ createdAt: 1 }).populate('userId', 'name email');
-    const totalYieldCredited = totalUserProfits || Number(yieldTxns.reduce((sum, y) => sum + (y.amount || 0), 0).toFixed(4));
+    const totalYieldTxns = Number(yieldTxns.reduce((sum, y) => sum + (y.amount || 0), 0).toFixed(4));
+    const totalYieldCredited = Math.max(totalUserProfits, totalYieldTxns);
 
     // 4. Pending Txns & Pending Loans
     const pendingTxnsCount = await Transaction.countDocuments({ status: 'pending' });

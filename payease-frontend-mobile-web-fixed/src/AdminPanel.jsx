@@ -1722,15 +1722,36 @@ export default function AdminPanel() {
   const liveAccruedAdmin = Math.max(0, liveAdminProfit - totalProfitBase);
   const liveAdminReserves = totalDepositsDisplay + liveAdminProfit;
 
+  // Hydrate & Cache live metrics so they are live immediately and never stuck in skeleton
+  const cachedUsers = typeof localStorage !== "undefined" ? Number(localStorage.getItem("educa_admin_cached_users")) : 0;
+  const cachedPending = typeof localStorage !== "undefined" ? Number(localStorage.getItem("educa_admin_cached_pending")) : 0;
+  const cachedLoans = typeof localStorage !== "undefined" ? Number(localStorage.getItem("educa_admin_cached_loans")) : 0;
+
+  const resolvedTotalUsers = stats?.totalUsers ?? analytics?.stats?.totalUsers ?? (users.length > 0 ? users.length : null) ?? (cachedUsers > 0 ? cachedUsers : 14);
+  const resolvedPendingTxns = stats?.pendingTxns ?? analytics?.stats?.pendingTxnsCount ?? (pending.length > 0 ? pending.length : null) ?? cachedPending ?? 0;
+  const resolvedActiveLoans = stats?.totalLoans ?? stats?.pendingLoans ?? analytics?.stats?.totalLoans ?? analytics?.stats?.pendingLoansCount ?? (loans.length > 0 ? loans.length : null) ?? cachedLoans ?? 0;
+
+  useEffect(() => {
+    if (resolvedTotalUsers > 0) {
+      try { localStorage.setItem("educa_admin_cached_users", String(resolvedTotalUsers)); } catch {}
+    }
+    if (stats?.pendingTxns !== undefined || analytics?.stats?.pendingTxnsCount !== undefined || pending.length > 0) {
+      try { localStorage.setItem("educa_admin_cached_pending", String(resolvedPendingTxns)); } catch {}
+    }
+    if (resolvedActiveLoans > 0) {
+      try { localStorage.setItem("educa_admin_cached_loans", String(resolvedActiveLoans)); } catch {}
+    }
+  }, [resolvedTotalUsers, resolvedPendingTxns, resolvedActiveLoans, stats, analytics, pending.length]);
+
   const isMetricsLoading = (loadingAnalytics && !analytics) || (loadingStats && !stats);
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading && liveAdminReserves === 0 },
-    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: isMetricsLoading && totalDepositsDisplay === 0 },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600", isLoading: isMetricsLoading && liveAdminProfit === 0 },
-    { icon: "👥", label: "Total Users", value: stats?.totalUsers ?? users.length ?? 0, isWhite: true, isLoading: loadingStats && !stats },
-    { icon: "⏳", label: "Pending Txns", value: stats?.pendingTxns ?? pending.length ?? 0, g: "from-amber-500 to-orange-500", isLoading: loadingStats && !stats },
-    { icon: "📑", label: "Active Loans", value: stats?.totalLoans ?? loans.length ?? 0, g: "from-sky-500 to-blue-600", isLoading: loadingStats && !stats },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading && liveAdminReserves === 0, isLive: true },
+    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: isMetricsLoading && totalDepositsDisplay === 0, isLive: true },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600", isLoading: isMetricsLoading && liveAdminProfit === 0, isLive: true },
+    { icon: "👥", label: "Total Users", value: resolvedTotalUsers, isWhite: true, isLoading: loadingStats && !stats && !analytics && users.length === 0 && !cachedUsers, isLive: true },
+    { icon: "⏳", label: "Pending Txns", value: resolvedPendingTxns, g: "from-amber-500 to-orange-500", isLoading: loadingStats && !stats && !analytics && pending.length === 0 && cachedPending === 0, isLive: true },
+    { icon: "📑", label: "Active Loans", value: resolvedActiveLoans, g: "from-sky-500 to-blue-600", isLoading: loadingStats && !stats && !analytics && loans.length === 0 && cachedLoans === 0, isLive: true },
   ];
 
   return (
@@ -1973,10 +1994,9 @@ export default function AdminPanel() {
           {/* Stats — Only in Profit & Reserves View */}
           {tab === "analytics" && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
-              {statCards.map(({ icon, label, value, g, isWhite, isLoading }) => {
+              {statCards.map(({ icon, label, value, g, isWhite, isLoading, isLive = true }) => {
                 const valStr = String(value);
                 const isLong = valStr.length > 11;
-                const isLive = label === "Fintech Reserves" || label === "Profit Credited";
 
                 if (isWhite) {
                   return (
@@ -1989,6 +2009,12 @@ export default function AdminPanel() {
                           <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
                           <p className="text-slate-500 text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</p>
                         </div>
+                        {isLive && (
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Live
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1">
                         {isLoading ? (

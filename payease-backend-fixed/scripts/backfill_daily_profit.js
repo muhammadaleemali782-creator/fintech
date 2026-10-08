@@ -1,8 +1,11 @@
 const path = require('path');
-const mongoose = require(path.join(__dirname, '..', 'node_modules', 'mongoose'));
+const mongoose = require('mongoose');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-const uri = process.env.MONGO_URI || 'mongodb+srv://placeholder_user:placeholder_password@cluster0.example.mongodb.net/paymentdb?retryWrites=true&w=majority';
-
+const uri = process.env.MONGO_URI;
+if (!uri) {
+  console.error('MONGO_URI is required in environment');
+  process.exit(1);
+}
 async function backfillDailyProfits() {
   await mongoose.connect(uri);
   console.log('✅ Connected to MongoDB');

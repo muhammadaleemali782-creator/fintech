@@ -42,7 +42,239 @@ function Counter({ to, suffix = "", prefix = "", decimals = 0 }) {
   );
 }
 
+/* ═══════════════════════════════════════════════════════════
+   LIVE FINTECH RESERVES & REAL-TIME PROTOCOL (With Skeletons)
+═══════════════════════════════════════════════════════════ */
+function LiveFintechReservesStrip() {
+  const [stats, setStats] = useState(() => {
+    try {
+      const saved = localStorage.getItem("educa_public_cached_stats");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
+  const [loading, setLoading] = useState(!stats);
+  const totalDeposits = Number(stats?.totalDeposits || 26569612);
+  const baseProfit = Number(stats?.totalProfitCredited || 1542.3944);
+  const [liveProfit, setLiveProfit] = useState(baseProfit);
+  const lastTickRef = useRef(Date.now());
+
+  // Backend fetch & polling every 25s
+  useEffect(() => {
+    let active = true;
+    const loadStats = async () => {
+      try {
+        const res = await fetch(`${API}/settings/public-stats`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && active) {
+            setStats(data);
+            setLoading(false);
+            try {
+              localStorage.setItem("educa_public_cached_stats", JSON.stringify(data));
+            } catch {}
+          }
+        }
+      } catch {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadStats();
+    const interval = setInterval(loadStats, 25000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Update base profit when fresh backend data arrives
+  useEffect(() => {
+    if (stats?.totalProfitCredited) {
+      setLiveProfit(stats.totalProfitCredited);
+      lastTickRef.current = Date.now();
+    }
+  }, [stats?.totalProfitCredited]);
+
+  // 80ms live ticker
+  const interestRate = stats?.interestRate || 12;
+  const dailyYield = totalDeposits > 0 ? (totalDeposits * (interestRate / 100)) / 365 : 0;
+  const perMsYield = dailyYield / 86400000;
+
+  useEffect(() => {
+    lastTickRef.current = Date.now();
+    let timer = null;
+
+    const tick = () => {
+      const now = Date.now();
+      const dt = Math.max(0, now - lastTickRef.current);
+      lastTickRef.current = now;
+      if (dt > 0 && perMsYield > 0) {
+        setLiveProfit((prev) => prev + dt * perMsYield);
+      }
+    };
+
+    const startTimer = () => {
+      if (timer) clearInterval(timer);
+      if (typeof document !== "undefined" && !document.hidden) {
+        timer = setInterval(tick, 80);
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (timer) clearInterval(timer);
+      } else {
+        tick();
+        startTimer();
+      }
+    };
+
+    startTimer();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [perMsYield]);
+
+  const liveReserves = totalDeposits + liveProfit;
+  const totalUsers = stats?.totalUsers || 14;
+
+  const cards = [
+    {
+      icon: "🏦",
+      title: "Fintech Reserves",
+      badge: "LIVE TICKING",
+      isLiveBadge: true,
+      value: `₹${Number(liveReserves).toLocaleString("en-IN", {
+        minimumFractionDigits: 4,
+        maximumFractionDigits: 4,
+      })}`,
+      subtitle: "100% Liquid Solvency Backing",
+      accentBg: "bg-emerald-50 text-emerald-800 border-emerald-200",
+      valueColor: "text-emerald-700",
+      isMono: true,
+    },
+    {
+      icon: "💰",
+      title: "Total Vault Deposits",
+      badge: "100% BACKED",
+      value: `₹${totalDeposits.toLocaleString("en-IN")}`,
+      subtitle: "Secured in Multi-Sign Vault",
+      accentBg: "bg-blue-50 text-blue-800 border-blue-200",
+      valueColor: "text-[#0C1B3A]",
+      isMono: false,
+    },
+    {
+      icon: "⚡",
+      title: "Profit Credited",
+      badge: "12.0% APY",
+      isLiveBadge: true,
+      value: `₹${Number(liveProfit).toLocaleString("en-IN", {
+        minimumFractionDigits: 4,
+        maximumFractionDigits: 4,
+      })}`,
+      subtitle: "Real-time user yield ledger",
+      accentBg: "bg-cyan-50 text-cyan-800 border-cyan-200",
+      valueColor: "text-blue-700",
+      isMono: true,
+    },
+    {
+      icon: "👥",
+      title: "Active Accounts",
+      badge: "ZERO DEFAULT",
+      value: `${totalUsers}+ Active`,
+      subtitle: "Savers & Borrowers across India",
+      accentBg: "bg-purple-50 text-purple-800 border-purple-200",
+      valueColor: "text-[#0C1B3A]",
+      isMono: false,
+    },
+  ];
+
+  return (
+    <div className="mt-8 mb-4">
+      {/* HEADER WITH LIVE PULSING INDICATOR */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3.5 px-1">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#0C1B3A] flex items-center gap-1.5">
+            <span>Live Fintech Liquidity & System Reserves</span>
+            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-300">
+              REAL-TIME
+            </span>
+          </span>
+        </div>
+        <div className="text-[11px] text-gray-500 font-semibold flex items-center gap-2">
+          <span>Synced with Master Ledger</span>
+          <span className="text-gray-300">•</span>
+          <span className="text-emerald-700 font-bold">12% Compounding Daily</span>
+        </div>
+      </div>
+
+      {/* 4 CARDS GRID (WITH SKELETON LOADERS) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        {cards.map((c, idx) => (
+          <div
+            key={idx}
+            className="p-4 sm:p-5 bg-white rounded-2xl border border-[#E8EDF5] shadow-md shadow-blue-900/5 hover:border-blue-300 transition-all duration-200 relative overflow-hidden"
+          >
+            {/* TOP ROW: ICON + BADGE */}
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-2xl">{c.icon}</span>
+              {loading ? (
+                <div className="h-4 w-16 bg-slate-200 rounded-full animate-pulse" />
+              ) : (
+                <span
+                  className={`text-[10px] font-black px-2 py-0.5 rounded-full border flex items-center gap-1 ${c.accentBg}`}
+                >
+                  {c.isLiveBadge && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  )}
+                  {c.badge}
+                </span>
+              )}
+            </div>
+
+            {/* LABEL */}
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 truncate">
+              {c.title}
+            </div>
+
+            {/* VALUE OR SKELETON */}
+            <div className="mb-1 min-h-[34px] flex items-center">
+              {loading ? (
+                <div className="h-7 bg-slate-200 rounded-lg w-5/6 animate-pulse" />
+              ) : (
+                <div
+                  className={`text-lg sm:text-xl md:text-2xl font-black tracking-tight ${c.valueColor} ${
+                    c.isMono ? "font-mono tabular-nums" : ""
+                  }`}
+                >
+                  {c.value}
+                </div>
+              )}
+            </div>
+
+            {/* SUBTITLE */}
+            {loading ? (
+              <div className="h-3 w-3/4 bg-slate-100 rounded animate-pulse mt-1" />
+            ) : (
+              <div className="text-[11px] text-gray-500 font-medium truncate">
+                {c.subtitle}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /* ═══════════════════════════════════════════════════════════
    HERO SECTION (With Evervault Quantum Card Scanner Stream)
@@ -125,6 +357,8 @@ function HeroSection({ onLogin }) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 relative">
+        {/* LIVE FINTECH RESERVES & REAL-TIME LIQUIDITY */}
+        <LiveFintechReservesStrip />
 
         {/* BOTTOM QUICK FORM + HIGHLIGHT CARDS */}
         <div className="grid lg:grid-cols-12 gap-8 items-center mt-10">

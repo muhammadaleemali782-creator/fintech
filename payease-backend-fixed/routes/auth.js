@@ -8,10 +8,13 @@ const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
 
 // Direct connection to Educa Mail Database (messagesdb) for instant verification and SSO
-const MESSAGES_MONGO_URI = process.env.MESSAGES_MONGO_URI || 'mongodb+srv://luciferop36_db_user:atIt54yOD2blC1lI@cluster0.2m4wpyj.mongodb.net/messagesdb?appName=Cluster0';
+const MESSAGES_MONGO_URI = process.env.MESSAGES_MONGO_URI;
 
 let mailConn = null;
 const getMailDb = async () => {
+  if (!MESSAGES_MONGO_URI) {
+    throw new Error('MESSAGES_MONGO_URI not configured in environment');
+  }
   if (!mailConn) {
     mailConn = await mongoose.createConnection(MESSAGES_MONGO_URI).asPromise();
   }

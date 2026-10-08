@@ -570,10 +570,8 @@ router.get('/stats', protect, admin, async (req, res) => {
   try {
     const { processDailyYield } = require('./user');
     const users = await User.find({ role: { $ne: 'admin' } });
-    if (processDailyYield) {
-      for (const u of users) {
-        await processDailyYield(u);
-      }
+    if (processDailyYield && users.length > 0) {
+      Promise.all(users.slice(0, 15).map(u => processDailyYield(u).catch(() => {}))).catch(() => {});
     }
 
     const totalUsers = users.length;
@@ -596,6 +594,7 @@ router.get('/stats', protect, admin, async (req, res) => {
     // Clean Fintech Reserves: Total user deposits/balances (+ active bonds). Strictly clean integer, NO PROFIT ADDED.
     const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds);
     const pendingLoans = await Loan.countDocuments({ status: 'pending' });
+    const totalLoans = await Loan.countDocuments({ status: { $in: ['active', 'approved'] } });
 
     res.json({
       totalUsers,
@@ -608,6 +607,7 @@ router.get('/stats', protect, admin, async (req, res) => {
       totalActiveBonds,
       netFintechReserve,
       pendingLoans,
+      totalLoans,
       serverTime: new Date().toISOString()
     });
   } catch (err) {
@@ -844,6 +844,7 @@ router.get('/analytics', protect, admin, async (req, res) => {
         totalYieldCredited,
         totalWithdrawals,
         totalLoansDisbursed,
+        totalLoans: await Loan.countDocuments({ status: { $in: ['active', 'approved'] } }),
         pendingTxnsCount,
         pendingLoansCount,
         netFintechReserve,

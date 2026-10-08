@@ -553,6 +553,9 @@ class MainActivity : AppCompatActivity() {
         settings.displayZoomControls = false
         settings.loadsImagesAutomatically = true
         settings.mediaPlaybackRequiresUserGesture = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        }
 
         // Completely hide scrollbars on right and left, maintain smooth natural scrolling
         webView.isVerticalScrollBarEnabled = false
@@ -673,6 +676,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                consoleMessage?.let {
+                    Log.d("EducaWebViewConsole", "${it.message()} -- line ${it.lineNumber()} of ${it.sourceId()}")
+                }
+                return true
+            }
+
             // Dynamic WebRTC camera permissions for in-app QR scanner & live camera
             override fun onPermissionRequest(request: PermissionRequest?) {
                 runOnUiThread {

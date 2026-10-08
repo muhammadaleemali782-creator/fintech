@@ -1743,15 +1743,15 @@ export default function AdminPanel() {
     }
   }, [resolvedTotalUsers, resolvedPendingTxns, resolvedActiveLoans, stats, analytics, pending.length]);
 
-  const isMetricsLoading = (loadingAnalytics && !analytics) || (loadingStats && !stats);
+  const isMetricsLoading = loadingStats || loadingAnalytics;
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading && liveAdminReserves === 0, isLive: true },
-    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: isMetricsLoading && totalDepositsDisplay === 0, isLive: true },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600", isLoading: isMetricsLoading && liveAdminProfit === 0, isLive: true },
-    { icon: "👥", label: "Total Users", value: resolvedTotalUsers, isWhite: true, isLoading: loadingStats && !stats && !analytics && users.length === 0 && !cachedUsers, isLive: true },
-    { icon: "⏳", label: "Pending Txns", value: resolvedPendingTxns, g: "from-amber-500 to-orange-500", isLoading: loadingStats && !stats && !analytics && pending.length === 0 && cachedPending === 0, isLive: true },
-    { icon: "📑", label: "Active Loans", value: resolvedActiveLoans, g: "from-sky-500 to-blue-600", isLoading: loadingStats && !stats && !analytics && loans.length === 0 && cachedLoans === 0, isLive: true },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading, isLive: true },
+    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: isMetricsLoading, isLive: true },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600", isLoading: isMetricsLoading, isLive: true },
+    { icon: "👥", label: "Total Users", value: resolvedTotalUsers, isWhite: true, isLoading: isMetricsLoading, isLive: true },
+    { icon: "⏳", label: "Pending Txns", value: resolvedPendingTxns, g: "from-amber-500 to-orange-500", isLoading: isMetricsLoading, isLive: true },
+    { icon: "📑", label: "Active Loans", value: resolvedActiveLoans, g: "from-sky-500 to-blue-600", isLoading: isMetricsLoading, isLive: true },
   ];
 
   return (
@@ -2232,7 +2232,7 @@ export default function AdminPanel() {
                   </div>
                   <h2 className="text-xl sm:text-2xl lg:text-3xl font-black font-display flex flex-wrap items-baseline gap-1.5 text-slate-900">
                     <span>Total Fintech Reserves:</span>
-                    {loadingAnalytics && !analytics ? (
+                    {loadingAnalytics ? (
                       <span className="inline-block h-8 sm:h-9 w-44 bg-emerald-100/90 rounded-xl animate-pulse" />
                     ) : (
                       <span className="font-mono tabular-nums text-emerald-600 font-black">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
@@ -2284,7 +2284,7 @@ export default function AdminPanel() {
                         Live Ticking
                       </span>
                     </div>
-                    {loadingAnalytics && !analytics ? (
+                    {loadingAnalytics ? (
                       <div className="my-1 space-y-1">
                         <div className="h-8 sm:h-9 w-44 bg-emerald-100/80 rounded-xl animate-pulse" />
                         <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
@@ -2312,7 +2312,7 @@ export default function AdminPanel() {
                       <span>💰</span>
                       <span>Total Customer Deposits</span>
                     </p>
-                    {loadingAnalytics && !analytics ? (
+                    {loadingAnalytics ? (
                       <div className="h-8 sm:h-9 w-40 bg-blue-100/80 rounded-xl animate-pulse my-1" />
                     ) : (
                       <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-blue-600 tracking-tight truncate">
@@ -2338,7 +2338,7 @@ export default function AdminPanel() {
                         Live Ticking
                       </span>
                     </div>
-                    {loadingAnalytics && !analytics ? (
+                    {loadingAnalytics ? (
                       <div className="my-1 space-y-1">
                         <div className="h-8 sm:h-9 w-40 bg-sky-100/80 rounded-xl animate-pulse" />
                         <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />

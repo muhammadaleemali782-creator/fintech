@@ -55,7 +55,7 @@ function LiveFintechReservesStrip() {
     }
   });
 
-  const [loading, setLoading] = useState(!stats);
+  const [loading, setLoading] = useState(true);
   const totalDeposits = Number(stats?.totalDeposits || 26569612);
   const baseProfit = Number(stats?.totalProfitCredited || 1542.3944);
   const [liveProfit, setLiveProfit] = useState(baseProfit);
@@ -71,21 +71,26 @@ function LiveFintechReservesStrip() {
           const data = await res.json();
           if (data && data.success && active) {
             setStats(data);
-            setLoading(false);
             try {
               localStorage.setItem("educa_public_cached_stats", JSON.stringify(data));
             } catch {}
           }
         }
       } catch {
-        if (active) setLoading(false);
+        // Fallback
       }
     };
 
     loadStats();
+    // Smooth skeleton shimmer on initial page load
+    const timer = setTimeout(() => {
+      if (active) setLoading(false);
+    }, 600);
+
     const interval = setInterval(loadStats, 25000);
     return () => {
       active = false;
+      clearTimeout(timer);
       clearInterval(interval);
     };
   }, []);

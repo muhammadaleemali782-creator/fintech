@@ -225,19 +225,49 @@ router.post('/deposit', protect, async (req, res) => {
       return res.status(400).json({ message: 'Invalid UTR number' });
 
     const finalProof = proofUrl || screenshotUrl || '';
+    const cleanUtr = utrNumber ? String(utrNumber).trim() : '';
+
+    let isDuplicateUtr = false;
+    let holdReason = '';
+
+    if (cleanUtr) {
+      // Check if this UTR has already been submitted in any approved, completed, pending, or hold transaction
+      const escapedUtr = cleanUtr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const existingMatch = await Transaction.findOne({
+        utrNumber: { $regex: new RegExp(`^${escapedUtr}$`, 'i') },
+        status: { $in: ['approved', 'completed', 'pending', 'hold'] }
+      }).populate('userId', 'name phone email');
+
+      if (existingMatch) {
+        isDuplicateUtr = true;
+        const prevStatus = existingMatch.status ? existingMatch.status.toUpperCase() : 'RECORDED';
+        const prevUserName = existingMatch.userId?.name || 'Another user';
+        holdReason = `Duplicate UTR Conflict: UTR "${cleanUtr}" already recorded in system (${prevStatus} by ${prevUserName}). Marked ON HOLD for admin review.`;
+      }
+    }
+
     const txn = await Transaction.create({
       userId: req.user._id,
       type: 'deposit',
       amount: numAmount,
       method,
-      utrNumber: utrNumber ? String(utrNumber).trim() : '',
+      utrNumber: cleanUtr,
       proofUrl: finalProof,
       screenshotUrl: finalProof,
-      status: 'pending',
-      remarks: `Deposit Request (UTR: ${utrNumber || 'Evidence attached'})`
+      status: isDuplicateUtr ? 'hold' : 'pending',
+      isHold: isDuplicateUtr,
+      holdReason: isDuplicateUtr ? holdReason : '',
+      remarks: isDuplicateUtr
+        ? `Deposit Request (ON HOLD: Duplicate UTR ${cleanUtr})`
+        : `Deposit Request (UTR: ${cleanUtr || 'Evidence attached'})`
     });
     
-    res.json({ message: '✅ Deposit request with evidence submitted. Awaiting admin approval.', txn });
+    res.json({
+      message: isDuplicateUtr
+        ? '⚠️ Deposit request submitted. UTR verification in progress.'
+        : '✅ Deposit request with evidence submitted. Awaiting admin approval.',
+      txn
+    });
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
   }

@@ -37,7 +37,7 @@ function parseServerUserAgent(ua = '') {
   return `${device} • ${browser}`;
 }
 
-// All pending transactions
+// All pending transactions (strictly active non-hold)
 router.get('/transactions/pending', protect, admin, async (req, res) => {
   try {
     const txns = await Transaction.find({ status: 'pending' })
@@ -49,7 +49,79 @@ router.get('/transactions/pending', protect, admin, async (req, res) => {
   }
 });
 
-// Approve transaction
+// All Hold transactions grouped by UTR with matching history comparison
+router.get('/transactions/hold', protect, admin, async (req, res) => {
+  try {
+    const holdTxns = await Transaction.find({
+      $or: [{ status: 'hold' }, { isHold: true }]
+    })
+      .populate('userId', 'name email phone accountNumber referralCode')
+      .sort({ createdAt: -1 });
+
+    if (holdTxns.length === 0) {
+      return res.json({ holdCount: 0, groups: [] });
+    }
+
+    const rawUtrs = holdTxns.map(t => t.utrNumber ? String(t.utrNumber).trim() : '').filter(Boolean);
+    const uniqueUtrs = [...new Set(rawUtrs)];
+
+    // Fetch all records sharing these UTRs across the system
+    const allMatches = await Transaction.find({
+      utrNumber: { $in: uniqueUtrs }
+    })
+      .populate('userId', 'name email phone accountNumber referralCode')
+      .populate('approvedBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    const groupsMap = {};
+    for (const utr of uniqueUtrs) {
+      groupsMap[utr] = {
+        utrNumber: utr,
+        holdCount: 0,
+        approvedCount: 0,
+        pendingCount: 0,
+        rejectedCount: 0,
+        totalCount: 0,
+        items: []
+      };
+    }
+
+    for (const t of allMatches) {
+      const u = t.utrNumber ? String(t.utrNumber).trim() : '';
+      if (!groupsMap[u]) continue;
+
+      groupsMap[u].totalCount++;
+      if (t.status === 'hold' || t.isHold) groupsMap[u].holdCount++;
+      else if (t.status === 'approved' || t.status === 'completed') groupsMap[u].approvedCount++;
+      else if (t.status === 'pending') groupsMap[u].pendingCount++;
+      else if (t.status === 'rejected') groupsMap[u].rejectedCount++;
+
+      groupsMap[u].items.push(t);
+    }
+
+    // Sort items inside each group: hold first, then pending, then approved, then rejected
+    const statusOrder = { hold: 1, pending: 2, approved: 3, completed: 4, rejected: 5 };
+    Object.values(groupsMap).forEach(g => {
+      g.items.sort((a, b) => {
+        const orderA = statusOrder[a.status] || 99;
+        const orderB = statusOrder[b.status] || 99;
+        if (orderA !== orderB) return orderA - orderB;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    });
+
+    const groups = Object.values(groupsMap).sort((a, b) => b.holdCount - a.holdCount);
+
+    res.json({
+      holdCount: holdTxns.length,
+      groups
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Something went wrong fetching hold transactions' });
+  }
+});
+
+// Approve transaction (supports both pending and hold)
 router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
   if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid transaction ID' });
 
@@ -59,8 +131,8 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
 
     await session.withTransaction(async () => {
       const txn = await Transaction.findById(req.params.id).session(session);
-      if (!txn || txn.status !== 'pending') {
-        const e = new Error('Invalid transaction');
+      if (!txn || !['pending', 'hold'].includes(txn.status)) {
+        const e = new Error('Invalid transaction or already processed');
         e.status = 400;
         throw e;
       }
@@ -77,8 +149,10 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
           throw e;
         }
         txn.status = 'approved';
+        txn.isHold = false;
       } else {
         txn.status = 'completed';
+        txn.isHold = false;
       }
 
       txn.approvedBy = req.user._id;
@@ -97,7 +171,7 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
   }
 });
 
-// Reject transaction
+// Reject transaction (supports both pending and hold)
 router.post('/transaction/:id/reject', protect, admin, async (req, res) => {
   if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid transaction ID' });
 
@@ -108,8 +182,8 @@ router.post('/transaction/:id/reject', protect, admin, async (req, res) => {
 
     await session.withTransaction(async () => {
       const txn = await Transaction.findOneAndUpdate(
-        { _id: req.params.id, status: 'pending' },
-        { $set: { status: 'rejected', remarks } },
+        { _id: req.params.id, status: { $in: ['pending', 'hold'] } },
+        { $set: { status: 'rejected', isHold: false, remarks } },
         { new: true, session }
       );
       if (!txn) {
@@ -504,6 +578,7 @@ router.get('/stats', protect, admin, async (req, res) => {
 
     const totalUsers = users.length;
     const pendingTxns = await Transaction.countDocuments({ status: 'pending' });
+    const holdTxns = await Transaction.countDocuments({ $or: [{ status: 'hold' }, { isHold: true }] });
     const totalDeposits = await Transaction.aggregate([
       { $match: { type: 'deposit', status: 'approved' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
@@ -525,6 +600,7 @@ router.get('/stats', protect, admin, async (req, res) => {
     res.json({
       totalUsers,
       pendingTxns,
+      holdTxns,
       totalDeposits: totalDeposits[0]?.total || 0,
       totalYield: totalUserProfits || totalYield[0]?.total || 0,
       totalUserBalances,
@@ -582,10 +658,13 @@ router.get('/analytics', protect, admin, async (req, res) => {
         amount: dt.amount,
         createdAt: dt.createdAt,
         time: new Date(dt.createdAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }),
+        user: dt.userId?.name || 'User',
         userName: dt.userId?.name || 'User',
+        userPhone: dt.userId?.phone || '',
         userEmail: dt.userId?.email || '',
         accountNumber: dt.userId?.accountNumber || `A/C: ${String(dt.userId?._id || '').slice(-6).toUpperCase()}`,
         method: dt.method || 'wallet',
+        utr: dt.utrNumber || dt.referenceId || 'Direct',
         utrNumber: dt.utrNumber || dt.referenceId || 'Direct',
         rateText: `${rate}% p.a. • +₹${dailyYieldForAmount}/day profit`,
         dailyYieldForAmount,

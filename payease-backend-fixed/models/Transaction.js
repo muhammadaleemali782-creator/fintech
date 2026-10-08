@@ -24,9 +24,11 @@ const transactionSchema = new mongoose.Schema({
   method: { type: String, enum: ['upi', 'bank', 'wallet', 'internal'], default: 'wallet' },
   status: { 
     type: String, 
-    enum: ['pending', 'approved', 'rejected', 'completed'], 
+    enum: ['pending', 'approved', 'rejected', 'completed', 'hold'], 
     default: 'completed' 
   },
+  isHold: { type: Boolean, default: false },
+  holdReason: { type: String },
   utrNumber: String,
   proofUrl: String,
   screenshotUrl: String,

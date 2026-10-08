@@ -819,6 +819,70 @@ router.post('/agent/update-loan-limit', protect, async (req, res) => {
   }
 });
 
+// ------------------ AGENT: ADD / ONBOARD CUSTOMER DIRECTLY UNDER AGENT ------------------
+router.post('/agent/add-customer', protect, async (req, res) => {
+  try {
+    const agent = await User.findById(req.user._id);
+    if (!agent) return res.status(404).json({ message: 'User not found' });
+
+    const isAgent = agent.role === 'agent' || agent.agentProfile?.status === 'approved' || agent.role === 'admin';
+    if (!isAgent) return res.status(403).json({ message: 'Agent access required' });
+
+    const { name, phone, email, password } = req.body;
+    if (!name || name.trim().length < 2) {
+      return res.status(400).json({ message: 'Customer name zaroori hai (min 2 characters)' });
+    }
+    const cleanPhone = phone ? String(phone).trim() : '';
+    if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      return res.status(400).json({ message: 'Valid 10-digit mobile number enter karein (6-9 se shuru)' });
+    }
+
+    const cleanEmail = email && email.trim() ? email.trim().toLowerCase() : `${cleanPhone}@educa.internal`;
+    const cleanPass = password && password.trim().length >= 6 ? password.trim() : '12345678';
+
+    const existingUser = await User.findOne({
+      $or: [{ phone: cleanPhone }, { email: cleanEmail }]
+    });
+    if (existingUser) {
+      const msg = existingUser.phone === cleanPhone ? 'Ye mobile number pehle se registered hai.' : 'Ye email pehle se registered hai.';
+      return res.status(400).json({ message: msg });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const hashed = await bcrypt.hash(cleanPass, 12);
+
+    const newUser = await User.create({
+      name: name.trim(),
+      phone: cleanPhone,
+      email: cleanEmail,
+      password: hashed,
+      referredBy: agent._id,
+      loanLimit: 15000,
+      balance: 0
+    });
+
+    agent.referralCount = (agent.referralCount || 0) + 1;
+    await agent.save();
+
+    res.json({
+      success: true,
+      message: `🎉 Customer ${newUser.name} safaltapoorvak aapke portfolio me add ho gaya hai! (Login Password: ${cleanPass})`,
+      customer: {
+        _id: newUser._id,
+        name: newUser.name,
+        phone: newUser.phone,
+        email: newUser.email,
+        accountNumber: newUser.accountNumber,
+        loanLimit: newUser.loanLimit,
+        createdAt: newUser.createdAt
+      }
+    });
+  } catch (err) {
+    console.error('Add customer error:', err);
+    res.status(500).json({ message: 'Customer add karne me error aaya. Kripya dobara try karein.' });
+  }
+});
+
 router.processDailyYield = processDailyYield;
 module.exports = router;
 module.exports.processDailyYield = processDailyYield;

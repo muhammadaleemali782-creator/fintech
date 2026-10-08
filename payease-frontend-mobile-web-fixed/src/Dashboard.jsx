@@ -471,6 +471,9 @@ export default function Dashboard() {
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastSending, setBroadcastSending] = useState(false);
+  const [addCustomerModalOpen, setAddCustomerModalOpen] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({ name: "", phone: "", email: "", password: "12345678" });
+  const [submittingCustomer, setSubmittingCustomer] = useState(false);
 
   const getAdvisorGreeting = (l = "hinglish") => {
     if (l === "english") {
@@ -851,10 +854,10 @@ export default function Dashboard() {
       window.handleAndroidBackPressed = null;
       window.forceDismissActiveModal = null;
     };
-  }, [modal, accountModal, showLoans, showTour, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen]);
+  }, [modal, accountModal, showLoans, showTour, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen, addCustomerModalOpen]);
 
   useEffect(() => {
-    const isOverlayOpen = Boolean(modal || accountModal || showLoans || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen);
+    const isOverlayOpen = Boolean(modal || accountModal || showLoans || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen || addCustomerModalOpen);
     if (isOverlayOpen) {
       window.history.pushState({ educaSheetOpen: true }, "");
       const onPopState = () => {
@@ -1510,6 +1513,37 @@ export default function Dashboard() {
       setToast({ text: "Network issue: Broadcast message send nahi ho saka", type: "error" });
     } finally {
       setBroadcastSending(false);
+    }
+  };
+
+  const handleAgentAddCustomer = async (e) => {
+    e.preventDefault();
+    if (!newCustomerForm.name.trim()) {
+      setToast({ text: "Customer name zaroori hai", type: "error" });
+      return;
+    }
+    const cleanPhone = newCustomerForm.phone ? String(newCustomerForm.phone).trim() : "";
+    if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setToast({ text: "Valid 10-digit mobile number enter karein (6-9 se shuru)", type: "error" });
+      return;
+    }
+    setSubmittingCustomer(true);
+    try {
+      const res = await fetch(`${API}/user/agent/add-customer`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(newCustomerForm)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Customer add karne me error aaya");
+      setToast({ text: data.message || "Customer safaltapoorvak link ho gaya!", type: "success" });
+      setAddCustomerModalOpen(false);
+      setNewCustomerForm({ name: "", phone: "", email: "", password: "12345678" });
+      loadAgentMetrics();
+    } catch (err) {
+      setToast({ text: err.message, type: "error" });
+    } finally {
+      setSubmittingCustomer(false);
     }
   };
 
@@ -3999,7 +4033,14 @@ export default function Dashboard() {
                   {agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode || "AGENT"}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setAddCustomerModalOpen(true)}
+                  className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black rounded-xl transition active:scale-95 text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>➕</span> Add Customer
+                </button>
                 <button
                   type="button"
                   onClick={() => setAgentBroadcastModalOpen(true)}
@@ -10463,6 +10504,116 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+        </Sheet>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          AGENT ADD / ONBOARD CUSTOMER MODAL SHEET
+      ══════════════════════════════════════════════════════ */}
+      {addCustomerModalOpen && (
+        <Sheet
+          open={addCustomerModalOpen}
+          onClose={() => setAddCustomerModalOpen(false)}
+          title="Onboard Customer Under My Portfolio"
+          icon="👥"
+        >
+          <form onSubmit={handleAgentAddCustomer} className="space-y-4">
+            <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/5 border border-emerald-300 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-emerald-800 uppercase font-black tracking-wider">Direct Referral Linking</span>
+                <h4 className="text-sm font-black text-emerald-950">
+                  New Customer Addition
+                </h4>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500 text-slate-950 uppercase shadow-2xs font-mono">
+                Code: {userProfile.referralCode || "AGENT"}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-600 leading-tight">
+              Aap apne referral network ke antargat naye customer ko sidhe registered kar sakte hain. Customer ka account turant ban jayega aur aapke portfolio me link ho jayega.
+            </p>
+
+            {/* Customer Name */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                Customer Full Name <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={newCustomerForm.name}
+                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                placeholder="e.g. Ramesh Kumar"
+                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            {/* Mobile Number */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                10-Digit Mobile Number <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="tel"
+                required
+                maxLength={10}
+                value={newCustomerForm.phone}
+                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value.replace(/\D/g, '') })}
+                placeholder="e.g. 9876543210"
+                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            {/* Email (Optional) */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                Email Address (Optional)
+              </label>
+              <input
+                type="email"
+                value={newCustomerForm.email}
+                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                placeholder="agar email na ho to khali chhod dein"
+                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            {/* Initial Password */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                Initial Login Password
+              </label>
+              <input
+                type="text"
+                value={newCustomerForm.password}
+                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, password: e.target.value })}
+                placeholder="Default: 12345678"
+                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <span className="text-[10px] text-gray-400 mt-0.5 block">
+                Customer is password se login kar sakta hai aur baad me change kar sakta hai.
+              </span>
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={submittingCustomer}
+                className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl text-xs shadow-md transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+              >
+                {submittingCustomer ? (
+                  <span>Registering & Linking Customer...</span>
+                ) : (
+                  <>
+                    <span>✓</span>
+                    <span>Create & Link Customer Under Me →</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </Sheet>
       )}
 

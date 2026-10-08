@@ -197,6 +197,9 @@ export default function AdminPanel() {
   const [issueSelectedAgentFilter, setIssueSelectedAgentFilter] = useState("all");
   const [issueTimeFilter, setIssueTimeFilter] = useState("all");
   const [pending, setPending] = useState([]);
+  const [pendingSubTab, setPendingSubTab] = useState("active"); // "active" | "hold"
+  const [holdData, setHoldData] = useState({ holdCount: 0, groups: [] });
+  const [loadingHold, setLoadingHold] = useState(false);
   const [agents, setAgents] = useState([]);
   const [agentCommissionInput, setAgentCommissionInput] = useState({});
   const [savingAgentCommission, setSavingAgentCommission] = useState({});
@@ -590,6 +593,27 @@ export default function AdminPanel() {
     } catch {}
   }, []); // eslint-disable-line
 
+  const loadHoldData = useCallback(async (force = false) => {
+    setLoadingHold(true);
+    try {
+      const res = await cachedAdminFetch(`${API}/admin/transactions/hold`, { headers }, 30000, force);
+      if (res.status === 429) {
+        setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
+        return;
+      }
+      if (!res.ok) return;
+      const d = await res.json();
+      if (d && typeof d === "object") {
+        setHoldData(d);
+        setRateLimitError(null);
+      }
+    } catch (e) {
+      console.warn("Failed to load hold data:", e);
+    } finally {
+      setLoadingHold(false);
+    }
+  }, []); // eslint-disable-line
+
   const loadUsers = useCallback(async (force = false) => {
     try {
       const res = await cachedAdminFetch(`${API}/admin/users`, { headers }, 45000, force);
@@ -846,10 +870,16 @@ export default function AdminPanel() {
 
   // LAZY LOADING: Sections only fetch when admin navigates to that tab
   useEffect(() => {
+    let analyticsInterval = null;
     if (tab === "analytics") {
       loadAnalytics();
+      // 5-minute auto-refresh interval for live 24h deposits & yields
+      analyticsInterval = setInterval(() => {
+        loadAnalytics(true);
+      }, 5 * 60 * 1000);
     } else if (tab === "pending") {
       loadPending();
+      loadHoldData();
       loadDepositDetails();
     } else if (tab === "agents") {
       loadAgents();
@@ -867,7 +897,11 @@ export default function AdminPanel() {
       loadAgents();
       loadUsers();
     }
-  }, [tab, loadAnalytics, loadPending, loadDepositDetails, loadAgents, loadLoans, loadBonds, loadDevices, loadSettings, loadUsers]);
+
+    return () => {
+      if (analyticsInterval) clearInterval(analyticsInterval);
+    };
+  }, [tab, loadAnalytics, loadPending, loadHoldData, loadDepositDetails, loadAgents, loadLoans, loadBonds, loadDevices, loadSettings, loadUsers]);
 
   // REAL-TIME SSE CONNECTION FOR LIVE ALERTS & SOUND
   useEffect(() => {
@@ -960,6 +994,7 @@ export default function AdminPanel() {
     if (res.ok) {
       apiCache.clear();
       loadPending(true);
+      loadHoldData(true);
       loadStats(true);
     }
   };
@@ -979,6 +1014,7 @@ export default function AdminPanel() {
     showToast((await res.json()).message, "success");
     apiCache.clear();
     loadPending(true);
+    loadHoldData(true);
     loadStats(true);
   };
 
@@ -1632,12 +1668,12 @@ export default function AdminPanel() {
   const liveAdminReserves = totalDepositsDisplay + liveAdminProfit;
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600" },
-    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600" },
-    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600" },
-    { icon: "👥", label: "Total Users", value: stats?.totalUsers ?? users.length ?? 0, isWhite: true },
-    { icon: "⏳", label: "Pending Txns", value: stats?.pendingTxns ?? pending.length ?? 0, g: "from-amber-500 to-orange-500" },
-    { icon: "📑", label: "Active Loans", value: stats?.totalLoans ?? loans.length ?? 0, g: "from-sky-500 to-blue-600" },
+    { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600", isLoading: (loadingAnalytics && !analytics) || (loadingStats && !stats && !liveAdminReserves) },
+    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: (loadingAnalytics && !analytics) || (loadingStats && !stats && !totalDepositsDisplay) },
+    { icon: "⚡", label: "Profit Credited", value: `₹${Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-blue-600 to-cyan-600", isLoading: (loadingAnalytics && !analytics) || (loadingStats && !stats && !liveAdminProfit) },
+    { icon: "👥", label: "Total Users", value: stats?.totalUsers ?? users.length ?? 0, isWhite: true, isLoading: loadingStats && !stats },
+    { icon: "⏳", label: "Pending Txns", value: stats?.pendingTxns ?? pending.length ?? 0, g: "from-amber-500 to-orange-500", isLoading: loadingStats && !stats },
+    { icon: "📑", label: "Active Loans", value: stats?.totalLoans ?? loans.length ?? 0, g: "from-sky-500 to-blue-600", isLoading: loadingStats && !stats },
   ];
 
   return (
@@ -1879,43 +1915,28 @@ export default function AdminPanel() {
 
           {/* Stats — Only in Profit & Reserves View */}
           {tab === "analytics" && (
-            loadingStats && !stats ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div
-                    key={i}
-                    className="bg-white border-2 border-slate-200/90 p-3 sm:p-4 rounded-2xl shadow-xs min-w-0 flex flex-col justify-between animate-pulse"
-                  >
-                    <div>
-                      <div className="w-8 h-8 rounded-xl bg-slate-200 mb-2" />
-                      <div className="h-3 w-16 bg-slate-200 rounded-md" />
-                    </div>
-                    <div className="mt-3">
-                      <div className="h-5 sm:h-6 w-24 bg-slate-200 rounded-md" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
-                {statCards.map(({ icon, label, value, g, isWhite }) => {
-                  const valStr = String(value);
-                  const isLong = valStr.length > 11;
-                  const isLive = label === "Fintech Reserves" || label === "Profit Credited";
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
+              {statCards.map(({ icon, label, value, g, isWhite, isLoading }) => {
+                const valStr = String(value);
+                const isLong = valStr.length > 11;
+                const isLive = label === "Fintech Reserves" || label === "Profit Credited";
 
-                  if (isWhite) {
-                    return (
-                      <div
-                        key={label}
-                        className="bg-white border-2 border-slate-200/90 hover:border-slate-300 p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
-                            <p className="text-slate-500 text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</p>
-                          </div>
+                if (isWhite) {
+                  return (
+                    <div
+                      key={label}
+                      className="bg-white border-2 border-slate-200/90 hover:border-slate-300 p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
+                          <p className="text-slate-500 text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</p>
                         </div>
-                        <div className="mt-1">
+                      </div>
+                      <div className="mt-1">
+                        {isLoading ? (
+                          <span className="inline-block h-6 sm:h-7 w-12 sm:w-16 bg-slate-200 rounded-md animate-pulse my-0.5" />
+                        ) : (
                           <p
                             className={`font-black font-mono tabular-nums tracking-tight text-slate-900 truncate ${
                               isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
@@ -1924,29 +1945,33 @@ export default function AdminPanel() {
                           >
                             {value}
                           </p>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div
-                      key={label}
-                      className={`bg-gradient-to-br ${g} text-white p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
-                          <p className="text-white/85 text-[11px] sm:text-xs font-medium truncate">{label}</p>
-                        </div>
-                        {isLive && (
-                          <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
-                            Live
-                          </span>
                         )}
                       </div>
-                      <div className="mt-1">
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={label}
+                    className={`bg-gradient-to-br ${g} text-white p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
+                        <p className="text-white/85 text-[11px] sm:text-xs font-medium truncate">{label}</p>
+                      </div>
+                      {isLive && (
+                        <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
+                          Live
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1">
+                      {isLoading ? (
+                        <span className="inline-block h-6 sm:h-7 w-24 sm:w-28 bg-white/30 rounded-md animate-pulse my-0.5" />
+                      ) : (
                         <p
                           className={`font-black font-mono tabular-nums tracking-tight whitespace-nowrap overflow-visible ${
                             isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
@@ -1955,12 +1980,12 @@ export default function AdminPanel() {
                         >
                           {value}
                         </p>
-                      </div>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           {/* Tabs — mobile/tablet (Custom Executive Navigation Desk) */}
@@ -2124,8 +2149,8 @@ export default function AdminPanel() {
                   </div>
                   <h2 className="text-xl sm:text-2xl lg:text-3xl font-black font-display flex flex-wrap items-baseline gap-1.5 text-slate-900">
                     <span>Total Fintech Reserves:</span>
-                    {loadingAnalytics && !analytics && !liveAdminReserves ? (
-                      <span className="inline-block h-8 w-44 bg-slate-200 rounded-xl animate-pulse" />
+                    {loadingAnalytics && !analytics ? (
+                      <span className="inline-block h-8 sm:h-9 w-44 bg-emerald-100/90 rounded-xl animate-pulse" />
                     ) : (
                       <span className="font-mono tabular-nums text-emerald-600 font-black">₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
                     )}
@@ -2163,107 +2188,95 @@ export default function AdminPanel() {
               </div>
 
               {/* 3 Major Metric Cards */}
-              {loadingAnalytics && !analytics ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 w-full">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs flex flex-col justify-between min-w-0 animate-pulse">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="h-4 w-32 bg-slate-200 rounded-md" />
-                          <div className="h-4 w-16 bg-slate-200 rounded-full" />
-                        </div>
-                        <div className="h-8 w-44 bg-slate-200 rounded-lg my-2" />
-                        <div className="h-3.5 w-36 bg-slate-200 rounded-md" />
-                      </div>
-                      <div className="h-3.5 w-40 bg-slate-200 rounded-md mt-4" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 w-full">
-                  <div className="bg-white rounded-3xl p-5 border border-emerald-100/80 shadow-xs flex flex-col justify-between min-w-0">
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
-                          <span>🏦</span>
-                          <span>Total Fintech Reserves</span>
-                        </p>
-                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Live Ticking
-                        </span>
-                      </div>
-                      {loadingAnalytics && !analytics && !liveAdminReserves ? (
-                        <div className="h-9 w-40 bg-emerald-100/70 rounded-xl animate-pulse my-1" />
-                      ) : (
-                        <>
-                          <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-emerald-600 tracking-tight truncate">
-                            ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                          </p>
-                          <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
-                            ≈ ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net Reserves)
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
-                      <span className="truncate">Active capital reserve pool (live)</span>
-                    </p>
-                  </div>
-
-                  <div className="bg-white rounded-3xl p-5 border border-blue-100/80 shadow-xs flex flex-col justify-between min-w-0">
-                    <div>
-                      <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
-                        <span>💰</span>
-                        <span>Total Customer Deposits</span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 w-full">
+                <div className="bg-white rounded-3xl p-5 border border-emerald-100/80 shadow-xs flex flex-col justify-between min-w-0">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
+                        <span>🏦</span>
+                        <span>Total Fintech Reserves</span>
                       </p>
-                      {loadingAnalytics && !analytics && !stats.totalDeposits ? (
-                        <div className="h-9 w-40 bg-blue-100/70 rounded-xl animate-pulse my-1" />
-                      ) : (
-                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-blue-600 tracking-tight truncate">
-                          ₹{Number(analytics?.stats?.totalDeposits || totalDepositsDisplay || 0).toLocaleString("en-IN")}
-                        </p>
-                      )}
+                      <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Live Ticking
+                      </span>
                     </div>
-                    <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
-                      <span className="truncate">{analytics?.stats?.approvedDepositCount ?? 0} Verified Deposits</span>
-                    </p>
-                  </div>
-
-                  <div className="bg-white rounded-3xl p-5 border border-sky-100/80 shadow-xs flex flex-col justify-between min-w-0">
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
-                          <span>⚡</span>
-                          <span>Total Profit Credited</span>
-                        </p>
-                        <span className="inline-flex items-center gap-1 bg-sky-100 text-sky-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
-                          Live Ticking
-                        </span>
+                    {loadingAnalytics && !analytics ? (
+                      <div className="my-1 space-y-1">
+                        <div className="h-8 sm:h-9 w-44 bg-emerald-100/80 rounded-xl animate-pulse" />
+                        <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
                       </div>
-                      {loadingAnalytics && !analytics && !liveAdminProfit ? (
-                        <div className="h-9 w-40 bg-sky-100/70 rounded-xl animate-pulse my-1" />
-                      ) : (
-                        <>
-                          <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-sky-600 tracking-tight truncate">
-                            ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                          </p>
-                          <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
-                            ≈ ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (12% p.a. Earned)
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-sky-500 inline-block shrink-0" />
-                      <span className="truncate">12% p.a. Compounding Daily Yield</span>
-                    </p>
+                    ) : (
+                      <>
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-emerald-600 tracking-tight truncate">
+                          ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                        </p>
+                        <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
+                          ≈ ₹{Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net Reserves)
+                        </p>
+                      </>
+                    )}
                   </div>
+                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
+                    <span className="truncate">Active capital reserve pool (live)</span>
+                  </p>
                 </div>
-              )}
+
+                <div className="bg-white rounded-3xl p-5 border border-blue-100/80 shadow-xs flex flex-col justify-between min-w-0">
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1.5 truncate">
+                      <span>💰</span>
+                      <span>Total Customer Deposits</span>
+                    </p>
+                    {loadingAnalytics && !analytics ? (
+                      <div className="h-8 sm:h-9 w-40 bg-blue-100/80 rounded-xl animate-pulse my-1" />
+                    ) : (
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-blue-600 tracking-tight truncate">
+                        ₹{Number(analytics?.stats?.totalDeposits || totalDepositsDisplay || 0).toLocaleString("en-IN")}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
+                    <span className="truncate">{analytics?.stats?.approvedDepositCount ?? 0} Verified Deposits</span>
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-3xl p-5 border border-sky-100/80 shadow-xs flex flex-col justify-between min-w-0">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 truncate">
+                        <span>⚡</span>
+                        <span>Total Profit Credited</span>
+                      </p>
+                      <span className="inline-flex items-center gap-1 bg-sky-100 text-sky-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                        Live Ticking
+                      </span>
+                    </div>
+                    {loadingAnalytics && !analytics ? (
+                      <div className="my-1 space-y-1">
+                        <div className="h-8 sm:h-9 w-40 bg-sky-100/80 rounded-xl animate-pulse" />
+                        <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono tabular-nums text-sky-600 tracking-tight truncate">
+                          ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                        </p>
+                        <p className="text-xs font-mono font-bold text-gray-400 mt-0.5">
+                          ≈ ₹{Number(liveAdminProfit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (12% p.a. Earned)
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-sky-500 inline-block shrink-0" />
+                    <span className="truncate">12% p.a. Compounding Daily Yield</span>
+                  </p>
+                </div>
+              </div>
 
               {/* Interactive Visual SVG Chart Card */}
               <div className="bg-white rounded-3xl p-5 sm:p-7 border border-gray-100 shadow-sm">
@@ -3020,19 +3033,28 @@ export default function AdminPanel() {
                                 <span>12% p.a. Calculation</span>
                               </div>
                               {depositsList.map((dep, dIdx) => (
-                                <div key={dep.id || dIdx} className="p-2 bg-white rounded-lg border border-blue-100 text-[11px] space-y-1 shadow-2xs">
+                                <div key={dep.id || dIdx} className="p-2.5 bg-white rounded-lg border border-blue-100 text-[11px] space-y-1.5 shadow-2xs">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1.5 font-bold text-slate-800">
                                       <span className="text-[10px] text-slate-400 font-mono">🕒 {dep.time || "Approved"}</span>
                                       <span>•</span>
-                                      <span className="text-slate-900">{dep.user || "Depositor"}</span>
+                                      <span className="text-slate-900 font-extrabold flex items-center gap-1">
+                                        <span>👤</span>
+                                        <span>{dep.userName || dep.user || "Depositor"}</span>
+                                      </span>
                                     </div>
                                     <span className="font-mono font-black text-emerald-600">+₹{Number(dep.amount).toLocaleString("en-IN")}</span>
                                   </div>
                                   <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-50">
                                     <span>Rate: <strong className="text-slate-700">{dep.rateText || "12% p.a."}</strong></span>
-                                    {dep.utr && <span>UTR: <strong className="text-slate-700">{dep.utr}</strong></span>}
+                                    {(dep.utrNumber || dep.utr) && <span>UTR: <strong className="text-slate-700 font-mono">{dep.utrNumber || dep.utr}</strong></span>}
                                   </div>
+                                  {(dep.userPhone || dep.accountNumber) && (
+                                    <div className="flex items-center justify-between text-[9px] text-slate-400 font-mono">
+                                      {dep.userPhone && <span>📞 {dep.userPhone}</span>}
+                                      {dep.accountNumber && <span>A/C: {dep.accountNumber}</span>}
+                                    </div>
+                                  )}
                                   {dep.proofUrl && (
                                     <div className="pt-1 flex items-center justify-end">
                                       <button
@@ -3052,8 +3074,13 @@ export default function AdminPanel() {
 
                           <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-100">
                             <div>
-                              <span className="text-slate-400 block text-[10px]">Principal Base</span>
-                              <span className="font-mono font-bold text-slate-700">₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}</span>
+                              <span className="text-slate-400 block text-[10px] flex items-center gap-1 font-semibold">
+                                {isToday ? "Live 24h Total Deposit" : "24h Total Deposit (Locked)"}
+                                {isToday && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+                              </span>
+                              <span className="font-mono font-black text-emerald-700 text-xs">
+                                {dayDepositTotal > 0 ? `+₹${dayDepositTotal.toLocaleString("en-IN")}` : "₹0"}
+                              </span>
                             </div>
                             <div className="text-right">
                               <span className="text-slate-400 block text-[10px]">Annual Rate</span>
@@ -3078,25 +3105,24 @@ export default function AdminPanel() {
                   )}
                 </div>
 
-                {/* DESKTOP TABLE */}
-                <div className="hidden sm:block overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="w-full text-xs">
+                {/* DESKTOP TABLE - Horizontal Scroll with Fixed Widths & No Wrapping */}
+                <div className="hidden sm:block overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
+                  <table className="w-full min-w-[1000px] text-xs text-left">
                     <thead>
                       <tr className="bg-slate-50 text-left text-slate-500 uppercase border-b border-slate-200">
-                        <th className="py-2.5 px-3 font-bold">#</th>
-                        <th className="py-2.5 px-3 font-bold">Date</th>
-                        <th className="py-2.5 px-3 font-bold">Us Din Ka Deposit</th>
-                        <th className="py-2.5 px-3 font-bold">Principal Base</th>
-                        <th className="py-2.5 px-3 font-bold">Rate</th>
-                        <th className="py-2.5 px-3 font-bold">Daily Profit</th>
-                        <th className="py-2.5 px-3 font-bold">Cumulative Total</th>
-                        <th className="py-2.5 px-3 font-bold">Status & Details</th>
+                        <th className="py-3 px-3 font-bold whitespace-nowrap text-center w-12">#</th>
+                        <th className="py-3 px-3 font-bold whitespace-nowrap w-44">Date</th>
+                        <th className="py-3 px-3 font-bold whitespace-nowrap w-56">Us Din Ka Deposit (24h)</th>
+                        <th className="py-3 px-3 font-bold whitespace-nowrap w-24">Rate</th>
+                        <th className="py-3 px-3 font-bold whitespace-nowrap w-36">Daily Profit</th>
+                        <th className="py-3 px-3 font-bold whitespace-nowrap w-36">Cumulative Total</th>
+                        <th className="py-3 px-3 font-bold whitespace-nowrap w-48">Status & Details</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
                         <tr>
-                          <td colSpan="8" className="py-8 text-center text-gray-400 font-medium">
+                          <td colSpan="7" className="py-8 text-center text-gray-400 font-medium">
                             Koi daily profit yield abhi tak record nahi hua hai.
                           </td>
                         </tr>
@@ -3114,48 +3140,56 @@ export default function AdminPanel() {
                           return (
                             <React.Fragment key={dayKey}>
                               <tr className="hover:bg-slate-50/70 transition">
-                                <td className="py-3 px-3 font-mono text-slate-400">{idx + 1}</td>
-                                <td className="py-3 px-3 font-bold text-slate-900 flex items-center gap-1.5">
-                                  <span>{row.displayDate || row.date}</span>
-                                  {isToday && (
-                                    <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                      Live
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-3 px-3">
-                                  {dayDepositTotal > 0 ? (
-                                    <div className="space-y-0.5">
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-black text-xs bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                        💰 +₹{dayDepositTotal.toLocaleString("en-IN")}
+                                <td className="py-3 px-3 font-mono text-slate-400 text-center whitespace-nowrap">{idx + 1}</td>
+                                <td className="py-3 px-3 font-bold text-slate-900 whitespace-nowrap">
+                                  <div className="inline-flex items-center gap-2">
+                                    <span className="font-semibold text-slate-900">{row.displayDate || row.date}</span>
+                                    {isToday ? (
+                                      <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Live 24h
                                       </span>
-                                      <span className="text-[10px] text-slate-400 block font-medium">({depositsList.length || 1} deposit)</span>
+                                    ) : (
+                                      <span className="inline-flex items-center text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                                        Locked
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 whitespace-nowrap">
+                                  {dayDepositTotal > 0 ? (
+                                    <div className="inline-flex items-center gap-2">
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-mono font-black text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                                        <span>💰</span>
+                                        <span>+₹{dayDepositTotal.toLocaleString("en-IN")}</span>
+                                      </span>
+                                      <span className="text-[10px] text-slate-500 font-bold">
+                                        ({depositsList.length || 1} {depositsList.length === 1 ? "dep" : "deps"})
+                                      </span>
                                     </div>
                                   ) : (
-                                    <span className="text-slate-400 font-mono text-[11px]">₹0</span>
+                                    <span className="text-slate-400 font-mono text-[11px] font-medium">₹0</span>
                                   )}
                                 </td>
-                                <td className="py-3 px-3 font-mono text-slate-700">₹{Number(row.estimatedCapital || (analytics?.stats?.totalDeposits || 0)).toLocaleString("en-IN")}</td>
-                                <td className="py-3 px-3 text-slate-600">12% p.a.</td>
-                                <td className="py-3 px-3 font-black text-emerald-600 font-mono">
+                                <td className="py-3 px-3 text-slate-600 whitespace-nowrap font-semibold">12% p.a.</td>
+                                <td className="py-3 px-3 font-black text-emerald-600 font-mono whitespace-nowrap">
                                   +₹{rowAmount.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
                                 </td>
-                                <td className="py-3 px-3 font-bold font-mono text-blue-700">
+                                <td className="py-3 px-3 font-black font-mono text-blue-700 whitespace-nowrap">
                                   ₹{rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: isToday ? 4 : 2, maximumFractionDigits: isToday ? 4 : 2 })}
                                 </td>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isToday ? "bg-emerald-500 text-white shadow-2xs" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+                                <td className="py-3 px-3 whitespace-nowrap">
+                                  <div className="inline-flex items-center gap-2">
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold whitespace-nowrap ${isToday ? "bg-emerald-500 text-white shadow-2xs" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
                                       {isToday ? "⚡ Live Crediting" : "✓ Credited"}
                                     </span>
                                     {hasDeposits && (
                                       <button
                                         type="button"
                                         onClick={() => setExpandedYieldDays(prev => ({ ...prev, [dayKey]: !prev[dayKey] }))}
-                                        className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-md text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
+                                        className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-700 rounded-lg text-[10px] font-black border border-blue-200 transition cursor-pointer active:scale-95 shadow-2xs inline-flex items-center gap-1 whitespace-nowrap"
                                       >
-                                        {isExpanded ? "▲ Hide" : `▼ View ${depositsList.length || 1}`}
+                                        <span>{isExpanded ? "▲ Hide" : `▼ View ${depositsList.length || 1} Txn`}</span>
                                       </button>
                                     )}
                                   </div>
@@ -3164,26 +3198,46 @@ export default function AdminPanel() {
                               {/* Desktop Expanded Accordion Row */}
                               {isExpanded && hasDeposits && (
                                 <tr className="bg-blue-50/40 border-b border-blue-100">
-                                  <td colSpan="8" className="p-3">
+                                  <td colSpan="7" className="p-3">
                                     <div className="bg-white rounded-xl border border-blue-200/80 p-3 space-y-2 shadow-2xs">
                                       <div className="flex items-center justify-between text-xs font-bold text-blue-900 border-b border-slate-100 pb-1.5">
-                                        <span>📋 Approved Deposits on {row.displayDate || row.date} ({depositsList.length}):</span>
-                                        <span className="font-mono text-[11px] text-emerald-700">Total: +₹{dayDepositTotal.toLocaleString("en-IN")}</span>
+                                        <span className="flex items-center gap-1.5">
+                                          <span>📋</span>
+                                          <span>Approved Deposits on {row.displayDate || row.date} ({depositsList.length})</span>
+                                        </span>
+                                        <span className="font-mono text-xs font-black text-emerald-700">
+                                          24h Total: +₹{dayDepositTotal.toLocaleString("en-IN")}
+                                        </span>
                                       </div>
-                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
                                         {depositsList.map((dep, dIdx) => (
-                                          <div key={dep.id || dIdx} className="p-2.5 bg-slate-50/80 rounded-lg border border-slate-200 text-xs space-y-1">
+                                          <div key={dep.id || dIdx} className="p-2.5 bg-slate-50/90 rounded-lg border border-slate-200 text-xs space-y-1.5">
                                             <div className="flex items-center justify-between font-bold">
-                                              <span className="text-slate-800 truncate">{dep.user || "Depositor"}</span>
-                                              <span className="font-mono font-black text-emerald-600 shrink-0">+₹{Number(dep.amount).toLocaleString("en-IN")}</span>
+                                              <span className="text-slate-900 font-extrabold flex items-center gap-1 truncate">
+                                                <span>👤</span>
+                                                <span className="truncate">{dep.userName || dep.user || "Depositor"}</span>
+                                              </span>
+                                              <span className="font-mono font-black text-emerald-600 shrink-0 ml-2">
+                                                +₹{Number(dep.amount).toLocaleString("en-IN")}
+                                              </span>
                                             </div>
                                             <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
                                               <span>🕒 {dep.time || "Approved"}</span>
                                               <span>{dep.rateText || "12% p.a."}</span>
                                             </div>
-                                            {dep.utr && <p className="text-[10px] text-slate-500 font-mono">UTR: {dep.utr}</p>}
+                                            {(dep.utrNumber || dep.utr) && (
+                                              <p className="text-[10px] text-slate-600 font-mono truncate">
+                                                UTR: <strong className="text-slate-800">{dep.utrNumber || dep.utr}</strong>
+                                              </p>
+                                            )}
+                                            {(dep.userPhone || dep.accountNumber) && (
+                                              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                                                {dep.userPhone && <span>📞 {dep.userPhone}</span>}
+                                                {dep.accountNumber && <span>A/C: {dep.accountNumber}</span>}
+                                              </div>
+                                            )}
                                             {dep.proofUrl && (
-                                              <div className="pt-1">
+                                              <div className="pt-1 flex items-center justify-end">
                                                 <button
                                                   type="button"
                                                   onClick={() => { setLightboxImg(dep.proofUrl); setZoomLevel(1); }}
@@ -3234,135 +3288,452 @@ export default function AdminPanel() {
                 </button>
               </div>
 
-              <h3 className="text-lg font-bold font-display mb-5">Pending Approvals</h3>
-              {pending.length === 0 ? (
-                <p className="py-10 text-center text-gray-300 text-sm">No pending transactions 🎉</p>
-              ) : (
+              {/* Sub-Navigation: Active Pending vs On Hold (Duplicate UTR) */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5 border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setPendingSubTab("active")}
+                    className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-2 ${
+                      pendingSubTab === "active"
+                        ? "bg-white text-slate-900 shadow-xs"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    <span>⏳ Active Pending</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      pending.length > 0 ? "bg-amber-100 text-amber-900" : "bg-slate-200 text-slate-600"
+                    }`}>
+                      {pending.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingSubTab("hold");
+                      loadHoldData(true);
+                    }}
+                    className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-2 ${
+                      pendingSubTab === "hold"
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "text-rose-600 hover:text-rose-800 hover:bg-rose-50"
+                    }`}
+                  >
+                    <span>⚠️ On Hold — Duplicate UTR</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      (holdData?.holdCount || 0) > 0
+                        ? pendingSubTab === "hold"
+                          ? "bg-white text-rose-700 animate-pulse"
+                          : "bg-rose-100 text-rose-800 animate-pulse border border-rose-300"
+                        : "bg-slate-200 text-slate-600"
+                    }`}>
+                      {holdData?.holdCount || 0}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (pendingSubTab === "hold") loadHoldData(true);
+                      else loadPending(true);
+                    }}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                  >
+                    <span>🔄 Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ══════════════════════════════════════════════════════
+                  VIEW 1: ACTIVE PENDING APPROVALS
+              ══════════════════════════════════════════════════════ */}
+              {pendingSubTab === "active" && (
                 <>
-                  {/* Desktop table */}
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="text-left text-xs text-gray-400 uppercase border-b">
-                          {["User", "Type", "Amount", "Method", "Details", "Action"].map(h => <th key={h} className="pb-3 font-semibold pr-4">{h}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody className="text-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base sm:text-lg font-bold font-display text-gray-900">
+                      Active Pending Approvals
+                    </h3>
+                    <span className="text-xs text-gray-400 font-medium">
+                      Showing {pending.length} normal pending requests
+                    </span>
+                  </div>
+
+                  {pending.length === 0 ? (
+                    <div className="py-12 text-center space-y-2 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
+                      <span className="text-4xl block">🎉</span>
+                      <p className="font-extrabold text-gray-800 text-sm">No Pending Transactions</p>
+                      <p className="text-xs text-gray-400">Sabhi requests process ho chuki hain.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Desktop table */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="text-left text-xs text-gray-400 uppercase border-b">
+                              {["User", "Type", "Amount", "Method", "Details", "Action"].map(h => <th key={h} className="pb-3 font-semibold pr-4">{h}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody className="text-sm">
+                            {pending.map(t => (
+                              <tr key={t._id} className="border-b border-gray-50 hover:bg-gray-50 transition">
+                                <td className="py-3 pr-4"><p className="font-semibold text-gray-900">{t.userId?.name}</p><p className="text-xs text-gray-400">{t.userId?.email}</p></td>
+                                <td className="py-3 pr-4">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${t.type === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{t.type}</span>
+                                    {t.type === "withdrawal" && (
+                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.amount <= 5000 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-blue-100 text-blue-800 border border-blue-200"}`}>
+                                        {t.slaLabel || (t.amount <= 5000 ? "24h SLA" : "72h SLA")}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 pr-4 font-bold font-mono">₹{t.amount.toLocaleString("en-IN")}</td>
+                                <td className="py-3 pr-4 uppercase text-xs text-gray-500 font-semibold">{t.method}</td>
+                                <td className="py-3 pr-4 text-xs text-gray-500 max-w-xs">
+                                  {t.utrNumber && <div className="font-mono font-bold text-gray-800">UTR: {t.utrNumber}</div>}
+                                  {(t.proofUrl || t.screenshotUrl) && (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <img
+                                        src={t.proofUrl || t.screenshotUrl}
+                                        alt="Receipt"
+                                        onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
+                                        className="w-8 h-8 object-cover rounded-md border border-slate-300 cursor-zoom-in hover:scale-105 transition"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
+                                        className="text-[11px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
+                                      >
+                                        View Receipt 🔍
+                                      </button>
+                                    </div>
+                                  )}
+                                  {t.paymentDetails && (
+                                    <div className="text-[11px] text-gray-500 truncate mt-0.5">
+                                      {t.paymentDetails.upiId ? `UPI: ${t.paymentDetails.upiId}` : (t.paymentDetails.accountNumber ? `A/C: ${t.paymentDetails.accountNumber}` : "")}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3">
+                                  <div className="flex gap-2">
+                                    <button onClick={() => approve(t._id)} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 cursor-pointer active:scale-95 transition">✓ Approve</button>
+                                    <button onClick={() => reject(t._id)} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 cursor-pointer active:scale-95 transition">✗ Reject</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile card list */}
+                      <div className="md:hidden space-y-3">
                         {pending.map(t => (
-                          <tr key={t._id} className="border-b border-gray-50 hover:bg-gray-50 transition">
-                            <td className="py-3 pr-4"><p className="font-semibold">{t.userId?.name}</p><p className="text-xs text-gray-400">{t.userId?.email}</p></td>
-                            <td className="py-3 pr-4">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${t.type === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{t.type}</span>
+                          <div key={t._id} className="border border-slate-200/90 rounded-2xl p-4 bg-white shadow-2xs space-y-2">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-semibold text-sm text-slate-900">{t.userId?.name}</p>
+                                <p className="text-xs text-gray-400">{t.userId?.email}</p>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <span className={`px-2 py-1 rounded-full text-xs font-bold shrink-0 ${t.type === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{t.type}</span>
                                 {t.type === "withdrawal" && (
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.amount <= 5000 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-blue-100 text-blue-800 border border-blue-200"}`}>
                                     {t.slaLabel || (t.amount <= 5000 ? "24h SLA" : "72h SLA")}
                                   </span>
                                 )}
                               </div>
-                            </td>
-                            <td className="py-3 pr-4 font-bold">₹{t.amount.toLocaleString("en-IN")}</td>
-                            <td className="py-3 pr-4 uppercase text-xs text-gray-500">{t.method}</td>
-                            <td className="py-3 pr-4 text-xs text-gray-500 max-w-xs">
-                              {t.utrNumber && <div className="font-mono font-bold text-gray-800">UTR: {t.utrNumber}</div>}
-                              {(t.proofUrl || t.screenshotUrl) && (
-                                <div className="flex items-center gap-2 mt-1">
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Amount</span>
+                              <span className="font-bold text-slate-900 font-mono">₹{t.amount.toLocaleString("en-IN")}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Method</span>
+                              <span className="uppercase text-xs text-gray-500 font-bold">{t.method}</span>
+                            </div>
+                            {t.utrNumber && <p className="text-xs font-mono font-bold text-slate-800">UTR: {t.utrNumber}</p>}
+                            {(t.proofUrl || t.screenshotUrl) && (
+                              <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                                <div className="flex items-center gap-2">
                                   <img
                                     src={t.proofUrl || t.screenshotUrl}
                                     alt="Receipt"
                                     onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
-                                    className="w-8 h-8 object-cover rounded-md border border-slate-300 cursor-zoom-in hover:scale-105 transition"
+                                    className="w-10 h-10 object-cover rounded-lg border border-slate-300 cursor-zoom-in"
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
-                                    className="text-[11px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
-                                  >
-                                    View Receipt 🔍
-                                  </button>
+                                  <div>
+                                    <span className="text-xs font-bold text-slate-800 block">Payment Receipt</span>
+                                    <span className="text-[10px] text-slate-500">Tap to inspect full screen</span>
+                                  </div>
                                 </div>
-                              )}
-                              {t.paymentDetails && (
-                                <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                                  {t.paymentDetails.upiId ? `UPI: ${t.paymentDetails.upiId}` : (t.paymentDetails.accountNumber ? `A/C: ${t.paymentDetails.accountNumber}` : "")}
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-3">
-                              <div className="flex gap-2">
-                                <button onClick={() => approve(t._id)} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600">✓ Approve</button>
-                                <button onClick={() => reject(t._id)} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600">✗ Reject</button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
+                                  className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold"
+                                >
+                                  🔍 Zoom
+                                </button>
                               </div>
-                            </td>
-                          </tr>
+                            )}
+                            {t.paymentDetails && (
+                              <p className="text-xs text-gray-500 truncate">
+                                {t.paymentDetails.upiId ? `UPI: ${t.paymentDetails.upiId}` : (t.paymentDetails.accountNumber ? `A/C: ${t.paymentDetails.accountNumber}` : JSON.stringify(t.paymentDetails))}
+                              </p>
+                            )}
+                            <div className="flex gap-2 pt-1">
+                              <button onClick={() => approve(t._id)} className="flex-1 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 active:bg-green-700 cursor-pointer">✓ Approve</button>
+                              <button onClick={() => reject(t._id)} className="flex-1 py-2 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 active:bg-red-700 cursor-pointer">✗ Reject</button>
+                            </div>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* ══════════════════════════════════════════════════════
+                  VIEW 2: ON HOLD — DUPLICATE UTR CONFLICTS
+              ══════════════════════════════════════════════════════ */}
+              {pendingSubTab === "hold" && (
+                <div className="space-y-6">
+                  {/* Anti-Fraud Protection Information Banner */}
+                  <div className="p-3.5 bg-gradient-to-r from-rose-50 via-amber-50 to-orange-50 border border-rose-200 rounded-2xl flex items-start gap-3 shadow-2xs">
+                    <span className="text-2xl shrink-0">🛡️</span>
+                    <div className="space-y-1 text-xs">
+                      <p className="font-black text-rose-950 flex items-center gap-1.5">
+                        <span>Duplicate UTR Anti-Fraud & Hold System</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-600 text-white uppercase">Active</span>
+                      </p>
+                      <p className="text-[11px] text-rose-900 leading-relaxed">
+                        Jab koi user aisa UTR number daalta hai jo system me pehle se darj hai, to wo request turant <strong>HOLD</strong> me chali jaati hai aur normal pending list me nahi aati. Neeche har duplicate UTR ke sabhi records (purane Approved, Pending aur naye Hold) ek saath group kiye gaye hain taaki aap compare karke manual decision le sakein.
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Mobile card list */}
-                  <div className="md:hidden space-y-3">
-                    {pending.map(t => (
-                      <div key={t._id} className="border border-slate-200/90 rounded-2xl p-4 bg-white shadow-2xs">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p className="font-semibold text-sm text-slate-900">{t.userId?.name}</p>
-                            <p className="text-xs text-gray-400">{t.userId?.email}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <span className={`px-2 py-1 rounded-full text-xs font-bold shrink-0 ${t.type === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{t.type}</span>
-                            {t.type === "withdrawal" && (
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.amount <= 5000 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-blue-100 text-blue-800 border border-blue-200"}`}>
-                                {t.slaLabel || (t.amount <= 5000 ? "24h SLA" : "72h SLA")}
+                  {loadingHold ? (
+                    <div className="py-12 text-center text-sm text-gray-500 font-medium">
+                      <div className="w-8 h-8 border-3 border-rose-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                      Duplicate UTR conflicts scan ho rahe hain...
+                    </div>
+                  ) : (!holdData.groups || holdData.groups.length === 0) ? (
+                    <div className="py-14 text-center space-y-2 border-2 border-dashed border-gray-200 rounded-3xl bg-slate-50/50">
+                      <span className="text-4xl block">🎉</span>
+                      <p className="font-extrabold text-gray-800 text-sm">Koi Duplicate UTR Conflict Nahi Hai!</p>
+                      <p className="text-xs text-gray-500">Sabhi deposit requests ke UTR unique aur verified hain.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {holdData.groups.map(group => (
+                        <div
+                          key={group.utrNumber}
+                          className="bg-white border-2 border-rose-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-4 transition hover:border-rose-300"
+                        >
+                          {/* Group Header Banner with Conflict Breakdown */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-rose-100">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <span className="px-3 py-1 bg-rose-600 text-white rounded-xl font-mono text-xs font-black tracking-wide shadow-2xs">
+                                UTR: {group.utrNumber}
                               </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-400">Amount</span>
-                          <span className="font-bold text-slate-900">₹{t.amount.toLocaleString("en-IN")}</span>
-                        </div>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-gray-400">Method</span>
-                          <span className="uppercase text-xs text-gray-500">{t.method}</span>
-                        </div>
-                        {t.utrNumber && <p className="text-xs font-mono font-bold text-slate-800 mb-1">UTR: {t.utrNumber}</p>}
-                        {(t.proofUrl || t.screenshotUrl) && (
-                          <div className="mb-2 p-2 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <img
-                                src={t.proofUrl || t.screenshotUrl}
-                                alt="Receipt"
-                                onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
-                                className="w-10 h-10 object-cover rounded-lg border border-slate-300 cursor-zoom-in"
-                              />
-                              <div>
-                                <span className="text-xs font-bold text-slate-800 block">Payment Receipt</span>
-                                <span className="text-[10px] text-slate-500">Tap to inspect full screen</span>
-                              </div>
+                              <span className="text-xs sm:text-sm font-extrabold text-gray-900">
+                                🚨 {group.totalCount} Conflicting Requests Found
+                              </span>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
-                              className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold"
-                            >
-                              🔍 Zoom
-                            </button>
+
+                            <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-bold">
+                              {group.holdCount > 0 && (
+                                <span className="px-2.5 py-0.5 bg-rose-100 text-rose-900 border border-rose-300 rounded-lg">
+                                  ⚠️ {group.holdCount} ON HOLD
+                                </span>
+                              )}
+                              {group.approvedCount > 0 && (
+                                <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg">
+                                  ✓ {group.approvedCount} Approved Pehle Se
+                                </span>
+                              )}
+                              {group.pendingCount > 0 && (
+                                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-lg">
+                                  ⏳ {group.pendingCount} Pending
+                                </span>
+                              )}
+                              {group.rejectedCount > 0 && (
+                                <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-300 rounded-lg">
+                                  ✕ {group.rejectedCount} Rejected
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        )}
-                        {t.paymentDetails && (
-                          <p className="text-xs text-gray-500 mb-3 truncate">
-                            {t.paymentDetails.upiId ? `UPI: ${t.paymentDetails.upiId}` : (t.paymentDetails.accountNumber ? `A/C: ${t.paymentDetails.accountNumber}` : JSON.stringify(t.paymentDetails))}
-                          </p>
-                        )}
-                        <div className="flex gap-2">
-                          <button onClick={() => approve(t._id)} className="flex-1 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 active:bg-green-700">✓ Approve</button>
-                          <button onClick={() => reject(t._id)} className="flex-1 py-2 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 active:bg-red-700">✗ Reject</button>
+
+                          {/* Items Grid for Mobile / Tablet / Desktop */}
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                            {group.items.map(item => {
+                              const isHold = item.status === "hold" || item.isHold;
+                              const isApproved = item.status === "approved" || item.status === "completed";
+                              const isPending = item.status === "pending";
+                              const isRejected = item.status === "rejected";
+
+                              return (
+                                <div
+                                  key={item._id}
+                                  className={`rounded-2xl p-4 border transition space-y-3 ${
+                                    isHold
+                                      ? "bg-rose-50/70 border-rose-300 ring-2 ring-rose-400/40"
+                                      : isApproved
+                                      ? "bg-emerald-50/40 border-emerald-200"
+                                      : isPending
+                                      ? "bg-amber-50/40 border-amber-200"
+                                      : "bg-slate-50 border-slate-200 opacity-75"
+                                  }`}
+                                >
+                                  {/* Item Header & User Info */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-extrabold text-sm text-gray-900">
+                                          {item.userId?.name || "Unknown User"}
+                                        </span>
+                                        {item.userId?.accountNumber && (
+                                          <span className="font-mono text-[10px] bg-white px-1.5 py-0.5 rounded border border-gray-200 text-gray-700 font-bold">
+                                            {item.userId.accountNumber}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-[11px] text-gray-600 mt-0.5 flex flex-wrap gap-x-3">
+                                        <span>📞 {item.userId?.phone || "No phone"}</span>
+                                        <span>✉️ {item.userId?.email || ""}</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Status Badge */}
+                                    <div className="shrink-0">
+                                      {isHold && (
+                                        <span className="px-2.5 py-1 bg-rose-600 text-white rounded-xl text-[10px] font-black tracking-wider uppercase inline-flex items-center gap-1 shadow-2xs animate-pulse">
+                                          <span>⚠️</span> ON HOLD
+                                        </span>
+                                      )}
+                                      {isApproved && (
+                                        <span className="px-2.5 py-1 bg-emerald-600 text-white rounded-xl text-[10px] font-black tracking-wider uppercase inline-flex items-center gap-1 shadow-2xs">
+                                          <span>✓</span> APPROVED
+                                        </span>
+                                      )}
+                                      {isPending && (
+                                        <span className="px-2.5 py-1 bg-amber-500 text-white rounded-xl text-[10px] font-black tracking-wider uppercase inline-flex items-center gap-1 shadow-2xs">
+                                          <span>⏳</span> PENDING
+                                        </span>
+                                      )}
+                                      {isRejected && (
+                                        <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded-xl text-[10px] font-bold">
+                                          ✕ REJECTED
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Amount & Time Display */}
+                                  <div className="flex items-center justify-between bg-white/90 p-2.5 rounded-xl border border-gray-100 text-xs">
+                                    <div>
+                                      <span className="text-[10px] text-gray-500 block uppercase font-bold">Deposit Amount</span>
+                                      <span className="font-mono font-black text-base text-gray-950 tabular-nums">
+                                        ₹{Number(item.amount || 0).toLocaleString("en-IN")}
+                                      </span>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-[10px] text-gray-500 block uppercase font-bold">Submitted At</span>
+                                      <span className="font-semibold text-gray-800 text-xs">
+                                        {item.createdAt ? new Date(item.createdAt).toLocaleString("en-IN", {
+                                          day: "2-digit",
+                                          month: "short",
+                                          year: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit"
+                                        }) : "N/A"}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Payment Receipt / Screenshot Thumbnail */}
+                                  {(item.proofUrl || item.screenshotUrl) && (
+                                    <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200 text-xs shadow-2xs">
+                                      <div className="flex items-center gap-2.5">
+                                        <img
+                                          src={item.proofUrl || item.screenshotUrl}
+                                          alt="Receipt"
+                                          onClick={() => { setLightboxImg(item.proofUrl || item.screenshotUrl); setZoomLevel(1); }}
+                                          className="w-11 h-11 object-cover rounded-lg border border-gray-300 cursor-zoom-in hover:scale-105 transition"
+                                        />
+                                        <div>
+                                          <span className="font-bold text-gray-800 text-xs block">Payment Receipt / Screenshot</span>
+                                          <span className="text-[10px] text-gray-500">Tap to inspect full resolution</span>
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => { setLightboxImg(item.proofUrl || item.screenshotUrl); setZoomLevel(1); }}
+                                        className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition cursor-pointer"
+                                      >
+                                        🔍 Full Zoom
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* Conflict Note / Admin Remarks */}
+                                  {(item.holdReason || item.remarks) && (
+                                    <p className="text-[11px] text-gray-700 bg-white/70 p-2 rounded-lg border border-gray-100 leading-tight">
+                                      <span className="font-bold text-gray-900">Note:</span> {item.holdReason || item.remarks}
+                                    </p>
+                                  )}
+
+                                  {/* Approver Details if Approved */}
+                                  {isApproved && (
+                                    <div className="text-[11px] text-emerald-800 bg-emerald-100/60 px-2.5 py-1 rounded-lg flex items-center justify-between">
+                                      <span>🛡️ Approved by {item.approverName || item.approvedBy?.name || "Admin"}</span>
+                                      {item.approvedAt && (
+                                        <span className="font-mono text-[10px]">
+                                          {new Date(item.approvedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* ADMIN ACTIONS: Approve / Reject (Available for Hold & Pending items) */}
+                                  {(isHold || isPending) && (
+                                    <div className="flex items-center gap-2 pt-2 border-t border-gray-200/70">
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          await approve(item._id);
+                                          loadHoldData(true);
+                                        }}
+                                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition cursor-pointer active:scale-95 flex items-center justify-center gap-1"
+                                      >
+                                        <span>✓</span> Approve Request
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          await reject(item._id);
+                                          loadHoldData(true);
+                                        }}
+                                        className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shadow-xs transition cursor-pointer active:scale-95 flex items-center justify-center gap-1"
+                                      >
+                                        <span>✕</span> Reject Duplicate
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

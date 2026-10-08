@@ -24,6 +24,7 @@ function lazyWithRetry(componentImport) {
 // Core Pages (Lazy loaded with self-healing retry)
 const LandingPage = lazyWithRetry(() => import("./LandingPage"));
 const Login = lazyWithRetry(() => import("./Login"));
+const ResetPassword = lazyWithRetry(() => import("./ResetPassword"));
 const Dashboard = lazyWithRetry(() => import("./Dashboard"));
 const AdminPanel = lazyWithRetry(() => import("./AdminPanel"));
 
@@ -161,8 +162,9 @@ export default function App() {
           {/* 12. Contact Us */}
           <Route path="/contact" element={<ContactPage />} />
 
-          {/* 13. Login / Register */}
+          {/* 13. Login / Register & Reset Password */}
           <Route path="/login" element={<Login isApp={checkIsAppClient()} />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* 14. Customer Dashboard */}
           <Route

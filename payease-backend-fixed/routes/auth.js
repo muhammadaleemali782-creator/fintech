@@ -94,8 +94,17 @@ router.post('/register', registerRules, async (req, res) => {
       $or: [{ email: email.toLowerCase() }, { phone: phone.trim() }]
     });
     if (exists) {
+      let suggestion = '';
+      if (exists.email && exists.email.toLowerCase() === email.toLowerCase()) {
+        const base = email.split('@')[0].replace(/[^a-z0-9]/g, '');
+        const domain = email.split('@')[1] || 'educa.com';
+        suggestion = `${base}${Math.floor(100 + Math.random() * 900)}@${domain}`;
+      }
       return res.status(400).json({
-        message: 'Aap already register kar chuke ho / request bhej chuke ho. Kripya login karein.'
+        message: suggestion
+          ? `Aap already register kar chuke ho / request bhej chuke ho. Agar naya account banana hai to ye unique email try karein: ${suggestion}`
+          : 'Aap already register kar chuke ho / request bhej chuke ho. Kripya login karein.',
+        suggestedEmail: suggestion || undefined
       });
     }
 
@@ -322,11 +331,11 @@ router.post('/forgot-password', async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await User.findOne({ email: normalizedEmail });
 
-    const responseMsg = `Password reset link aapke Educa Mail (${normalizedEmail}) par bhej di gayi hai. Agar mail server sleep mode me tha, to 1 se 5 minute ke andar inbox me show ho jayegi, kripya check karein.`;
+    const responseMsg = `Password reset link aapke Educa Mail (${normalizedEmail}) par bhej di gayi hai.`;
 
     // Security practice: Always respond positively so attacker can't enumerate emails
     if (!user) {
-      return res.json({ message: responseMsg });
+      return res.json({ message: 'Password reset link aapke Educa Mail par bhej di gayi hai.' });
     }
 
     // Generate 1-hour reset token
@@ -336,10 +345,14 @@ router.post('/forgot-password', async (req, res) => {
       { expiresIn: '1h', algorithm: 'HS256' }
     );
 
-    const clientUrl = process.env.CLIENT_URL && process.env.CLIENT_URL !== '*' ? process.env.CLIENT_URL : 'https://educafintech.vercel.app';
+    let clientUrl = (process.env.CLIENT_URL || 'https://educafintech.vercel.app').trim();
+    if (clientUrl === '*' || clientUrl.includes('localhost') || clientUrl.includes('educaintech')) {
+      clientUrl = 'https://educafintech.vercel.app';
+    }
+    clientUrl = clientUrl.replace(/\/+$/, '');
     const resetLink = `${clientUrl}/reset-password?token=${resetToken}`;
 
-    const mailBody = `Namaste ${user.name},\n\nApna Educa Fintech password reset karne ke liye neeche diye gaye link par click karein (ye link 1 ghante tak valid hai):\n\n${resetLink}\n\nAgar aapne ye request nahi ki thi, to is message ko ignore karein.\n\nTeam Educa Fintech`;
+    const mailBody = `Namaste ${user.name},\n\nNaya password set karne ke liye is link par click karein:\n\n${resetLink}\n\nTeam Educa Fintech`;
 
     // Deliver reset link directly to Educa Mail inbox (handles Render sleep wakeup)
     sendEducaMailMessage(normalizedEmail, 'Educa Fintech — Password Reset Link', mailBody).catch(() => {});

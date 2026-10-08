@@ -881,7 +881,7 @@ router.get('/notifications/stream', (req, res) => {
   if (!token) return res.status(401).json({ message: 'Authentication required' });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     User.findById(decoded.id).then(user => {
       if (!user || user.role !== 'admin') {
         return res.status(403).end();

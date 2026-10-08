@@ -48,84 +48,160 @@ app.set('trust proxy', 1);
 // Har response ko gzip karke bhejta hai -> data kam, site fast
 app.use(compression());
 
-// ------------------ SECURITY HEADERS ------------------
+// ------------------ NATIVE COOKIE PARSER (Stdlib, zero new dependencies) ------------------
+app.use((req, res, next) => {
+  req.cookies = {};
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    cookieHeader.split(';').forEach(c => {
+      const [key, ...v] = c.split('=');
+      if (key) {
+        try {
+          req.cookies[key.trim()] = decodeURIComponent(v.join('=').trim() || '');
+        } catch {
+          req.cookies[key.trim()] = v.join('=').trim() || '';
+        }
+      }
+    });
+  }
+  next();
+});
+
+// ------------------ SECURITY HEADERS (Helmet + CSP) ------------------
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' }
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'", 'https://educafintech.vercel.app'],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      connectSrc: [
+        "'self'",
+        'https://educafintech.vercel.app',
+        'https://*.render.com',
+        'https://*.mongodb.net',
+        'wss:'
+      ],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  xXssProtection: true,
+  xContentTypeOptions: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 
-// ------------------ CORS (sirf apni frontend domain allow) ------------------
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map(s => s.trim());
+// ------------------ CORS (TIGHTENED WHITELIST) ------------------
+const envClients = (process.env.CLIENT_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+const allowedOriginList = [
+  'https://educafintech.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5000',
+  ...envClients
+];
+
+function isOriginAllowed(origin) {
+  if (!origin) return true; // Android WebView, curl, server-to-server have no Origin header
+  if (allowedOriginList.includes(origin)) return true;
+  // Allow only genuine educafintech vercel preview subdomains (never any arbitrary .vercel.app)
+  if (/^https:\/\/educafintech(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)) return true;
+  return false;
+}
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin) || (origin && origin.includes('.vercel.app'))) {
+    if (isOriginAllowed(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS: ' + origin));
+      callback(new Error('Blocked by CORS policy: ' + origin));
     }
   },
   credentials: true
 }));
 
-// ------------------ BODY PARSER (size limit chhota rakha, bade payload attack se bachne ke liye) ------------------
+// ------------------ CSRF PROTECTION (Origin verification on state-changing requests) ------------------
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+    const origin = req.headers.origin;
+    if (origin && !isOriginAllowed(origin)) {
+      return res.status(403).json({ message: 'Cross-site request blocked (CSRF protection)' });
+    }
+  }
+  next();
+});
+
+// ------------------ BODY PARSER ------------------
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // ------------------ NoSQL INJECTION PROTECTION ------------------
-// Request body/query/params me se $ aur . operators nikal deta hai
-// (MongoDB injection jaise { "email": { "$gt": "" } } se bachata hai)
-app.use(mongoSanitize());
+// Request body/query/params me se $ aur . operators sanitize karta hai
+app.use(mongoSanitize({ replaceWith: '_' }));
 
 // ------------------ HTTP PARAMETER POLLUTION PROTECTION ------------------
 app.use(hpp());
 
-// ------------------ GENERAL RATE LIMIT (bot / flooding protection) ------------------
-// Admin, health checks aur authenticated requests ko kabhi block na kare
+// ------------------ RATE LIMITING (STRICT & SPECIFIC) ------------------
+// General Rate Limiter: Protects against DOS/flooding without breaking normal dashboard polling
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 3000, // Generous limit for real-time SPA polling & dashboard operations
+  max: 1500,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
     const url = req.originalUrl || req.url || '';
-    return url.includes('/admin') ||
-           url.includes('/health') ||
-           url.includes('/notifications') ||
-           url.includes('/devices') ||
-           url.includes('/settings') ||
-           url.includes('/loan') ||
-           !!req.headers['authorization'];
+    return url.includes('/health') || url.includes('/notifications/stream');
   },
-  message: { message: 'Too many requests, please try again after some time.' }
+  message: { message: 'Too many requests, please slow down.' }
 });
 app.use('/api/', generalLimiter);
 
-// ------------------ SLOW DOWN ------------------
-const speedLimiter = slowDown({
-  windowMs: 15 * 60 * 1000,
-  delayAfter: 1500,
-  delayMs: () => 200,
-  skip: (req) => {
-    const url = req.originalUrl || req.url || '';
-    return url.includes('/admin') ||
-           url.includes('/health') ||
-           url.includes('/notifications') ||
-           url.includes('/devices') ||
-           url.includes('/settings') ||
-           url.includes('/loan') ||
-           !!req.headers['authorization'];
-  }
-});
-app.use('/api/', speedLimiter);
-
-// ------------------ AUTH LIMIT ------------------
+// Auth Limiter: Brute-force protection on login / register
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 40,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many login attempts. Please try again after 15 minutes.' }
 });
-app.use('/api/auth', authLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/mail-login', authLimiter);
+
+// Forgot Password Limiter: Anti-spam & email bombing protection
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many password reset requests. Please try again after 1 hour.' }
+});
+app.use('/api/auth/forgot-password', forgotPasswordLimiter);
+
+// PIN Verification Limiter: Protects 6-digit wallet PIN against brute-forcing
+const pinLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many incorrect PIN attempts. Locked for 15 minutes.' }
+});
+app.use('/api/user/pin/verify', pinLimiter);
+
+// Financial Transaction Limiter: Protects money transfers & withdrawals from spam/race conditions
+const txLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Transaction rate limit reached. Please wait a few moments.' }
+});
+app.use('/api/transaction/transfer', txLimiter);
+app.use('/api/transaction/withdraw', txLimiter);
+app.use('/api/transaction/deposit', txLimiter);
 
 // Root redirect to live frontend
 app.get('/', (req, res) => {
@@ -157,10 +233,13 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// ------------------ GLOBAL ERROR HANDLER (stack trace client ko leak nahi hoga) ------------------
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({ message: 'Something went wrong. Please try again.' });
+  if (process.env.NODE_ENV === 'production') {
+    console.error(`⚠️ Server Error [${req.method} ${req.path}]: ${err.message || 'Internal error'}`);
+  } else {
+    console.error(err.stack);
+  }
+  res.status(err.status || 500).json({ message: err.status ? err.message : 'Something went wrong. Please try again.' });
 });
 
 // ------------------ DB CONNECTION ------------------

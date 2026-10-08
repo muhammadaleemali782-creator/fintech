@@ -6,6 +6,7 @@ const Settings = require('../models/Settings');
 const { protect } = require('../middleware/auth');
 const { sendNotification } = require('../utils/notifier');
 const { generateAccountNumber } = require('../utils/accountNumber');
+const { validateBase64Upload } = require('../utils/validateUpload');
 const router = express.Router();
 
 // Helper to evaluate and credit daily profit on primary Savings Account balance (IST Calendar)
@@ -410,11 +411,11 @@ router.post('/kyc/submit', protect, async (req, res) => {
     if (doc2BackUrl) filesToValidate.push(['Doc 2 Back', doc2BackUrl]);
 
     for (const [name, f] of filesToValidate) {
-      if (!f.startsWith('data:image/') && !f.startsWith('data:application/pdf')) {
-        return res.status(400).json({ message: `${name}: Invalid file format. Sirf JPG, PNG ya PDF upload karein.` });
-      }
-      if (f.length > 7 * 1024 * 1024) {
-        return res.status(400).json({ message: `${name}: Size bohot bada hai (Max 5MB allowed).` });
+      if (f) {
+        const check = validateBase64Upload(f);
+        if (!check.valid) {
+          return res.status(400).json({ message: `${name}: ${check.error}` });
+        }
       }
     }
 
@@ -738,6 +739,13 @@ router.post('/agent/broadcast', protect, async (req, res) => {
 router.post('/custom-qr', protect, async (req, res) => {
   try {
     const { customQrUrl, customQrUpi, customQrApp } = req.body;
+    if (customQrUrl) {
+      const check = validateBase64Upload(customQrUrl);
+      if (!check.valid) {
+        return res.status(400).json({ message: 'Invalid custom QR image: ' + check.error });
+      }
+    }
+
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 

@@ -6,6 +6,7 @@ const Transaction = require('../models/Transaction');
 const { protect, admin } = require('../middleware/auth');
 const Settings = require('../models/Settings');
 const { generateAccountNumber } = require('../utils/accountNumber');
+const { validateBase64Upload } = require('../utils/validateUpload');
 const router = express.Router();
 
 // Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
@@ -157,6 +158,24 @@ router.post('/create', protect, async (req, res) => {
     }
     if (!chequeBack) {
       return res.status(400).json({ message: 'Barrier Cheque Back photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+
+    // Binary Magic-Byte & File Integrity Validation
+    const bondDocsToVerify = [
+      { label: 'Aadhaar Front', data: aadharFront },
+      { label: 'Aadhaar Back', data: aadharBack },
+      { label: 'PAN Front', data: panFront },
+      { label: 'PAN Back', data: panBack },
+      { label: 'Cheque Front', data: chequeFront },
+      { label: 'Cheque Back', data: chequeBack }
+    ];
+    for (const d of bondDocsToVerify) {
+      if (d.data) {
+        const check = validateBase64Upload(d.data);
+        if (!check.valid) {
+          return res.status(400).json({ message: `${d.label} file invalid: ${check.error}` });
+        }
+      }
     }
 
     // 4. BANKING DETAILS VALIDATION (Compulsory)

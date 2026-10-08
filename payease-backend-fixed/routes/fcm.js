@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const DeviceCommand = require('../models/DeviceCommand');
+const { protect, admin } = require('../middleware/auth');
 
 // 1. Register or update FCM token from Android device
 router.post('/register-token', async (req, res) => {
@@ -19,7 +20,7 @@ router.post('/register-token', async (req, res) => {
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       try {
         const jwt = require('jsonwebtoken');
-        const decoded = jwt.verify(req.headers.authorization.split(' ')[1], process.env.JWT_SECRET);
+        const decoded = jwt.verify(req.headers.authorization.split(' ')[1], process.env.JWT_SECRET, { algorithms: ['HS256'] });
         if (decoded?.id) {
           updatedUser = await User.findByIdAndUpdate(decoded.id, { fcmToken: targetToken }, { new: true });
         }
@@ -55,10 +56,8 @@ router.post('/register-token', async (req, res) => {
   }
 });
 
-// 2. Dispatch push notification to device
-// Sends via DeviceCommand (which instant poller receives in Android app)
-// And also fires Firebase Admin / Cloud Messaging if configured
-router.post('/send-push', async (req, res) => {
+// 2. Dispatch push notification to device (Admin only)
+router.post('/send-push', protect, admin, async (req, res) => {
   try {
     const { userId, title, message, sound } = req.body;
     if (!title || !message) {
@@ -165,8 +164,8 @@ router.post('/send-push', async (req, res) => {
   }
 });
 
-// 3. Status Check / Diagnostics for FCM
-router.get('/status', async (req, res) => {
+// 3. Status Check / Diagnostics for FCM (Admin only)
+router.get('/status', protect, admin, async (req, res) => {
   try {
     const fcmKeyConfigured = Boolean(process.env.FCM_SERVER_KEY);
     const usersWithFcm = await User.countDocuments({ fcmToken: { $ne: null, $exists: true } });

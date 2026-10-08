@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { tokenStorage } from "../utils/tokenStorage";
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -7,7 +8,7 @@ export default function Header() {
   const [cardsOpen, setCardsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = tokenStorage.getToken();
   const user = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user") || "{}") : {};
 
   useEffect(() => {

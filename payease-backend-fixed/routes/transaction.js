@@ -4,6 +4,7 @@ const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 const { isValidAmount } = require('../utils/validateAmount');
+const { validateBase64Upload } = require('../utils/validateUpload');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
 
@@ -225,7 +226,17 @@ router.post('/deposit', protect, async (req, res) => {
       return res.status(400).json({ message: 'Invalid UTR number' });
 
     const finalProof = proofUrl || screenshotUrl || '';
+    if (finalProof) {
+      const checkProof = validateBase64Upload(finalProof);
+      if (!checkProof.valid) {
+        return res.status(400).json({ message: 'Invalid deposit proof file: ' + checkProof.error });
+      }
+    }
+
     const cleanUtr = utrNumber ? String(utrNumber).trim() : '';
+    if (cleanUtr && cleanUtr.length > 50) {
+      return res.status(400).json({ message: 'UTR number is too long (maximum 50 characters)' });
+    }
 
     let isDuplicateUtr = false;
     let holdReason = '';

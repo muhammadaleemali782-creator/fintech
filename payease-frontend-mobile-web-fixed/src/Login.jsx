@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { API } from "./config";
+import { tokenStorage } from "./utils/tokenStorage";
 
 export default function Login({ isApp = false }) {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export default function Login({ isApp = false }) {
   // Auto-redirect if already logged in (never kick user to login page)
   useEffect(() => {
     try {
-      const token = localStorage.getItem("token");
+      const token = tokenStorage.getToken();
       const user = JSON.parse(localStorage.getItem("user") || "null");
       if (token && user) {
         const target = user.role === "admin" ? "/admin" : "/dashboard";
@@ -58,7 +59,7 @@ export default function Login({ isApp = false }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Invalid credentials");
-      localStorage.setItem("token", data.token);
+      tokenStorage.setToken(data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       if (data.user) {
         localStorage.setItem("educa_cached_profile", JSON.stringify(data.user));
@@ -93,7 +94,7 @@ export default function Login({ isApp = false }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Educa Mail login failed");
-      localStorage.setItem("token", data.token);
+      tokenStorage.setToken(data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       if (data.user) {
         localStorage.setItem("educa_cached_profile", JSON.stringify(data.user));
@@ -128,7 +129,7 @@ export default function Login({ isApp = false }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Registration failed");
-      localStorage.setItem("token", data.token);
+      tokenStorage.setToken(data.token);
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("educa_cached_profile", JSON.stringify(data.user));

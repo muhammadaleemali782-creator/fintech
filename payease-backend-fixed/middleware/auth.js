@@ -3,7 +3,15 @@ const User = require('../models/User');
 
 exports.protect = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    const authHeader = req.headers.authorization;
+    let token = null;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+
     if (!token) return res.status(401).json({ message: 'Not authorized' });
 
     // algorithms explicitly pin kiya hai -- isse koi bhi token jo HS256 se
@@ -21,12 +29,12 @@ exports.protect = async (req, res, next) => {
 
     next();
   } catch (err) {
-    res.status(401).json({ message: 'Invalid token' });
+    res.status(401).json({ message: 'Invalid or expired token' });
   }
 };
 
 exports.admin = (req, res, next) => {
-  if (req.user.role !== 'admin') 
+  if (!req.user || req.user.role !== 'admin') 
     return res.status(403).json({ message: 'Admin access required' });
   next();
 };

@@ -4,6 +4,7 @@ import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
 
 import { API } from "./config";
+import { tokenStorage } from "./utils/tokenStorage";
 
 // --- IN-MEMORY CACHE & REQUEST DEDUPLICATION (Zero redundant network calls) ---
 const apiCache = new Map();
@@ -178,7 +179,7 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
 };
 
 export default function AdminPanel() {
-  const token = localStorage.getItem("token");
+  const token = tokenStorage.getToken();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   useEffect(() => { if (!token || user.role !== "admin") window.location.href = "/"; }, []); // eslint-disable-line
 

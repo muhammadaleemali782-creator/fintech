@@ -8,6 +8,7 @@ import StatusBadge from "./components/StatusBadge";
 import BottomNav from "./components/BottomNav";
 
 import { API } from "./config";
+import { tokenStorage } from "./utils/tokenStorage";
 
 // Helper: Calculate upcoming 1st, 11th, and 21st collection dates
 const getUpcomingDates = (count = 6) => {
@@ -315,7 +316,7 @@ const tourSteps = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
+  const token = tokenStorage.getToken();
   const userStored = JSON.parse(localStorage.getItem("user") || "{}");
   useEffect(() => { if (!token) window.location.href = "/"; }, [token]);
 
@@ -457,7 +458,7 @@ export default function Dashboard() {
   );
 
   // App Lock State (Biometric / 6-digit PIN on App Open) - Only active if PIN is configured
-  const [appLocked, setAppLocked] = useState(() => Boolean(localStorage.getItem("token") && localStorage.getItem("hasWalletPin") === "true"));
+  const [appLocked, setAppLocked] = useState(() => Boolean(tokenStorage.getToken() && localStorage.getItem("hasWalletPin") === "true"));
   const [appLockPin, setAppLockPin] = useState("");
   const [appLockError, setAppLockError] = useState("");
   const [appLockLoading, setAppLockLoading] = useState(false);
@@ -1775,7 +1776,7 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API}/user/me`, { headers });
       if (res.status === 401) {
-        localStorage.removeItem("token");
+        tokenStorage.removeToken();
         localStorage.removeItem("user");
         localStorage.removeItem("educa_cached_profile");
         navigate("/login");
@@ -2794,7 +2795,7 @@ export default function Dashboard() {
         if (res.status === 401) {
           setKycError(data.message || "Aapka session expire ho chuka hai ya account reset hua hai. Kripya dobara login ya sign up karein.");
           setTimeout(() => {
-            localStorage.removeItem("token");
+            tokenStorage.removeToken();
             localStorage.removeItem("user");
             localStorage.removeItem("educa_cached_profile");
             navigate("/login");
@@ -3597,7 +3598,12 @@ export default function Dashboard() {
     }
   };
 
-  const logout = () => { localStorage.clear(); window.location.href = "/"; };
+  const logout = () => {
+    tokenStorage.removeToken();
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = "/";
+  };
 
   const requireKyc = (callback) => {
     if (userProfile.kycStatus !== "verified") {

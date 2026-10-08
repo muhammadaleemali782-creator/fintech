@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { tokenStorage } from "./utils/tokenStorage";
 
 // Self-healing lazy importer: Retries and refreshes if a chunk is 404 (due to new Vercel deployment)
 function lazyWithRetry(componentImport) {
@@ -43,7 +44,7 @@ const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
 
 
 function PrivateRoute({ children, adminOnly = false }) {
-  const token = localStorage.getItem("token");
+  const token = tokenStorage.getToken();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   if (!token) return <Navigate to="/login" replace />;
@@ -101,7 +102,7 @@ export function checkIsAppClient() {
 
 function RootRoute() {
   const isApp = checkIsAppClient();
-  const token = localStorage.getItem("token");
+  const token = tokenStorage.getToken();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   // In App Mode: Direct login / admin / dashboard, zero landing page

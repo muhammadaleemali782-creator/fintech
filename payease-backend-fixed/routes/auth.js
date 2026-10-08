@@ -6,12 +6,17 @@ const User = require('../models/User');
 const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
 
-// Helper to provision user account on Educa Mail Server
+// Helper to safely provision user account on Educa Mail Server (SSRF-hardened)
 const syncWithEducaMail = async (identifier, password) => {
-  const mailUrl = process.env.MAIL_SERVER_URL || 'http://localhost:3000';
-  const mailKey = process.env.MAIL_API_KEY || 'default-secret-key';
+  const mailUrl = process.env.MAIL_SERVER_URL;
+  const mailKey = process.env.MAIL_API_KEY;
+  if (!mailUrl || !mailKey) return; // Do not attempt if not explicitly configured
+
   try {
-    const res = await fetch(`${mailUrl}/provision/signup`, {
+    const parsed = new URL(mailUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return;
+
+    const res = await fetch(`${parsed.origin}/provision/signup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -24,9 +29,18 @@ const syncWithEducaMail = async (identifier, password) => {
       console.warn('Educa mail provision warning:', data.error || res.statusText);
     }
   } catch (err) {
-    // Non-fatal if mail-server isn't running locally yet
     console.warn('Educa mail server unreachable:', err.message);
   }
+};
+
+// Helper to set secure httpOnly cookie (protects auth tokens against XSS local storage theft)
+const setAuthCookie = (res, token, days = 30) => {
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: days * 24 * 60 * 60 * 1000
+  });
 };
 
 // Input validation rules
@@ -121,6 +135,7 @@ router.post('/register', registerRules, async (req, res) => {
 
     // Default 7 days, or 30 days token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d', algorithm: 'HS256' });
+    setAuthCookie(res, token, 30);
 
     res.json({
       token,
@@ -177,6 +192,7 @@ router.post('/login', async (req, res) => {
     // 30 days if rememberMe or default
     const expiresIn = rememberMe ? '30d' : '7d';
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn, algorithm: 'HS256' });
+    setAuthCookie(res, token, rememberMe ? 30 : 7);
 
     res.json({
       token,
@@ -248,6 +264,7 @@ router.post('/mail-login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '30d', algorithm: 'HS256' }
     );
+    setAuthCookie(res, token, 30);
 
     res.json({
       token,
@@ -289,7 +306,7 @@ router.post('/forgot-password', async (req, res) => {
     const resetToken = jwt.sign(
       { id: user._id, type: 'reset' },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '1h', algorithm: 'HS256' }
     );
 
     // Also send internal notification to admin
@@ -301,9 +318,7 @@ router.post('/forgot-password', async (req, res) => {
     });
 
     res.json({
-      message: `Password reset link aapke Educa Mail (${normalizedEmail}) par bhej di gayi hai.`,
-      // For local testing convenience if mail server is offline:
-      resetToken
+      message: `Password reset link aapke Educa Mail (${normalizedEmail}) par bhej di gayi hai.`
     });
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong' });
@@ -318,7 +333,7 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ message: 'Valid reset token and minimum 8-character password required' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     if (decoded.type !== 'reset') return res.status(400).json({ message: 'Invalid reset token' });
 
     const hashed = await bcrypt.hash(newPassword, 12);

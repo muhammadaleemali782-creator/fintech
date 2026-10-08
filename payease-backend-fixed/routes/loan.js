@@ -7,6 +7,7 @@ const Settings = require('../models/Settings');
 const { protect, admin } = require('../middleware/auth');
 const { isValidAmount } = require('../utils/validateAmount');
 const { generateAccountNumber } = require('../utils/accountNumber');
+const { validateBase64Upload } = require('../utils/validateUpload');
 const router = express.Router();
 
 // Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
@@ -347,6 +348,24 @@ router.post('/apply', protect, async (req, res) => {
     }
     if (!chequeBack) {
       return res.status(400).json({ message: 'Barrier Cheque Back photo upload/capture karna anivarya (mandatory) hai.' });
+    }
+
+    // Binary Magic-Byte & File Integrity Validation
+    const docsToVerify = [
+      { label: 'Aadhaar Front', data: aadharFront },
+      { label: 'Aadhaar Back', data: aadharBack },
+      { label: 'PAN Front', data: panFront },
+      { label: 'PAN Back', data: panBack },
+      { label: 'Cheque Front', data: chequeFront },
+      { label: 'Cheque Back', data: chequeBack }
+    ];
+    for (const d of docsToVerify) {
+      if (d.data) {
+        const check = validateBase64Upload(d.data);
+        if (!check.valid) {
+          return res.status(400).json({ message: `${d.label} file invalid: ${check.error}` });
+        }
+      }
     }
 
     // 4. BANKING DETAILS VALIDATION (Compulsory)
@@ -917,6 +936,11 @@ router.get('/:id/preclose-quote', protect, async (req, res) => {
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
 
+    // Object-level authorization check (anti-IDOR)
+    if (loan.userId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied: You do not own this loan' });
+    }
+
     syncLoanOverdueAndPenalties(loan);
 
     const paidCount = (loan.installmentSchedule || []).filter(s => s.status === 'paid').length;
@@ -1467,6 +1491,16 @@ router.post('/:id/submit-installment', protect, async (req, res) => {
     }
     if (!proofUrl) {
       return res.status(400).json({ message: 'Payment screenshot / receipt upload zaroori hai.' });
+    }
+    const checkProof = validateBase64Upload(proofUrl);
+    if (!checkProof.valid) {
+      return res.status(400).json({ message: 'Invalid payment proof: ' + checkProof.error });
+    }
+    if (proofBackUrl) {
+      const checkBack = validateBase64Upload(proofBackUrl);
+      if (!checkBack.valid) {
+        return res.status(400).json({ message: 'Invalid receipt back: ' + checkBack.error });
+      }
     }
 
     const loan = await Loan.findOne({ _id: req.params.id, userId: req.user._id, status: 'active' });

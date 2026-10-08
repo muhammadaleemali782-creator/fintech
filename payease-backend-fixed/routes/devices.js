@@ -6,6 +6,7 @@ const DeviceCommand = require('../models/DeviceCommand');
 const DeviceAlert = require('../models/DeviceAlert');
 const User = require('../models/User');
 const { sendNotification } = require('../utils/notifier');
+const { protect, admin } = require('../middleware/auth');
 const router = express.Router();
 
 // Middleware: Verify parent auth token
@@ -16,7 +17,7 @@ const requireParentAuth = async (req, res, next) => {
       return res.status(401).json({ message: 'Parent authentication required' });
     }
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     req.parentId = decoded.id;
     next();
   } catch (err) {
@@ -428,7 +429,7 @@ router.post('/devices/register-login', async (req, res) => {
 });
 
 // Admin fetches all devices
-router.get('/admin/devices', async (req, res) => {
+router.get('/admin/devices', protect, admin, async (req, res) => {
   try {
     const devices = await Device.find().sort({ lastSeenAt: -1 }).limit(100);
     res.json({ success: true, devices });
@@ -438,7 +439,7 @@ router.get('/admin/devices', async (req, res) => {
 });
 
 // Admin locks device (sends enable_protection)
-router.post('/admin/devices/:deviceId/lock', async (req, res) => {
+router.post('/admin/devices/:deviceId/lock', protect, admin, async (req, res) => {
   try {
     const { deviceId } = req.params;
     const device = await Device.findOne({ deviceId });
@@ -468,7 +469,7 @@ router.post('/admin/devices/:deviceId/lock', async (req, res) => {
 });
 
 // Admin unlocks device (sends disable_protection)
-router.post('/admin/devices/:deviceId/unlock', async (req, res) => {
+router.post('/admin/devices/:deviceId/unlock', protect, admin, async (req, res) => {
   try {
     const { deviceId } = req.params;
     const device = await Device.findOne({ deviceId });

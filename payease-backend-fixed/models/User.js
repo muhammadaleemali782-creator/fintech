@@ -104,12 +104,11 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Auto-generate referral code before saving
-// Collision hone par (rare) dobara try karta hai, taaki duplicate-key error se
-// registration generic 500 error ke saath fail na ho
+// Auto-generate referral code ONLY for AGENTS before saving
 userSchema.pre('save', async function (next) {
-  if (!this.referralCode && this.role !== 'admin') {
-    const prefix = (this.name || 'USR').replace(/\s/g, '').substring(0, 3).toUpperCase();
+  const isAgent = this.role === 'agent' || this.agentProfile?.status === 'approved';
+  if (!this.referralCode && isAgent) {
+    const prefix = (this.name || 'AGT').replace(/\s/g, '').substring(0, 3).toUpperCase();
     const Model = this.constructor;
 
     let code;
@@ -129,6 +128,9 @@ userSchema.pre('save', async function (next) {
     // 5 attempts ke baad bhi clash mile (bahut rare) to timestamp suffix daal do
     // -> guaranteed unique, save kabhi fail nahi hoga
     this.referralCode = code || `EF${prefix}${Date.now().toString().slice(-6)}`;
+  } else if (!isAgent && this.role !== 'admin') {
+    // Normal users never have a referral code
+    this.referralCode = undefined;
   }
 
   if (!this.accountNumber && this.role !== 'admin') {

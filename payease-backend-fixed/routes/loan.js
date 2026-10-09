@@ -1012,6 +1012,7 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
       aadharNumber,
       panNumber,
       referredByAgentId,
+      referralCode,
       loanType = 'personal',
       amount = 10000,
       installmentsCount = 15,
@@ -1023,6 +1024,13 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
     } = req.body;
 
     let targetUser = null;
+
+    // Resolve agent ID if referral code was entered
+    let finalReferrerId = referredByAgentId && mongoose.Types.ObjectId.isValid(referredByAgentId) ? referredByAgentId : null;
+    if (!finalReferrerId && referralCode) {
+      const agentByCode = await User.findOne({ referralCode: String(referralCode).trim().toUpperCase() });
+      if (agentByCode) finalReferrerId = agentByCode._id;
+    }
 
     if (borrowerType === 'new') {
       if (!name || !phone) {
@@ -1054,7 +1062,7 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
           address: address ? address.trim() : '',
           aadharNumber: aadharNumber ? String(aadharNumber).trim() : '',
           panNumber: panNumber ? String(panNumber).trim().toUpperCase() : '',
-          referredBy: referredByAgentId && mongoose.Types.ObjectId.isValid(referredByAgentId) ? referredByAgentId : null,
+          referredBy: finalReferrerId,
           kycStatus: aadharNumber ? 'verified' : 'pending',
           kycDocuments: {
             aadharNumber: aadharNumber ? String(aadharNumber).trim() : '',
@@ -1065,8 +1073,8 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
           }
         });
 
-        if (referredByAgentId && mongoose.Types.ObjectId.isValid(referredByAgentId)) {
-          await User.findByIdAndUpdate(referredByAgentId, { $inc: { referralCount: 1 } });
+        if (finalReferrerId) {
+          await User.findByIdAndUpdate(finalReferrerId, { $inc: { referralCount: 1 } });
         }
       }
     } else {

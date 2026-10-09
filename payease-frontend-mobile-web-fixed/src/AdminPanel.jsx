@@ -419,7 +419,8 @@ export default function AdminPanel() {
     address: "",
     aadharNumber: "",
     panNumber: "",
-    referredByAgentId: ""
+    referredByAgentId: "",
+    referralCode: ""
   });
   const [issueLoanAmount, setIssueLoanAmount] = useState(15000);
   const [issueInstallmentsCount, setIssueInstallmentsCount] = useState(15);
@@ -1574,6 +1575,7 @@ export default function AdminPanel() {
         aadharNumber: issueBorrowerType === "new" ? issueNewUser.aadharNumber : (issueBorrowerDetails.aadharNumber || issueSelectedUser?.aadharNumber),
         panNumber: issueBorrowerType === "new" ? issueNewUser.panNumber : (issueBorrowerDetails.panNumber || issueSelectedUser?.panNumber),
         referredByAgentId: issueNewUser.referredByAgentId || undefined,
+        referralCode: issueNewUser.referralCode || undefined,
         loanType: actualLoanType,
         amount: Number(issueLoanAmount),
         installmentsCount: Number(issueInstallmentsCount),
@@ -1598,7 +1600,7 @@ export default function AdminPanel() {
         loadUsers();
         // Reset form
         setIssueSelectedUser(null);
-        setIssueNewUser({ name: "", phone: "", email: "", address: "", aadharNumber: "", panNumber: "", referredByAgentId: "" });
+        setIssueNewUser({ name: "", phone: "", email: "", address: "", aadharNumber: "", panNumber: "", referredByAgentId: "", referralCode: "" });
         setIssueDocuments({ doc1Url: "", doc1BackUrl: "", doc2Url: "", doc2BackUrl: "", chequeUrl: "", chequeBackUrl: "" });
         // Switch to loans tab so admin can review and approve it
         setTab("loans");
@@ -5193,13 +5195,16 @@ export default function AdminPanel() {
                           <th className="py-3.5 px-3 w-[130px]">24H Yield (1 Din)</th>
                           <th className="py-3.5 px-3 w-[140px]">Live Profit</th>
                           <th className="py-3.5 px-3 w-[130px]">Lifetime Profit</th>
-                          <th className="py-3.5 px-3 w-[90px]">Referrals</th>
+                          <th className="py-3.5 px-3 w-[150px]">Agent / Refer</th>
                           <th className="py-3.5 px-3 w-[95px]">Status</th>
                           <th className="py-3.5 px-3 w-[115px]">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-xs">
-                        {filteredUsers.map(u => (
+                        {filteredUsers.map(u => {
+                          const lineage = getUserLineage(u, users, agents);
+                          const isAgent = u.role === "agent" || u.agentProfile?.status === "approved";
+                          return (
                           <tr key={u._id} className="hover:bg-slate-50/60 transition-colors">
                             {/* USER */}
                             <td className="py-4 px-4 align-top">
@@ -5432,12 +5437,29 @@ export default function AdminPanel() {
                               )}
                             </td>
 
-                            {/* REFERRALS */}
+                            {/* AGENT / REFER */}
                             <td className="py-4 px-4 align-top">
-                              <div className="pt-0.5">
-                                <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-xs font-mono font-bold">{u.referralCode || "—"}</span>
-                                <p className="text-[10px] text-gray-400 mt-0.5">({u.referralCount || 0} users)</p>
-                              </div>
+                              {isAgent ? (
+                                <div className="pt-0.5">
+                                  <span className="bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded text-xs font-mono font-bold">
+                                    Code: {u.referralCode || "—"}
+                                  </span>
+                                  <p className="text-[10px] text-gray-500 mt-0.5 font-medium">({u.referralCount || 0} referred)</p>
+                                </div>
+                              ) : lineage.agentName ? (
+                                <div className="pt-0.5">
+                                  <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded text-[11px] font-bold">
+                                    🤝 {lineage.agentName}
+                                  </span>
+                                  {lineage.agentCode && (
+                                    <p className="text-[10px] text-gray-500 font-mono mt-0.5">Code: {lineage.agentCode}</p>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="pt-0.5">
+                                  <span className="text-gray-400 text-xs italic">Direct (No Agent)</span>
+                                </div>
+                              )}
                             </td>
 
                             {/* STATUS */}
@@ -5481,14 +5503,17 @@ export default function AdminPanel() {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        ); })}
                       </tbody>
                     </table>
                   </div>
 
                   {/* MOBILE CARDS */}
                   <div className="md:hidden space-y-3">
-                    {filteredUsers.map(u => (
+                    {filteredUsers.map(u => {
+                      const lineage = getUserLineage(u, users, agents);
+                      const isAgent = u.role === "agent" || u.agentProfile?.status === "approved";
+                      return (
                       <div key={u._id} className="border border-gray-100 rounded-2xl p-4 bg-white shadow-xs">
                         <div className="flex justify-between items-start mb-2.5">
                           <div>
@@ -5641,8 +5666,18 @@ export default function AdminPanel() {
                             </p>
                           </div>
                           <div>
-                            <p className="text-gray-400 text-[10px] uppercase font-bold">Referral</p>
-                            <p className="font-mono font-bold text-slate-700 text-xs">{u.referralCode || "—"}</p>
+                            <p className="text-gray-400 text-[10px] uppercase font-bold">
+                              {isAgent ? "Agent Code" : "Agent Refer"}
+                            </p>
+                            {isAgent ? (
+                              <p className="font-mono font-bold text-amber-700 text-xs">{u.referralCode || "—"}</p>
+                            ) : lineage.agentName ? (
+                              <p className="font-bold text-amber-800 text-xs truncate" title={lineage.agentName}>
+                                🤝 {lineage.agentName} {lineage.agentCode ? `(${lineage.agentCode})` : ""}
+                              </p>
+                            ) : (
+                              <p className="text-gray-400 text-xs italic">Direct (No Agent)</p>
+                            )}
                           </div>
                         </div>
 
@@ -5676,7 +5711,7 @@ export default function AdminPanel() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                    ); })}
                   </div>
                 </>
               )}
@@ -7267,7 +7302,15 @@ export default function AdminPanel() {
                             </label>
                             <select
                               value={issueNewUser.referredByAgentId}
-                              onChange={(e) => setIssueNewUser({ ...issueNewUser, referredByAgentId: e.target.value })}
+                              onChange={(e) => {
+                                const selectedId = e.target.value;
+                                const matched = agents.find(a => String(a._id) === String(selectedId));
+                                setIssueNewUser({
+                                  ...issueNewUser,
+                                  referredByAgentId: selectedId,
+                                  referralCode: matched?.referralCode || ""
+                                });
+                              }}
                               className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
                             >
                               <option value="">No Agent (Direct Company Borrower)</option>
@@ -7277,6 +7320,28 @@ export default function AdminPanel() {
                                 </option>
                               ))}
                             </select>
+                          </div>
+
+                          {/* Agent Referral Code */}
+                          <div>
+                            <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                              Agent Referral Code (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={issueNewUser.referralCode}
+                              onChange={(e) => {
+                                const code = e.target.value.trim().toUpperCase();
+                                const matched = agents.find(a => (a.referralCode || "").toUpperCase() === code);
+                                setIssueNewUser({
+                                  ...issueNewUser,
+                                  referralCode: code,
+                                  referredByAgentId: matched ? String(matched._id) : issueNewUser.referredByAgentId
+                                });
+                              }}
+                              placeholder="e.g. EDUCAVEDA2026"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono uppercase"
+                            />
                           </div>
                         </div>
 

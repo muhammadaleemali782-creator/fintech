@@ -59,8 +59,6 @@ export default function Header() {
       ],
     },
     { label: "Offers", path: "/offers" },
-    { label: "About Us", path: "/about" },
-    { label: "Contact Us", path: "/contact" },
   ];
 
   return (
@@ -198,20 +196,12 @@ export default function Header() {
               </button>
             )
           ) : (
-            <>
-              <button
-                onClick={() => navigate("/login")}
-                className="text-xs xl:text-sm font-bold text-gray-700 hover:text-[#1D6AE5] px-3 py-2 transition cursor-pointer"
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => navigate("/login")}
-                className="px-4 py-2 rounded-xl text-xs xl:text-sm font-extrabold text-white bg-[#1D6AE5] hover:bg-[#1558cc] active:scale-95 transition shadow-md shadow-blue-500/25 flex items-center gap-1.5 cursor-pointer"
-              >
-                <span>🏦</span> Open 12% Account
-              </button>
-            </>
+            <button
+              onClick={() => navigate("/login")}
+              className="px-4 py-2 rounded-xl text-xs xl:text-sm font-extrabold text-white bg-[#1D6AE5] hover:bg-[#1558cc] active:scale-95 transition shadow-md shadow-blue-500/25 flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>👤</span> Account
+            </button>
           )}
         </div>
 
@@ -305,20 +295,12 @@ export default function Header() {
                 </button>
               )
             ) : (
-              <>
-                <button
-                  onClick={() => { setMenuOpen(false); navigate("/login"); }}
-                  className="w-full py-2.5 rounded-xl text-sm font-bold text-[#1D6AE5] border border-[#1D6AE5]"
-                >
-                  Sign In
-                </button>
-                <button
-                  onClick={() => { setMenuOpen(false); navigate("/login"); }}
-                  className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-[#1D6AE5]"
-                >
-                  Open 12% Account
-                </button>
-              </>
+              <button
+                onClick={() => { setMenuOpen(false); navigate("/login"); }}
+                className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-[#1D6AE5] flex items-center justify-center gap-2"
+              >
+                <span>👤</span> Account
+              </button>
             )}
           </div>
         </div>

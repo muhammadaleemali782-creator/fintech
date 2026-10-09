@@ -109,7 +109,7 @@ const UI_TEXT = {
     ifscLabel: "IFSC Code",
     upiIdLabel: "App UPI ID",
     copy: "Copy",
-    shareBankDetails: "📤 Share Bank & UPI Details",
+    shareBankDetails: "Share Bank & UPI Details",
     shareSuccess: "Bank details copy ho gaye!",
     sendMoneyPlaceholder: "Phone number, Account No (EFS0000XXX), ya UPI ID (@educa)",
     accountsHubTitle: "6 Modular Accounts Hub",
@@ -175,7 +175,7 @@ const UI_TEXT = {
     ifscLabel: "IFSC कोड",
     upiIdLabel: "ऐप UPI ID",
     copy: "कॉपी",
-    shareBankDetails: "📤 बैंक व UPI विवरण शेयर करें",
+    shareBankDetails: "बैंक व UPI विवरण शेयर करें",
     shareSuccess: "बैंक विवरण कॉपी हो गया!",
     sendMoneyPlaceholder: "फ़ोन नंबर, खाता संख्या (EFS0000XXX), या UPI ID (@educa)",
     accountsHubTitle: "6 मॉड्यूलर खाता हब",
@@ -241,7 +241,7 @@ const UI_TEXT = {
     ifscLabel: "IFSC Code",
     upiIdLabel: "App UPI ID",
     copy: "Copy",
-    shareBankDetails: "📤 Share Bank & UPI Details",
+    shareBankDetails: "Share Bank & UPI Details",
     shareSuccess: "Bank details copied to clipboard!",
     sendMoneyPlaceholder: "Phone number, Account No (EFS0000XXX), or UPI ID (@educa)",
     accountsHubTitle: "6 Modular Accounts Hub",
@@ -4497,7 +4497,10 @@ export default function Dashboard() {
                 onClick={shareFullBankDetails}
                 className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
               >
-                <span>📤</span> {txt.shareBankDetails}
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                <span>{txt.shareBankDetails}</span>
               </button>
             </div>
           </div>
@@ -4944,8 +4947,8 @@ export default function Dashboard() {
             <div className="text-center space-y-4">
               <p className="text-xs text-gray-600 font-medium">
                 {lang === "hindi"
-                  ? "किसी भी UPI ऐप (GPay, PhonePe, Paytm) या Educa यूज़र से डायरेक्ट पेमेंट प्राप्त करने के लिए यह QR कोड स्कैन कराएं:"
-                  : "Scan this QR code from any UPI app (GPay, PhonePe, Paytm) or Educa User to receive instant payments:"}
+                  ? "Educa Fintech यूज़र से डायरेक्ट 0% फीस पर पेमेंट प्राप्त करने के लिए यह Fintech QR स्कैन कराएं:"
+                  : "Scan this Fintech QR code from Educa Fintech App to transfer & receive instant payments:"}
               </p>
 
               <div className="p-4 bg-white rounded-3xl border-2 border-indigo-100 shadow-xl inline-block mx-auto relative">
@@ -5017,15 +5020,23 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={shareFullBankDetails}
-                  className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+                  className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <span>📤</span> {txt.shareBankDetails}
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                  <span>{txt.shareBankDetails}</span>
                 </button>
               </div>
             </div>
           ) : (
             /* TAB 2: CUSTOM OTHER APP QR (GPAY, PHONEPE, PAYTM, ETC.) */
             <div className="space-y-3.5 text-center">
+              <p className="text-xs text-gray-600 font-medium">
+                {lang === "hindi"
+                  ? "आप किसी भी UPI ऐप (GPay, PhonePe, Paytm, BHIM आदि) से पेमेंट प्राप्त करने के लिए यह QR कोड स्कैन कराएं:"
+                  : "Scan this QR code from any UPI app (GPay, PhonePe, Paytm, BHIM) to receive direct payments:"}
+              </p>
               {customQrUrl && !customQrUploadDraft ? (
                 /* ALREADY SAVED CUSTOM QR */
                 <div className="space-y-3">
@@ -7135,7 +7146,10 @@ export default function Dashboard() {
               onClick={shareFullBankDetails}
               className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
             >
-              <span>📤</span> {txt.shareBankDetails}
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span>{txt.shareBankDetails}</span>
             </button>
           </div>
 

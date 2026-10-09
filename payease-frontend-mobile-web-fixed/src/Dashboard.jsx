@@ -10,7 +10,7 @@ import FloatingCuteRobotAdvisor from "./components/FloatingCuteRobotAdvisor";
 
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
-import { appCache, isDataEqual, silentFetch } from "./utils/dataCache";
+import { appCache, isDataEqual, silentFetch, parseCachedNumber } from "./utils/dataCache";
 
 // Helper: Calculate upcoming 1st, 11th, and 21st collection dates
 const getUpcomingDates = (count = 6) => {
@@ -74,14 +74,11 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
 
 // Real-time ticking profit balance display component (High-FPS, strictly monotonic — NEVER resets to zero)
 function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }) {
-  // Read previously accumulated profit from localStorage so old data displays instantly (no zero flicker)
+  // Read previously accumulated profit safely (never NaN, never drops to zero)
   const [profit, setProfit] = useState(() => {
-    try {
-      const saved = Number(localStorage.getItem("educa_cached_profit_balance") || 0);
-      return Math.max(Number(baseProfit || 0), saved, 0);
-    } catch {
-      return Math.max(Number(baseProfit || 0), 0);
-    }
+    const saved = parseCachedNumber(typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_balance") : 0);
+    const base = parseCachedNumber(baseProfit);
+    return Math.max(base, saved, 0);
   });
 
   const profitRef = useRef(profit);
@@ -89,13 +86,16 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
   const lastTickRef = useRef(Date.now());
   const lastPersistRef = useRef(0);
 
-  const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
-  const perSecondYield = dailyYieldEst / 86400;
-  const perMsYield = perSecondYield / 1000;
+  // Capital & Yield Math (Simulate fast realistic yield so all users see rapid movement like Admin Reserves)
+  const cap = Math.max(Number(activeCapital || 0), 0);
+  // Baseline effective capital ensures ALL users (even with ₹0 balance) see fluid live fast ticks like Admin Panel
+  const effectiveCap = Math.max(cap, 1500);
+  const dailyYieldEst = (effectiveCap * 0.12) / 365;
+  const perMsYield = dailyYieldEst / 86400000;
 
-  // If server credits higher profit (e.g. daily/hourly settlement), smoothly sync upward — NEVER down to zero
+  // If server credits higher profit, smoothly sync upward — NEVER down
   useEffect(() => {
-    const serverVal = Number(baseProfit || 0);
+    const serverVal = parseCachedNumber(baseProfit);
     if (serverVal > profitRef.current) {
       profitRef.current = serverVal;
       setProfit(serverVal);
@@ -111,7 +111,7 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
       const deltaMs = Math.max(0, now - lastTickRef.current);
       lastTickRef.current = now;
 
-      if (activeCapital > 0 && deltaMs > 0) {
+      if (deltaMs > 0 && perMsYield > 0) {
         const increment = deltaMs * perMsYield;
         profitRef.current = profitRef.current + increment;
         setProfit(profitRef.current);
@@ -120,8 +120,11 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
         if (now - lastPersistRef.current > 3000) {
           lastPersistRef.current = now;
           try {
-            localStorage.setItem("educa_cached_profit_balance", String(profitRef.current));
-            localStorage.setItem("educa_last_profit_tick", String(now));
+            const val = profitRef.current;
+            if (isFinite(val) && val > 0) {
+              localStorage.setItem("educa_cached_profit_balance", String(val));
+              localStorage.setItem("educa_last_profit_tick", String(now));
+            }
           } catch {}
         }
       }
@@ -129,9 +132,9 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
 
     const startTimer = () => {
       if (timer) clearInterval(timer);
-      if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
+      if (typeof document !== "undefined" && !document.hidden) {
         lastTickRef.current = Date.now();
-        timer = setInterval(tick, 50); // 50ms ultra-fast smooth tick
+        timer = setInterval(tick, 35); // 35ms ultra-fast smooth tick matching Admin Panel speed
       }
     };
 
@@ -143,7 +146,7 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
         const now = Date.now();
         const delta = Math.min(Math.max(0, now - lastTickRef.current), 7 * 86400 * 1000);
         lastTickRef.current = now;
-        if (activeCapital > 0 && delta > 0) {
+        if (delta > 0 && perMsYield > 0) {
           profitRef.current = profitRef.current + (delta * perMsYield);
           setProfit(profitRef.current);
         }
@@ -157,15 +160,15 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
       if (timer) clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [activeCapital, perMsYield]);
+  }, [perMsYield]);
 
   const num = Number(profit || 0);
   const b = Number(activeCapital || 0);
-  let formatted = "0.000000";
-  if (b > 0 || num > 0) {
-    const decimals = b < 100 ? 8 : (b < 50000 ? 7 : 6);
-    formatted = num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-  }
+  // Display 8 decimals so trailing digits rapidly spin and stay fast for all users
+  const decimals = b >= 100000 ? 6 : (b >= 10000 ? 7 : 8);
+  const formatted = isFinite(num)
+    ? num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+    : "0.00000000";
 
   return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
 }
@@ -173,23 +176,26 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
 // Live Today's Accrued Yield Counter (Accrues in real time since midnight)
 function LiveTodayAccrued({ activeCapital = 0 }) {
   const [liveMs, setLiveMs] = useState(Date.now());
-  const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
+  const cap = Math.max(Number(activeCapital || 0), 0);
+  const effectiveCap = Math.max(cap, 1500);
+  const dailyYieldEst = (effectiveCap * 0.12) / 365;
   const perSecondYield = dailyYieldEst / 86400;
   const perMsYield = perSecondYield / 1000;
 
   useEffect(() => {
     let timer = null;
-    if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
-      timer = setInterval(() => setLiveMs(Date.now()), 50); // 50ms: Khoob tez ultra-fast speed
+    if (typeof document !== "undefined" && !document.hidden) {
+      timer = setInterval(() => setLiveMs(Date.now()), 35); // 35ms: Ultra-fast speed
     }
     return () => { if (timer) clearInterval(timer); };
-  }, [activeCapital]);
+  }, []);
 
   const startOfToday = new Date().setHours(0, 0, 0, 0);
   const msElapsedToday = Math.max(0, liveMs - startOfToday);
   const liveTodayEarned = msElapsedToday * perMsYield;
 
-  return <span className="font-mono tabular-nums tracking-tight">₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
+  const decimals = cap >= 100000 ? 4 : (cap >= 10000 ? 5 : 6);
+  return <span className="font-mono tabular-nums tracking-tight">₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</span>;
 }
 
 // UI Localization Dictionary (Hinglish, Hindi, English)
@@ -468,7 +474,7 @@ export default function Dashboard() {
     return Number(appCache.get("educa_cached_balance", userStored.balance || 0));
   });
   const [cachedProfitBalance, setCachedProfitBalance] = useState(() => {
-    return Number(appCache.get("educa_cached_profit_balance", userStored.profitBalance || 0));
+    return parseCachedNumber(appCache.get("educa_cached_profit_balance", userStored.profitBalance || 0));
   });
   const [loadingDashboard, setLoadingDashboard] = useState(!appCache.has("educa_cached_profile"));
   const [txns, setTxns] = useState(() => {
@@ -2044,9 +2050,9 @@ export default function Dashboard() {
           appCache.set("educa_cached_balance", data.balance);
         }
         if (data.profitBalance !== undefined) {
-          const pb = Number(data.profitBalance);
-          setCachedProfitBalance(prev => (prev === pb ? prev : pb));
-          appCache.set("educa_cached_profit_balance", data.profitBalance);
+          const pb = parseCachedNumber(data.profitBalance);
+          setCachedProfitBalance(prev => Math.max(prev || 0, pb));
+          appCache.set("educa_cached_profit_balance", pb);
         }
 
         // Native Android App: Register device silently in background without intrusive prompts
@@ -2338,16 +2344,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (userProfile?.profitBalance !== undefined) {
-      const serverVal = Number(userProfile.profitBalance);
+      const serverVal = parseCachedNumber(userProfile.profitBalance);
       setCachedProfitBalance(prev => Math.max(prev || 0, serverVal));
       try {
-        const highest = Math.max(Number(localStorage.getItem("educa_cached_profit_balance") || 0), serverVal);
-        localStorage.setItem("educa_cached_profit_balance", String(highest));
+        const storedVal = parseCachedNumber(localStorage.getItem("educa_cached_profit_balance"));
+        const highest = Math.max(storedVal, serverVal);
+        if (highest > 0) {
+          localStorage.setItem("educa_cached_profit_balance", String(highest));
+          appCache.set("educa_cached_profit_balance", highest);
+        }
       } catch {}
     }
   }, [userProfile?.profitBalance]);
 
-  const baseProfit = Math.max(Number(userProfile?.profitBalance || 0), Number(cachedProfitBalance || 0));
+  const baseProfit = Math.max(parseCachedNumber(userProfile?.profitBalance), parseCachedNumber(cachedProfitBalance));
   const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
   const perSecondYield = dailyYieldEst / 86400;
 

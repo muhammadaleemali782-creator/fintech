@@ -81,6 +81,27 @@ export const appCache = {
   }
 };
 
+// Robust numeric parser that unpacks raw numbers, strings, or { data, savedAt } JSON cache without returning NaN
+export function parseCachedNumber(raw, fallback = 0) {
+  if (raw === null || raw === undefined) return fallback;
+  if (typeof raw === "number") return isFinite(raw) ? raw : fallback;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && "data" in parsed) {
+        const n = Number(parsed.data);
+        return isFinite(n) ? n : fallback;
+      }
+      const n = Number(parsed);
+      return isFinite(n) ? n : fallback;
+    } catch {
+      const n = Number(raw);
+      return isFinite(n) ? n : fallback;
+    }
+  }
+  return fallback;
+}
+
 // Structural equality check to avoid re-renders when data hasn't changed
 export function isDataEqual(a, b) {
   if (a === b) return true;

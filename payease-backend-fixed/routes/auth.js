@@ -173,10 +173,13 @@ router.post('/register', (req, res, next) => {
 
     // Check referral code
     let referredBy = null;
+    let referredByCode = null;
     if (referralCode) {
-      const referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
+      const cleanCode = referralCode.trim().toUpperCase();
+      const referrer = await User.findOne({ referralCode: cleanCode });
       if (referrer) {
         referredBy = referrer._id;
+        referredByCode = referrer.referralCode;
       } else {
         return res.status(400).json({ message: 'Invalid referral code' });
       }
@@ -202,6 +205,7 @@ router.post('/register', (req, res, next) => {
       password: hashed,
       loanLimit: 5000,
       referredBy,
+      referredByCode: referredByCode || undefined,
       ...(agentProfileData ? { agentProfile: agentProfileData } : {})
     });
 

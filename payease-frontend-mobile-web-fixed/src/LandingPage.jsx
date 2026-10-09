@@ -319,20 +319,6 @@ function HeroSection({ onLogin, isHindi }) {
         {/* TOP TAGLINE & CALLOUT */}
         <div className={`text-center max-w-4xl mx-auto transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
           
-          {/* SLEEK LIVE STATUS BADGE */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50/90 border border-blue-200/80 shadow-xs backdrop-blur-md mb-4 text-xs font-semibold text-blue-900 select-none">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="font-extrabold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded text-[11px] tracking-wide uppercase">
-              {isHindi ? "12% वार्षिक ब्याज" : "12% Annual Yield"}
-            </span>
-            <span className="text-gray-800 font-bold">
-              {isHindi ? "बचत खाते पर प्राप्त करें" : "On Liquid Savings Account"}
-            </span>
-          </div>
-
           {/* HEADLINE: CRAFTED OPTICAL HIERARCHY */}
           <h1 className="text-2xl xs:text-3xl sm:text-5xl lg:text-6xl font-black text-[#0A192F] tracking-tight leading-[1.14] mb-3 sm:mb-4">
             {isHindi ? (

@@ -2047,6 +2047,17 @@ export default function Dashboard() {
   const elapsedUserMs = Math.max(0, liveMs - userAnchorTime);
   const liveProfitBalance = baseProfit + (elapsedUserMs * perMsYield);
 
+  // Dynamic precision: small balances (₹10, ₹100, etc.) scale decimals up to 8 so trailing digits roll rapidly in real-time
+  const formatLiveProfit = (val, bal = activeCapital) => {
+    const num = Number(val || 0);
+    const b = Number(bal || 0);
+    let decimals = 4;
+    if (b > 0 && b < 100) decimals = 8;
+    else if (b > 0 && b < 2000) decimals = 7;
+    else if (b > 0 && b < 50000) decimals = 6;
+    return num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  };
+
   useEffect(() => {
     if (liveProfitBalance > 0) {
       try {
@@ -4315,7 +4326,7 @@ export default function Dashboard() {
                 {loadingDashboard && userProfile.profitBalance === undefined ? (
                   <span className="inline-block h-8 w-28 bg-white/20 rounded-lg animate-pulse" />
                 ) : (
-                  `₹${liveProfitBalance.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                  `₹${formatLiveProfit(liveProfitBalance, activeCapital)}`
                 )}
               </h3>
               <p className="text-emerald-100/90 text-[11px] hidden sm:block mt-1">1% Monthly Daily Yield & 365d Bonds</p>
@@ -5375,7 +5386,7 @@ export default function Dashboard() {
               {loadingProfitHistory || (loadingDashboard && userProfile.profitBalance === undefined) ? (
                 <span className="inline-block h-9 w-36 bg-white/20 rounded-lg animate-pulse" />
               ) : (
-                `₹${liveProfitBalance.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                `₹${formatLiveProfit(liveProfitBalance, activeCapital)}`
               )}
             </div>
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-500/30 text-xs text-emerald-100">

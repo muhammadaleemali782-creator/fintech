@@ -189,7 +189,7 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
   }
 
   const refName = referrer.name || "Agent";
-  const refCode = referrer.referralCode || "";
+  const refCode = referrer.referralCode || u.referredByCode || (agentMatch?.referralCode) || "";
 
   if (parentAgent) {
     const parentName = parentAgent.name || "Master Agent";
@@ -197,8 +197,9 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
       type: "sub_agent_user",
       label: `User of Sub-Agent: ${refName}`,
       subLabel: `Master Agent: ${parentName}`,
-      badge: `🤝 Sub-Agent: ${refName} (via ${parentName})`,
+      badge: `Sub-Agent: ${refName} (via ${parentName})`,
       agentName: refName,
+      agentCode: refCode,
       masterName: parentName,
       agentId: refId
     };
@@ -208,8 +209,9 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
     type: "agent_user",
     label: `Agent: ${refName}${refCode ? ` (${refCode})` : ""}`,
     subLabel: referrer.agentProfile?.businessName || "",
-    badge: `🤝 Agent: ${refName}`,
+    badge: `Agent: ${refName}`,
     agentName: refName,
+    agentCode: refCode,
     agentId: refId
   };
 };
@@ -380,14 +382,35 @@ export default function AdminPanel() {
     }
   };
 
+  // Fast 100ms sub-second ticking interval for Live Profit stream
+  const [liveMs, setLiveMs] = useState(Date.now());
+  useEffect(() => {
+    if (tab !== "users") return;
+    const timer = setInterval(() => {
+      setLiveMs(Date.now());
+    }, 100);
+    return () => clearInterval(timer);
+  }, [tab]);
+
   const calcLiveUserProfit = (u) => {
     const base = Number(u.profitBalance || 0);
     const bal = Number(u.balance || 0);
     if (bal <= 0) return base;
     const rate = Number(u.interestRate || 12);
     const perMs = (bal * rate) / (36500 * 86400000);
-    const elapsed = Math.max(0, Date.now() - mountTimeRef.current);
+    const elapsed = Math.max(0, liveMs - mountTimeRef.current);
     return base + (elapsed * perMs);
+  };
+
+  // Dynamic precision formatter: small balances (₹10, ₹100, etc.) scale decimals so trailing digits spin rapidly!
+  const formatLiveDynamicProfit = (val, bal = 0) => {
+    const num = Number(val || 0);
+    const b = Number(bal || 0);
+    let decimals = 4;
+    if (b > 0 && b < 100) decimals = 8;
+    else if (b > 0 && b < 2000) decimals = 7;
+    else if (b > 0 && b < 50000) decimals = 6;
+    return num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   };
   const [expandedLoanId, setExpandedLoanId] = useState(null);
   const [adminPayModal, setAdminPayModal] = useState(null);
@@ -5410,7 +5433,7 @@ export default function AdminPanel() {
                                 <div className="pt-0.5">
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    +₹{calcLiveUserProfit(u).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                    +₹{formatLiveDynamicProfit(calcLiveUserProfit(u), u.balance)}
                                   </span>
                                   <p className="text-[10px] text-emerald-600 font-mono mt-0.5 font-semibold">
                                     🟢 Live Ticking
@@ -5515,13 +5538,13 @@ export default function AdminPanel() {
                       const isAgent = u.role === "agent" || u.agentProfile?.status === "approved";
                       return (
                       <div key={u._id} className="border border-gray-100 rounded-2xl p-4 bg-white shadow-xs">
-                        <div className="flex justify-between items-start mb-2.5">
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-bold text-sm text-gray-900">{u.name}</p>
+                        <div className="flex justify-between items-start gap-2 mb-2.5">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="font-bold text-sm text-gray-900 leading-tight">{u.name}</p>
                               {(u.role === "agent" || u.agentProfile?.status === "approved") && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
-                                  🤝 Agent
+                                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wide shrink-0">
+                                  Agent
                                 </span>
                               )}
                             </div>
@@ -5536,13 +5559,13 @@ export default function AdminPanel() {
                             <p className="text-xs text-gray-400">{u.email}</p>
                             <p className="text-[11px] font-mono text-gray-400">{u.phone}</p>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${u.isBlocked ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+                          <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${u.isBlocked ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
                               {u.isBlocked ? "Blocked" : "Active"}
                             </span>
                             {u.isUninstallProtected && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
-                                🔒 No Uninstall
+                                🔒 Lock
                               </span>
                             )}
                           </div>
@@ -5656,7 +5679,7 @@ export default function AdminPanel() {
                               <span>Live Profit</span>
                             </p>
                             <p className="font-black font-mono text-emerald-600 text-xs tabular-nums">
-                              +₹{calcLiveUserProfit(u).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                              +₹{formatLiveDynamicProfit(calcLiveUserProfit(u), u.balance)}
                             </p>
                           </div>
                           <div>
@@ -5672,20 +5695,25 @@ export default function AdminPanel() {
                             {isAgent ? (
                               <p className="font-mono font-bold text-amber-700 text-xs">{u.referralCode || "—"}</p>
                             ) : lineage.agentName ? (
-                              <p className="font-bold text-amber-800 text-xs truncate" title={lineage.agentName}>
-                                🤝 {lineage.agentName} {lineage.agentCode ? `(${lineage.agentCode})` : ""}
-                              </p>
+                              <div>
+                                <p className="font-bold text-amber-800 text-xs leading-tight truncate" title={lineage.agentName}>
+                                  {lineage.agentName}
+                                </p>
+                                <p className="text-[10px] text-gray-500 font-mono font-bold mt-0.5">
+                                  Code: {lineage.agentCode || u.referredByCode || "—"}
+                                </p>
+                              </div>
                             ) : (
                               <p className="text-gray-400 text-xs italic">Direct (No Agent)</p>
                             )}
                           </div>
                         </div>
 
-                        {/* 24-HOUR EXPECTED YIELD BAR (Lamba sa button / bar above Block buttons) */}
+                        {/* 24-HOUR EXPECTED YIELD BAR (Non-truncated clean view) */}
                         <div className="w-full mb-3 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 rounded-xl flex items-center justify-between text-xs shadow-2xs">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="text-sm">⚡</span>
-                            <span className="font-extrabold text-blue-950 text-xs truncate">24 Hour Me Kitna Milega:</span>
+                            <span className="font-extrabold text-blue-950 text-[11px] whitespace-nowrap">24H Expected Yield:</span>
                           </div>
                           <div className="text-right shrink-0">
                             <span className="font-mono font-black text-blue-700 text-xs sm:text-sm">

@@ -79,9 +79,6 @@ export default function Header() {
             <span className="font-extrabold text-xl text-[#0C1B3A] tracking-tight">
               Educa<span className="text-[#1D6AE5]">Fintech</span>
             </span>
-            <span className="hidden md:inline-block ml-2 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300">
-              12% Savings APY
-            </span>
           </div>
         </Link>
 

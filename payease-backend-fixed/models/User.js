@@ -97,6 +97,7 @@ const userSchema = new mongoose.Schema({
   // Referral System
   referralCode: { type: String, unique: true, sparse: true },
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  referredByCode: { type: String, default: null },
   referralEarnings: { type: Number, default: 0 },
   referralCount: { type: Number, default: 0 },
   fcmToken: { type: String, default: null },

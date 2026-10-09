@@ -279,12 +279,26 @@ export default function EvervaultCardScanner() {
       const scannerX = containerRect.left + containerRect.width / 2;
       let anyScanning = false;
 
+      const isDesktop = typeof window !== "undefined" && window.innerWidth >= 768;
       const wrappers = cardLine.querySelectorAll(".evervault-card-wrapper");
       wrappers.forEach((wrapper) => {
         const rect = wrapper.getBoundingClientRect();
         const cardLeft = rect.left;
         const cardRight = rect.right;
         const cardWidth = rect.width;
+        const cardCenterX = (cardLeft + cardRight) / 2;
+
+        // Ulta Arc (Inverted Concave Arc) - active only on desktop mode as requested
+        if (isDesktop) {
+          const distFromCenter = cardCenterX - scannerX;
+          const normDist = Math.max(-1.5, Math.min(1.5, distFromCenter / (containerRect.width * 0.45)));
+          // Concave parabolic curve: center dips down gracefully, sides rise up with natural tangent rotation
+          const arcY = Math.pow(normDist, 2) * -38;
+          const arcRotate = normDist * 4;
+          wrapper.style.transform = `translateY(${arcY}px) rotate(${arcRotate}deg)`;
+        } else {
+          wrapper.style.transform = "";
+        }
 
         const normalCard = wrapper.querySelector(".card-normal");
         const asciiCard = wrapper.querySelector(".card-ascii");
@@ -347,7 +361,7 @@ export default function EvervaultCardScanner() {
     <div
       ref={containerRef}
       className="relative w-full overflow-hidden bg-[#0A0D14] py-8 my-5 border-y border-white/10 shadow-2xl pointer-events-none select-none"
-      style={{ minHeight: "360px" }}
+      style={{ minHeight: "380px" }}
     >
       {/* 1. BACKGROUND STARS CANVAS */}
       <canvas
@@ -362,7 +376,7 @@ export default function EvervaultCardScanner() {
       />
 
       {/* 3. NON-INTERACTIVE CONTINUOUS CARD STREAM */}
-      <div className="relative w-full h-[280px] sm:h-[310px] flex items-center z-10 overflow-visible pointer-events-none">
+      <div className="relative w-full h-[280px] sm:h-[310px] md:h-[340px] flex items-center z-10 overflow-visible pointer-events-none">
         <div
           ref={cardLineRef}
           className="flex items-center gap-6 sm:gap-8 whitespace-nowrap will-change-transform px-4 pointer-events-none"

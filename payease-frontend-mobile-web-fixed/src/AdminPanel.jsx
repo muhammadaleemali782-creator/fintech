@@ -554,6 +554,23 @@ const DEFAULT_AUDIT_HISTORY = [
   }
 ];
 
+function formatLiveTimeElapsed(dateStr) {
+  if (!dateStr) return "Just now";
+  const time = new Date(dateStr).getTime();
+  if (isNaN(time)) return "Just now";
+  const diffSec = Math.max(0, Math.floor((Date.now() - time) / 1000));
+  if (diffSec < 10) return "Just now (Live)";
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const mins = Math.floor(diffSec / 60);
+  const secs = diffSec % 60;
+  if (mins < 60) return `${mins}m ${secs}s ago`;
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  if (hours < 24) return `${hours}h ${remMins}m ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export default function AdminPanel() {
   const token = tokenStorage.getToken();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -667,6 +684,23 @@ export default function AdminPanel() {
   const [kycFilter, setKycFilter] = useState("all");
   const [kycTimeFilter, setKycTimeFilter] = useState("all"); // 'all' | 'today' | '7days' | '30days'
   const [selectedKycIds, setSelectedKycIds] = useState(new Set());
+  const [liveKycSeconds, setLiveKycSeconds] = useState(0);
+
+  // Live 1-second ticking clock when on KYC view
+  useEffect(() => {
+    if (tab !== "kyc") return;
+    const ticker = setInterval(() => {
+      setLiveKycSeconds(s => (s + 1) % 1000000);
+    }, 1000);
+    return () => clearInterval(ticker);
+  }, [tab]);
+
+  const allKycUsers = useMemo(() => {
+    if (!Array.isArray(users)) return [];
+    return users.filter(u => u.kycStatus && u.kycStatus !== "none");
+  }, [users]);
+  const verifiedKycCount = useMemo(() => allKycUsers.filter(u => u.kycStatus === "verified").length, [allKycUsers]);
+  const rejectedKycCount = useMemo(() => allKycUsers.filter(u => u.kycStatus === "rejected").length, [allKycUsers]);
   const [userFilter, setUserFilter] = useState("all"); // 'all' | 'customers' | 'agents'
   const [agentFilter, setAgentFilter] = useState("all"); // 'all' | 'approved' | 'pending'
 
@@ -1048,7 +1082,7 @@ export default function AdminPanel() {
 
   const loadUsers = useCallback(async (force = false) => {
     try {
-      const res = await cachedAdminFetch(`${API}/admin/users`, { headers }, 45000, force);
+      const res = await cachedAdminFetch(`${API}/admin/users`, { headers }, 8000, force);
       if (res.status === 429) {
         setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
         return;
@@ -1376,7 +1410,7 @@ export default function AdminPanel() {
       loadAgents();
       loadUsers();
     } else if (tab === "kyc" || tab === "users") {
-      loadUsers();
+      loadUsers(true);
     } else if (tab === "alerts") {
       loadNotifications();
     } else if (tab === "history") {
@@ -1387,6 +1421,15 @@ export default function AdminPanel() {
       if (analyticsInterval) clearInterval(analyticsInterval);
     };
   }, [tab]); // eslint-disable-line
+
+  // Fast auto-sync: fetch new KYC requests every 6 seconds when on KYC tab
+  useEffect(() => {
+    if (tab !== "kyc") return;
+    const kycPoll = setInterval(() => {
+      loadUsers(true);
+    }, 6000);
+    return () => clearInterval(kycPoll);
+  }, [tab, loadUsers]);
 
   // REAL-TIME SSE CONNECTION FOR LIVE ALERTS & SOUND
   const loadAllRef = useRef(loadAll);
@@ -4073,7 +4116,20 @@ export default function AdminPanel() {
 
                 {/* Export & Multi-select Toolbar */}
                 <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl select-none transition">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      showToast("Syncing latest requests...", "info");
+                      await loadUsers(true);
+                      showToast("KYC list synced ✓", "success");
+                    }}
+                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold shadow-2xs active:scale-90 active:ring-2 active:ring-blue-400 transition-all flex items-center gap-1.5 cursor-pointer select-none"
+                    title="Instant live sync with server"
+                  >
+                    <span>⚡</span> Live Sync
+                  </button>
+
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl select-none transition active:scale-95">
                     <input
                       type="checkbox"
                       checked={filteredKycUsers.length > 0 && selectedKycIds.size === filteredKycUsers.length}
@@ -4087,7 +4143,7 @@ export default function AdminPanel() {
                     <button
                       type="button"
                       onClick={() => exportKycToCsv()}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-90 active:ring-2 active:ring-emerald-400 transition flex items-center gap-1.5 cursor-pointer select-none"
                     >
                       <span>📥</span> Export Selected ({selectedKycIds.size})
                     </button>
@@ -4096,7 +4152,7 @@ export default function AdminPanel() {
                   <button
                     type="button"
                     onClick={() => exportKycToCsv(filteredKycUsers)}
-                    className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs active:scale-90 active:ring-2 active:ring-emerald-400 transition flex items-center gap-1.5 cursor-pointer select-none"
                   >
                     <span>📥</span> Export All ({filteredKycUsers.length})
                   </button>
@@ -4106,21 +4162,24 @@ export default function AdminPanel() {
               {/* Filter Bar (Tier 2: Status Pills + Date Pills) */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 {/* Status Filter */}
-                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold overflow-x-auto no-scrollbar">
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold overflow-x-auto no-scrollbar gap-1">
                   {[
-                    { key: "all", label: "All" },
+                    { key: "all", label: `All (${allKycUsers.length})` },
                     { key: "pending", label: `Pending (${pendingKycCount})` },
-                    { key: "verified", label: "Verified" },
-                    { key: "rejected", label: "Rejected" },
+                    { key: "verified", label: `Verified (${verifiedKycCount})` },
+                    { key: "rejected", label: `Rejected (${rejectedKycCount})` },
                   ].map(f => (
                     <button
                       key={f.key}
                       type="button"
-                      onClick={() => setKycFilter(f.key)}
-                      className={`px-3 py-1 rounded-lg transition cursor-pointer text-center whitespace-nowrap shrink-0 ${
+                      onClick={() => {
+                        setKycFilter(f.key);
+                        showToast(`Showing ${f.label}`, "info");
+                      }}
+                      className={`px-3 py-1.5 rounded-lg transition-all duration-100 cursor-pointer text-center whitespace-nowrap shrink-0 active:scale-90 active:ring-2 active:ring-blue-400 select-none ${
                         kycFilter === f.key
-                          ? "bg-white text-blue-700 shadow-2xs font-extrabold"
-                          : "text-slate-500 hover:text-slate-800"
+                          ? "bg-blue-600 text-white shadow-md font-black ring-2 ring-blue-300 scale-105"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
                       }`}
                     >
                       {f.label}
@@ -4129,7 +4188,7 @@ export default function AdminPanel() {
                 </div>
 
                 {/* Date / Time Filter */}
-                <div className="flex items-center bg-blue-50/70 border border-blue-200/90 p-1 rounded-xl text-xs font-bold overflow-x-auto no-scrollbar">
+                <div className="flex items-center bg-blue-50/70 border border-blue-200/90 p-1 rounded-xl text-xs font-bold overflow-x-auto no-scrollbar gap-1">
                   {[
                     { key: "all", label: "All Time" },
                     { key: "today", label: "Today" },
@@ -4139,10 +4198,13 @@ export default function AdminPanel() {
                     <button
                       key={tf.key}
                       type="button"
-                      onClick={() => setKycTimeFilter(tf.key)}
-                      className={`px-3 py-1 rounded-lg transition cursor-pointer text-[11px] text-center whitespace-nowrap shrink-0 ${
+                      onClick={() => {
+                        setKycTimeFilter(tf.key);
+                        showToast(`Filter: ${tf.label}`, "info");
+                      }}
+                      className={`px-3 py-1.5 rounded-lg transition-all duration-100 cursor-pointer text-[11px] text-center whitespace-nowrap shrink-0 active:scale-90 active:ring-2 active:ring-blue-400 select-none ${
                         kycTimeFilter === tf.key
-                          ? "bg-blue-600 text-white shadow-xs font-extrabold"
+                          ? "bg-blue-600 text-white shadow-xs font-extrabold ring-1 ring-blue-400 scale-105"
                           : "text-blue-700 hover:text-blue-900"
                       }`}
                     >
@@ -4208,7 +4270,18 @@ export default function AdminPanel() {
                                 >
                                   {u.kycStatus}
                                 </span>
-                                <span className="text-[10px] text-slate-400 font-mono">
+                                {/* Real-time request elapsed timer */}
+                                <span
+                                  title={`Submitted: ${new Date(u.kycDocuments?.submittedAt || u.createdAt).toLocaleString("en-IN")}`}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border transition-all ${
+                                    u.kycStatus === "pending"
+                                      ? "bg-amber-100 text-amber-900 border-amber-300 animate-pulse shadow-2xs"
+                                      : "bg-slate-100 text-slate-700 border-slate-200"
+                                  }`}
+                                >
+                                  ⏱️ {formatLiveTimeElapsed(u.kycDocuments?.submittedAt || u.createdAt)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
                                   🕒 {u.kycDocuments?.submittedAt ? new Date(u.kycDocuments.submittedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Recent"}
                                 </span>
                               </div>
@@ -4226,7 +4299,7 @@ export default function AdminPanel() {
                               e.stopPropagation();
                               exportKycToCsv(u);
                             }}
-                            className="shrink-0 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
+                            className="shrink-0 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-90 active:ring-2 active:ring-emerald-400 cursor-pointer shadow-2xs select-none"
                           >
                             <span>📥</span>
                             <span className="hidden sm:inline">Excel</span>
@@ -4277,9 +4350,21 @@ export default function AdminPanel() {
                             <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                               KYC Document Images (Tap to Zoom)
                             </span>
-                            <span className="text-[10px] font-bold text-blue-600">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const firstDoc = u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl || u.kycDocuments?.doc1BackUrl || u.kycDocuments?.doc2Url;
+                                if (firstDoc) {
+                                  setLightboxImg(firstDoc);
+                                  setZoomLevel(1);
+                                  showToast("Opening Lightbox...", "info");
+                                }
+                              }}
+                              className="text-[10px] font-bold text-blue-600 hover:text-blue-800 active:scale-90 transition flex items-center gap-1 cursor-pointer select-none"
+                            >
                               🔍 Fullscreen Lightbox
-                            </span>
+                            </button>
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                             {/* Doc 1 Front */}
@@ -4290,7 +4375,7 @@ export default function AdminPanel() {
                                   setLightboxImg(u.kycDocuments.doc1Url || u.kycDocuments.docUrl);
                                   setZoomLevel(1);
                                 }}
-                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in"
+                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
                               >
                                 <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
                                   <img
@@ -4319,7 +4404,7 @@ export default function AdminPanel() {
                                   setLightboxImg(u.kycDocuments.doc1BackUrl);
                                   setZoomLevel(1);
                                 }}
-                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in"
+                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
                               >
                                 <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
                                   <img
@@ -4348,7 +4433,7 @@ export default function AdminPanel() {
                                   setLightboxImg(u.kycDocuments.doc2Url);
                                   setZoomLevel(1);
                                 }}
-                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in"
+                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
                               >
                                 <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
                                   <img
@@ -4379,7 +4464,7 @@ export default function AdminPanel() {
                                   setLightboxImg(u.kycDocuments.doc2BackUrl);
                                   setZoomLevel(1);
                                 }}
-                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in"
+                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
                               >
                                 <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
                                   <img
@@ -4409,18 +4494,19 @@ export default function AdminPanel() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
+                            showToast(`Opening KYC Record: ${u.name}`, "info");
                             setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
                             setPreviewKycUser(u);
                           }}
-                          className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold shadow-xs active:scale-95 transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          className={`w-full py-2.5 px-4 rounded-xl text-xs font-black shadow-xs active:scale-90 active:ring-4 active:ring-blue-400/50 active:brightness-90 transition-all duration-100 flex items-center justify-center gap-2 cursor-pointer select-none ${
                             u.kycStatus === "rejected"
-                              ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
+                              ? "bg-rose-50 text-rose-700 border border-rose-300 hover:bg-rose-100 active:bg-rose-200"
                               : u.kycStatus === "verified"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                              : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
+                              ? "bg-emerald-50 text-emerald-800 border-2 border-emerald-300 hover:bg-emerald-100 active:bg-emerald-200"
+                              : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 ring-2 ring-blue-400/40"
                           }`}
                         >
-                          <span>{u.kycStatus === "rejected" ? "🚫" : u.kycStatus === "verified" ? "✓" : "🔍"}</span>
+                          <span className="text-sm">{u.kycStatus === "rejected" ? "🚫" : u.kycStatus === "verified" ? "✓" : "🔍"}</span>
                           <span>{u.kycStatus === "rejected" ? "Rejected — View Details" : u.kycStatus === "verified" ? "Verified — View Details" : "Review & Verify KYC"}</span>
                         </button>
                       </div>
@@ -9121,9 +9207,17 @@ export default function AdminPanel() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 shrink-0">
               <div>
-                <h3 className="font-black text-lg text-gray-900 flex items-center gap-2">
-                  <span>📄</span> KYC Verification: {previewKycUser.name}
-                </h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-black text-lg text-gray-900 flex items-center gap-1.5">
+                    <span>📄</span> KYC: {previewKycUser.name}
+                  </h3>
+                  <span
+                    title={`Submitted: ${new Date(previewKycUser.kycDocuments?.submittedAt || previewKycUser.createdAt).toLocaleString("en-IN")}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs"
+                  >
+                    ⏱️ {formatLiveTimeElapsed(previewKycUser.kycDocuments?.submittedAt || previewKycUser.createdAt)}
+                  </span>
+                </div>
                 <p className="text-xs text-gray-500">
                   {previewKycUser.email} · {previewKycUser.phone}
                 </p>
@@ -9131,7 +9225,7 @@ export default function AdminPanel() {
               <button
                 type="button"
                 onClick={() => setPreviewKycUser(null)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition text-sm font-bold cursor-pointer"
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition text-sm font-bold cursor-pointer active:scale-90 select-none"
               >
                 ✕
               </button>
@@ -9386,42 +9480,55 @@ export default function AdminPanel() {
             </div>
 
             {/* Bottom Action Footer */}
-            <div className="flex items-center justify-end gap-2.5 border-t border-gray-100 pt-3 mt-4 shrink-0">
+            <div className="flex items-center justify-end gap-2.5 border-t border-gray-100 pt-3 mt-4 shrink-0 flex-wrap">
               <button
+                type="button"
                 onClick={() => setPreviewKycUser(null)}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer active:scale-90 select-none"
               >
                 Close
               </button>
               {previewKycUser.kycStatus === "pending" ? (
                 <>
                   <button
+                    type="button"
                     onClick={async () => {
+                      showToast("Rejecting KYC...", "info");
                       await rejectKyc(previewKycUser._id, kycReviewRemarks);
                       setPreviewKycUser(null);
                     }}
-                    className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 text-xs font-bold transition cursor-pointer active:scale-95"
+                    className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-300 hover:bg-rose-100 text-xs font-bold transition cursor-pointer active:scale-90 active:ring-2 active:ring-rose-300 select-none"
                   >
                     ✕ Reject with Note
                   </button>
                   <button
+                    type="button"
                     onClick={async () => {
+                      showToast("Approving KYC...", "info");
                       await approveKyc(previewKycUser._id, kycReviewRemarks);
                       setPreviewKycUser(null);
                     }}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition cursor-pointer active:scale-95"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition cursor-pointer active:scale-90 active:ring-4 active:ring-emerald-300 select-none"
                   >
                     ✓ Approve with Note
                   </button>
                 </>
               ) : previewKycUser.kycStatus === "rejected" ? (
-                <span className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold select-none flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => showToast(`User ${previewKycUser.name} KYC is already rejected.`, "info")}
+                  className="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold select-none flex items-center gap-1.5 cursor-pointer active:scale-90 transition"
+                >
                   <span>🔒</span> KYC Rejected — Note Locked
-                </span>
+                </button>
               ) : previewKycUser.kycStatus === "verified" ? (
-                <span className="px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold select-none flex items-center gap-1.5">
-                  <span>🔒</span> KYC Verified — Note Locked
-                </span>
+                <button
+                  type="button"
+                  onClick={() => showToast(`User ${previewKycUser.name} KYC is verified and active.`, "info")}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold select-none flex items-center gap-1.5 cursor-pointer active:scale-90 transition"
+                >
+                  <span>✓</span> KYC Verified (Locked)
+                </button>
               ) : null}
             </div>
           </div>

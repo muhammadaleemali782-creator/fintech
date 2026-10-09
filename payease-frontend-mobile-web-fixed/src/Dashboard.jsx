@@ -88,7 +88,7 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, userAnchorTime =
       if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
         timer = setInterval(() => {
           setLiveMs(Date.now());
-        }, 1000); // Steady 1-second cadence, 0% CPU, no jitter
+        }, 250); // 250ms: Smooth, fast live tick
       }
     };
 
@@ -144,7 +144,7 @@ function LiveTodayAccrued({ activeCapital = 0 }) {
   useEffect(() => {
     let timer = null;
     if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
-      timer = setInterval(() => setLiveMs(Date.now()), 1000);
+      timer = setInterval(() => setLiveMs(Date.now()), 250);
     }
     return () => { if (timer) clearInterval(timer); };
   }, [activeCapital]);
@@ -3039,6 +3039,10 @@ export default function Dashboard() {
             doc2Url: kycForm.doc2Url,
             doc2BackUrl: kycForm.doc2BackUrl || "",
             aadharNumber: cleanAadhaar,
+            aadhaarName: kycForm.aadhaarName.trim(),
+            aadharName: kycForm.aadhaarName.trim(),
+            aadhaarPhone: cleanPhone,
+            aadharPhone: cleanPhone,
             panNumber: kycForm.panNumber,
             chequeNumber: kycForm.chequeNumber,
             address: kycForm.address,

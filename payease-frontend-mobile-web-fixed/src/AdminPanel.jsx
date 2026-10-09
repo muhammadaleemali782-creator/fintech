@@ -30,7 +30,7 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 45000, forceRefresh =
         ok: true,
         status: 200,
         fromCache: true,
-        json: async () => structuredClone(cached.data)
+        json: async () => cached.data
       };
     }
   }
@@ -56,7 +56,7 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 45000, forceRefresh =
             ok: true,
             status: res.status,
             fromCache: false,
-            json: async () => structuredClone(data)
+            json: async () => data
           };
         } catch {
           return res;
@@ -72,7 +72,7 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 45000, forceRefresh =
           ok: true,
           status: 200,
           fromCache: true,
-          json: async () => structuredClone(cached.data)
+          json: async () => cached.data
         };
       }
       const persisted = appCache.get(persistentKey, null);
@@ -81,7 +81,7 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 45000, forceRefresh =
           ok: true,
           status: 200,
           fromCache: true,
-          json: async () => structuredClone(persisted)
+          json: async () => persisted
         };
       }
       return { ok: false, status: 504, json: async () => ({}) };
@@ -278,7 +278,7 @@ function LiveAdminProfitTicker({ baseProfit = 12909.5613, deposits = 26657112, c
           return next;
         });
       }
-    }, 1000); // 1000ms: Smooth, steady 1-second tick readable by human eyes
+    }, 200); // 200ms: Smooth, fast live tick
     return () => clearInterval(timer);
   }, [deposits]);
 
@@ -316,7 +316,7 @@ function LiveAdminReservesTicker({ deposits = 26657112, baseProfit = 12909.5613,
           return next;
         });
       }
-    }, 1000); // 1000ms: Smooth, steady 1-second tick readable by human eyes
+    }, 200); // 200ms: Smooth, fast live tick
     return () => clearInterval(timer);
   }, [deposits]);
 
@@ -345,7 +345,7 @@ function LiveLedgerDailyAdded({ baseAmount = 8754.9984, deposits = 26657112, cla
       if (dt > 0 && perMsAdminYield > 0) {
         setAmount((prev) => prev + dt * perMsAdminYield);
       }
-    }, 1000); // 1000ms: Smooth, steady 1-second tick readable by human eyes
+    }, 200); // 200ms: Smooth, fast live tick
     return () => clearInterval(timer);
   }, [deposits]);
 
@@ -1379,6 +1379,11 @@ export default function AdminPanel() {
   }, [tab]); // eslint-disable-line
 
   // REAL-TIME SSE CONNECTION FOR LIVE ALERTS & SOUND
+  const loadAllRef = useRef(loadAll);
+  loadAllRef.current = loadAll;
+  const playSoundRef = useRef(playNotificationSound);
+  playSoundRef.current = playNotificationSound;
+
   useEffect(() => {
     if (!token || user.role !== "admin") return;
 
@@ -1392,7 +1397,7 @@ export default function AdminPanel() {
           if (data.type === "connected" || data.type === "heartbeat") return;
 
           // Sound alert on chrome / mobile!
-          playNotificationSound();
+          playSoundRef.current?.();
 
           // Instant toast notification
           showToast(`🔔 ${data.title || "New Alert"}: ${data.message}`);
@@ -1402,7 +1407,7 @@ export default function AdminPanel() {
           setUnreadNotifs((prev) => prev + 1);
 
           // Refresh data lists
-          loadAll();
+          loadAllRef.current?.();
         } catch (e) {}
       };
     } catch (e) {
@@ -1412,7 +1417,7 @@ export default function AdminPanel() {
     return () => {
       if (eventSource) eventSource.close();
     };
-  }, [token, user.role, playNotificationSound, loadAll]);
+  }, [token, user.role]);
 
   // Handle Android Back Pressed & Navigation inside Admin Panel
   useEffect(() => {
@@ -8906,13 +8911,13 @@ export default function AdminPanel() {
                 <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">NAAM (AADHAAR PE)</span>
                   <span className="font-bold text-gray-900">
-                    {previewKycUser.kycDocuments?.aadhaarName || "—"}
+                    {previewKycUser.kycDocuments?.aadhaarName || previewKycUser.kycDocuments?.aadharName || previewKycUser.name || "—"}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">AADHAAR PHONE</span>
                   <span className="font-mono font-bold text-gray-900">
-                    {previewKycUser.kycDocuments?.aadhaarPhone || "—"}
+                    {previewKycUser.kycDocuments?.aadhaarPhone || previewKycUser.kycDocuments?.aadharPhone || previewKycUser.phone || "—"}
                   </span>
                 </div>
                 <div>

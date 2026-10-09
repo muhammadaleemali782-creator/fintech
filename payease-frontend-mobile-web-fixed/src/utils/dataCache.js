@@ -64,7 +64,7 @@ export function isDataEqual(a, b) {
 }
 
 // Silent fetch with ETag / If-None-Match support (304 Not Modified in <20ms) and AbortController timeout
-export async function silentFetch(url, options = {}, timeoutMs = 7000) {
+export async function silentFetch(url, options = {}, timeoutMs = 35000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 

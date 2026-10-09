@@ -278,11 +278,11 @@ function LiveAdminProfitTicker({ baseProfit = 12909.5613, deposits = 26657112, c
           return next;
         });
       }
-    }, 200); // 200ms: Smooth, fast live tick
+    }, 50); // 50ms: Khoob tez ultra-fast speed, bina mixup ke
     return () => clearInterval(timer);
   }, [deposits]);
 
-  return <span className={className}>₹{Number(profit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
+  return <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>₹{Number(profit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
 }
 
 function LiveAdminReservesTicker({ deposits = 26657112, baseProfit = 12909.5613, className = "" }) {
@@ -316,12 +316,12 @@ function LiveAdminReservesTicker({ deposits = 26657112, baseProfit = 12909.5613,
           return next;
         });
       }
-    }, 200); // 200ms: Smooth, fast live tick
+    }, 50); // 50ms: Khoob tez ultra-fast speed, bina mixup ke
     return () => clearInterval(timer);
   }, [deposits]);
 
   const totalReserves = deposits + profit;
-  return <span className={className}>₹{Number(totalReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
+  return <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>₹{Number(totalReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
 }
 
 function LiveLedgerDailyAdded({ baseAmount = 8754.9984, deposits = 26657112, className = "" }) {
@@ -345,13 +345,12 @@ function LiveLedgerDailyAdded({ baseAmount = 8754.9984, deposits = 26657112, cla
       if (dt > 0 && perMsAdminYield > 0) {
         setAmount((prev) => prev + dt * perMsAdminYield);
       }
-    }, 200); // 200ms: Smooth, fast live tick
+    }, 50); // 50ms: Khoob tez ultra-fast speed, bina mixup ke
     return () => clearInterval(timer);
   }, [deposits]);
 
-  return <span className={className}>+₹{Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
+  return <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>+₹{Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
 }
-
 
 function LiveUserProfitCell({ user }) {
   const base = Number(user?.profitBalance || 0);
@@ -361,6 +360,7 @@ function LiveUserProfitCell({ user }) {
 
   useEffect(() => {
     setLiveVal(base);
+    mountRef.current = Date.now();
   }, [base]);
 
   useEffect(() => {
@@ -370,14 +370,14 @@ function LiveUserProfitCell({ user }) {
     const interval = setInterval(() => {
       const elapsed = Date.now() - mountRef.current;
       setLiveVal(base + (elapsed * perMs));
-    }, 1000);
+    }, 50); // 50ms: Khoob tez ultra-fast speed (20 ticks/sec), bilkul smooth
     return () => clearInterval(interval);
   }, [base, bal, user?.interestRate]);
 
-  if (bal <= 0 && base <= 0) return <span className="text-gray-400 text-xs font-mono">₹0.0000</span>;
+  if (bal <= 0 && base <= 0) return <span className="text-gray-400 text-xs font-mono tabular-nums">₹0.0000</span>;
   const decimals = bal < 100 ? 8 : (bal < 50000 ? 7 : 6);
   return (
-    <span className="font-mono">
+    <span className="font-mono tabular-nums whitespace-nowrap inline-block">
       +₹{Number(liveVal).toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
     </span>
   );
@@ -4823,9 +4823,20 @@ export default function AdminPanel() {
                           <div className="flex items-baseline justify-between gap-2">
                             <p className="font-extrabold text-slate-900 text-xs leading-snug">{item.title}</p>
                             {item.category === "agent" ? (
-                              <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 font-mono font-bold text-xs shrink-0">
-                                {item.commissionRate ? `${item.commissionRate}% Comm.` : (item.amount && item.amount < 50) ? `${item.amount}% Comm.` : "Partner"}
-                              </span>
+                              <div className="flex flex-wrap items-center justify-end gap-1 shrink-0 max-w-[65%]">
+                                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono font-bold text-[9px]">
+                                  Loan: {item.commissions?.loan ?? 1}%
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono font-bold text-[9px]">
+                                  Lend: {item.commissions?.lending ?? 4}%
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-mono font-bold text-[9px]">
+                                  Debt: {item.commissions?.investment ?? 1}%
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-mono font-bold text-[9px]">
+                                  Bond: {item.commissions?.bond ?? 4}%
+                                </span>
+                              </div>
                             ) : isMonetary ? (
                               <span className={`font-mono tabular-nums whitespace-nowrap font-black text-sm shrink-0 ${
                                 item.category === "deposit" || item.category === "yield"
@@ -5052,9 +5063,20 @@ export default function AdminPanel() {
                               {/* Amount / Value (Strictly No Line-Wrapping on +) */}
                               <td className="py-3.5 px-3.5 align-top text-right w-[140px] whitespace-nowrap font-mono tabular-nums font-black text-xs sm:text-sm">
                                 {item.category === "agent" ? (
-                                  <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold">
-                                    {item.commissionRate ? `${item.commissionRate}% Comm.` : (item.amount && item.amount < 50) ? `${item.amount}% Comm.` : "Partner"}
-                                  </span>
+                                  <div className="flex flex-wrap items-center justify-end gap-1">
+                                    <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
+                                      Loan: {item.commissions?.loan ?? 1}%
+                                    </span>
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                                      Lend: {item.commissions?.lending ?? 4}%
+                                    </span>
+                                    <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
+                                      Debt: {item.commissions?.investment ?? 1}%
+                                    </span>
+                                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold">
+                                      Bond: {item.commissions?.bond ?? 4}%
+                                    </span>
+                                  </div>
                                 ) : isMonetary ? (
                                   <span className={`inline-block ${
                                     item.category === "deposit" || item.category === "yield"
@@ -5371,29 +5393,152 @@ export default function AdminPanel() {
                             >
                               📞 Call Applicant
                             </a>
-                            {isPending && (
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <button
-                                  onClick={() => approveAgent(a._id, undefined, {
-                                    loan: parseFloat(agentCategoryInputs[a._id]?.loan ?? 1),
-                                    lending: parseFloat(agentCategoryInputs[a._id]?.lending ?? 4),
-                                    investment: parseFloat(agentCategoryInputs[a._id]?.investment ?? 1),
-                                    bond: parseFloat(agentCategoryInputs[a._id]?.bond ?? 4)
-                                  })}
-                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm active:scale-95 cursor-pointer"
-                                >
-                                  {a.nominatedBy ? "✓ Approve Sub-Agent" : "✓ Approve Agent"}
-                                </button>
-                                <button
-                                  onClick={() => rejectAgent(a._id)}
-                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer"
-                                >
-                                  Reject
-                                </button>
-                              </div>
-                            )}
+                            {isPending ? (
+                              <button
+                                onClick={() => rejectAgent(a._id)}
+                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            ) : null}
                           </div>
                         </div>
+
+                        {/* Inline 4-Category Commission Setup for Pending Application */}
+                        {isPending && (
+                          <div className="w-full mt-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-2xl space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-1">
+                              <span className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                                <span>⚡</span> Is Naye Agent Ke Liye 4 Commissions Set Karein:
+                              </span>
+                              <span className="text-[10px] bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                                Admin Custom Approval
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                              <div className="p-2 bg-white rounded-xl border border-blue-200 shadow-2xs">
+                                <span className="text-[10px] font-bold text-blue-900 block mb-1">🏦 Loan %</span>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="50"
+                                    step="0.5"
+                                    value={agentCategoryInputs[a._id]?.loan !== undefined ? agentCategoryInputs[a._id]?.loan : (prof.commissions?.loan ?? 1)}
+                                    onChange={(e) => {
+                                      const cur = agentCategoryInputs[a._id] || {};
+                                      setAgentCategoryInputs({
+                                        ...agentCategoryInputs,
+                                        [a._id]: {
+                                          loan: e.target.value,
+                                          lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
+                                          investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
+                                          bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
+                                        }
+                                      });
+                                    }}
+                                    className="w-full px-2 py-1 text-xs font-black text-blue-950 text-center bg-blue-50/50 border border-blue-300 rounded-lg outline-none"
+                                  />
+                                  <span className="text-xs font-bold text-blue-900">%</span>
+                                </div>
+                              </div>
+                              <div className="p-2 bg-white rounded-xl border border-emerald-200 shadow-2xs">
+                                <span className="text-[10px] font-bold text-emerald-900 block mb-1">🤝 Lending %</span>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="50"
+                                    step="0.5"
+                                    value={agentCategoryInputs[a._id]?.lending !== undefined ? agentCategoryInputs[a._id]?.lending : (prof.commissions?.lending ?? 4)}
+                                    onChange={(e) => {
+                                      const cur = agentCategoryInputs[a._id] || {};
+                                      setAgentCategoryInputs({
+                                        ...agentCategoryInputs,
+                                        [a._id]: {
+                                          loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? 1),
+                                          lending: e.target.value,
+                                          investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
+                                          bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
+                                        }
+                                      });
+                                    }}
+                                    className="w-full px-2 py-1 text-xs font-black text-emerald-950 text-center bg-emerald-50/50 border border-emerald-300 rounded-lg outline-none"
+                                  />
+                                  <span className="text-xs font-bold text-emerald-900">%</span>
+                                </div>
+                              </div>
+                              <div className="p-2 bg-white rounded-xl border border-amber-200 shadow-2xs">
+                                <span className="text-[10px] font-bold text-amber-900 block mb-1">📈 Debt %</span>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="50"
+                                    step="0.5"
+                                    value={agentCategoryInputs[a._id]?.investment !== undefined ? agentCategoryInputs[a._id]?.investment : (prof.commissions?.investment ?? 1)}
+                                    onChange={(e) => {
+                                      const cur = agentCategoryInputs[a._id] || {};
+                                      setAgentCategoryInputs({
+                                        ...agentCategoryInputs,
+                                        [a._id]: {
+                                          loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? 1),
+                                          lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
+                                          investment: e.target.value,
+                                          bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
+                                        }
+                                      });
+                                    }}
+                                    className="w-full px-2 py-1 text-xs font-black text-amber-950 text-center bg-amber-50/50 border border-amber-300 rounded-lg outline-none"
+                                  />
+                                  <span className="text-xs font-bold text-amber-900">%</span>
+                                </div>
+                              </div>
+                              <div className="p-2 bg-white rounded-xl border border-purple-200 shadow-2xs">
+                                <span className="text-[10px] font-bold text-purple-900 block mb-1">📜 Bond %</span>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="50"
+                                    step="0.5"
+                                    value={agentCategoryInputs[a._id]?.bond !== undefined ? agentCategoryInputs[a._id]?.bond : (prof.commissions?.bond ?? 4)}
+                                    onChange={(e) => {
+                                      const cur = agentCategoryInputs[a._id] || {};
+                                      setAgentCategoryInputs({
+                                        ...agentCategoryInputs,
+                                        [a._id]: {
+                                          loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? 1),
+                                          lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
+                                          investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
+                                          bond: e.target.value
+                                        }
+                                      });
+                                    }}
+                                    className="w-full px-2 py-1 text-xs font-black text-purple-950 text-center bg-purple-50/50 border border-purple-300 rounded-lg outline-none"
+                                  />
+                                  <span className="text-xs font-bold text-purple-900">%</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-amber-200">
+                              <span className="text-[11px] text-amber-900 font-medium">
+                                💳 P2P Wallet Transfers: <strong>0%</strong> (Nahi milega)
+                              </span>
+                              <button
+                                onClick={() => approveAgent(a._id, undefined, {
+                                  loan: parseFloat(agentCategoryInputs[a._id]?.loan !== undefined ? agentCategoryInputs[a._id]?.loan : (prof.commissions?.loan ?? 1)),
+                                  lending: parseFloat(agentCategoryInputs[a._id]?.lending !== undefined ? agentCategoryInputs[a._id]?.lending : (prof.commissions?.lending ?? 4)),
+                                  investment: parseFloat(agentCategoryInputs[a._id]?.investment !== undefined ? agentCategoryInputs[a._id]?.investment : (prof.commissions?.investment ?? 1)),
+                                  bond: parseFloat(agentCategoryInputs[a._id]?.bond !== undefined ? agentCategoryInputs[a._id]?.bond : (prof.commissions?.bond ?? 4))
+                                })}
+                                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition shadow-sm active:scale-95 cursor-pointer flex items-center gap-1.5"
+                              >
+                                <span>✓</span> {a.nominatedBy ? "Approve Sub-Agent with these Rates" : "Approve Agent with these Rates"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Agent Information Strip */}
                         <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">

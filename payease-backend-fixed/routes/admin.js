@@ -1423,20 +1423,22 @@ router.get('/audit-history', protect, admin, async (req, res) => {
         if (status !== 'all' && aStatus !== status && !(status === 'approved' && aStatus === 'approved')) continue;
 
         const ts = a.agentProfile?.approvedAt || a.agentProfile?.appliedAt || a.createdAt;
+        const comms = a.agentProfile?.commissions || { loan: 1, lending: 4, investment: 1, bond: 4 };
         const agentRef = a.accountNumber ? `A/C: ${a.accountNumber}` : `Agent: ${a.phone}`;
-        const agentNote = `${a.agentProfile?.businessName || 'Business Partner'} • ${a.agentProfile?.commissionModel === 'team_1' ? 'Team System' : 'Solo Direct'} (${a.agentProfile?.commissionRate || 2}% rate)`;
+        const agentNote = `${a.agentProfile?.businessName || 'Business Partner'} • Loan: ${comms.loan ?? 1}% | Lend: ${comms.lending ?? 4}% | Debt: ${comms.investment ?? 1}% | Bond: ${comms.bond ?? 4}%`;
 
         historyItems.push({
           id: 'agent_' + a._id,
           category: 'agent',
           type: 'agent_application',
-          title: `Agent Partner (${a.agentProfile?.commissionModel === 'team_1' ? 'Team System' : 'Solo Direct'})`,
+          title: `Agent Partner (${a.agentProfile?.businessName || a.name || 'Partner'})`,
           userName: a.name,
           userEmail: a.email,
           userPhone: a.phone,
           accountNumber: a.accountNumber || '—',
           amount: 0,
-          commissionRate: a.agentProfile?.commissionRate || (a.agentProfile?.commissionModel === 'team_1' ? 1 : 2),
+          commissions: comms,
+          commissionRate: comms.loan || 1,
           status: aStatus === 'approved' ? 'approved' : aStatus,
           timestamp: ts,
           createdAt: ts,

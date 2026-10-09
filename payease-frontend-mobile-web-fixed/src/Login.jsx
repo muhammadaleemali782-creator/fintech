@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
+import { appCache } from "./utils/dataCache";
 
 export default function Login({ isApp = false }) {
   const navigate = useNavigate();
@@ -65,6 +66,8 @@ export default function Login({ isApp = false }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Invalid credentials");
+      // Clear old account caches so user B never sees user A's txns or loans
+      appCache.clearUserData();
       tokenStorage.setToken(data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       if (data.user) {
@@ -103,6 +106,8 @@ export default function Login({ isApp = false }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Educa Mail login failed");
+      // Clear old account caches so user B never sees user A's txns or loans
+      appCache.clearUserData();
       tokenStorage.setToken(data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       if (data.user) {
@@ -148,6 +153,8 @@ export default function Login({ isApp = false }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Registration failed");
+      // Clear old account caches
+      appCache.clearUserData();
       tokenStorage.setToken(data.token);
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));

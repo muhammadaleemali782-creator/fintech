@@ -48,6 +48,34 @@ export const appCache = {
   has(key) {
     if (typeof window === "undefined" || !window.localStorage) return false;
     return localStorage.getItem(key) !== null;
+  },
+
+  clearUserData() {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    const userKeys = [
+      "educa_cached_profile",
+      "educa_cached_balance",
+      "educa_cached_profit_balance",
+      "educa_cached_txns",
+      "educa_cached_loans",
+      "educa_cached_active_loan",
+      "educa_cached_bonds",
+      "educa_cached_agent_metrics",
+      "educa_cached_profit_history",
+      "educa_cached_current_rate"
+    ];
+    userKeys.forEach(k => {
+      try { localStorage.removeItem(k); } catch {}
+    });
+  },
+
+  clear() {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith("educa_cached_") || k.startsWith("educa_custom_"))
+        .forEach(k => localStorage.removeItem(k));
+    } catch {}
   }
 };
 

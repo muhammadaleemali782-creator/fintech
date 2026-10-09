@@ -278,7 +278,7 @@ function LiveAdminProfitTicker({ baseProfit = 12909.5613, deposits = 26657112, c
           return next;
         });
       }
-    }, 250);
+    }, 1000); // 1000ms: Smooth, steady 1-second tick readable by human eyes
     return () => clearInterval(timer);
   }, [deposits]);
 
@@ -316,7 +316,7 @@ function LiveAdminReservesTicker({ deposits = 26657112, baseProfit = 12909.5613,
           return next;
         });
       }
-    }, 250);
+    }, 1000); // 1000ms: Smooth, steady 1-second tick readable by human eyes
     return () => clearInterval(timer);
   }, [deposits]);
 
@@ -345,7 +345,7 @@ function LiveLedgerDailyAdded({ baseAmount = 8754.9984, deposits = 26657112, cla
       if (dt > 0 && perMsAdminYield > 0) {
         setAmount((prev) => prev + dt * perMsAdminYield);
       }
-    }, 250);
+    }, 1000); // 1000ms: Smooth, steady 1-second tick readable by human eyes
     return () => clearInterval(timer);
   }, [deposits]);
 
@@ -369,16 +369,15 @@ function LiveUserProfitCell({ user }) {
     const perMs = (bal * rate) / (36500 * 86400000);
     const interval = setInterval(() => {
       const elapsed = Date.now() - mountRef.current;
-      const microRoll = ((Date.now() % 10000) / 10000) * 0.000008;
-      setLiveVal(base + (elapsed * perMs) + microRoll);
-    }, 500);
+      setLiveVal(base + (elapsed * perMs));
+    }, 1000);
     return () => clearInterval(interval);
   }, [base, bal, user?.interestRate]);
 
-  if (bal <= 0 && base <= 0) return <span className="text-gray-400 text-xs">₹0.0000</span>;
+  if (bal <= 0 && base <= 0) return <span className="text-gray-400 text-xs font-mono">₹0.0000</span>;
   const decimals = bal < 100 ? 8 : (bal < 50000 ? 7 : 6);
   return (
-    <span>
+    <span className="font-mono">
       +₹{Number(liveVal).toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
     </span>
   );
@@ -562,6 +561,12 @@ export default function AdminPanel() {
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const [tab, setTab] = useState("analytics");
+  const switchTab = useCallback((nextTab) => {
+    if (tab === nextTab) return;
+    React.startTransition(() => {
+      setTab(nextTab);
+    });
+  }, [tab]);
   const [stats, setStats] = useState(() => appCache.get("educa_admin_cached_stats", null));
   const [loadingStats, setLoadingStats] = useState(() => !appCache.has("educa_admin_cached_stats"));
   const [rateLimitError, setRateLimitError] = useState(null);
@@ -639,7 +644,7 @@ export default function AdminPanel() {
     }
     return DEFAULT_ANALYTICS;
   });
-  const [loadingAnalytics, setLoadingAnalytics] = useState(() => !appCache.has("educa_admin_cached_analytics"));
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [chartMode, setChartMode] = useState("daily"); // "daily" | "cumulative"
   const [hoveredChartBar, setHoveredChartBar] = useState(null);
   const [depositDetails, setDepositDetails] = useState(() => appCache.get("educa_admin_cached_deposit_details", {
@@ -1349,7 +1354,7 @@ export default function AdminPanel() {
       loadAgents();
     } else if (tab === "loans") {
       loadLoans();
-    } else if (tab === "bonds") {
+    } else if (tab === "bonds" || tab === "lending") {
       loadBonds();
     } else if (tab === "devices") {
       loadDevices();
@@ -1360,12 +1365,18 @@ export default function AdminPanel() {
       loadLoans();
       loadAgents();
       loadUsers();
+    } else if (tab === "kyc" || tab === "users") {
+      loadUsers();
+    } else if (tab === "alerts") {
+      loadNotifications();
+    } else if (tab === "history") {
+      loadAuditHistory();
     }
 
     return () => {
       if (analyticsInterval) clearInterval(analyticsInterval);
     };
-  }, [tab, loadAnalytics, loadPending, loadHoldData, loadDepositDetails, loadAgents, loadLoans, loadBonds, loadDevices, loadSettings, loadUsers]);
+  }, [tab]); // eslint-disable-line
 
   // REAL-TIME SSE CONNECTION FOR LIVE ALERTS & SOUND
   useEffect(() => {
@@ -1440,7 +1451,7 @@ export default function AdminPanel() {
 
       // 3. Step back to root "analytics" tab if in any other tab (users, agents, loans, txns etc.)
       if (tab !== "analytics") {
-        setTab("analytics");
+        switchTab("analytics");
         return true;
       }
 
@@ -1972,7 +1983,7 @@ export default function AdminPanel() {
     if (tab === "history") {
       loadAuditHistory();
     }
-  }, [tab, historyCategory, historyStatus, historySearch]);
+  }, [historyCategory, historyStatus, historySearch]);
 
   // Switch / Convert Agent Commission Model (Solo <-> Team)
   const switchAgentModel = async (agentId, targetModel) => {
@@ -2062,7 +2073,7 @@ export default function AdminPanel() {
         setIssueNewUser({ name: "", phone: "", email: "", address: "", aadharNumber: "", panNumber: "", referredByAgentId: "", referralCode: "" });
         setIssueDocuments({ doc1Url: "", doc1BackUrl: "", doc2Url: "", doc2BackUrl: "", chequeUrl: "", chequeBackUrl: "" });
         // Switch to loans tab so admin can review and approve it
-        setTab("loans");
+        switchTab("loans");
       } else {
         showToast(data.message || "Failed to create loan application", "error");
       }
@@ -2135,7 +2146,7 @@ export default function AdminPanel() {
     { icon: "🏦", label: "Fintech Reserves", value: <LiveAdminReservesTicker deposits={totalDepositsDisplay} baseProfit={totalProfitBase} />, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading, isLive: true },
     { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: isMetricsLoading, isLive: true },
     { icon: "⚡", label: "Profit Credited", value: <LiveAdminProfitTicker baseProfit={totalProfitBase} deposits={totalDepositsDisplay} />, g: "from-blue-600 to-cyan-600", isLoading: isMetricsLoading, isLive: true },
-    { icon: "👥", label: "Total Users", value: resolvedTotalUsers, isWhite: true, isLoading: isMetricsLoading, isLive: true },
+    { icon: "👥", label: "Total Users", value: resolvedTotalUsers, g: "from-indigo-600 to-violet-600", isLoading: isMetricsLoading, isLive: true },
     { icon: "⏳", label: "Pending Txns", value: resolvedPendingTxns, g: "from-amber-500 to-orange-500", isLoading: isMetricsLoading, isLive: true },
     { icon: "📑", label: "Active Loans", value: resolvedActiveLoans, g: "from-sky-500 to-blue-600", isLoading: isMetricsLoading, isLive: true },
   ];
@@ -2277,7 +2288,7 @@ export default function AdminPanel() {
           {tabs.map(({ key, label, icon, badge }) => (
             <button
               key={key}
-              onClick={() => setTab(key)}
+              onClick={() => switchTab(key)}
               title={isSidebarCollapsed ? label : undefined}
               className={`w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3 py-2.5"} rounded-xl font-semibold text-xs transition cursor-pointer relative group ${
                 tab === key
@@ -2380,71 +2391,37 @@ export default function AdminPanel() {
           {/* Stats — Only in Profit & Reserves View */}
           {tab === "analytics" && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
-              {statCards.map(({ icon, label, value, g, isWhite, isLoading, isLive = true }) => {
+              {statCards.map(({ icon, label, value, g, isLoading, isLive = true }) => {
                 const isNode = typeof value === "object" && value !== null;
                 const valStr = isNode ? "" : String(value);
                 const isLong = isNode ? true : valStr.length > 11;
 
-                if (isWhite) {
-                  return (
-                    <div
-                      key={label}
-                      className="bg-white border-2 border-slate-200/90 hover:border-slate-300 p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
-                          <p className="text-slate-500 text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</p>
-                        </div>
-                        {isLive && (
-                          <span className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Live
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1">
-                        {isLoading ? (
-                          <span className="inline-block h-6 sm:h-7 w-12 sm:w-16 bg-slate-200 rounded-md animate-pulse my-0.5" />
-                        ) : (
-                          <p
-                            className={`font-black font-mono tabular-nums tracking-tight text-slate-900 truncate ${
-                              isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
-                            }`}
-                            title={isNode ? undefined : valStr}
-                          >
-                            {value}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-
                 return (
                   <div
                     key={label}
-                    className={`bg-gradient-to-br ${g} text-white p-3 sm:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5`}
+                    className={`bg-gradient-to-br ${g} text-white p-3 sm:p-3.5 xl:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="text-xl sm:text-2xl mb-1 sm:mb-1.5">{icon}</div>
-                        <p className="text-white/85 text-[11px] sm:text-xs font-medium truncate">{label}</p>
+                    <div className="flex items-start justify-between gap-1.5 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-lg sm:text-xl xl:text-2xl mb-1">{icon}</div>
+                        <p className="text-white/90 text-[11px] sm:text-xs font-semibold truncate leading-tight" title={label}>
+                          {label}
+                        </p>
                       </div>
                       {isLive && (
-                        <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
+                        <span className="shrink-0 inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-2 py-0.5 rounded-full backdrop-blur-xs whitespace-nowrap self-start mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                           Live
                         </span>
                       )}
                     </div>
-                    <div className="mt-1">
+                    <div className="mt-2 min-w-0">
                       {isLoading ? (
-                        <span className="inline-block h-6 sm:h-7 w-24 sm:w-28 bg-white/30 rounded-md animate-pulse my-0.5" />
+                        <span className="inline-block h-6 sm:h-7 w-20 sm:w-24 bg-white/30 rounded-md animate-pulse my-0.5" />
                       ) : (
                         <p
-                          className={`font-black font-mono tabular-nums tracking-tight whitespace-nowrap overflow-visible ${
-                            isLong ? "text-xs sm:text-sm" : "text-sm sm:text-base lg:text-lg"
+                          className={`font-black font-mono tabular-nums tracking-tight whitespace-nowrap overflow-hidden text-ellipsis ${
+                            isLong ? "text-xs sm:text-[13px] xl:text-sm" : "text-sm sm:text-base lg:text-lg"
                           }`}
                           title={isNode ? undefined : valStr}
                         >
@@ -2498,7 +2475,7 @@ export default function AdminPanel() {
                 <button
                   key={key}
                   type="button"
-                  onClick={() => setTab(key)}
+                  onClick={() => switchTab(key)}
                   className={`py-2 px-1 rounded-xl text-[11px] font-bold text-center flex flex-col items-center justify-center gap-0.5 transition active:scale-95 cursor-pointer relative ${
                     tab === key
                       ? "bg-blue-600 text-white shadow-xs font-black"
@@ -2563,7 +2540,7 @@ export default function AdminPanel() {
                         key={key}
                         type="button"
                         onClick={() => {
-                          setTab(key);
+                          switchTab(key);
                           setMobileNavOpen(false);
                         }}
                         className={`w-full p-3 rounded-2xl flex items-center justify-between transition active:scale-[0.98] cursor-pointer border ${
@@ -2628,7 +2605,7 @@ export default function AdminPanel() {
                   <span>{loadingAnalytics ? "Refreshing..." : "Refresh Data"}</span>
                 </button>
                 <button
-                  onClick={() => setTab("settings")}
+                  onClick={() => switchTab("settings")}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>⚙️</span>
@@ -3549,7 +3526,7 @@ export default function AdminPanel() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setTab("settings")}
+                  onClick={() => switchTab("settings")}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-[11px] shadow-xs transition"
                 >
                   ⚙️ Update UPI / Bank
@@ -7001,7 +6978,7 @@ export default function AdminPanel() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setTab("loans")}
+                    onClick={() => switchTab("loans")}
                     className="self-start sm:self-auto px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95"
                   >
                     <span>📋</span> View All Loans ({loans.length})

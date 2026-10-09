@@ -88,7 +88,7 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, userAnchorTime =
       if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
         timer = setInterval(() => {
           setLiveMs(Date.now());
-        }, 250); // 250ms (visibly ticking live, readable by eyes)
+        }, 1000); // Steady 1-second cadence, 0% CPU, no jitter
       }
     };
 
@@ -110,8 +110,7 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, userAnchorTime =
   }, [activeCapital]);
 
   const elapsedUserMs = Math.max(0, liveMs - userAnchorTime);
-  const microRoll = ((liveMs % 10000) / 10000) * 0.000008;
-  const liveProfitBalance = baseProfit + (elapsedUserMs * perMsYield) + (activeCapital > 0 ? microRoll : 0);
+  const liveProfitBalance = baseProfit + (elapsedUserMs * perMsYield);
 
   // Throttle localStorage writes to once every 4 seconds to eliminate main-thread I/O freeze
   useEffect(() => {
@@ -132,7 +131,7 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, userAnchorTime =
     formatted = num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   }
 
-  return <span className={className}>₹{formatted}</span>;
+  return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
 }
 
 // Live Today's Accrued Yield Counter (Accrues in real time since midnight)
@@ -145,7 +144,7 @@ function LiveTodayAccrued({ activeCapital = 0 }) {
   useEffect(() => {
     let timer = null;
     if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
-      timer = setInterval(() => setLiveMs(Date.now()), 250);
+      timer = setInterval(() => setLiveMs(Date.now()), 1000);
     }
     return () => { if (timer) clearInterval(timer); };
   }, [activeCapital]);
@@ -154,7 +153,7 @@ function LiveTodayAccrued({ activeCapital = 0 }) {
   const msElapsedToday = Math.max(0, liveMs - startOfToday);
   const liveTodayEarned = msElapsedToday * perMsYield;
 
-  return <span>₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
+  return <span className="font-mono tabular-nums tracking-tight">₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
 }
 
 // UI Localization Dictionary (Hinglish, Hindi, English)
@@ -417,6 +416,16 @@ export default function Dashboard() {
   const token = tokenStorage.getToken();
   const userStored = JSON.parse(localStorage.getItem("user") || "{}");
   useEffect(() => { if (!token) window.location.href = "/"; }, [token]);
+
+  // Isolate account data: if cached profile belongs to another user, purge immediately
+  const currentUserId = userStored?.id || userStored?._id;
+  const cachedProf = appCache.get("educa_cached_profile", null);
+  if (cachedProf && currentUserId) {
+    const isOwner = cachedProf._id === currentUserId || cachedProf.id === currentUserId || (userStored.email && cachedProf.email === userStored.email);
+    if (!isOwner) {
+      appCache.clearUserData();
+    }
+  }
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const [balance, setBalance] = useState(() => {
@@ -3928,7 +3937,7 @@ export default function Dashboard() {
   ];
 
   const navItems = [
-    { key: "home", label: txt.navHome, icon: "🏠", onClick: () => { setModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); } },
+    { key: "home", label: txt.navHome, icon: "🏠", onClick: () => { setModal(null); setAccountModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); } },
     { key: "loans", label: txt.navLoans, icon: "🏦", onClick: openLoansHub, heroBadge: heroFlyId === "loans_hub" },
     { key: "scan", label: txt.navScan, icon: <ScannerIcon className="w-6 h-6 text-white" />, isCenter: true, onClick: () => setModal("scan_qr") },
     { key: "bonds", label: txt.navBonds, icon: "📈", onClick: () => setAccountModal("debt") },

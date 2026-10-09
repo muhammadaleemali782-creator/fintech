@@ -472,8 +472,12 @@ class MainActivity : AppCompatActivity() {
 
             val progressBar = android.widget.ProgressBar(this).apply {
                 isIndeterminate = true
-                layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(32), dpToPx(32))
+                visibility = android.view.View.GONE
+                layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(28), dpToPx(28))
             }
+            splashLayout.postDelayed({
+                try { progressBar.visibility = android.view.View.VISIBLE } catch (_: Exception) {}
+            }, 1600)
 
             centerLayout.addView(logoView)
             centerLayout.addView(titleView)

@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { tokenStorage } from "./utils/tokenStorage";
@@ -54,29 +54,40 @@ function PrivateRoute({ children, adminOnly = false }) {
 }
 
 function LoadingScreen() {
+  const [showSpinner, setShowSpinner] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowSpinner(true), 1600);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-50 select-none">
-      <div className="relative flex items-center justify-center mb-4">
+      <div className="flex flex-col items-center justify-center">
         <img
           src="/icon-192.png"
           alt="Educa Fintech Logo"
-          className="w-24 h-24 object-contain relative"
+          className="w-24 h-24 object-contain mb-3"
         />
+        <h2 className="text-2xl font-extrabold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+          Educa Fintech
+        </h2>
+        <p className="text-xs font-semibold text-slate-500 mt-1">
+          NextGen Financial Hub
+        </p>
       </div>
-      <h2 className="text-xl font-extrabold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-        Educa Fintech
-      </h2>
-      <p className="text-xs font-semibold text-slate-500 mt-1 mb-6">
-        NextGen Financial Hub • v2.0
-      </p>
-      <div className="w-8 h-8 border-3 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
 
-      {/* Bottom Side Branding */}
-      <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none text-center">
+      {/* Subtle loader: appears ONLY after 1.6s if network/chunk download is slow */}
+      <div className={`mt-7 transition-opacity duration-300 ${showSpinner ? "opacity-100" : "opacity-0"}`}>
+        <div className="w-7 h-7 border-2.5 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+      </div>
+
+      {/* Bottom Side Branding (Still) */}
+      <div className="absolute bottom-7 left-0 right-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none text-center">
         <span className="text-xs font-extrabold tracking-wider text-slate-900 uppercase">
           12% Per Year
         </span>
-        <span className="text-[10px] font-semibold text-slate-500 tracking-wide">
+        <span className="text-[10px] font-semibold text-slate-400 tracking-wide">
           Compounding Returns on Savings
         </span>
       </div>

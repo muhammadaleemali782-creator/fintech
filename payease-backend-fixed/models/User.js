@@ -16,7 +16,19 @@ const userSchema = new mongoose.Schema({
     applied: { type: Boolean, default: false },
     status: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
     commissionModel: { type: String, enum: ['team_1', 'solo_2', 'team', 'solo'], default: 'solo_2' },
-    commissionRate: { type: Number, default: 0 }, // Admin assigns commission percentage (e.g. 2, 3, etc.)
+    commissionRate: { type: Number, default: 0 }, // Admin assigns commission percentage (legacy/fallback)
+    commissions: {
+      loan: { type: Number, default: 1 },
+      lending: { type: Number, default: 4 },
+      investment: { type: Number, default: 1 },
+      bond: { type: Number, default: 4 }
+    },
+    earningsBreakdown: {
+      loan: { type: Number, default: 0 },
+      lending: { type: Number, default: 0 },
+      investment: { type: Number, default: 0 },
+      bond: { type: Number, default: 0 }
+    },
     businessName: { type: String, default: '' },
     city: { type: String, default: '' },
     appliedAt: { type: Date, default: null },

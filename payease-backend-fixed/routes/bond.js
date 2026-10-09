@@ -295,6 +295,49 @@ router.post('/create', protect, async (req, res) => {
         referenceId: bond._id.toString(),
         remarks: `${bondType === 'debit_365' ? '365-Day Fixed Bond (₹1.18L Profit Maturity)' : `Lending Monthly Bond (${accountNumber})`} Created`
       }], { session });
+
+      // Agent Referral Commission on Bond / Lending Creation
+      if (userDoc.referredBy) {
+        try {
+          const agentUser = await User.findById(userDoc.referredBy).session(session);
+          if (agentUser && (agentUser.role === 'agent' || agentUser.agentProfile?.status === 'approved')) {
+            const isBond = bondType === 'debit_365';
+            const cat = isBond ? 'bond' : 'lending';
+            const defaultRate = 4;
+            const commRate = agentUser.agentProfile?.commissions?.[cat] !== undefined && agentUser.agentProfile?.commissions?.[cat] !== null && !isNaN(agentUser.agentProfile.commissions[cat])
+              ? Number(agentUser.agentProfile.commissions[cat])
+              : (agentUser.agentProfile?.commissionRate ?? defaultRate);
+
+            if (commRate > 0) {
+              const commAmount = Number(((terms.principalAmount * commRate) / 100).toFixed(2));
+              if (commAmount > 0) {
+                agentUser.balance = Number(((agentUser.balance || 0) + commAmount).toFixed(2));
+                agentUser.profitBalance = Number(((agentUser.profitBalance || 0) + commAmount).toFixed(2));
+                agentUser.referralEarnings = Number(((agentUser.referralEarnings || 0) + commAmount).toFixed(2));
+                if (!agentUser.agentProfile) agentUser.agentProfile = {};
+                if (!agentUser.agentProfile.earningsBreakdown) {
+                  agentUser.agentProfile.earningsBreakdown = { loan: 0, lending: 0, investment: 0, bond: 0 };
+                }
+                agentUser.agentProfile.earningsBreakdown[cat] = Number(((agentUser.agentProfile.earningsBreakdown[cat] || 0) + commAmount).toFixed(2));
+                await agentUser.save({ session });
+
+                await Transaction.create([{
+                  userId: agentUser._id,
+                  type: 'referral_bonus',
+                  amount: commAmount,
+                  method: 'system',
+                  status: 'completed',
+                  sourceWallet: cat,
+                  referenceId: bond._id.toString(),
+                  remarks: `Agent ${isBond ? 'Bond' : 'Lending'} Commission (${commRate}%) for ${isBond ? 'Fixed Bond 365 Days' : `Lending Bond (${accountNumber})`} by ${userDoc.name}`
+                }], { session });
+              }
+            }
+          }
+        } catch (agentErr) {
+          console.error('Agent bond/lending commission credit error:', agentErr);
+        }
+      }
     });
 
     // Background Google Drive sync for lending documents

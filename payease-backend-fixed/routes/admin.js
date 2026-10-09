@@ -150,6 +150,46 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
         }
         txn.status = 'approved';
         txn.isHold = false;
+
+        // Agent Referral Commission on Investment / Deposit
+        if (user.referredBy) {
+          try {
+            const agentUser = await User.findById(user.referredBy).session(session);
+            if (agentUser && (agentUser.role === 'agent' || agentUser.agentProfile?.status === 'approved')) {
+              const invRate = agentUser.agentProfile?.commissions?.investment !== undefined && agentUser.agentProfile?.commissions?.investment !== null && !isNaN(agentUser.agentProfile.commissions.investment)
+                ? Number(agentUser.agentProfile.commissions.investment)
+                : 1;
+
+              if (invRate > 0) {
+                const commAmount = Number(((txn.amount * invRate) / 100).toFixed(2));
+                if (commAmount > 0) {
+                  agentUser.balance = Number(((agentUser.balance || 0) + commAmount).toFixed(2));
+                  agentUser.profitBalance = Number(((agentUser.profitBalance || 0) + commAmount).toFixed(2));
+                  agentUser.referralEarnings = Number(((agentUser.referralEarnings || 0) + commAmount).toFixed(2));
+                  if (!agentUser.agentProfile) agentUser.agentProfile = {};
+                  if (!agentUser.agentProfile.earningsBreakdown) {
+                    agentUser.agentProfile.earningsBreakdown = { loan: 0, lending: 0, investment: 0, bond: 0 };
+                  }
+                  agentUser.agentProfile.earningsBreakdown.investment = Number(((agentUser.agentProfile.earningsBreakdown.investment || 0) + commAmount).toFixed(2));
+                  await agentUser.save({ session });
+
+                  await Transaction.create([{
+                    userId: agentUser._id,
+                    type: 'referral_bonus',
+                    amount: commAmount,
+                    method: 'system',
+                    status: 'completed',
+                    sourceWallet: 'investment',
+                    referenceId: txn._id.toString(),
+                    remarks: `Agent Investment Commission (${invRate}%) for deposit of ₹${txn.amount.toLocaleString('en-IN')} by ${user.name}`
+                  }], { session });
+                }
+              }
+            }
+          } catch (agentErr) {
+            console.error('Agent investment commission credit error:', agentErr);
+          }
+        }
       } else {
         txn.status = 'completed';
         txn.isHold = false;
@@ -240,7 +280,7 @@ router.post('/users/:id/assign-agent', protect, admin, async (req, res) => {
   }
 });
 
-// Agent Applications & Registered Agents List
+// Agent Applications & Registered Agents List with 4-Category Commissions & Live Earnings Breakdown
 router.get('/agent-applications', protect, admin, async (req, res) => {
   try {
     const applicants = await User.find({
@@ -252,7 +292,80 @@ router.get('/agent-applications', protect, admin, async (req, res) => {
     })
       .select('-password')
       .sort({ 'agentProfile.appliedAt': -1, createdAt: -1 });
-    res.json(applicants);
+
+    const agentIds = applicants.map(a => a._id);
+
+    // Fetch referral bonus transactions for all agents
+    const bonusTxns = await Transaction.find({
+      userId: { $in: agentIds },
+      type: 'referral_bonus'
+    }).select('userId amount sourceWallet remarks createdAt');
+
+    // Fetch customer members referred by each agent
+    const referredUsers = await User.find({
+      referredBy: { $in: agentIds }
+    }).select('_id name phone email referredBy balance duesBalance loansCount createdAt');
+
+    const enrichedApplicants = applicants.map(a => {
+      const aObj = a.toObject();
+      const aBonus = bonusTxns.filter(t => t.userId.toString() === a._id.toString());
+      const aMembers = referredUsers.filter(u => u.referredBy && u.referredBy.toString() === a._id.toString());
+
+      let loanEarnings = 0;
+      let lendingEarnings = 0;
+      let investmentEarnings = 0;
+      let bondEarnings = 0;
+
+      aBonus.forEach(t => {
+        const sw = (t.sourceWallet || '').toLowerCase();
+        const rem = (t.remarks || '').toLowerCase();
+        if (sw === 'loan' || rem.includes('loan')) loanEarnings += (t.amount || 0);
+        else if (sw === 'lending' || rem.includes('lending')) lendingEarnings += (t.amount || 0);
+        else if (sw === 'bond' || rem.includes('bond')) bondEarnings += (t.amount || 0);
+        else if (sw === 'investment' || rem.includes('deposit') || rem.includes('investment')) investmentEarnings += (t.amount || 0);
+        else loanEarnings += (t.amount || 0);
+      });
+
+      const pb = a.agentProfile?.earningsBreakdown || {};
+      loanEarnings = Math.max(loanEarnings, pb.loan || 0);
+      lendingEarnings = Math.max(lendingEarnings, pb.lending || 0);
+      investmentEarnings = Math.max(investmentEarnings, pb.investment || 0);
+      bondEarnings = Math.max(bondEarnings, pb.bond || 0);
+      const totalEarnings = Number((loanEarnings + lendingEarnings + investmentEarnings + bondEarnings).toFixed(2));
+
+      if (!aObj.agentProfile) aObj.agentProfile = {};
+      aObj.agentProfile.commissions = {
+        loan: a.agentProfile?.commissions?.loan ?? 1,
+        lending: a.agentProfile?.commissions?.lending ?? 4,
+        investment: a.agentProfile?.commissions?.investment ?? 1,
+        bond: a.agentProfile?.commissions?.bond ?? 4
+      };
+
+      aObj.earningsBreakdown = {
+        loan: Number(loanEarnings.toFixed(2)),
+        lending: Number(lendingEarnings.toFixed(2)),
+        investment: Number(investmentEarnings.toFixed(2)),
+        bond: Number(bondEarnings.toFixed(2)),
+        total: totalEarnings || a.referralEarnings || 0
+      };
+
+      aObj.referredCount = aMembers.length;
+      aObj.referredMembers = aMembers.map(m => ({
+        id: m._id,
+        name: m.name,
+        phone: m.phone,
+        email: m.email,
+        balance: m.balance,
+        duesBalance: m.duesBalance,
+        loansCount: m.loansCount || 0,
+        joinedAt: m.createdAt
+      }));
+      aObj.recentCommissions = aBonus.slice(-5).reverse();
+
+      return aObj;
+    });
+
+    res.json(enrichedApplicants);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch agent applications' });
   }
@@ -264,21 +377,33 @@ router.post('/agent-applications/:id/approve', protect, admin, async (req, res) 
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const { commissionRate } = req.body;
+    const { commissionRate, commissions } = req.body;
     user.role = 'agent';
     if (!user.agentProfile) user.agentProfile = {};
     user.agentProfile.status = 'approved';
     user.agentProfile.approvedAt = new Date();
+
+    if (!user.agentProfile.commissions) {
+      user.agentProfile.commissions = { loan: 1, lending: 4, investment: 1, bond: 4 };
+    }
+    if (commissions) {
+      if (commissions.loan !== undefined && !isNaN(parseFloat(commissions.loan))) user.agentProfile.commissions.loan = Math.max(0, parseFloat(commissions.loan));
+      if (commissions.lending !== undefined && !isNaN(parseFloat(commissions.lending))) user.agentProfile.commissions.lending = Math.max(0, parseFloat(commissions.lending));
+      if (commissions.investment !== undefined && !isNaN(parseFloat(commissions.investment))) user.agentProfile.commissions.investment = Math.max(0, parseFloat(commissions.investment));
+      if (commissions.bond !== undefined && !isNaN(parseFloat(commissions.bond))) user.agentProfile.commissions.bond = Math.max(0, parseFloat(commissions.bond));
+    }
+
     if (commissionRate !== undefined && commissionRate !== null && commissionRate !== '') {
       const parsedRate = parseFloat(commissionRate);
       if (!isNaN(parsedRate) && parsedRate >= 0) {
         user.agentProfile.commissionRate = parsedRate;
       }
     }
+    user.markModified('agentProfile');
     await user.save();
 
     res.json({
-      message: `Agent approved successfully! Permanent ID: EDUCA-${user.referralCode || user.phone}${user.agentProfile.commissionRate != null ? ` (${user.agentProfile.commissionRate}% Commission)` : ''}`,
+      message: `Agent approved successfully! Permanent ID: EDUCA-${user.referralCode || user.phone}`,
       user
     });
   } catch (err) {
@@ -292,19 +417,45 @@ router.post('/agent-applications/:id/set-commission', protect, admin, async (req
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const { commissionRate } = req.body;
-    const parsedRate = parseFloat(commissionRate);
-    if (isNaN(parsedRate) || parsedRate < 0) {
-      return res.status(400).json({ message: 'Valid commission rate is required' });
+    if (!user.agentProfile) user.agentProfile = {};
+    if (!user.agentProfile.commissions) {
+      user.agentProfile.commissions = { loan: 1, lending: 4, investment: 1, bond: 4 };
     }
 
-    if (!user.agentProfile) user.agentProfile = {};
-    user.agentProfile.commissionRate = parsedRate;
+    const { commissionRate, commissions, loanCommission, lendingCommission, investmentCommission, bondCommission } = req.body;
+
+    const newLoan = commissions?.loan !== undefined ? commissions.loan : loanCommission;
+    const newLending = commissions?.lending !== undefined ? commissions.lending : lendingCommission;
+    const newInvestment = commissions?.investment !== undefined ? commissions.investment : investmentCommission;
+    const newBond = commissions?.bond !== undefined ? commissions.bond : bondCommission;
+
+    if (newLoan !== undefined && !isNaN(parseFloat(newLoan))) {
+      user.agentProfile.commissions.loan = Math.max(0, parseFloat(newLoan));
+    }
+    if (newLending !== undefined && !isNaN(parseFloat(newLending))) {
+      user.agentProfile.commissions.lending = Math.max(0, parseFloat(newLending));
+    }
+    if (newInvestment !== undefined && !isNaN(parseFloat(newInvestment))) {
+      user.agentProfile.commissions.investment = Math.max(0, parseFloat(newInvestment));
+    }
+    if (newBond !== undefined && !isNaN(parseFloat(newBond))) {
+      user.agentProfile.commissions.bond = Math.max(0, parseFloat(newBond));
+    }
+
+    if (commissionRate !== undefined && !isNaN(parseFloat(commissionRate))) {
+      user.agentProfile.commissionRate = Math.max(0, parseFloat(commissionRate));
+    }
+
+    user.markModified('agentProfile');
     await user.save();
 
-    res.json({ message: `Agent commission updated to ${parsedRate}% successfully!`, user });
+    res.json({
+      success: true,
+      message: 'Agent commissions updated successfully!',
+      user
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to update commission rate' });
+    res.status(500).json({ message: 'Failed to update commission rates: ' + err.message });
   }
 });
 

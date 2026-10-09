@@ -622,6 +622,34 @@ router.get('/agent/stats', protect, async (req, res) => {
     const isTeamModel = agent.agentProfile?.commissionModel === 'team_1' || agent.agentProfile?.commissionModel === 'team';
     const subAgents = await User.find({ referredBy: agent._id, role: 'agent' });
 
+    // Fetch commission earnings breakdown from transactions
+    const bonusTxns = await Transaction.find({
+      userId: agent._id,
+      type: 'referral_bonus'
+    }).sort({ createdAt: -1 });
+
+    let loanEarnings = 0;
+    let lendingEarnings = 0;
+    let investmentEarnings = 0;
+    let bondEarnings = 0;
+
+    bonusTxns.forEach(t => {
+      const sw = (t.sourceWallet || '').toLowerCase();
+      const rem = (t.remarks || '').toLowerCase();
+      if (sw === 'loan' || rem.includes('loan')) loanEarnings += (t.amount || 0);
+      else if (sw === 'lending' || rem.includes('lending')) lendingEarnings += (t.amount || 0);
+      else if (sw === 'bond' || rem.includes('bond')) bondEarnings += (t.amount || 0);
+      else if (sw === 'investment' || rem.includes('deposit') || rem.includes('investment')) investmentEarnings += (t.amount || 0);
+      else loanEarnings += (t.amount || 0);
+    });
+
+    const pb = agent.agentProfile?.earningsBreakdown || {};
+    loanEarnings = Math.max(loanEarnings, pb.loan || 0);
+    lendingEarnings = Math.max(lendingEarnings, pb.lending || 0);
+    investmentEarnings = Math.max(investmentEarnings, pb.investment || 0);
+    bondEarnings = Math.max(bondEarnings, pb.bond || 0);
+    const totalCommissionEarned = Number((loanEarnings + lendingEarnings + investmentEarnings + bondEarnings).toFixed(2));
+
     res.json({
       success: true,
       agentInfo: {
@@ -630,9 +658,29 @@ router.get('/agent/stats', protect, async (req, res) => {
         commissionModel: agent.agentProfile?.commissionModel || 'solo_2',
         isTeamModel,
         commissionRate: agent.agentProfile?.commissionRate ?? 0,
+        commissions: {
+          loan: agent.agentProfile?.commissions?.loan ?? 1,
+          lending: agent.agentProfile?.commissions?.lending ?? 4,
+          investment: agent.agentProfile?.commissions?.investment ?? 1,
+          bond: agent.agentProfile?.commissions?.bond ?? 4
+        },
+        earningsBreakdown: {
+          loan: Number(loanEarnings.toFixed(2)),
+          lending: Number(lendingEarnings.toFixed(2)),
+          investment: Number(investmentEarnings.toFixed(2)),
+          bond: Number(bondEarnings.toFixed(2)),
+          total: totalCommissionEarned || agent.referralEarnings || 0
+        },
         businessName: agent.agentProfile?.businessName || '',
         city: agent.agentProfile?.city || ''
       },
+      commissionHistory: bonusTxns.slice(0, 15).map(t => ({
+        id: t._id,
+        amount: t.amount,
+        source: t.sourceWallet || (t.remarks?.toLowerCase().includes('bond') ? 'bond' : t.remarks?.toLowerCase().includes('lending') ? 'lending' : t.remarks?.toLowerCase().includes('deposit') ? 'investment' : 'loan'),
+        remarks: t.remarks,
+        createdAt: t.createdAt
+      })),
       stats: {
         totalDeposits,
         totalDisbursal,

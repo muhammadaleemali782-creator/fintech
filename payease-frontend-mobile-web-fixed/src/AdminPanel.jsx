@@ -241,6 +241,7 @@ export default function AdminPanel() {
   const [loadingHold, setLoadingHold] = useState(false);
   const [agents, setAgents] = useState([]);
   const [agentCommissionInput, setAgentCommissionInput] = useState({});
+  const [agentCategoryInputs, setAgentCategoryInputs] = useState({});
   const [savingAgentCommission, setSavingAgentCommission] = useState({});
   const [users, setUsers] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -752,7 +753,7 @@ export default function AdminPanel() {
     } catch {}
   }, []); // eslint-disable-line
 
-  const approveAgent = async (id, customRate) => {
+  const approveAgent = async (id, customRate, customCommissions) => {
     try {
       const rateVal = customRate !== undefined && customRate !== "" ? parseFloat(customRate) : undefined;
       const res = await fetch(`${API}/admin/agent-applications/${id}/approve`, {
@@ -760,6 +761,7 @@ export default function AdminPanel() {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           commissionRate: rateVal,
+          commissions: customCommissions,
           approverName: user.name || "Admin",
           approverDevice: getClientDeviceInfo()
         })
@@ -775,22 +777,29 @@ export default function AdminPanel() {
     }
   };
 
-  const updateAgentCommission = async (id, customRate) => {
+  const updateAgentCommission = async (id, customRateOrObj) => {
     try {
-      const rateVal = parseFloat(customRate);
-      if (isNaN(rateVal) || rateVal < 0) {
-        showToast("Please enter a valid commission %", "error");
-        return;
-      }
       setSavingAgentCommission(prev => ({ ...prev, [id]: true }));
+      let bodyPayload = {};
+      if (typeof customRateOrObj === "object" && customRateOrObj !== null) {
+        bodyPayload = { commissions: customRateOrObj };
+      } else {
+        const rateVal = parseFloat(customRateOrObj);
+        if (isNaN(rateVal) || rateVal < 0) {
+          showToast("Please enter a valid commission %", "error");
+          return;
+        }
+        bodyPayload = { commissionRate: rateVal };
+      }
+
       const res = await fetch(`${API}/admin/agent-applications/${id}/set-commission`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ commissionRate: rateVal })
+        body: JSON.stringify(bodyPayload)
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.message);
-      showToast(d.message || `Commission rate updated to ${rateVal}%!`, "success");
+      showToast(d.message || "Agent commission rates updated successfully!", "success");
       apiCache.clear();
       loadAgents(true);
     } catch (err) {
@@ -5069,22 +5078,13 @@ export default function AdminPanel() {
                             </a>
                             {isPending && (
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex items-center gap-1 bg-white px-2 py-1 border border-amber-300 rounded-xl shadow-2xs">
-                                  <span className="text-[10px] font-bold text-gray-600">Rate:</span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="50"
-                                    step="0.5"
-                                    placeholder="2"
-                                    value={agentCommissionInput[a._id] !== undefined ? agentCommissionInput[a._id] : 2}
-                                    onChange={e => setAgentCommissionInput({ ...agentCommissionInput, [a._id]: e.target.value })}
-                                    className="w-12 px-1 text-xs font-black text-amber-950 text-center outline-none bg-amber-50/50 rounded"
-                                  />
-                                  <span className="text-[10px] font-black text-amber-950">%</span>
-                                </div>
                                 <button
-                                  onClick={() => approveAgent(a._id, agentCommissionInput[a._id] !== undefined ? agentCommissionInput[a._id] : 2)}
+                                  onClick={() => approveAgent(a._id, undefined, {
+                                    loan: parseFloat(agentCategoryInputs[a._id]?.loan ?? 1),
+                                    lending: parseFloat(agentCategoryInputs[a._id]?.lending ?? 4),
+                                    investment: parseFloat(agentCategoryInputs[a._id]?.investment ?? 1),
+                                    bond: parseFloat(agentCategoryInputs[a._id]?.bond ?? 4)
+                                  })}
                                   className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm active:scale-95 cursor-pointer"
                                 >
                                   ✓ Approve Agent
@@ -5097,33 +5097,10 @@ export default function AdminPanel() {
                                 </button>
                               </div>
                             )}
-                            {isApproved && (
-                              <div className="flex items-center gap-1.5 bg-white px-2 py-1 border border-emerald-300 rounded-xl shadow-2xs">
-                                <span className="text-[10px] font-bold text-emerald-800">Rate:</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="50"
-                                  step="0.5"
-                                  placeholder="%"
-                                  value={agentCommissionInput[a._id] !== undefined ? agentCommissionInput[a._id] : (prof.commissionRate ?? 2)}
-                                  onChange={e => setAgentCommissionInput({ ...agentCommissionInput, [a._id]: e.target.value })}
-                                  className="w-12 px-1 text-xs font-black text-emerald-950 text-center outline-none bg-emerald-50 rounded"
-                                />
-                                <span className="text-[10px] font-black text-emerald-950">%</span>
-                                <button
-                                  type="button"
-                                  onClick={() => updateAgentCommission(a._id, agentCommissionInput[a._id] !== undefined ? agentCommissionInput[a._id] : (prof.commissionRate ?? 2))}
-                                  disabled={savingAgentCommission[a._id]}
-                                  className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-black transition cursor-pointer active:scale-95 disabled:opacity-50"
-                                >
-                                  {savingAgentCommission[a._id] ? "..." : "Save %"}
-                                </button>
-                              </div>
-                            )}
                           </div>
                         </div>
 
+                        {/* Agent Information Strip */}
                         <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                           <div className="p-2.5 bg-white rounded-xl border border-gray-100">
                             <span className="text-gray-400 font-medium block text-[11px]">Business / Shop</span>
@@ -5131,7 +5108,7 @@ export default function AdminPanel() {
                           </div>
 
                           <div className="p-2.5 bg-white rounded-xl border border-gray-100">
-                            <span className="text-gray-400 font-medium block text-[11px]">Commission Model & Rate</span>
+                            <span className="text-gray-400 font-medium block text-[11px]">Model & Hierarchy</span>
                             <div className="flex items-center justify-between gap-1 mt-0.5">
                               <span className="font-bold text-gray-800">
                                 {isTeamModel ? (
@@ -5140,12 +5117,230 @@ export default function AdminPanel() {
                                   <span className="text-blue-700 font-black">👤 Solo Direct (Independent Agent)</span>
                                 )}
                               </span>
-                              <span className="px-2 py-0.5 rounded-full font-black text-[11px] bg-amber-100 text-amber-900 border border-amber-200">
-                                {prof.commissionRate != null ? `${prof.commissionRate}% Commission` : "Rate Pending"}
+                              <span className="px-2 py-0.5 rounded-full font-black text-[11px] bg-indigo-100 text-indigo-900 border border-indigo-200">
+                                4-Category Commission Active
                               </span>
                             </div>
                           </div>
                         </div>
+
+                        {/* 4-Category Commission Rate Controller */}
+                        <div className="mt-3 p-3 bg-white rounded-xl border border-gray-200/90 shadow-2xs space-y-2.5">
+                          <div className="flex flex-wrap items-center justify-between gap-1 border-b border-gray-100 pb-2">
+                            <span className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
+                              <span>⚙️</span> Multi-Category Commission Control (Bada / Ghata Sakte Hain)
+                            </span>
+                            <span className="text-[10px] text-gray-500 font-semibold bg-gray-100 px-2 py-0.5 rounded-full">
+                              Per-Product Commission
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                            {/* 1. Loan Commission */}
+                            <div className="p-2.5 bg-blue-50/70 border border-blue-200/90 rounded-xl">
+                              <span className="text-[11px] font-bold text-blue-900 block mb-1">🏦 Loan Disbursal</span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="50"
+                                  step="0.5"
+                                  value={agentCategoryInputs[a._id]?.loan !== undefined ? agentCategoryInputs[a._id]?.loan : (prof.commissions?.loan ?? prof.commissionRate ?? 1)}
+                                  onChange={e => {
+                                    const cur = agentCategoryInputs[a._id] || {};
+                                    setAgentCategoryInputs({
+                                      ...agentCategoryInputs,
+                                      [a._id]: {
+                                        loan: e.target.value,
+                                        lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
+                                        investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
+                                        bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 text-xs font-black text-blue-950 text-center bg-white border border-blue-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <span className="text-xs font-black text-blue-900">%</span>
+                              </div>
+                            </div>
+
+                            {/* 2. Peer Lending Commission */}
+                            <div className="p-2.5 bg-emerald-50/70 border border-emerald-200/90 rounded-xl">
+                              <span className="text-[11px] font-bold text-emerald-900 block mb-1">🤝 Peer Lending</span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="50"
+                                  step="0.5"
+                                  value={agentCategoryInputs[a._id]?.lending !== undefined ? agentCategoryInputs[a._id]?.lending : (prof.commissions?.lending ?? 4)}
+                                  onChange={e => {
+                                    const cur = agentCategoryInputs[a._id] || {};
+                                    setAgentCategoryInputs({
+                                      ...agentCategoryInputs,
+                                      [a._id]: {
+                                        loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? prof.commissionRate ?? 1),
+                                        lending: e.target.value,
+                                        investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
+                                        bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 text-xs font-black text-emerald-950 text-center bg-white border border-emerald-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
+                                />
+                                <span className="text-xs font-black text-emerald-900">%</span>
+                              </div>
+                            </div>
+
+                            {/* 3. Investment Commission */}
+                            <div className="p-2.5 bg-amber-50/70 border border-amber-200/90 rounded-xl">
+                              <span className="text-[11px] font-bold text-amber-900 block mb-1">📈 Investment/Deposit</span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="50"
+                                  step="0.5"
+                                  value={agentCategoryInputs[a._id]?.investment !== undefined ? agentCategoryInputs[a._id]?.investment : (prof.commissions?.investment ?? 1)}
+                                  onChange={e => {
+                                    const cur = agentCategoryInputs[a._id] || {};
+                                    setAgentCategoryInputs({
+                                      ...agentCategoryInputs,
+                                      [a._id]: {
+                                        loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? prof.commissionRate ?? 1),
+                                        lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
+                                        investment: e.target.value,
+                                        bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 text-xs font-black text-amber-950 text-center bg-white border border-amber-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500"
+                                />
+                                <span className="text-xs font-black text-amber-900">%</span>
+                              </div>
+                            </div>
+
+                            {/* 4. Bond Commission */}
+                            <div className="p-2.5 bg-purple-50/70 border border-purple-200/90 rounded-xl">
+                              <span className="text-[11px] font-bold text-purple-900 block mb-1">📜 Bonds (365 Days)</span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="50"
+                                  step="0.5"
+                                  value={agentCategoryInputs[a._id]?.bond !== undefined ? agentCategoryInputs[a._id]?.bond : (prof.commissions?.bond ?? 4)}
+                                  onChange={e => {
+                                    const cur = agentCategoryInputs[a._id] || {};
+                                    setAgentCategoryInputs({
+                                      ...agentCategoryInputs,
+                                      [a._id]: {
+                                        loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? prof.commissionRate ?? 1),
+                                        lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
+                                        investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
+                                        bond: e.target.value
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 text-xs font-black text-purple-950 text-center bg-white border border-purple-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                                <span className="text-xs font-black text-purple-900">%</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                            <span className="text-[11px] text-gray-500">
+                              💳 Wallet P2P Transfers: <strong className="text-gray-700">0% (Nahi milega)</strong>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const cur = agentCategoryInputs[a._id] || {};
+                                const catRates = {
+                                  loan: parseFloat(cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? prof.commissionRate ?? 1)),
+                                  lending: parseFloat(cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4)),
+                                  investment: parseFloat(cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1)),
+                                  bond: parseFloat(cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4))
+                                };
+                                updateAgentCommission(a._id, catRates);
+                              }}
+                              disabled={savingAgentCommission[a._id]}
+                              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              <span>💾</span> {savingAgentCommission[a._id] ? "Updating..." : "Save Commission Rates"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Transparent Earnings Breakdown (Kamai Kahan Se Aayi) */}
+                        <div className="mt-3 p-3 bg-gradient-to-r from-slate-50 to-indigo-50/40 rounded-xl border border-indigo-100">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2.5">
+                            <span className="font-extrabold text-xs text-indigo-950 flex items-center gap-1.5">
+                              <span>📊</span> Kamai Vivran (Agent Earnings by Source)
+                            </span>
+                            <span className="text-xs font-black font-mono text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                              Kul Kamai: ₹{(a.earningsBreakdown?.total || a.referralEarnings || 0).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                            <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs">
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">🏦 Loans</span>
+                              <div className="font-black font-mono text-blue-700 text-sm">
+                                ₹{(a.earningsBreakdown?.loan || 0).toLocaleString("en-IN")}
+                              </div>
+                              <span className="text-[9px] text-gray-400">Rate: {prof.commissions?.loan ?? prof.commissionRate ?? 1}%</span>
+                            </div>
+
+                            <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs">
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">🤝 Peer Lending</span>
+                              <div className="font-black font-mono text-emerald-700 text-sm">
+                                ₹{(a.earningsBreakdown?.lending || 0).toLocaleString("en-IN")}
+                              </div>
+                              <span className="text-[9px] text-gray-400">Rate: {prof.commissions?.lending ?? 4}%</span>
+                            </div>
+
+                            <div className="bg-white p-2.5 rounded-xl border border-amber-100 shadow-2xs">
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">📈 Investments</span>
+                              <div className="font-black font-mono text-amber-700 text-sm">
+                                ₹{(a.earningsBreakdown?.investment || 0).toLocaleString("en-IN")}
+                              </div>
+                              <span className="text-[9px] text-gray-400">Rate: {prof.commissions?.investment ?? 1}%</span>
+                            </div>
+
+                            <div className="bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs">
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">📜 Fixed Bonds</span>
+                              <div className="font-black font-mono text-purple-700 text-sm">
+                                ₹{(a.earningsBreakdown?.bond || 0).toLocaleString("en-IN")}
+                              </div>
+                              <span className="text-[9px] text-gray-400">Rate: {prof.commissions?.bond ?? 4}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Attached Team Members / Referral Network */}
+                        {a.referredMembers && a.referredMembers.length > 0 && (
+                          <div className="mt-3 p-3 bg-white rounded-xl border border-gray-200 text-xs space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-gray-800 flex items-center gap-1.5 text-[11px]">
+                                <span>👥</span> Attached Team & Customer Network ({a.referredMembers.length})
+                              </span>
+                              <span className="text-[10px] text-gray-500">Auto-Linked via Referral</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                              {a.referredMembers.map(m => (
+                                <span
+                                  key={m.id}
+                                  className="px-2.5 py-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-[10px] font-bold text-gray-800 flex items-center gap-1.5 shadow-2xs transition"
+                                >
+                                  <span>👤</span> {m.name}
+                                  <span className="text-gray-400 font-mono">({m.phone || m.email})</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

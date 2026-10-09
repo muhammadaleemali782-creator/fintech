@@ -88,7 +88,7 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, userAnchorTime =
       if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
         timer = setInterval(() => {
           setLiveMs(Date.now());
-        }, 1000); // 1000ms steady calm real-time counter
+        }, 250); // 250ms (visibly ticking live, readable by eyes)
       }
     };
 
@@ -145,7 +145,7 @@ function LiveTodayAccrued({ activeCapital = 0 }) {
   useEffect(() => {
     let timer = null;
     if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
-      timer = setInterval(() => setLiveMs(Date.now()), 1000);
+      timer = setInterval(() => setLiveMs(Date.now()), 250);
     }
     return () => { if (timer) clearInterval(timer); };
   }, [activeCapital]);
@@ -428,26 +428,7 @@ export default function Dashboard() {
   const [loadingDashboard, setLoadingDashboard] = useState(!appCache.has("educa_cached_profile"));
   const [txns, setTxns] = useState(() => {
     const cached = appCache.get("educa_cached_txns", null);
-    if (Array.isArray(cached) && cached.length > 0) return cached;
-    return [
-      {
-        _id: "seed_txn_1",
-        type: "deposit",
-        amount: 500000,
-        status: "approved",
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-        method: "upi",
-        utrNumber: "UPI-SETTLED-63066"
-      },
-      {
-        _id: "seed_txn_2",
-        type: "daily_yield",
-        amount: 37.22,
-        status: "completed",
-        createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-        remarks: "12% p.a. daily compounding savings yield credited"
-      }
-    ];
+    return Array.isArray(cached) ? cached : [];
   });
   const [loans, setLoans] = useState(() => {
     return appCache.get("educa_cached_loans", []);
@@ -597,27 +578,7 @@ export default function Dashboard() {
   // Profit Wallet Statement / History State
   const [profitHistory, setProfitHistory] = useState(() => {
     const cached = appCache.get("educa_cached_profit_history", null);
-    if (Array.isArray(cached) && cached.length > 0) return cached;
-    return [
-      {
-        _id: "seed_yield_1",
-        createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-        amount: 37.22,
-        balance: 500000,
-        remarks: "12% p.a. daily compounding savings yield credited",
-        type: "daily_yield",
-        status: "completed"
-      },
-      {
-        _id: "seed_yield_2",
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        amount: 36.16,
-        balance: 500000,
-        remarks: "12% p.a. daily compounding savings yield credited",
-        type: "daily_yield",
-        status: "completed"
-      }
-    ];
+    return Array.isArray(cached) ? cached : [];
   });
   const [loadingProfitHistory, setLoadingProfitHistory] = useState(false);
 
@@ -1197,7 +1158,7 @@ export default function Dashboard() {
     try {
       const res = await silentFetch(`${API}/user/profit-history`, {
         headers: { Authorization: `Bearer ${token}` }
-      }, 7000);
+      }, 35000);
       if (res.notModified) return;
       if (res.data && res.data.success) {
         const history = res.data.history || [];
@@ -2015,7 +1976,7 @@ export default function Dashboard() {
       setLoadingDashboard(true);
     }
     try {
-      const res = await silentFetch(`${API}/user/me`, { headers }, 8000);
+      const res = await silentFetch(`${API}/user/me`, { headers }, 35000);
       if (res.status === 401) {
         tokenStorage.removeToken();
         localStorage.removeItem("user");
@@ -2183,7 +2144,7 @@ export default function Dashboard() {
 
   const loadTransactions = async () => {
     try {
-      const res = await silentFetch(`${API}/transaction/my`, { headers }, 7000);
+      const res = await silentFetch(`${API}/transaction/my`, { headers }, 35000);
       if (res.notModified) return;
       if (Array.isArray(res.data)) {
         setTxns(prev => (isDataEqual(prev, res.data) ? prev : res.data));
@@ -2194,7 +2155,7 @@ export default function Dashboard() {
 
   const loadLoans = async () => {
     try {
-      const res = await silentFetch(`${API}/loan/my`, { headers }, 7000);
+      const res = await silentFetch(`${API}/loan/my`, { headers }, 35000);
       if (res.notModified) return;
       if (Array.isArray(res.data)) {
         setLoans(prev => (isDataEqual(prev, res.data) ? prev : res.data));
@@ -2215,7 +2176,7 @@ export default function Dashboard() {
 
   const loadActiveLoanDetails = async () => {
     try {
-      const res = await silentFetch(`${API}/loan/active-details`, { headers }, 7000);
+      const res = await silentFetch(`${API}/loan/active-details`, { headers }, 35000);
       if (res.notModified) return;
       if (res.data && res.data.hasActiveLoan) {
         setActiveLoanDetails(prev => (isDataEqual(prev, res.data) ? prev : res.data));
@@ -2229,7 +2190,7 @@ export default function Dashboard() {
 
   const loadBonds = async () => {
     try {
-      const res = await silentFetch(`${API}/bond/my`, { headers }, 7000);
+      const res = await silentFetch(`${API}/bond/my`, { headers }, 35000);
       if (res.notModified) return;
       if (Array.isArray(res.data)) {
         setBonds(prev => (isDataEqual(prev, res.data) ? prev : res.data));
@@ -2240,7 +2201,7 @@ export default function Dashboard() {
 
   const loadCurrentRate = async () => {
     try {
-      const res = await silentFetch(`${API}/loan/current-rate`, {}, 6000);
+      const res = await silentFetch(`${API}/loan/current-rate`, {}, 35000);
       if (res.notModified) return;
       if (res.data && res.data.interestRate) {
         setCurrentRate(prev => (prev === res.data.interestRate ? prev : res.data.interestRate));
@@ -2265,7 +2226,7 @@ export default function Dashboard() {
         loadBonds(),
         loadTransactions(),
         loadProfitHistory(),
-        silentFetch(`${API}/settings/deposit-details`, {}, 15000).then(r => {
+        silentFetch(`${API}/settings/deposit-details`, {}, 35000).then(r => {
           if (r.data && r.data.upiId) {
             setDepositDetails(prev => (isDataEqual(prev, r.data) ? prev : r.data));
             appCache.set("educa_cached_deposit_details", r.data);

@@ -247,18 +247,10 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
   };
 };
 
-const DEFAULT_SEED_USERS = [
-  { _id: "6ac4f8bf5dd461cfa56fa01e", name: "SR ANAND", email: "anand@educa.com", phone: "6306667653", balance: 600020, role: "user", kycStatus: "verified", createdAt: "2026-10-06T13:33:51.962Z" },
-  { _id: "6ac4ff43cf5bd657f6a542be", name: "AJAY KUMAR GUPTA", email: "akgupta@educa.com", phone: "7457908475", balance: 109980, role: "user", kycStatus: "verified", createdAt: "2026-10-06T14:01:39.262Z" },
-  { _id: "6ac5726a3f1ecd9d36cd9d8d", name: "Aleem", email: "muhammadaleemali782@gmail.com", phone: "8303721679", balance: 0, role: "user", kycStatus: "verified", createdAt: "2026-10-06T22:12:58.654Z" },
-  { _id: "6ac5c285f9381b8cc2f4da18", name: "VIMLA GUPTA", email: "vimla@educa.com", phone: "8090808475", balance: 235000, role: "user", kycStatus: "verified", createdAt: "2026-10-07T03:54:45.721Z" },
-  { _id: "6ac6082da5091c7aa26e9f12", name: "EDUCA VEDA", email: "educaveda@educa.com", phone: "9506002710", balance: 0, role: "agent", kycStatus: "verified", agentProfile: { status: "approved", commissionRate: 2 }, createdAt: "2026-10-07T08:51:57.631Z" }
-];
-
 const DEFAULT_ANALYTICS = {
   success: true,
   stats: {
-    totalUsers: 14,
+    totalUsers: 18,
     totalUserBalances: 26657112,
     totalUserProfits: 12795.94,
     totalActiveBonds: 0,
@@ -270,118 +262,9 @@ const DEFAULT_ANALYTICS = {
     totalWithdrawals: 0,
     totalLoansDisbursed: 0
   },
-  timeline: [
-    {
-      date: new Date(Date.now() - 3600000 * 2).toISOString(),
-      type: "yield",
-      title: "Daily Savings Yield Added (+₹72.82)",
-      description: "12% p.a. daily compounding savings yield credited to active customer accounts",
-      amount: 72.82
-    },
-    {
-      date: new Date(Date.now() - 3600000 * 12).toISOString(),
-      type: "deposit",
-      title: "Customer Capital Deposit (+₹5,00,000)",
-      description: "Approved via UPI • Direct Settlement",
-      amount: 500000
-    },
-    {
-      date: new Date(Date.now() - 3600000 * 24).toISOString(),
-      type: "yield",
-      title: "Daily Savings Yield Added (+₹71.45)",
-      description: "12% p.a. daily compounding savings yield credited to active customer accounts",
-      amount: 71.45
-    },
-    {
-      date: new Date(Date.now() - 3600000 * 48).toISOString(),
-      type: "deposit",
-      title: "Customer Capital Deposit (+₹1,10,000)",
-      description: "Approved via UPI • Bank of Baroda",
-      amount: 110000
-    }
-  ],
-  dailyProfitChart: [
-    {
-      date: new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10),
-      displayDate: new Date(Date.now() - 86400000 * 2).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
-      amount: 70.15,
-      cumulativeYield: 12652.97,
-      txnCount: 14,
-      uniqueUsers: 14,
-      dayTotalDeposit: 110000,
-      cumulativeDeposit: 26557112,
-      depositsCount: 1,
-      deposits: []
-    },
-    {
-      date: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-      displayDate: new Date(Date.now() - 86400000).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
-      amount: 71.45,
-      cumulativeYield: 12724.42,
-      txnCount: 14,
-      uniqueUsers: 14,
-      dayTotalDeposit: 100000,
-      cumulativeDeposit: 26657112,
-      depositsCount: 1,
-      deposits: []
-    },
-    {
-      date: new Date().toISOString().slice(0, 10),
-      displayDate: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
-      amount: 72.82,
-      cumulativeYield: 12797.24,
-      txnCount: 14,
-      uniqueUsers: 14,
-      dayTotalDeposit: 0,
-      cumulativeDeposit: 26657112,
-      depositsCount: 0,
-      deposits: []
-    }
-  ]
+  timeline: [],
+  dailyProfitChart: []
 };
-
-const DEFAULT_SEED_AUDIT_HISTORY = [
-  {
-    _id: "seed_audit_1",
-    timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-    category: "yield",
-    action: "DAILY_YIELD_CREDIT",
-    user: "SR ANAND",
-    amount: 72.82,
-    status: "completed",
-    details: "12% p.a. daily compounding savings yield credited"
-  },
-  {
-    _id: "seed_audit_2",
-    timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
-    category: "deposit",
-    action: "CAPITAL_DEPOSIT_APPROVAL",
-    user: "AJAY KUMAR GUPTA",
-    amount: 500000,
-    status: "approved",
-    details: "Approved via UPI • Direct settlement"
-  },
-  {
-    _id: "seed_audit_3",
-    timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-    category: "yield",
-    action: "DAILY_YIELD_CREDIT",
-    user: "VIMLA GUPTA",
-    amount: 71.45,
-    status: "completed",
-    details: "12% p.a. daily compounding savings yield credited"
-  },
-  {
-    _id: "seed_audit_4",
-    timestamp: new Date(Date.now() - 3600000 * 48).toISOString(),
-    category: "deposit",
-    action: "CAPITAL_DEPOSIT_APPROVAL",
-    user: "VIMLA GUPTA",
-    amount: 235000,
-    status: "approved",
-    details: "Approved via Bank Transfer • Ref: Direct"
-  }
-];
 
 export default function AdminPanel() {
   const token = tokenStorage.getToken();
@@ -416,7 +299,7 @@ export default function AdminPanel() {
     if (Array.isArray(v) && v.length > 0) return v;
     const old = appCache.get("educa_admin_cached_agents", null);
     if (Array.isArray(old) && old.length > 0) return old;
-    return DEFAULT_SEED_USERS.filter(u => u.role === "agent" || u.agentProfile?.status === "approved");
+    return [];
   });
   const [agentCommissionInput, setAgentCommissionInput] = useState({});
   const [agentCategoryInputs, setAgentCategoryInputs] = useState({});
@@ -426,7 +309,7 @@ export default function AdminPanel() {
     if (Array.isArray(v) && v.length > 0) return v;
     const old = appCache.get("educa_admin_cached_users", null);
     if (Array.isArray(old) && old.length > 0) return old;
-    return DEFAULT_SEED_USERS;
+    return [];
   });
   const [devices, setDevices] = useState(() => {
     const v = appCache.get("educa_admin_cached_devices_list", null);
@@ -462,7 +345,7 @@ export default function AdminPanel() {
   const [newGoogleDriveUrl, setNewGoogleDriveUrl] = useState("");
   const [analytics, setAnalytics] = useState(() => {
     const cached = appCache.get("educa_admin_cached_analytics", null);
-    if (cached && cached.success && Array.isArray(cached.dailyProfitChart) && cached.dailyProfitChart.length > 0) {
+    if (cached && typeof cached === "object" && cached.stats) {
       return cached;
     }
     return DEFAULT_ANALYTICS;
@@ -1738,8 +1621,7 @@ export default function AdminPanel() {
 
   const [auditHistory, setAuditHistory] = useState(() => {
     const cached = appCache.get("educa_admin_cached_audit_history", null);
-    if (Array.isArray(cached) && cached.length > 0) return cached;
-    return DEFAULT_SEED_AUDIT_HISTORY;
+    return Array.isArray(cached) ? cached : [];
   });
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyCategory, setHistoryCategory] = useState("all");
@@ -1932,7 +1814,7 @@ export default function AdminPanel() {
   const cachedDeposits = typeof localStorage !== "undefined" ? Number(localStorage.getItem("educa_admin_cached_deposits") || 26657112) : 26657112;
   const cachedProfit = typeof localStorage !== "undefined" ? Number(localStorage.getItem("educa_admin_cached_profit") || 12795.9361) : 12795.9361;
   const cachedReserves = typeof localStorage !== "undefined" ? Number(localStorage.getItem("educa_admin_cached_reserves") || 26669906.61) : 26669906.61;
-  const cachedUsers = typeof localStorage !== "undefined" ? Number(localStorage.getItem("educa_admin_cached_users_count") || 14) : 14;
+  const cachedUsers = typeof localStorage !== "undefined" ? Number(localStorage.getItem("educa_admin_cached_users_count") || 0) : 0;
   const cachedPending = typeof localStorage !== "undefined" ? Number(localStorage.getItem("educa_admin_cached_pending_count") || 0) : 0;
   const cachedLoans = typeof localStorage !== "undefined" ? Number(localStorage.getItem("educa_admin_cached_loans_count") || 0) : 0;
 
@@ -2006,7 +1888,7 @@ export default function AdminPanel() {
     const startTimer = () => {
       if (timer) clearInterval(timer);
       if (typeof document !== "undefined" && !document.hidden) {
-        timer = setInterval(tick, 1000); // 1 tick per second (calm, steady rate)
+        timer = setInterval(tick, 250); // 250ms (visibly live yet comfortable to read by eye)
       }
     };
 
@@ -2033,7 +1915,7 @@ export default function AdminPanel() {
     ? (totalDepositsDisplay + liveAdminProfit)
     : cachedReserves;
 
-  const resolvedTotalUsers = stats?.totalUsers ?? analytics?.stats?.totalUsers ?? (Array.isArray(users) && users.length > 0 ? users.length : null) ?? (cachedUsers > 0 ? cachedUsers : 14);
+  const resolvedTotalUsers = stats?.totalUsers ?? analytics?.stats?.totalUsers ?? (Array.isArray(users) && users.length > 0 ? users.length : null) ?? (cachedUsers > 0 ? cachedUsers : 0);
   const resolvedPendingTxns = Number(stats?.pendingTxns ?? analytics?.stats?.pendingTxnsCount ?? (Array.isArray(pending) && pending.length > 0 ? pending.length : null) ?? cachedPending ?? 0) || 0;
   const resolvedActiveLoans = Number(stats?.totalLoans ?? stats?.pendingLoans ?? analytics?.stats?.totalLoans ?? analytics?.stats?.pendingLoansCount ?? (Array.isArray(loans) && loans.length > 0 ? loans.length : null) ?? cachedLoans ?? 0) || 0;
 
@@ -3126,26 +3008,9 @@ export default function AdminPanel() {
 
                 {/* MOBILE CARD LIST (NO HORIZONTAL SCROLL) */}
                 <div className="sm:hidden space-y-2.5">
-                  {loadingAnalytics && (!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
-                    [1, 2, 3, 4].map((sIdx) => (
-                      <div key={`m-skel-${sIdx}`} className="p-3 bg-white border border-slate-200/90 rounded-2xl space-y-2.5 animate-pulse">
-                        <div className="flex items-center justify-between">
-                          <div className="h-4 w-24 bg-slate-200 rounded" />
-                          <div className="h-4 w-16 bg-slate-100 rounded-full" />
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded-xl space-y-1.5">
-                          <div className="h-3 w-28 bg-slate-200 rounded" />
-                          <div className="h-4 w-36 bg-emerald-100 rounded" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-                          <div className="h-3 w-20 bg-slate-100 rounded" />
-                          <div className="h-3 w-16 bg-slate-100 rounded ml-auto" />
-                        </div>
-                      </div>
-                    ))
-                  ) : (!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
+                  {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
                     <div className="py-8 text-center text-gray-400 text-xs font-medium bg-slate-50 rounded-xl border border-slate-200">
-                      Koi daily profit yield abhi tak record nahi hua hai.
+                      {loadingAnalytics ? "🔄 Live ledger sync ho raha hai..." : "Koi daily profit yield abhi tak record nahi hua hai."}
                     </div>
                   ) : (
                     analytics.dailyProfitChart.map((row, idx) => {
@@ -3288,42 +3153,10 @@ export default function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {loadingAnalytics && (!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
-                        [1, 2, 3, 4].map((sIdx) => (
-                          <tr key={`tbl-skel-${sIdx}`} className="animate-pulse">
-                            <td className="py-3 px-3.5 align-middle">
-                              <div className="space-y-1.5">
-                                <div className="h-4 w-20 bg-slate-200 rounded" />
-                                <div className="h-3 w-14 bg-slate-100 rounded" />
-                              </div>
-                            </td>
-                            <td className="py-3 px-3.5 align-middle">
-                              <div className="space-y-1.5">
-                                <div className="h-4 w-28 bg-emerald-100/80 rounded" />
-                                <div className="h-3 w-36 bg-slate-200 rounded" />
-                              </div>
-                            </td>
-                            <td className="py-3 px-3 align-middle">
-                              <div className="space-y-1.5">
-                                <div className="h-4 w-16 bg-emerald-100/80 rounded" />
-                                <div className="h-3 w-12 bg-slate-100 rounded" />
-                              </div>
-                            </td>
-                            <td className="py-3 px-3 align-middle">
-                              <div className="space-y-1.5">
-                                <div className="h-4 w-16 bg-blue-100/80 rounded" />
-                                <div className="h-3 w-14 bg-slate-100 rounded" />
-                              </div>
-                            </td>
-                            <td className="py-3 px-3.5 align-middle text-right">
-                              <div className="h-6 w-14 bg-slate-200 rounded ml-auto" />
-                            </td>
-                          </tr>
-                        ))
-                      ) : (!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
+                      {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
                         <tr>
                           <td colSpan="5" className="py-8 text-center text-gray-400 font-medium">
-                            Koi daily profit yield abhi tak record nahi hua hai.
+                            {loadingAnalytics ? "🔄 Live ledger sync ho raha hai..." : "Koi daily profit yield abhi tak record nahi hua hai."}
                           </td>
                         </tr>
                       ) : (
@@ -4658,75 +4491,10 @@ export default function AdminPanel() {
 
               {/* Audit History Records Table */}
               {historyLoading && auditHistory.length === 0 ? (
-                <div className="space-y-3 min-h-[600px] select-none">
-                  <div className="flex items-center justify-between px-3 py-2 bg-blue-50/70 border border-blue-100 rounded-xl text-blue-700 text-xs font-bold animate-pulse">
-                    <span className="flex items-center gap-2">
-                      <span className="animate-spin text-sm">🔄</span> Fetching audit records & live transactions...
-                    </span>
-                    <span className="text-[10px] text-blue-500 font-mono">Syncing...</span>
-                  </div>
-
-                  {/* Mobile Responsive Skeleton Cards */}
-                  <div className="sm:hidden space-y-2.5">
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <div key={i} className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs space-y-3 animate-pulse">
-                        <div className="flex items-center justify-between">
-                          <div className="h-5 bg-slate-200 rounded-full w-24" />
-                          <div className="h-4 bg-slate-100 rounded-full w-16" />
-                        </div>
-                        <div className="flex items-baseline justify-between">
-                          <div className="h-4 bg-slate-200 rounded w-40" />
-                          <div className="h-5 bg-slate-200 rounded w-20" />
-                        </div>
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                          <div className="h-3 bg-slate-100 rounded w-28" />
-                          <div className="h-3 bg-slate-100 rounded w-16" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Desktop / Tablet Skeleton Table */}
-                  <div className="hidden sm:block overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs bg-white">
-                    <table className="w-full min-w-[850px] table-fixed border-collapse text-left text-xs">
-                      <thead className="bg-slate-50/95 border-b border-slate-200">
-                        <tr className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                          <th className="py-3 px-3.5 w-[150px]">Timestamp & Audit</th>
-                          <th className="py-3 px-3.5 w-[175px]">Category & Action</th>
-                          <th className="py-3 px-3.5 w-[185px]">User / Account</th>
-                          <th className="py-3 px-3.5 w-[140px] text-right">Amount / Value</th>
-                          <th className="py-3 px-3.5 w-[95px]">Status</th>
-                          <th className="py-3 px-3.5">Reference / Details & Docs</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                          <tr key={i} className="animate-pulse">
-                            <td className="py-3.5 px-3.5">
-                              <div className="h-3.5 bg-slate-200 rounded w-24" />
-                            </td>
-                            <td className="py-3.5 px-3.5">
-                              <div className="h-5 bg-slate-200 rounded-full w-28" />
-                            </td>
-                            <td className="py-3.5 px-3.5 space-y-1.5">
-                              <div className="h-3.5 bg-slate-200 rounded w-28" />
-                              <div className="h-2.5 bg-slate-100 rounded w-36" />
-                            </td>
-                            <td className="py-3.5 px-3.5 text-right">
-                              <div className="h-4 bg-slate-200 rounded w-16 ml-auto" />
-                            </td>
-                            <td className="py-3.5 px-3.5">
-                              <div className="h-5 bg-slate-100 rounded-full w-16" />
-                            </td>
-                            <td className="py-3.5 px-3.5 space-y-1">
-                              <div className="h-3.5 bg-slate-100 rounded w-44" />
-                              <div className="h-2.5 bg-slate-50 rounded w-32" />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="py-16 text-center text-slate-500 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2">
+                  <div className="text-2xl animate-spin inline-block">🔄</div>
+                  <p className="text-xs font-bold text-slate-700">Audit records sync ho rahe hain...</p>
+                  <p className="text-[11px] text-slate-400">Live transactions database se load ho rahi hain</p>
                 </div>
               ) : auditHistory.length === 0 ? (
                 <div className="py-16 text-center text-gray-400 bg-slate-50 rounded-2xl border border-dashed border-gray-200">

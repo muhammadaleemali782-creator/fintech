@@ -1068,7 +1068,7 @@ router.get('/analytics', protect, admin, async (req, res) => {
         registeredAt: u.createdAt
       }));
 
-    res.json({
+    const payload = {
       success: true,
       stats: {
         totalUsers,

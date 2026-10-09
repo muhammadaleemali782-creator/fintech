@@ -20,6 +20,19 @@ if (typeof window !== 'undefined') {
       window.location.reload();
     }
   });
+
+  // Register Service Worker for PWA installability
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+
+  // Global PWA install prompt handler
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window.deferredPWAInstallPrompt = e;
+  });
 }
 
 createRoot(document.getElementById('root')).render(

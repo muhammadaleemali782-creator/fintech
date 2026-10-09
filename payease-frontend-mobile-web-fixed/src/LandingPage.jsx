@@ -61,11 +61,11 @@ function InteractiveYieldSpeedometer({ isHindi }) {
     return () => clearInterval(interval);
   }, [isAuto]);
 
-  // Live second-by-second micro-ticker simulation
+  // Live second-by-second micro-ticker simulation (calm 500ms ticker)
   useEffect(() => {
     const timer = setInterval(() => {
-      setLiveElapsedMs((prev) => prev + 100);
-    }, 100);
+      setLiveElapsedMs((prev) => prev + 500);
+    }, 500);
     return () => clearInterval(timer);
   }, []);
 

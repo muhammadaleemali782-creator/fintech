@@ -72,6 +72,9 @@ export default function Login({ isApp = false }) {
         if (data.user.balance !== undefined) {
           localStorage.setItem("educa_cached_balance", String(data.user.balance));
         }
+        if (data.user.profitBalance !== undefined) {
+          localStorage.setItem("educa_cached_profit_balance", String(data.user.profitBalance));
+        }
       }
       showMsg("Login successful! Redirecting...", "success");
       const target = data.user?.role === "admin" ? "/admin" : "/dashboard";
@@ -106,6 +109,9 @@ export default function Login({ isApp = false }) {
         localStorage.setItem("educa_cached_profile", JSON.stringify(data.user));
         if (data.user.balance !== undefined) {
           localStorage.setItem("educa_cached_balance", String(data.user.balance));
+        }
+        if (data.user.profitBalance !== undefined) {
+          localStorage.setItem("educa_cached_profit_balance", String(data.user.profitBalance));
         }
       }
       showMsg("Logged in with Educa Mail (30 Days Active)! Redirecting...", "success");
@@ -261,13 +267,27 @@ export default function Login({ isApp = false }) {
                 </p>
               </div>
             </div>
-            <a
-              href="/EducaFintech-v1.0.apk"
-              download="EducaFintech-v1.0.apk"
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs whitespace-nowrap active:scale-95 transition flex items-center gap-1.5"
+            <button
+              type="button"
+              onClick={() => {
+                if (window.deferredPWAInstallPrompt) {
+                  window.deferredPWAInstallPrompt.prompt();
+                  window.deferredPWAInstallPrompt.userChoice.then(() => {
+                    window.deferredPWAInstallPrompt = null;
+                  });
+                } else {
+                  const a = document.createElement("a");
+                  a.href = "/EducaFintech-v2.0.apk";
+                  a.download = "EducaFintech-v2.0.apk";
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }
+              }}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs whitespace-nowrap active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
             >
               <span>📲</span> Install App
-            </a>
+            </button>
           </div>
         )}
 

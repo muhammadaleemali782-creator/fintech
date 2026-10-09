@@ -2409,28 +2409,33 @@ export default function AdminPanel() {
       </aside>
 
       <div className="flex-1 min-w-0 max-w-full min-h-screen">
-        {/* MOBILE / TABLET TOP NAV */}
-        <nav className="lg:hidden bg-slate-900 border-b border-white shadow-md sticky top-0 z-40 safe-top">
-          <div className="px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs shrink-0" />
+        {/* MOBILE / TABLET TOP NAV (SLIM WHITE EXECUTIVE BAR) */}
+        <nav className="lg:hidden bg-white border-b border-slate-200/90 shadow-2xs sticky top-0 z-40 safe-top">
+          <div className="px-3 sm:px-5 py-2 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <img src="/icon-192.png" alt="Educa Fintech" className="w-6 h-6 rounded-full object-contain bg-slate-50 border border-slate-200 p-0.5 shadow-2xs shrink-0" />
               <div>
-                <h1 className="text-white font-black text-base sm:text-lg leading-tight">Admin Panel</h1>
-                <p className="text-blue-400 text-xs font-semibold hidden sm:block">Educa Finance Control Center</p>
+                <h1 className="text-slate-900 font-black text-sm leading-tight">Admin Panel</h1>
+                <p className="text-blue-600 text-[10px] font-bold hidden sm:block leading-none">Control Center</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <Link
                 to="/dashboard"
-                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
+                className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-md text-[11px] font-bold flex items-center gap-1 active:scale-95"
               >
-                <span>📱</span> <span className="hidden sm:inline">App View</span>
+                <span>📱</span> <span className="hidden sm:inline">App</span>
               </Link>
               <div className="text-right hidden sm:block">
-                <p className="text-slate-400 text-xs">Logged in as</p>
-                <p className="text-white font-semibold text-sm">{user.name}</p>
+                <p className="text-slate-700 font-semibold text-xs leading-none">{user.name}</p>
               </div>
-              <button onClick={logout} className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md transition text-[10px] font-bold cursor-pointer active:scale-95 shadow-xs">Logout</button>
+              <button
+                type="button"
+                onClick={logout}
+                className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded-md transition text-[10px] font-bold cursor-pointer active:scale-95 shadow-2xs leading-normal"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </nav>

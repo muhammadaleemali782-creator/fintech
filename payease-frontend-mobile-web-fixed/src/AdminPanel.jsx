@@ -37,8 +37,11 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 45000, forceRefresh =
   }
 
   const fetchPromise = (async () => {
+    const controller = new AbortController();
+    const timeoutTimer = setTimeout(() => controller.abort(), 7000);
     try {
-      const res = await fetch(url, options);
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutTimer);
       if (res.ok) {
         try {
           const data = await res.json();
@@ -54,6 +57,18 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 45000, forceRefresh =
         }
       }
       return res;
+    } catch {
+      clearTimeout(timeoutTimer);
+      if (apiCache.has(cacheKey)) {
+        const cached = apiCache.get(cacheKey);
+        return {
+          ok: true,
+          status: 200,
+          fromCache: true,
+          json: async () => structuredClone(cached.data)
+        };
+      }
+      return { ok: false, status: 504, json: async () => ({}) };
     } finally {
       inFlightRequests.delete(cacheKey);
     }
@@ -850,7 +865,9 @@ export default function AdminPanel() {
   };
 
   const loadAnalytics = useCallback(async (force = false) => {
-    setLoadingAnalytics(true);
+    if (!analytics || !analytics.users || analytics.users.length === 0) {
+      setLoadingAnalytics(true);
+    }
     try {
       const res = await cachedAdminFetch(`${API}/admin/analytics`, { headers }, 45000, force);
       if (res.status === 429) return;
@@ -863,7 +880,7 @@ export default function AdminPanel() {
     } finally {
       setLoadingAnalytics(false);
     }
-  }, []); // eslint-disable-line
+  }, [analytics]); // eslint-disable-line
 
   const loadDepositDetails = useCallback(async (force = false) => {
     try {
@@ -1799,7 +1816,8 @@ export default function AdminPanel() {
     }
   }, [resolvedTotalUsers, resolvedPendingTxns, resolvedActiveLoans, stats, analytics, pending.length]);
 
-  const isMetricsLoading = loadingStats || loadingAnalytics;
+  // Instant open & zero skeleton: values are always rendered immediately
+  const isMetricsLoading = false;
 
   const statCards = [
     { icon: "🏦", label: "Fintech Reserves", value: `₹${Number(liveAdminReserves).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading, isLive: true },
@@ -2875,7 +2893,7 @@ export default function AdminPanel() {
 
                 {/* MOBILE CARD LIST (NO HORIZONTAL SCROLL) */}
                 <div className="sm:hidden space-y-2.5">
-                  {loadingAnalytics ? (
+                  {loadingAnalytics && (!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
                     [1, 2, 3, 4].map((sIdx) => (
                       <div key={`m-skel-${sIdx}`} className="p-3 bg-white border border-slate-200/90 rounded-2xl space-y-2.5 animate-pulse">
                         <div className="flex items-center justify-between">
@@ -3037,7 +3055,7 @@ export default function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {loadingAnalytics ? (
+                      {loadingAnalytics && (!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
                         [1, 2, 3, 4].map((sIdx) => (
                           <tr key={`tbl-skel-${sIdx}`} className="animate-pulse">
                             <td className="py-3 px-3.5 align-middle">
@@ -4406,7 +4424,7 @@ export default function AdminPanel() {
               )}
 
               {/* Audit History Records Table */}
-              {historyLoading ? (
+              {historyLoading && auditHistory.length === 0 ? (
                 <div className="space-y-3 min-h-[600px] select-none">
                   <div className="flex items-center justify-between px-3 py-2 bg-blue-50/70 border border-blue-100 rounded-xl text-blue-700 text-xs font-bold animate-pulse">
                     <span className="flex items-center gap-2">

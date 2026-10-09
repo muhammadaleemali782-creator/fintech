@@ -7,6 +7,7 @@ const Bond = require('../models/Bond');
 const { protect, admin } = require('../middleware/auth');
 const { sendNotification } = require('../utils/notifier');
 const { generateAccountNumber } = require('../utils/accountNumber');
+const memoryCache = require('../utils/cache');
 const router = express.Router();
 
 
@@ -845,13 +846,8 @@ router.get('/stats', protect, admin, async (req, res) => {
 // Detailed Fintech Analytics & Daily Profit Growth
 router.get('/analytics', protect, admin, async (req, res) => {
   try {
-    const { processDailyYield } = require('./user');
-    const allUsers = await User.find({ role: { $ne: 'admin' } });
-    if (processDailyYield) {
-      for (const u of allUsers) {
-        await processDailyYield(u);
-      }
-    }
+    const cached = memoryCache.get('admin_analytics');
+    if (cached) return res.json(cached);
 
     // 1. Users & Balances
     const users = await User.find({ role: { $ne: 'admin' } }).select('name email phone balance profitBalance lowestBalance24h createdAt');
@@ -1090,7 +1086,9 @@ router.get('/analytics', protect, admin, async (req, res) => {
         date: y.createdAt,
         referenceId: y.referenceId
       }))
-    });
+    };
+    memoryCache.set('admin_analytics', payload, 30);
+    res.json(payload);
   } catch (err) {
     console.error('Analytics fetch error:', err);
     res.status(500).json({ message: 'Failed to fetch fintech analytics' });

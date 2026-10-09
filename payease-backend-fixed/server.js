@@ -216,14 +216,8 @@ app.get(['/health', '/api/health'], (req, res) => {
   });
 });
 
-// ------------------ FAST 304 & CACHE-CONTROL HEADERS ------------------
-// Mobile clients send If-None-Match to receive instant 304 Not Modified (<20ms)
-app.use('/api', (req, res, next) => {
-  if (req.method === 'GET') {
-    res.setHeader('Cache-Control', 'private, no-cache, must-revalidate');
-  }
-  next();
-});
+// Disable Express ETag so client fetch() always receives complete 200 OK JSON bodies
+app.set('etag', false);
 
 // Render Free Tier Keep-Alive Self Ping (prevents 1-4 min cold start spin down)
 const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || 'https://educafintech.onrender.com';

@@ -28,16 +28,18 @@ const ResetPassword = lazyWithRetry(() => import("./ResetPassword"));
 const Dashboard = lazyWithRetry(() => import("./Dashboard"));
 const AdminPanel = lazyWithRetry(() => import("./AdminPanel"));
 
-// Instant background prefetch for active mobile app users (cold-start acceleration)
+// Instant background prefetch for active users (cold-start acceleration)
 if (typeof window !== "undefined") {
-  const isAppMode = window.navigator?.userAgent?.includes("educa_native_android_app") || localStorage.getItem("educa_app_mode") === "true";
   const hasToken = tokenStorage.getToken();
-  if (isAppMode) {
-    if (hasToken) {
-      import("./Dashboard").catch(() => {});
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  if (hasToken) {
+    if (user.role === "admin") {
+      import("./AdminPanel").catch(() => {});
     } else {
-      import("./Login").catch(() => {});
+      import("./Dashboard").catch(() => {});
     }
+  } else {
+    import("./Login").catch(() => {});
   }
 }
 

@@ -288,17 +288,7 @@ export default function EvervaultCardScanner() {
         const cardWidth = rect.width;
         const cardCenterX = (cardLeft + cardRight) / 2;
 
-        // Ulta Arc (Inverted Concave Arc) - active only on desktop mode as requested
-        if (isDesktop) {
-          const distFromCenter = cardCenterX - scannerX;
-          const normDist = Math.max(-1.5, Math.min(1.5, distFromCenter / (containerRect.width * 0.45)));
-          // Concave parabolic curve: center dips down gracefully, sides rise up with natural tangent rotation
-          const arcY = Math.pow(normDist, 2) * -38;
-          const arcRotate = normDist * 4;
-          wrapper.style.transform = `translateY(${arcY}px) rotate(${arcRotate}deg)`;
-        } else {
-          wrapper.style.transform = "";
-        }
+        wrapper.style.transform = "";
 
         const normalCard = wrapper.querySelector(".card-normal");
         const asciiCard = wrapper.querySelector(".card-ascii");

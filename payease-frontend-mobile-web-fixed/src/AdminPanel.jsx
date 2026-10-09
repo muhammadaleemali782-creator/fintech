@@ -4822,7 +4822,11 @@ export default function AdminPanel() {
                           {/* Row 2: Title & Amount (Strictly No Wrap on +) */}
                           <div className="flex items-baseline justify-between gap-2">
                             <p className="font-extrabold text-slate-900 text-xs leading-snug">{item.title}</p>
-                            {isMonetary ? (
+                            {item.category === "agent" ? (
+                              <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 font-mono font-bold text-xs shrink-0">
+                                {item.commissionRate ? `${item.commissionRate}% Comm.` : (item.amount && item.amount < 50) ? `${item.amount}% Comm.` : "Partner"}
+                              </span>
+                            ) : isMonetary ? (
                               <span className={`font-mono tabular-nums whitespace-nowrap font-black text-sm shrink-0 ${
                                 item.category === "deposit" || item.category === "yield"
                                   ? "text-emerald-600"
@@ -4849,7 +4853,7 @@ export default function AdminPanel() {
                           {/* Row 4: Request vs Approval Audit Timestamps & Approver Device Badge */}
                           <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 text-[10px] font-mono space-y-1">
                             <div className="flex items-center justify-between text-slate-600">
-                              <span className="text-slate-400">📥 Requested:</span>
+                              <span className="text-slate-400">{item.category === "agent" ? "📝 Applied:" : "📥 Requested:"}</span>
                               <span className="font-bold text-slate-800">{isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Recent"}</span>
                             </div>
                             {isApproved && item.approvedAt && (() => {
@@ -4984,7 +4988,7 @@ export default function AdminPanel() {
                               <td className="py-3.5 px-3.5 font-mono text-[11px] text-slate-600 align-top">
                                 <div className="space-y-0.5">
                                   <span className="block font-bold text-slate-900" title="Request Time">
-                                    📥 Req: {isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent"}
+                                    {item.category === "agent" ? "📝 Applied: " : "📥 Req: "}{isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent"}
                                   </span>
                                   <span className="text-[10px] text-slate-400 block">
                                     {isDateValid ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}
@@ -5047,7 +5051,11 @@ export default function AdminPanel() {
 
                               {/* Amount / Value (Strictly No Line-Wrapping on +) */}
                               <td className="py-3.5 px-3.5 align-top text-right w-[140px] whitespace-nowrap font-mono tabular-nums font-black text-xs sm:text-sm">
-                                {isMonetary ? (
+                                {item.category === "agent" ? (
+                                  <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold">
+                                    {item.commissionRate ? `${item.commissionRate}% Comm.` : (item.amount && item.amount < 50) ? `${item.amount}% Comm.` : "Partner"}
+                                  </span>
+                                ) : isMonetary ? (
                                   <span className={`inline-block ${
                                     item.category === "deposit" || item.category === "yield"
                                       ? "text-emerald-600"

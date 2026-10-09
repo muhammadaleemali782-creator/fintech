@@ -134,7 +134,7 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
       if (timer) clearInterval(timer);
       if (typeof document !== "undefined" && !document.hidden) {
         lastTickRef.current = Date.now();
-        timer = setInterval(tick, 35); // 35ms ultra-fast smooth tick matching Admin Panel speed
+        timer = setInterval(tick, 50); // 50ms smooth tick matching Admin Panel speed
       }
     };
 
@@ -185,7 +185,7 @@ function LiveTodayAccrued({ activeCapital = 0 }) {
   useEffect(() => {
     let timer = null;
     if (typeof document !== "undefined" && !document.hidden) {
-      timer = setInterval(() => setLiveMs(Date.now()), 35); // 35ms: Ultra-fast speed
+      timer = setInterval(() => setLiveMs(Date.now()), 50); // 50ms
     }
     return () => { if (timer) clearInterval(timer); };
   }, []);

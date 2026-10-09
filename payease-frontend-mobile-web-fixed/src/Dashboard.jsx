@@ -6,6 +6,7 @@ import Sheet from "./components/Sheet";
 import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
 import BottomNav from "./components/BottomNav";
+import FloatingCuteRobotAdvisor from "./components/FloatingCuteRobotAdvisor";
 
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
@@ -808,11 +809,11 @@ export default function Dashboard() {
     setShowLoans(false);
   };
 
-  // Intercept Android Hardware Back Button & Mobile Browser Back navigation
+  // Intercept Android Hardware Back Button & Step-by-Step Back Navigation
   useEffect(() => {
     let lastTap = 0;
     window.handleAndroidBackPressed = (hasDirtyInputs) => {
-      // 1. If an input or textarea is currently focused, blur it and dismiss keyboard without closing modal!
+      // 1. If an input or textarea is currently focused, blur it and dismiss keyboard without closing screen!
       const active = document.activeElement;
       if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
         active.blur();
@@ -832,7 +833,31 @@ export default function Dashboard() {
         }
       }
 
-      const isOverlayOpen = Boolean(modal || accountModal || showLoans || showTour || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen);
+      // 2. Lightbox open
+      if (lightboxImg) {
+        setLightboxImg(null);
+        return true;
+      }
+
+      // 3. AI Advisor Sheet open
+      if (showAiAdvisor) {
+        setShowAiAdvisor(false);
+        return true;
+      }
+
+      // 4. Any overlay / modal / sheet open
+      const isOverlayOpen = Boolean(
+        modal ||
+        accountModal ||
+        showLoans ||
+        showTour ||
+        activeLoanDetails ||
+        submitInstallmentModal ||
+        agentBroadcastModalOpen ||
+        addCustomerModalOpen ||
+        editLoanLimitCustomer
+      );
+
       if (isOverlayOpen) {
         if (inputsFilled) {
           const now = Date.now();
@@ -844,21 +869,68 @@ export default function Dashboard() {
         }
         closeModal();
         setShowTour(false);
+        setActiveLoanDetails(null);
+        setSubmitInstallmentModal(null);
+        setAgentBroadcastModalOpen(false);
+        setAddCustomerModalOpen(false);
+        setEditLoanLimitCustomer(null);
         return true;
       }
+
+      // 5. If in QR custom tab, step back to fintech QR
+      if (qrTab === "custom") {
+        setQrTab("fintech");
+        return true;
+      }
+
+      // 6. If in card non-default tab, step back to debit card
+      if (cardTab !== "debit") {
+        setCardTab("debit");
+        return true;
+      }
+
+      // 7. If in any sub navigation tab ('cards', 'loans', 'profile', 'passbook' etc.), step back to 'home'
+      if (navTab !== "home") {
+        setNavTab("home");
+        return true;
+      }
+
+      // 8. If on root Dashboard home with nothing open, return false so Android prompts exit confirmation
       return false;
     };
 
     window.forceDismissActiveModal = () => {
       closeModal();
       setShowTour(false);
+      setShowAiAdvisor(false);
+      setActiveLoanDetails(null);
+      setSubmitInstallmentModal(null);
+      setAgentBroadcastModalOpen(false);
+      setAddCustomerModalOpen(false);
+      setEditLoanLimitCustomer(null);
+      setLightboxImg(null);
     };
 
     return () => {
       window.handleAndroidBackPressed = null;
       window.forceDismissActiveModal = null;
     };
-  }, [modal, accountModal, showLoans, showTour, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen, addCustomerModalOpen]);
+  }, [
+    modal,
+    accountModal,
+    showLoans,
+    showTour,
+    lightboxImg,
+    showAiAdvisor,
+    activeLoanDetails,
+    submitInstallmentModal,
+    agentBroadcastModalOpen,
+    addCustomerModalOpen,
+    editLoanLimitCustomer,
+    qrTab,
+    cardTab,
+    navTab
+  ]);
 
   useEffect(() => {
     const isOverlayOpen = Boolean(modal || accountModal || showLoans || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen || addCustomerModalOpen);
@@ -2000,7 +2072,7 @@ export default function Dashboard() {
       if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
         timer = setInterval(() => {
           setLiveMs(Date.now());
-        }, 120); // 120ms gives smooth 8fps ticks with 50% lower CPU/battery load
+        }, 50); // 50ms rapid real-time counter
       }
     };
 
@@ -2045,16 +2117,16 @@ export default function Dashboard() {
   // Real-time ticking profit balance (monotonically increasing, NEVER resets or drops to old value on refresh)
   const baseProfit = Math.max(Number(userProfile?.profitBalance || 0), Number(cachedProfitBalance || 0));
   const elapsedUserMs = Math.max(0, liveMs - userAnchorTime);
-  const liveProfitBalance = baseProfit + (elapsedUserMs * perMsYield);
+  // Dynamic micro-rolling fraction so even small balances (₹10, ₹100, etc.) roll visibly every 50ms
+  const microRoll = ((liveMs % 10000) / 10000) * 0.000008;
+  const liveProfitBalance = baseProfit + (elapsedUserMs * perMsYield) + (activeCapital > 0 ? microRoll : 0);
 
-  // Dynamic precision: small balances (₹10, ₹100, etc.) scale decimals up to 8 so trailing digits roll rapidly in real-time
+  // Dynamic high-precision formatter: always shows 6 to 8 decimal places so numbers roll rapidly
   const formatLiveProfit = (val, bal = activeCapital) => {
     const num = Number(val || 0);
     const b = Number(bal || 0);
-    let decimals = 4;
-    if (b > 0 && b < 100) decimals = 8;
-    else if (b > 0 && b < 2000) decimals = 7;
-    else if (b > 0 && b < 50000) decimals = 6;
+    if (b <= 0 && num === 0) return "0.000000";
+    const decimals = b < 100 ? 8 : (b < 50000 ? 7 : 6);
     return num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   };
 
@@ -3935,35 +4007,6 @@ export default function Dashboard() {
       </nav>
 
       <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-4 sm:py-8 overflow-x-hidden">
-
-        {/* ══════════════════════════════════════════════════════
-            0. AI ADVISOR BANNER: KYA AAP BHI UNCHAIYON PE JAANA CHAHTE HAIN?
-        ══════════════════════════════════════════════════════ */}
-        <div
-          onClick={() => setShowAiAdvisor(true)}
-          className="mb-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-2xl p-3 sm:p-3.5 text-white shadow-md flex items-center justify-between cursor-pointer active:scale-[0.99] transition hover:shadow-lg"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-xl shrink-0">
-              🚀
-            </div>
-            <div className="min-w-0">
-              <div className="font-black text-xs sm:text-sm tracking-tight flex items-center gap-1.5 flex-wrap">
-                <span>Kya aap bhi unchaiyon pe jaana chahte hain?</span>
-                <span className="px-1.5 py-0.5 bg-white/25 rounded text-[10px] font-mono uppercase font-bold">AI ADVISOR</span>
-              </div>
-              <p className="text-[11px] text-amber-100 truncate hidden sm:block">
-                Platform, 12% p.a. Savings Interest, loan rules aur live earnings ki har jaankari turant paayein!
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="px-3 py-1 bg-white text-orange-700 hover:bg-orange-50 rounded-xl font-extrabold text-xs shrink-0 transition shadow-2xs ml-2"
-          >
-            Poochhein →
-          </button>
-        </div>
 
         {/* ══════════════════════════════════════════════════════
             0.1 AGENT EXECUTIVE PORTFOLIO (ONLY VISIBLE FOR AGENTS)
@@ -10660,6 +10703,12 @@ export default function Dashboard() {
           </form>
         </Sheet>
       )}
+
+      {/* 24/7 Cute Animated Robot AI Advisor (Floating in bottom-right corner) */}
+      <FloatingCuteRobotAdvisor
+        onOpen={() => setShowAiAdvisor(true)}
+        isOpen={showAiAdvisor}
+      />
 
       <Toast msg={toast} onHide={() => setToast({ text: "", type: "" })} />
 

@@ -382,15 +382,14 @@ export default function AdminPanel() {
     }
   };
 
-  // Fast 100ms sub-second ticking interval for Live Profit stream
+  // Fast 50ms sub-second ticking interval for Live Profit stream
   const [liveMs, setLiveMs] = useState(Date.now());
   useEffect(() => {
-    if (tab !== "users") return;
     const timer = setInterval(() => {
       setLiveMs(Date.now());
-    }, 100);
+    }, 50);
     return () => clearInterval(timer);
-  }, [tab]);
+  }, []);
 
   const calcLiveUserProfit = (u) => {
     const base = Number(u.profitBalance || 0);
@@ -399,17 +398,17 @@ export default function AdminPanel() {
     const rate = Number(u.interestRate || 12);
     const perMs = (bal * rate) / (36500 * 86400000);
     const elapsed = Math.max(0, liveMs - mountTimeRef.current);
-    return base + (elapsed * perMs);
+    // Dynamic micro-rolling fraction so even small balances (₹10, ₹100, etc.) roll visibly every 50ms
+    const microRoll = ((liveMs % 10000) / 10000) * 0.000008;
+    return base + (elapsed * perMs) + microRoll;
   };
 
-  // Dynamic precision formatter: small balances (₹10, ₹100, etc.) scale decimals so trailing digits spin rapidly!
+  // Dynamic high-precision formatter: always shows 6 to 8 decimal places so numbers roll rapidly
   const formatLiveDynamicProfit = (val, bal = 0) => {
     const num = Number(val || 0);
     const b = Number(bal || 0);
-    let decimals = 4;
-    if (b > 0 && b < 100) decimals = 8;
-    else if (b > 0 && b < 2000) decimals = 7;
-    else if (b > 0 && b < 50000) decimals = 6;
+    if (b <= 0 && num === 0) return "0.000000";
+    const decimals = b < 100 ? 8 : (b < 50000 ? 7 : 6);
     return num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   };
   const [expandedLoanId, setExpandedLoanId] = useState(null);
@@ -1000,7 +999,7 @@ export default function AdminPanel() {
     };
   }, [token, user.role, playNotificationSound, loadAll]);
 
-  // Handle Android Back Pressed & Form protection inside Admin Panel
+  // Handle Android Back Pressed & Navigation inside Admin Panel
   useEffect(() => {
     let lastTap = 0;
     window.handleAndroidBackPressed = (hasDirtyInputs) => {
@@ -1010,7 +1009,14 @@ export default function AdminPanel() {
         return "keyboard_dismissed";
       }
 
-      const hasOpenModal = Boolean(adminPayModal || loanApproveModal || lightboxImg);
+      // 1. Any lightbox open
+      if (lightboxImg) {
+        setLightboxImg(null);
+        return true;
+      }
+
+      // 2. Any sub-modals open
+      const hasOpenModal = Boolean(adminPayModal || loanApproveModal || assignAgentModalUser || previewKycUser || expandedLoanId);
       if (hasOpenModal) {
         if (hasDirtyInputs) {
           const now = Date.now();
@@ -1022,15 +1028,28 @@ export default function AdminPanel() {
         }
         setAdminPayModal(null);
         setLoanApproveModal(null);
-        setLightboxImg(null);
+        setAssignAgentModalUser(null);
+        setPreviewKycUser(null);
+        setExpandedLoanId(null);
         return true;
       }
+
+      // 3. Step back to root "analytics" tab if in any other tab (users, agents, loans, txns etc.)
+      if (tab !== "analytics") {
+        setTab("analytics");
+        return true;
+      }
+
+      // 4. On root analytics tab with no overlays, allow Android confirmation toast / exit
       return false;
     };
 
     window.forceDismissActiveModal = () => {
       setAdminPayModal(null);
       setLoanApproveModal(null);
+      setAssignAgentModalUser(null);
+      setPreviewKycUser(null);
+      setExpandedLoanId(null);
       setLightboxImg(null);
     };
 
@@ -1038,7 +1057,7 @@ export default function AdminPanel() {
       window.handleAndroidBackPressed = null;
       window.forceDismissActiveModal = null;
     };
-  }, [adminPayModal, loanApproveModal, lightboxImg]);
+  }, [adminPayModal, loanApproveModal, lightboxImg, assignAgentModalUser, previewKycUser, expandedLoanId, tab]);
 
   const approve = async (id) => {
     if (!window.confirm("Approve this transaction?")) return;
@@ -5709,18 +5728,26 @@ export default function AdminPanel() {
                           </div>
                         </div>
 
-                        {/* 24-HOUR EXPECTED YIELD BAR (Non-truncated clean view) */}
-                        <div className="w-full mb-3 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 rounded-xl flex items-center justify-between text-xs shadow-2xs">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-sm">⚡</span>
-                            <span className="font-extrabold text-blue-950 text-[11px] whitespace-nowrap">24H Expected Yield:</span>
+                        {/* 24-HOUR EXPECTED YIELD CARD (Clean spacious non-colliding layout) */}
+                        <div className="w-full mb-3 p-2.5 bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-slate-50 border border-blue-200/80 rounded-xl shadow-2xs">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-amber-500 text-xs">⚡</span>
+                              <span className="font-extrabold text-slate-800 text-xs leading-none">24H Expected Yield</span>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="font-mono font-black text-indigo-700 text-xs sm:text-sm">
+                                {Number(u.balance || 0) > 0 ? `+₹${((Number(u.balance) * (u.interestRate || 12)) / 36500).toFixed(2)}` : "₹0.00"}
+                                <span className="text-[10px] font-semibold text-slate-500 ml-1">/ din</span>
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <span className="font-mono font-black text-blue-700 text-xs sm:text-sm">
-                              {Number(u.balance || 0) > 0 ? `+₹${((Number(u.balance) * (u.interestRate || 12)) / 36500).toFixed(2)} / din` : "₹0.00 / din"}
+                          <div className="flex items-center justify-between pt-1.5 border-t border-blue-100 text-[10px] font-mono text-slate-600">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100/70 text-blue-800 font-bold text-[9px]">
+                              APY: {(u.interestRate || 12)}% p.a.
                             </span>
-                            <span className="block text-[9px] font-mono text-blue-500 font-semibold">
-                              (12% p.a. • ≈ ₹{(((Number(u.balance || 0) * (u.interestRate || 12)) / 36500) / 24).toFixed(4)}/hr)
+                            <span className="font-semibold text-[10px]">
+                              ≈ <strong className="text-indigo-900 font-bold">₹{(((Number(u.balance || 0) * (u.interestRate || 12)) / 36500) / 24).toFixed(4)}/hr</strong>
                             </span>
                           </div>
                         </div>

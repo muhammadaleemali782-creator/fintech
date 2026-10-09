@@ -3,11 +3,11 @@ import { useState } from "react";
 /**
  * FloatingCuteRobotAdvisor
  * 
- * Clean, minimal floating AI advisor using the user's custom 3D robot image.
- * - Zero extra text/badges (as requested).
+ * Clean, minimal floating AI advisor using user's 3D robot image.
+ * - Zero extra text/badges.
  * - Floats in bottom-right corner, stays fixed across scroll.
  * - Click robot -> opens AI Advisor chat (onOpen).
- * - Click '✕' -> robot disappears completely off-screen, ONLY its cute waving hand stays slightly peeking out at the screen edge.
+ * - Click '✕' -> robot hides completely off-screen, left hand deeply tucked with only a subtle hint peeking out (no white background box).
  * - Click peeking hand -> robot springs back into view.
  */
 export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
@@ -59,25 +59,23 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
         </div>
       </div>
 
-      {/* 2. PEEKING HAND ONLY (Visible when tucked off-screen) */}
+      {/* 2. PEEKING LEFT HAND ONLY (Deeply tucked into right edge, no white bg box) */}
       <div
         onClick={() => setIsPeek(false)}
         title="AI Sahayak"
-        className={`fixed bottom-28 sm:bottom-12 right-0 z-40 cursor-pointer transition-all duration-300 ease-out flex items-center ${
+        aria-label="AI Sahayak"
+        className={`fixed bottom-28 sm:bottom-12 right-0 z-40 cursor-pointer transition-all duration-300 ease-out select-none flex items-center ${
           isPeek
-            ? "translate-x-0 opacity-100 scale-100"
+            ? "translate-x-[60%] opacity-90 hover:translate-x-[45%] hover:opacity-100 scale-95 hover:scale-105 active:scale-90"
             : "translate-x-full opacity-0 pointer-events-none scale-75"
         }`}
       >
-        <div className="relative group bg-white/95 backdrop-blur-xs border-y border-l border-cyan-300 shadow-[-4px_4px_12px_rgba(34,211,238,0.3)] pl-2 pr-0.5 py-1 rounded-l-2xl flex items-center hover:bg-cyan-50 active:scale-90 transition">
-          <img
-            src="/ai-robot-hand.png"
-            alt="Robot Hand"
-            className="w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow-xs animate-bounce"
-            style={{ animationDuration: "1.8s" }}
-            draggable={false}
-          />
-        </div>
+        <img
+          src="/ai-robot-hand-left.png"
+          alt="AI Hand"
+          className="w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow-[0_2px_10px_rgba(34,211,238,0.7)] animate-pulse"
+          draggable={false}
+        />
       </div>
     </div>
   );

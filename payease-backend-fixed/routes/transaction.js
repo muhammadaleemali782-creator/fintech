@@ -6,6 +6,7 @@ const { protect } = require('../middleware/auth');
 const { isValidAmount } = require('../utils/validateAmount');
 const { validateBase64Upload } = require('../utils/validateUpload');
 const bcrypt = require('bcryptjs');
+const memoryCache = require('../utils/cache');
 const router = express.Router();
 
 // 1. Lookup Recipient by Phone, Email, or Unique ID / Referral Code
@@ -211,6 +212,9 @@ router.post('/transfer', protect, async (req, res) => {
       receiverTxn = rTxnArr[0];
     });
 
+    memoryCache.delPrefix('user_me_' + req.user._id);
+    memoryCache.delPrefix('user_me_' + recipientUser._id);
+
     res.json({
       message: `🎉 ₹${amount.toLocaleString('en-IN')} successfully sent to ${recipientUser.name}!`,
       txn: senderTxn,
@@ -281,6 +285,8 @@ router.post('/deposit', protect, async (req, res) => {
       remarks: `Deposit Request (UTR: ${cleanUtr || 'Evidence attached'})`
     });
     
+    memoryCache.delPrefix('user_me_' + req.user._id);
+
     res.json({
       message: '✅ Deposit request with evidence submitted. Awaiting admin approval.',
       txn
@@ -373,6 +379,8 @@ router.post('/withdraw', protect, async (req, res) => {
     const successMessage = isUnder5k
       ? '✅ Withdrawal request submitted! ₹5,000 tak ki request 24 ghante ke andar Admin dwara approve aur transfer kar di jayegi.'
       : '🛡️ High-value withdrawal request submitted! ₹5,000 se upar ki request verification ke baad 72 ghante ke darmiyan Admin dwara approve aur transfer kar di jayegi.';
+
+    memoryCache.delPrefix('user_me_' + req.user._id);
 
     res.json({
       message: successMessage,

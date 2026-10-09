@@ -10,6 +10,7 @@ import FloatingCuteRobotAdvisor from "./components/FloatingCuteRobotAdvisor";
 
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
+import { appCache, isDataEqual, silentFetch } from "./utils/dataCache";
 
 // Helper: Calculate upcoming 1st, 11th, and 21st collection dates
 const getUpcomingDates = (count = 6) => {
@@ -419,81 +420,56 @@ export default function Dashboard() {
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const [balance, setBalance] = useState(() => {
-    const cached = localStorage.getItem("educa_cached_balance");
-    return cached !== null ? Number(cached) : (userStored.balance || 0);
+    return Number(appCache.get("educa_cached_balance", userStored.balance || 0));
   });
   const [cachedProfitBalance, setCachedProfitBalance] = useState(() => {
-    const cached = localStorage.getItem("educa_cached_profit_balance");
-    return cached !== null ? Number(cached) : Number(userStored.profitBalance || 0);
+    return Number(appCache.get("educa_cached_profit_balance", userStored.profitBalance || 0));
   });
-  const [loadingDashboard, setLoadingDashboard] = useState(!localStorage.getItem("educa_cached_profile"));
+  const [loadingDashboard, setLoadingDashboard] = useState(!appCache.has("educa_cached_profile"));
   const [txns, setTxns] = useState(() => {
-    try {
-      const cached = localStorage.getItem("educa_cached_txns");
-      return cached ? JSON.parse(cached) : [];
-    } catch { return []; }
+    return appCache.get("educa_cached_txns", []);
   });
   const [loans, setLoans] = useState(() => {
-    try {
-      const cached = localStorage.getItem("educa_cached_loans");
-      return cached ? JSON.parse(cached) : [];
-    } catch { return []; }
+    return appCache.get("educa_cached_loans", []);
   });
   const [bonds, setBonds] = useState(() => {
-    try {
-      const cached = localStorage.getItem("educa_cached_bonds");
-      return cached ? JSON.parse(cached) : [];
-    } catch { return []; }
+    return appCache.get("educa_cached_bonds", []);
   });
   const [showLoans, setShowLoans] = useState(() => {
-    try {
-      const cached = localStorage.getItem("educa_cached_loans");
-      return Boolean(cached && JSON.parse(cached).length > 0);
-    } catch { return false; }
+    const cachedLoans = appCache.get("educa_cached_loans", []);
+    return Array.isArray(cachedLoans) && cachedLoans.length > 0;
   });
   const [toast, setToast] = useState({ text: "", type: "" });
   const [modal, setModal] = useState(null); // 'deposit' | 'withdraw' | 'profile' | 'my_qr' | 'send_money' | 'passbook' | 'cards'
   const [passbookFilter, setPassbookFilter] = useState("all"); // 'all' | 'in' | 'out'
   const [accountModal, setAccountModal] = useState(null); // 'wallet' | 'debt' | 'lending' | 'personal_loan' | 'student_loan' | 'business_loan'
-  const [currentRate, setCurrentRate] = useState(12);
+  const [currentRate, setCurrentRate] = useState(() => Number(appCache.get("educa_cached_current_rate", 12)));
   const [referralCode, setReferralCode] = useState(userStored.referralCode || "");
   const [referralEarnings, setReferralEarnings] = useState(0);
   const [copied, setCopied] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
   const [navTab, setNavTab] = useState("home");
   const [userProfile, setUserProfile] = useState(() => {
-    try {
-      const cached = localStorage.getItem("educa_cached_profile");
-      return cached ? JSON.parse(cached) : userStored;
-    } catch { return userStored || {}; }
+    return appCache.get("educa_cached_profile", userStored || {});
   });
   const [cardTab, setCardTab] = useState(() => {
-    try {
-      const cached = localStorage.getItem("educa_cached_profile");
-      const prof = cached ? JSON.parse(cached) : userStored;
-      return (prof.cardTier === "platinum" || prof.cardStatus?.platinum?.unlocked) ? "platinum" : "silver";
-    } catch { return "silver"; }
+    const prof = appCache.get("educa_cached_profile", userStored || {});
+    return (prof.cardTier === "platinum" || prof.cardStatus?.platinum?.unlocked) ? "platinum" : "silver";
   });
   const [activatingWallet, setActivatingWallet] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [qrTab, setQrTab] = useState("fintech"); // "fintech" | "custom"
   const [customQrUrl, setCustomQrUrl] = useState(() => {
-    try {
-      const uId = userStored?.id || userStored?._id || "guest";
-      return localStorage.getItem(`educa_custom_qr_${uId}`) || "";
-    } catch { return ""; }
+    const uId = userStored?.id || userStored?._id || "guest";
+    return appCache.get(`educa_custom_qr_${uId}`, "");
   });
   const [customQrUpi, setCustomQrUpi] = useState(() => {
-    try {
-      const uId = userStored?.id || userStored?._id || "guest";
-      return localStorage.getItem(`educa_custom_upi_${uId}`) || "";
-    } catch { return ""; }
+    const uId = userStored?.id || userStored?._id || "guest";
+    return appCache.get(`educa_custom_upi_${uId}`, "");
   });
   const [customQrApp, setCustomQrApp] = useState(() => {
-    try {
-      const uId = userStored?.id || userStored?._id || "guest";
-      return localStorage.getItem(`educa_custom_app_${uId}`) || "Google Pay / PhonePe";
-    } catch { return "Google Pay / PhonePe"; }
+    const uId = userStored?.id || userStored?._id || "guest";
+    return appCache.get(`educa_custom_app_${uId}`, "Google Pay / PhonePe");
   });
   const [customQrUploadDraft, setCustomQrUploadDraft] = useState("");
   const [customQrUpiDraft, setCustomQrUpiDraft] = useState("");
@@ -508,10 +484,7 @@ export default function Dashboard() {
 
   // Dues & Loan Installment states
   const [activeLoanDetails, setActiveLoanDetails] = useState(() => {
-    try {
-      const cached = localStorage.getItem("educa_cached_active_loan");
-      return cached ? JSON.parse(cached) : null;
-    } catch { return null; }
+    return appCache.get("educa_cached_active_loan", null);
   });
   const [submitInstallmentModal, setSubmitInstallmentModal] = useState(null);
   const [installmentUtr, setInstallmentUtr] = useState("");
@@ -567,7 +540,9 @@ export default function Dashboard() {
   const [transferringProfit, setTransferringProfit] = useState(false);
 
   // Agent Performance Dashboard State
-  const [agentMetrics, setAgentMetrics] = useState(null);
+  const [agentMetrics, setAgentMetrics] = useState(() => {
+    return appCache.get("educa_cached_agent_metrics", null);
+  });
   const [loadingAgentMetrics, setLoadingAgentMetrics] = useState(false);
   const [agentCustomerSearch, setAgentCustomerSearch] = useState("");
   const [agentBroadcastModalOpen, setAgentBroadcastModalOpen] = useState(false);
@@ -600,7 +575,9 @@ export default function Dashboard() {
   ]);
 
   // Profit Wallet Statement / History State
-  const [profitHistory, setProfitHistory] = useState([]);
+  const [profitHistory, setProfitHistory] = useState(() => {
+    return appCache.get("educa_cached_profit_history", []);
+  });
   const [loadingProfitHistory, setLoadingProfitHistory] = useState(false);
 
   // Camera Flashlight / Torch State
@@ -652,15 +629,17 @@ export default function Dashboard() {
   const txt = UI_TEXT[lang] || UI_TEXT.hinglish;
 
   const [depForm, setDepForm] = useState({ amount: "", method: "upi", utrNumber: "", proofUrl: "", proofName: "" });
-  const [depositDetails, setDepositDetails] = useState({
-    upiId: "educafinance@upi",
-    upiName: "Educa Finance & Payments",
-    accountNumber: "5010045239128",
-    ifsc: "BARB0JHALWA",
-    bankName: "Bank of Baroda",
-    branch: "Jhalwa Branch, Prayagraj",
-    accountHolder: "Educa Fintech Admin",
-    instructions: "Payment complete karne ke baad 12-digit UTR / Ref Number enter karke Submit karein."
+  const [depositDetails, setDepositDetails] = useState(() => {
+    return appCache.get("educa_cached_deposit_details", {
+      upiId: "educafinance@upi",
+      upiName: "Educa Finance & Payments",
+      accountNumber: "5010045239128",
+      ifsc: "BARB0JHALWA",
+      bankName: "Bank of Baroda",
+      branch: "Jhalwa Branch, Prayagraj",
+      accountHolder: "Educa Fintech Admin",
+      instructions: "Payment complete karne ke baad 12-digit UTR / Ref Number enter karke Submit karein."
+    });
   });
   const [copiedDepField, setCopiedDepField] = useState("");
   const [wdForm, setWdForm] = useState({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "", sourceWallet: "main" });
@@ -1171,26 +1150,28 @@ export default function Dashboard() {
   };
 
   const loadProfitHistory = async () => {
-    if (profitHistory.length === 0) {
+    if (profitHistory.length === 0 && !appCache.has("educa_cached_profit_history")) {
       setLoadingProfitHistory(true);
     }
     try {
-      const res = await fetchWithTimeout(`${API}/user/profit-history`, {
+      const res = await silentFetch(`${API}/user/profit-history`, {
         headers: { Authorization: `Bearer ${token}` }
       }, 7000);
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setProfitHistory(data.history || []);
-        if (data.profitBalance !== undefined) {
+      if (res.notModified) return;
+      if (res.data && res.data.success) {
+        const history = res.data.history || [];
+        setProfitHistory(prev => (isDataEqual(prev, history) ? prev : history));
+        appCache.set("educa_cached_profit_history", history);
+        if (res.data.profitBalance !== undefined) {
           setUserProfile(prev => ({
             ...prev,
-            profitBalance: data.profitBalance,
-            balance: data.balance !== undefined ? data.balance : prev.balance
+            profitBalance: res.data.profitBalance,
+            balance: res.data.balance !== undefined ? res.data.balance : prev.balance
           }));
         }
-        if (data.balance !== undefined) {
-          setBalance(data.balance);
-          localStorage.setItem("educa_cached_balance", String(data.balance));
+        if (res.data.balance !== undefined) {
+          setBalance(res.data.balance);
+          appCache.set("educa_cached_balance", res.data.balance);
         }
       }
     } catch (e) {
@@ -1971,13 +1952,16 @@ export default function Dashboard() {
     return () => clearTimeout(timer);
   }, [sendForm.recipient]);
 
-  const loadAgentMetrics = useCallback(async () => {
-    setLoadingAgentMetrics(true);
+  const loadAgentMetrics = useCallback(async (silent = false) => {
+    if (!silent && !appCache.has("educa_cached_agent_metrics")) {
+      setLoadingAgentMetrics(true);
+    }
     try {
-      const res = await fetchWithTimeout(`${API}/user/agent/stats`, { headers }, 7000);
-      const data = await res.json();
-      if (res.ok && data) {
-        setAgentMetrics(data);
+      const res = await silentFetch(`${API}/user/agent/stats`, { headers }, 7000);
+      if (res.notModified) return;
+      if (res.data) {
+        setAgentMetrics(prev => (isDataEqual(prev, res.data) ? prev : res.data));
+        appCache.set("educa_cached_agent_metrics", res.data);
       }
     } catch {}
     finally {
@@ -1985,9 +1969,12 @@ export default function Dashboard() {
     }
   }, [headers]);
 
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async (silent = false) => {
+    if (!silent && !appCache.has("educa_cached_profile")) {
+      setLoadingDashboard(true);
+    }
     try {
-      const res = await fetchWithTimeout(`${API}/user/me`, { headers }, 8000);
+      const res = await silentFetch(`${API}/user/me`, { headers }, 8000);
       if (res.status === 401) {
         tokenStorage.removeToken();
         localStorage.removeItem("user");
@@ -1995,18 +1982,23 @@ export default function Dashboard() {
         navigate("/login");
         return;
       }
-      const data = await res.json();
-      if (res.ok && data) {
-        setUserProfile(data);
-        localStorage.setItem("educa_cached_profile", JSON.stringify(data));
+      if (res.notModified) return;
+      if (res.data) {
+        const data = res.data;
+        setUserProfile(prev => (isDataEqual(prev, data) ? prev : data));
+        appCache.set("educa_cached_profile", data);
         // Keep user object in localStorage fresh and strictly preserve role
         const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
         localStorage.setItem("user", JSON.stringify({ ...currentUser, ...data, role: data.role || currentUser.role }));
-        setBalance(data.balance || 0);
-        localStorage.setItem("educa_cached_balance", String(data.balance || 0));
+        
+        if (data.balance !== undefined) {
+          setBalance(prev => (prev === data.balance ? prev : data.balance));
+          appCache.set("educa_cached_balance", data.balance);
+        }
         if (data.profitBalance !== undefined) {
-          setCachedProfitBalance(Number(data.profitBalance));
-          localStorage.setItem("educa_cached_profit_balance", String(data.profitBalance));
+          const pb = Number(data.profitBalance);
+          setCachedProfitBalance(prev => (prev === pb ? prev : pb));
+          appCache.set("educa_cached_profit_balance", data.profitBalance);
         }
 
         // Native Android App: Register device silently in background without intrusive prompts
@@ -2026,21 +2018,24 @@ export default function Dashboard() {
           localStorage.setItem("hasWalletPin", "false");
           setAppLocked(false);
         }
-        if (data.interestRate) setCurrentRate(data.interestRate);
+        if (data.interestRate) {
+          setCurrentRate(prev => (prev === data.interestRate ? prev : data.interestRate));
+          appCache.set("educa_cached_current_rate", data.interestRate);
+        }
         setReferralCode(data.referralCode || "");
         setReferralEarnings(data.referralEarnings || 0);
         if (data.cardTier === "platinum" || data.cardStatus?.platinum?.unlocked) {
           setCardTab("platinum");
         }
         if (data.role === "agent" || data.agentProfile?.status === "approved") {
-          loadAgentMetrics();
+          loadAgentMetrics(true);
         }
       }
     } catch {}
     finally {
       setLoadingDashboard(false);
     }
-  }, [headers, navigate]);
+  }, [headers, navigate, loadAgentMetrics]);
 
   useEffect(() => {
     if (isAgent) {
@@ -2147,22 +2142,22 @@ export default function Dashboard() {
 
   const loadTransactions = async () => {
     try {
-      const res = await fetchWithTimeout(`${API}/transaction/my`, { headers }, 7000);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setTxns(data);
-        localStorage.setItem("educa_cached_txns", JSON.stringify(data));
+      const res = await silentFetch(`${API}/transaction/my`, { headers }, 7000);
+      if (res.notModified) return;
+      if (Array.isArray(res.data)) {
+        setTxns(prev => (isDataEqual(prev, res.data) ? prev : res.data));
+        appCache.set("educa_cached_txns", res.data);
       }
     } catch {}
   };
 
   const loadLoans = async () => {
     try {
-      const res = await fetchWithTimeout(`${API}/loan/my`, { headers }, 7000);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setLoans(data);
-        localStorage.setItem("educa_cached_loans", JSON.stringify(data));
+      const res = await silentFetch(`${API}/loan/my`, { headers }, 7000);
+      if (res.notModified) return;
+      if (Array.isArray(res.data)) {
+        setLoans(prev => (isDataEqual(prev, res.data) ? prev : res.data));
+        appCache.set("educa_cached_loans", res.data);
       }
       setShowLoans(true);
     } catch {}
@@ -2179,11 +2174,11 @@ export default function Dashboard() {
 
   const loadActiveLoanDetails = async () => {
     try {
-      const res = await fetchWithTimeout(`${API}/loan/active-details`, { headers }, 7000);
-      const data = await res.json();
-      if (data && data.hasActiveLoan) {
-        setActiveLoanDetails(data);
-        localStorage.setItem("educa_cached_active_loan", JSON.stringify(data));
+      const res = await silentFetch(`${API}/loan/active-details`, { headers }, 7000);
+      if (res.notModified) return;
+      if (res.data && res.data.hasActiveLoan) {
+        setActiveLoanDetails(prev => (isDataEqual(prev, res.data) ? prev : res.data));
+        appCache.set("educa_cached_active_loan", res.data);
       } else {
         setActiveLoanDetails(null);
         localStorage.removeItem("educa_cached_active_loan");
@@ -2193,43 +2188,74 @@ export default function Dashboard() {
 
   const loadBonds = async () => {
     try {
-      const res = await fetchWithTimeout(`${API}/bond/my`, { headers }, 7000);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setBonds(data);
-        localStorage.setItem("educa_cached_bonds", JSON.stringify(data));
+      const res = await silentFetch(`${API}/bond/my`, { headers }, 7000);
+      if (res.notModified) return;
+      if (Array.isArray(res.data)) {
+        setBonds(prev => (isDataEqual(prev, res.data) ? prev : res.data));
+        appCache.set("educa_cached_bonds", res.data);
       }
     } catch {}
   };
 
   const loadCurrentRate = async () => {
     try {
-      const res = await fetchWithTimeout(`${API}/loan/current-rate`, {}, 6000);
-      const data = await res.json();
-      setCurrentRate(data.interestRate || 1.34);
+      const res = await silentFetch(`${API}/loan/current-rate`, {}, 6000);
+      if (res.notModified) return;
+      if (res.data && res.data.interestRate) {
+        setCurrentRate(prev => (prev === res.data.interestRate ? prev : res.data.interestRate));
+        appCache.set("educa_cached_current_rate", res.data.interestRate);
+      }
     } catch {}
   };
 
-  useEffect(() => {
-    // Parallel fetch with timeouts - cuts startup time from 10s to 1s
-    Promise.allSettled([
-      loadDashboard(),
-      loadCurrentRate(),
-      loadLoans(),
-      loadBonds(),
-      loadTransactions(),
-      fetchWithTimeout(`${API}/settings/deposit-details`, {}, 5000)
-        .then(r => r.json())
-        .then(d => { if (d && d.upiId) setDepositDetails(d); })
-        .catch(() => {})
-    ]);
+  // Dedicated Silent Background Polling & Visibility Controller
+  const isSyncingRef = useRef(false);
 
-    // Auto-refresh live balances every 20 seconds only when foregrounded
-    const interval = setInterval(() => {
+  const silentSyncAll = useCallback(async () => {
+    // Avoid overlapping concurrent sync cycles
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+
+    try {
+      await Promise.allSettled([
+        loadDashboard(true),
+        loadCurrentRate(),
+        loadLoans(),
+        loadBonds(),
+        loadTransactions(),
+        silentFetch(`${API}/settings/deposit-details`, {}, 5000).then(r => {
+          if (r.data && r.data.upiId) {
+            setDepositDetails(prev => (isDataEqual(prev, r.data) ? prev : r.data));
+            appCache.set("educa_cached_deposit_details", r.data);
+          }
+        }).catch(() => {})
+      ]);
+    } catch {}
+    finally {
+      isSyncingRef.current = false;
+    }
+  }, [loadDashboard]);
+
+  useEffect(() => {
+    // Immediate silent refresh on open in background
+    silentSyncAll();
+
+    // Foreground-only background polling every 35 seconds (30-60s recommended range)
+    const pollInterval = setInterval(() => {
       if (typeof document !== "undefined" && !document.hidden) {
-        loadDashboard();
+        silentSyncAll();
       }
-    }, 20000);
+    }, 35000);
+
+    // Instant silent sync when app returns from background / unhidden / focus
+    const handleResume = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        silentSyncAll();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleResume);
+    window.addEventListener("focus", handleResume);
 
     // Check if new user guided feature tour should run
     const tourDone = localStorage.getItem("educa_tour_completed");
@@ -2238,10 +2264,12 @@ export default function Dashboard() {
       tourTimer = setTimeout(() => setShowTour(true), 1200);
     }
     return () => {
-      clearInterval(interval);
+      clearInterval(pollInterval);
+      document.removeEventListener("visibilitychange", handleResume);
+      window.removeEventListener("focus", handleResume);
       if (tourTimer) clearTimeout(tourTimer);
     };
-  }, [loadDashboard]);
+  }, [silentSyncAll]);
 
   // Clean up speech synthesis on component unmount
   useEffect(() => {
@@ -4574,7 +4602,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="text-center py-4 px-3 bg-white/5 rounded-2xl border border-white/10 text-xs text-indigo-200/90">
-                  {loadingAgentMetrics
+                  {loadingAgentMetrics && !agentMetrics
                     ? "Customer data load ho raha hai..."
                     : "Abhi tak koi referred customer onboard nahi hua hai. Upar diye gaye link se customers ko onboard karein."}
                 </div>
@@ -5813,7 +5841,7 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {loadingProfitHistory ? (
+            {loadingProfitHistory && profitHistory.length === 0 ? (
               <div className="py-8 text-center text-gray-400 text-xs animate-pulse">
                 Loading profit statement...
               </div>

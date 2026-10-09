@@ -8,6 +8,7 @@ const { protect, admin } = require('../middleware/auth');
 const { isValidAmount } = require('../utils/validateAmount');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
+const memoryCache = require('../utils/cache');
 const router = express.Router();
 
 // Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
@@ -1449,8 +1450,13 @@ router.get('/my', protect, async (req, res) => {
 // Current Rate
 router.get('/current-rate', async (req, res) => {
   try {
+    const cached = memoryCache.get('loan_current_rate');
+    if (cached) return res.json(cached);
+
     const setting = await Settings.findOne({ key: 'loanInterestRate' });
-    res.json({ interestRate: setting ? setting.value : 1.34 });
+    const payload = { interestRate: setting ? setting.value : 1.34 };
+    memoryCache.set('loan_current_rate', payload, 60);
+    res.json(payload);
   } catch {
     res.json({ interestRate: 1.34 });
   }

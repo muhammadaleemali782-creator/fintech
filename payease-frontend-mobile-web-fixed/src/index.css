@@ -185,4 +185,9 @@ button:active:not(:disabled),
   transition: transform 0.08s ease-out;
 }
 
+/* Smooth silent data update transition (150-250ms gentle transition, no jank) */
+.silent-update-transition {
+  transition: opacity 200ms ease, transform 200ms ease, background-color 200ms ease, color 200ms ease;
+}
+
 

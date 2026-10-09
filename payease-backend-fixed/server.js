@@ -216,6 +216,24 @@ app.get(['/health', '/api/health'], (req, res) => {
   });
 });
 
+// ------------------ FAST 304 & CACHE-CONTROL HEADERS ------------------
+// Mobile clients send If-None-Match to receive instant 304 Not Modified (<20ms)
+app.use('/api', (req, res, next) => {
+  if (req.method === 'GET') {
+    res.setHeader('Cache-Control', 'private, no-cache, must-revalidate');
+  }
+  next();
+});
+
+// Render Free Tier Keep-Alive Self Ping (prevents 1-4 min cold start spin down)
+const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || 'https://educafintech.onrender.com';
+setInterval(() => {
+  try {
+    const https = require('https');
+    https.get(`${keepAliveUrl}/health`, () => {}).on('error', () => {});
+  } catch {}
+}, 10 * 60 * 1000).unref();
+
 // ------------------ ROUTES ------------------
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/user', require('./routes/user'));

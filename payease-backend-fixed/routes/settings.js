@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Settings = require('../models/Settings');
 const User = require('../models/User');
 const { protect, admin } = require('../middleware/auth');
+const memoryCache = require('../utils/cache');
 const router = express.Router();
 
 // Get all settings
@@ -113,6 +114,9 @@ router.post('/google-drive', protect, admin, async (req, res) => {
 // Get Admin Deposit Details (UPI & Bank info for customer deposits)
 router.get('/deposit-details', async (req, res) => {
   try {
+    const cached = memoryCache.get('settings_deposit_details');
+    if (cached) return res.json(cached);
+
     const setting = await Settings.findOne({ key: 'depositDetails' });
     const defaultDetails = {
       upiId: 'educafinance@upi',
@@ -124,7 +128,9 @@ router.get('/deposit-details', async (req, res) => {
       accountHolder: 'Educa Fintech Admin',
       instructions: 'UPI App (GPay/PhonePe/Paytm) ya NetBanking se payment karne ke baad 12-digit UTR enter karein.'
     };
-    res.json(setting ? setting.value : defaultDetails);
+    const payload = setting ? setting.value : defaultDetails;
+    memoryCache.set('settings_deposit_details', payload, 60);
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch deposit details' });
   }
@@ -133,6 +139,9 @@ router.get('/deposit-details', async (req, res) => {
 // Get Public Live Reserves & Fintech Stats (For Website Landing Page)
 router.get('/public-stats', async (req, res) => {
   try {
+    const cached = memoryCache.get('settings_public_stats');
+    if (cached) return res.json(cached);
+
     const Transaction = require('../models/Transaction');
     const Loan = require('../models/Loan');
     const Bond = require('../models/Bond');
@@ -154,7 +163,7 @@ router.get('/public-stats', async (req, res) => {
     const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds) || totalDeposits;
     const totalLoans = await Loan.countDocuments({ status: { $in: ['active', 'approved'] } });
 
-    res.json({
+    const payload = {
       success: true,
       totalUsers: totalUsers || 14,
       totalDeposits,
@@ -163,7 +172,9 @@ router.get('/public-stats', async (req, res) => {
       totalLoans,
       interestRate: 12,
       serverTime: new Date().toISOString()
-    });
+    };
+    memoryCache.set('settings_public_stats', payload, 60);
+    res.json(payload);
   } catch (err) {
     res.json({
       success: true,
@@ -212,6 +223,7 @@ router.post('/deposit-details', protect, admin, async (req, res) => {
       { key: 'depositDetails', value, updatedAt: new Date() },
       { upsert: true, new: true }
     );
+    memoryCache.del('settings_deposit_details');
 
     res.json({
       success: true,

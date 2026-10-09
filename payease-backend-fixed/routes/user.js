@@ -8,6 +8,7 @@ const { sendNotification } = require('../utils/notifier');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
 const { getEducaMailUser } = require('../utils/educaMail');
+const memoryCache = require('../utils/cache');
 const router = express.Router();
 
 // Helper to evaluate and credit daily profit on primary Savings Account balance (IST Calendar)
@@ -89,6 +90,13 @@ async function processDailyYield(user) {
 
 router.get('/me', protect, async (req, res) => {
   try {
+    const cacheKey = `user_me_${req.user._id}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+      cached.serverTime = new Date().toISOString();
+      return res.json(cached);
+    }
+
     let user = await User.findById(req.user._id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
     if (!user.accountNumber && user.role !== 'admin') {
@@ -127,6 +135,7 @@ router.get('/me', protect, async (req, res) => {
     userObj.hasWalletPin = !!user.walletPin;
     userObj.serverTime = new Date().toISOString();
     delete userObj.walletPin;
+    memoryCache.set(cacheKey, userObj, 15);
     res.json(userObj);
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
@@ -282,6 +291,7 @@ router.put('/update', protect, async (req, res) => {
     }
 
     await user.save();
+    memoryCache.delPrefix('user_me_' + req.user._id);
 
     const safeUser = user.toObject();
     delete safeUser.password;

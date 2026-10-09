@@ -2410,7 +2410,7 @@ export default function AdminPanel() {
 
       <div className="flex-1 min-w-0 max-w-full min-h-screen">
         {/* MOBILE / TABLET TOP NAV */}
-        <nav className="lg:hidden bg-slate-900 border-b border-slate-800 shadow-md sticky top-0 z-40 safe-top">
+        <nav className="lg:hidden bg-slate-900 border-b border-white shadow-md sticky top-0 z-40 safe-top">
           <div className="px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 rounded-full object-contain bg-white p-0.5 shadow-xs shrink-0" />
@@ -2420,17 +2420,9 @@ export default function AdminPanel() {
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                type="button"
-                onClick={() => setMobileNavOpen(true)}
-                className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black flex items-center gap-1 active:scale-95 shadow-xs cursor-pointer shrink-0"
-                title="Switch Operations Desk"
-              >
-                <span>☰</span> <span>Desks</span>
-              </button>
               <Link
                 to="/dashboard"
-                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
+                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
               >
                 <span>📱</span> <span className="hidden sm:inline">App View</span>
               </Link>
@@ -2438,12 +2430,12 @@ export default function AdminPanel() {
                 <p className="text-slate-400 text-xs">Logged in as</p>
                 <p className="text-white font-semibold text-sm">{user.name}</p>
               </div>
-              <button onClick={logout} className="px-3 sm:px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition text-xs font-bold cursor-pointer">Logout</button>
+              <button onClick={logout} className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md transition text-[10px] font-bold cursor-pointer active:scale-95 shadow-xs">Logout</button>
             </div>
           </div>
         </nav>
 
-        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0 pb-28 lg:pb-8">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0">
           {/* Rate Limit (429) & Network Error Alert Banner */}
           {rateLimitError && (
             <div className="mb-4 sm:mb-6 p-4 bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-sm animate-in fade-in">
@@ -9108,44 +9100,6 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Persistent Bottom Desk Navigation Bar for Mobile */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex items-center justify-around safe-bottom shadow-2xl">
-          {[
-            { key: "analytics", label: "Reserves", icon: "📊" },
-            { key: "pending", label: "Pending", icon: "⏳", badge: pending.length },
-            { key: "users", label: "Users", icon: "👥" },
-            { key: "history", label: "History", icon: "📜" },
-          ].map(({ key, label, icon, badge }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => {
-                switchTab(key);
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] font-bold transition active:scale-95 cursor-pointer ${
-                tab === key ? "text-blue-400 font-black" : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <span className="text-base leading-none">{icon}</span>
-              <span className="mt-0.5">{label}</span>
-              {!!badge && (
-                <span className="absolute -top-0.5 right-1 text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.2 rounded-full">
-                  {badge}
-                </span>
-              )}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(true)}
-            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] font-bold text-slate-300 hover:text-white transition active:scale-95 cursor-pointer"
-          >
-            <span className="text-base leading-none">☰</span>
-            <span className="mt-0.5">All ({tabs.length})</span>
-          </button>
         </div>
       </div>
 

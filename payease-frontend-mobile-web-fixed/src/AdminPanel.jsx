@@ -1895,8 +1895,10 @@ export default function AdminPanel() {
     { key: "rejected", label: "Rejected", icon: "❌" },
   ];
 
+  const getAuditCacheKey = (cat = "all", stat = "all") => `educa_admin_audit_${cat}_${stat}`;
+
   const [auditHistory, setAuditHistory] = useState(() => {
-    const cached = appCache.get("educa_admin_cached_audit_history", null);
+    const cached = appCache.get("educa_admin_audit_all_all", null) || appCache.get("educa_admin_cached_audit_history", null);
     return (Array.isArray(cached) && cached.length > 0) ? cached : DEFAULT_AUDIT_HISTORY;
   });
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -1920,7 +1922,7 @@ export default function AdminPanel() {
       const data = await res.json();
       if (res.ok) {
         setToast({ text: `✅ ${data.message || "24h Profit alerts sent to depositors!"}`, type: "success" });
-        loadAuditHistory();
+        loadAuditHistory(true);
       } else {
         setToast({ text: data.message || "Failed to dispatch alerts", type: "error" });
       }
@@ -1957,38 +1959,92 @@ export default function AdminPanel() {
     }
   };
 
-  const loadAuditHistory = async () => {
+  const loadAuditHistory = useCallback(async (force = false) => {
+    const cacheKey = getAuditCacheKey(historyCategory, historyStatus);
+    const cachedMeta = appCache.getWithMeta(cacheKey, null);
+    const ONE_HOUR = 60 * 60 * 1000;
+    const now = Date.now();
+
+    // 1. Instant Frame-0 display from local storage
+    if (cachedMeta && Array.isArray(cachedMeta.data) && cachedMeta.data.length > 0) {
+      setAuditHistory(cachedMeta.data);
+      // If data is less than 1 hour old and not a forced refresh or search, skip network request
+      if (!force && !historySearch && cachedMeta.savedAt && (now - cachedMeta.savedAt < ONE_HOUR)) {
+        setHistoryLoading(false);
+        return;
+      }
+    } else if (!historySearch) {
+      // Instant in-memory filter fallback from root "all" cache
+      const rootCached = appCache.get(getAuditCacheKey("all", "all"), null);
+      if (Array.isArray(rootCached) && rootCached.length > 0) {
+        let filtered = rootCached;
+        if (historyCategory !== "all") {
+          filtered = filtered.filter(item => item.category === historyCategory || item.type === historyCategory);
+        }
+        if (historyStatus !== "all") {
+          filtered = filtered.filter(item => item.status === historyStatus);
+        }
+        if (filtered.length > 0) {
+          setAuditHistory(filtered);
+        }
+      }
+    }
+
+    if (!cachedMeta || !cachedMeta.data) {
+      setHistoryLoading(true);
+    }
+
     try {
       const query = new URLSearchParams({
         category: historyCategory,
         status: historyStatus,
         search: historySearch
       });
-      const res = await fetch(`${API}/admin/audit-history?${query}`, { headers });
+      const res = await cachedAdminFetch(`${API}/admin/audit-history?${query}`, { headers }, 60000, force);
       const data = await res.json();
       if (data && Array.isArray(data.history)) {
         if (data.history.length > 0) {
           setAuditHistory(data.history);
-          appCache.set("educa_admin_cached_audit_history", data.history);
+          if (!historySearch) {
+            appCache.set(cacheKey, data.history);
+            // Pre-warm individual category caches from root "all" list for 0ms sub-filter access
+            if (historyCategory === "all" && historyStatus === "all") {
+              AUDIT_CATEGORIES.forEach(cat => {
+                if (cat.key !== "all") {
+                  const subItems = data.history.filter(i => i.category === cat.key || i.type === cat.key);
+                  if (subItems.length > 0) {
+                    appCache.set(getAuditCacheKey(cat.key, "all"), subItems);
+                  }
+                }
+              });
+            }
+          }
         } else if (historyCategory === "all" && historyStatus === "all" && !historySearch) {
           setAuditHistory(DEFAULT_AUDIT_HISTORY);
-          appCache.set("educa_admin_cached_audit_history", DEFAULT_AUDIT_HISTORY);
+          appCache.set(cacheKey, DEFAULT_AUDIT_HISTORY);
         } else {
           setAuditHistory([]);
         }
       }
     } catch (err) {
-      console.error("Failed to load audit history:", err);
+      console.warn("Failed to load audit history:", err);
     } finally {
       setHistoryLoading(false);
     }
-  };
+  }, [historyCategory, historyStatus, historySearch, headers]); // eslint-disable-line
 
   useEffect(() => {
     if (tab === "history") {
       loadAuditHistory();
+      // Silently refresh old data in background every 1 hour (3600000ms)
+      const hourlyInterval = setInterval(() => {
+        if (typeof document !== "undefined" && !document.hidden) {
+          loadAuditHistory(true);
+        }
+      }, 60 * 60 * 1000);
+      return () => clearInterval(hourlyInterval);
     }
-  }, [historyCategory, historyStatus, historySearch]);
+  }, [tab, historyCategory, historyStatus, historySearch, loadAuditHistory]);
 
   // Switch / Convert Agent Commission Model (Solo <-> Team)
   const switchAgentModel = async (agentId, targetModel) => {
@@ -4593,10 +4649,12 @@ export default function AdminPanel() {
                           <button
                             type="button"
                             onClick={() => {
-                              setTempCategory("all");
-                              setTempStatus("all");
-                              setHistoryCategory("all");
-                              setHistoryStatus("all");
+                              React.startTransition(() => {
+                                setTempCategory("all");
+                                setTempStatus("all");
+                                setHistoryCategory("all");
+                                setHistoryStatus("all");
+                              });
                               setHistoryFilterOpen(false);
                             }}
                             className="text-xs font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer"
@@ -4606,8 +4664,10 @@ export default function AdminPanel() {
                           <button
                             type="button"
                             onClick={() => {
-                              setHistoryCategory(tempCategory);
-                              setHistoryStatus(tempStatus);
+                              React.startTransition(() => {
+                                setHistoryCategory(tempCategory);
+                                setHistoryStatus(tempStatus);
+                              });
                               setHistoryFilterOpen(false);
                             }}
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold shadow-xs active:scale-95 transition cursor-pointer"
@@ -4633,8 +4693,10 @@ export default function AdminPanel() {
                       <button
                         type="button"
                         onClick={() => {
-                          setHistoryCategory("all");
-                          setTempCategory("all");
+                          React.startTransition(() => {
+                            setHistoryCategory("all");
+                            setTempCategory("all");
+                          });
                         }}
                         className="hover:text-blue-900 cursor-pointer ml-1 font-black"
                       >
@@ -4648,8 +4710,10 @@ export default function AdminPanel() {
                       <button
                         type="button"
                         onClick={() => {
-                          setHistoryStatus("all");
-                          setTempStatus("all");
+                          React.startTransition(() => {
+                            setHistoryStatus("all");
+                            setTempStatus("all");
+                          });
                         }}
                         className="hover:text-emerald-900 cursor-pointer ml-1 font-black"
                       >

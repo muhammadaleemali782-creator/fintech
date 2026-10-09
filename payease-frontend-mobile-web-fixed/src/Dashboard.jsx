@@ -1376,6 +1376,7 @@ export default function Dashboard() {
   };
 
   const handleOpenSendMoney = () => {
+    loadDashboard(true);
     requireKyc(() => {
       if (!userProfile.hasWalletPin) {
         showToast("Kripya pehle 6-digit UPI PIN set karein", "info");
@@ -3197,16 +3198,6 @@ export default function Dashboard() {
     if (!amt || amt < 1 || !Number.isInteger(amt)) {
       return showToast("Valid amount daalein (minimum ₹1, bina decimals)", "error");
     }
-    const isProfit = sendForm.sourceWallet === "profit";
-    const availableFunds = isProfit ? (userProfile.profitBalance || 0) : balance;
-    if (amt > availableFunds) {
-      return showToast(
-        isProfit
-          ? `Profit Wallet me paryapt balance nahi hai. Available: ₹${Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-          : `Main Wallet me paryapt balance nahi hai. Available: ₹${balance.toLocaleString("en-IN")}`,
-        "error"
-      );
-    }
     if (!sendForm.recipient) {
       return showToast("Recipient Phone, Email ya Unique ID daalein", "error");
     }
@@ -3225,6 +3216,42 @@ export default function Dashboard() {
     }
 
     setIsSendingMoney(true);
+
+    // Fetch fresh profile from server so payment always checks 100% live server balance
+    let curBal = balance;
+    let curProfit = Number(userProfile.profitBalance || 0);
+    try {
+      const freshRes = await fetch(`${API}/user/me`, { headers });
+      if (freshRes.ok) {
+        const freshData = await freshRes.json();
+        if (freshData) {
+          if (freshData.balance !== undefined) {
+            curBal = Number(freshData.balance);
+            setBalance(curBal);
+            appCache.set("educa_cached_balance", curBal);
+          }
+          if (freshData.profitBalance !== undefined) {
+            curProfit = Number(freshData.profitBalance);
+            setCachedProfitBalance(prev => Math.max(prev || 0, curProfit));
+            appCache.set("educa_cached_profit_balance", curProfit);
+          }
+          setUserProfile(prev => ({ ...prev, ...freshData }));
+        }
+      }
+    } catch {}
+
+    const isProfit = sendForm.sourceWallet === "profit";
+    const availableFunds = isProfit ? curProfit : curBal;
+    if (amt > availableFunds) {
+      setIsSendingMoney(false);
+      return showToast(
+        isProfit
+          ? `Profit Wallet me paryapt balance nahi hai. Available: ₹${Number(curProfit).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+          : `Main Wallet me paryapt balance nahi hai. Available: ₹${curBal.toLocaleString("en-IN")}`,
+        "error"
+      );
+    }
+
     try {
       const res = await fetch(`${API}/transaction/transfer`, {
         method: "POST",
@@ -3241,9 +3268,23 @@ export default function Dashboard() {
       if (res.ok) {
         showToast(data.message || "🎉 Transfer successful!", "success");
         closeModal();
+        if (data.newBalance !== undefined) {
+          setBalance(data.newBalance);
+          appCache.set("educa_cached_balance", data.newBalance);
+        }
+        if (data.newProfitBalance !== undefined) {
+          setCachedProfitBalance(data.newProfitBalance);
+          appCache.set("educa_cached_profit_balance", data.newProfitBalance);
+        }
+        setUserProfile(prev => ({
+          ...prev,
+          balance: data.newBalance !== undefined ? data.newBalance : prev.balance,
+          profitBalance: data.newProfitBalance !== undefined ? data.newProfitBalance : prev.profitBalance
+        }));
         setSendForm({ recipient: "", amount: "", notes: "", pin: "", sourceWallet: "main" });
         setRecipientInfo(null);
-        loadDashboard();
+        loadDashboard(true);
+        loadTransactions();
       } else {
         if (data.needsSetup) {
           showToast(data.message || "Kripya pehle 6-digit UPI PIN banayein", "info");
@@ -3666,8 +3707,20 @@ export default function Dashboard() {
     const units = Math.max(1, parseInt(debitBondUnits) || 1);
     const amount = units * 100000;
     const profitReturn = Math.round(amount * 1.18);
-    if (balance < amount) {
-      return showToast(`${units} Lakh (₹${amount.toLocaleString("en-IN")}) ka bond banane ke liye wallet me kam se kam ₹${amount.toLocaleString("en-IN")} hona chahiye`, "error");
+    let curBal = balance;
+    try {
+      const fresh = await fetch(`${API}/user/me`, { headers });
+      if (fresh.ok) {
+        const d = await fresh.json();
+        if (d && d.balance !== undefined) {
+          curBal = Number(d.balance);
+          setBalance(curBal);
+          setUserProfile(prev => ({ ...prev, balance: curBal }));
+        }
+      }
+    } catch {}
+    if (curBal < amount) {
+      return showToast(`${units} Lakh (₹${amount.toLocaleString("en-IN")}) ka bond banane ke liye wallet me kam se kam ₹${amount.toLocaleString("en-IN")} hona chahiye. Available: ₹${curBal.toLocaleString("en-IN")}`, "error");
     }
     if (!window.confirm(`₹${amount.toLocaleString("en-IN")} (${units} Lakh) ka 365-Day Fixed Bond lock karein? Maturity par ₹${profitReturn.toLocaleString("en-IN")} Profit Wallet me add hoga.`)) return;
     try {
@@ -3696,8 +3749,20 @@ export default function Dashboard() {
     const monthlyPayout = type === "lending_40" ? Math.round(3500 * units) : Math.round(2500 * units);
     const totalReturn = type === "lending_40" ? Math.round(140000 * units) : Math.round(200000 * units);
 
-    if (balance < amount) {
-      return showToast(`Lending Bond (${units} Lakh) lock karne ke liye wallet me kam se kam ₹${amount.toLocaleString("en-IN")} hona chahiye`, "error");
+    let curBal = balance;
+    try {
+      const fresh = await fetch(`${API}/user/me`, { headers });
+      if (fresh.ok) {
+        const d = await fresh.json();
+        if (d && d.balance !== undefined) {
+          curBal = Number(d.balance);
+          setBalance(curBal);
+          setUserProfile(prev => ({ ...prev, balance: curBal }));
+        }
+      }
+    } catch {}
+    if (curBal < amount) {
+      return showToast(`Lending Bond (${units} Lakh) lock karne ke liye wallet me kam se kam ₹${amount.toLocaleString("en-IN")} hona chahiye. Available: ₹${curBal.toLocaleString("en-IN")}`, "error");
     }
 
     const form = lendingForm;

@@ -524,7 +524,7 @@ class MainActivity : AppCompatActivity() {
             // Auto-dismiss safety timeout (dismisses early via onPageFinished)
             splashLayout.postDelayed({
                 dismissNativeSplash()
-            }, 6000)
+            }, 3000)
         } catch (e: Exception) {
             Log.e("MainActivity", "Splash create error", e)
         }
@@ -549,7 +549,10 @@ class MainActivity : AppCompatActivity() {
         settings.databaseEnabled = true
         settings.allowFileAccess = true
         settings.allowContentAccess = true
-        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        @Suppress("DEPRECATION")
+        val isOnline = cm?.activeNetworkInfo?.isConnectedOrConnecting == true
+        settings.cacheMode = if (isOnline) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = false
         settings.setSupportZoom(false)

@@ -28,6 +28,19 @@ const ResetPassword = lazyWithRetry(() => import("./ResetPassword"));
 const Dashboard = lazyWithRetry(() => import("./Dashboard"));
 const AdminPanel = lazyWithRetry(() => import("./AdminPanel"));
 
+// Instant background prefetch for active mobile app users (cold-start acceleration)
+if (typeof window !== "undefined") {
+  const isAppMode = window.navigator?.userAgent?.includes("educa_native_android_app") || localStorage.getItem("educa_app_mode") === "true";
+  const hasToken = tokenStorage.getToken();
+  if (isAppMode) {
+    if (hasToken) {
+      import("./Dashboard").catch(() => {});
+    } else {
+      import("./Login").catch(() => {});
+    }
+  }
+}
+
 // Product & Information Pages
 const AboutPage = lazyWithRetry(() => import("./pages/AboutPage"));
 const AccountsPage = lazyWithRetry(() => import("./pages/AccountsPage"));

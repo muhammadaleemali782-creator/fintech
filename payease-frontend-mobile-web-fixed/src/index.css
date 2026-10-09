@@ -5,6 +5,9 @@
 :root {
   --font-display: "Manrope", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(14px, 1.1vw + 10px, 17px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Hide scrollbars everywhere (right, left, top, bottom) */
@@ -27,6 +30,9 @@ html {
   overflow-x: clip;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: contain;
 }
 
 body {
@@ -40,6 +46,15 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background-color: #f9fafb;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Form inputs must allow text selection */
+input, textarea, [contenteditable="true"] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 
 #root {
@@ -55,13 +70,22 @@ h1, h2, h3, .font-display {
 
 /* Safe-area helpers for notches / home-indicator on mobile devices */
 .safe-top {
-  padding-top: max(env(safe-area-inset-top), 0px);
+  padding-top: max(env(safe-area-inset-top, 0px), 8px);
 }
 .safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
 }
 .pb-safe-nav {
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Touch targets: ensure interactive buttons meet mobile accessibility guidelines (min 44dp height) */
+button, [role="button"] {
+  min-height: 38px;
+  touch-action: manipulation;
+}
+.touch-compact, .chip-badge {
+  min-height: unset !important;
 }
 
 /* Hide scrollbar but keep functionality (used for mobile tab strips) */

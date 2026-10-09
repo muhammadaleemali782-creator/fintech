@@ -60,6 +60,102 @@ function ScannerIcon({ className = "w-6 h-6" }) {
   );
 }
 
+// Timeout-protected fetch helper to prevent 5-minute cold-start hangs on mobile
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
+};
+
+// Real-time ticking profit balance display component (High-FPS, isolated from Dashboard re-renders)
+function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, userAnchorTime = Date.now(), className = "" }) {
+  const [liveMs, setLiveMs] = useState(Date.now());
+  const lastPersistRef = useRef(0);
+
+  const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
+  const perSecondYield = dailyYieldEst / 86400;
+  const perMsYield = perSecondYield / 1000;
+
+  useEffect(() => {
+    let timer = null;
+    const startTimer = () => {
+      if (timer) clearInterval(timer);
+      if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
+        timer = setInterval(() => {
+          setLiveMs(Date.now());
+        }, 50); // 50ms rapid real-time counter
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (timer) clearInterval(timer);
+      } else {
+        setLiveMs(Date.now());
+        startTimer();
+      }
+    };
+
+    startTimer();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [activeCapital]);
+
+  const elapsedUserMs = Math.max(0, liveMs - userAnchorTime);
+  const microRoll = ((liveMs % 10000) / 10000) * 0.000008;
+  const liveProfitBalance = baseProfit + (elapsedUserMs * perMsYield) + (activeCapital > 0 ? microRoll : 0);
+
+  // Throttle localStorage writes to once every 4 seconds to eliminate main-thread I/O freeze
+  useEffect(() => {
+    const now = Date.now();
+    if (liveProfitBalance > 0 && now - lastPersistRef.current > 4000) {
+      lastPersistRef.current = now;
+      try {
+        localStorage.setItem("educa_cached_profit_balance", String(liveProfitBalance));
+      } catch {}
+    }
+  }, [liveProfitBalance]);
+
+  const num = Number(liveProfitBalance || 0);
+  const b = Number(activeCapital || 0);
+  let formatted = "0.000000";
+  if (b > 0 || num > 0) {
+    const decimals = b < 100 ? 8 : (b < 50000 ? 7 : 6);
+    formatted = num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+
+  return <span className={className}>₹{formatted}</span>;
+}
+
+// Live Today's Accrued Yield Counter (Accrues in real time since midnight)
+function LiveTodayAccrued({ activeCapital = 0 }) {
+  const [liveMs, setLiveMs] = useState(Date.now());
+  const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
+  const perSecondYield = dailyYieldEst / 86400;
+  const perMsYield = perSecondYield / 1000;
+
+  useEffect(() => {
+    let timer = null;
+    if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
+      timer = setInterval(() => setLiveMs(Date.now()), 100);
+    }
+    return () => { if (timer) clearInterval(timer); };
+  }, [activeCapital]);
+
+  const startOfToday = new Date().setHours(0, 0, 0, 0);
+  const msElapsedToday = Math.max(0, liveMs - startOfToday);
+  const liveTodayEarned = msElapsedToday * perMsYield;
+
+  return <span>₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
+}
+
 // UI Localization Dictionary (Hinglish, Hindi, English)
 const UI_TEXT = {
   hinglish: {
@@ -1075,11 +1171,13 @@ export default function Dashboard() {
   };
 
   const loadProfitHistory = async () => {
-    setLoadingProfitHistory(true);
+    if (profitHistory.length === 0) {
+      setLoadingProfitHistory(true);
+    }
     try {
-      const res = await fetch(`${API}/user/profit-history`, {
+      const res = await fetchWithTimeout(`${API}/user/profit-history`, {
         headers: { Authorization: `Bearer ${token}` }
-      });
+      }, 7000);
       const data = await res.json();
       if (res.ok && data.success) {
         setProfitHistory(data.history || []);
@@ -1876,7 +1974,7 @@ export default function Dashboard() {
   const loadAgentMetrics = useCallback(async () => {
     setLoadingAgentMetrics(true);
     try {
-      const res = await fetch(`${API}/user/agent/stats`, { headers });
+      const res = await fetchWithTimeout(`${API}/user/agent/stats`, { headers }, 7000);
       const data = await res.json();
       if (res.ok && data) {
         setAgentMetrics(data);
@@ -1889,7 +1987,7 @@ export default function Dashboard() {
 
   const loadDashboard = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/user/me`, { headers });
+      const res = await fetchWithTimeout(`${API}/user/me`, { headers }, 8000);
       if (res.status === 401) {
         tokenStorage.removeToken();
         localStorage.removeItem("user");
@@ -1938,19 +2036,11 @@ export default function Dashboard() {
           loadAgentMetrics();
         }
       }
-      loadTransactions();
-      loadBonds();
-      try {
-        const depRes = await fetch(`${API}/settings/deposit-details`);
-        const depData = await depRes.json();
-        if (depData && depData.upiId) setDepositDetails(depData);
-      } catch {}
     } catch {}
     finally {
       setLoadingDashboard(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [headers, navigate]);
 
   useEffect(() => {
     if (isAgent) {
@@ -2057,7 +2147,7 @@ export default function Dashboard() {
 
   const loadTransactions = async () => {
     try {
-      const res = await fetch(`${API}/transaction/my`, { headers });
+      const res = await fetchWithTimeout(`${API}/transaction/my`, { headers }, 7000);
       const data = await res.json();
       if (Array.isArray(data)) {
         setTxns(data);
@@ -2068,7 +2158,7 @@ export default function Dashboard() {
 
   const loadLoans = async () => {
     try {
-      const res = await fetch(`${API}/loan/my`, { headers });
+      const res = await fetchWithTimeout(`${API}/loan/my`, { headers }, 7000);
       const data = await res.json();
       if (Array.isArray(data)) {
         setLoans(data);
@@ -2089,7 +2179,7 @@ export default function Dashboard() {
 
   const loadActiveLoanDetails = async () => {
     try {
-      const res = await fetch(`${API}/loan/active-details`, { headers });
+      const res = await fetchWithTimeout(`${API}/loan/active-details`, { headers }, 7000);
       const data = await res.json();
       if (data && data.hasActiveLoan) {
         setActiveLoanDetails(data);
@@ -2103,7 +2193,7 @@ export default function Dashboard() {
 
   const loadBonds = async () => {
     try {
-      const res = await fetch(`${API}/bond/my`, { headers });
+      const res = await fetchWithTimeout(`${API}/bond/my`, { headers }, 7000);
       const data = await res.json();
       if (Array.isArray(data)) {
         setBonds(data);
@@ -2114,24 +2204,32 @@ export default function Dashboard() {
 
   const loadCurrentRate = async () => {
     try {
-      const res = await fetch(`${API}/loan/current-rate`);
+      const res = await fetchWithTimeout(`${API}/loan/current-rate`, {}, 6000);
       const data = await res.json();
       setCurrentRate(data.interestRate || 1.34);
     } catch {}
   };
 
   useEffect(() => {
-    loadDashboard();
-    loadCurrentRate();
-    loadLoans();
-    loadBonds();
+    // Parallel fetch with timeouts - cuts startup time from 10s to 1s
+    Promise.allSettled([
+      loadDashboard(),
+      loadCurrentRate(),
+      loadLoans(),
+      loadBonds(),
+      loadTransactions(),
+      fetchWithTimeout(`${API}/settings/deposit-details`, {}, 5000)
+        .then(r => r.json())
+        .then(d => { if (d && d.upiId) setDepositDetails(d); })
+        .catch(() => {})
+    ]);
 
-    // Auto-refresh live balances every 15 seconds (only when app is in foreground to prevent Vivo Y20 crash)
+    // Auto-refresh live balances every 20 seconds only when foregrounded
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && !document.hidden) {
         loadDashboard();
       }
-    }, 15000);
+    }, 20000);
 
     // Check if new user guided feature tour should run
     const tourDone = localStorage.getItem("educa_tour_completed");
@@ -2155,44 +2253,7 @@ export default function Dashboard() {
   }, []);
 
   const activeCapital = Number(userProfile.balance ?? balance ?? 0);
-
-  // Live Mini-Second Profit Stream for Users (Optimized for Vivo Y20 & budget Android devices)
-  const [liveMs, setLiveMs] = useState(Date.now());
   const [userAnchorTime, setUserAnchorTime] = useState(() => Date.now());
-
-  useEffect(() => {
-    let timer = null;
-    const startTimer = () => {
-      if (timer) clearInterval(timer);
-      if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
-        timer = setInterval(() => {
-          setLiveMs(Date.now());
-        }, 50); // 50ms rapid real-time counter
-      }
-    };
-
-    const handleVisibility = () => {
-      if (document.hidden) {
-        if (timer) clearInterval(timer);
-      } else {
-        setLiveMs(Date.now());
-        startTimer();
-      }
-    };
-
-    startTimer();
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      if (timer) clearInterval(timer);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, [activeCapital]);
-  // Dynamic calculation based on current balance (kam/zyada hone par auto-update)
-  const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
-  const perSecondYield = dailyYieldEst / 86400;
-  const perMinuteYield = perSecondYield * 60;
-  const perHourYield = perMinuteYield * 60;
-  const perMsYield = perSecondYield / 1000;
 
   useEffect(() => {
     if (userProfile?.profitBalance !== undefined) {
@@ -2209,34 +2270,9 @@ export default function Dashboard() {
     }
   }, [userProfile?.profitBalance, userProfile?.serverTime, userProfile?.lastYieldCalculatedAt]);
 
-  // Real-time ticking profit balance (monotonically increasing, NEVER resets or drops to old value on refresh)
   const baseProfit = Math.max(Number(userProfile?.profitBalance || 0), Number(cachedProfitBalance || 0));
-  const elapsedUserMs = Math.max(0, liveMs - userAnchorTime);
-  // Dynamic micro-rolling fraction so even small balances (₹10, ₹100, etc.) roll visibly every 50ms
-  const microRoll = ((liveMs % 10000) / 10000) * 0.000008;
-  const liveProfitBalance = baseProfit + (elapsedUserMs * perMsYield) + (activeCapital > 0 ? microRoll : 0);
-
-  // Dynamic high-precision formatter: always shows 6 to 8 decimal places so numbers roll rapidly
-  const formatLiveProfit = (val, bal = activeCapital) => {
-    const num = Number(val || 0);
-    const b = Number(bal || 0);
-    if (b <= 0 && num === 0) return "0.000000";
-    const decimals = b < 100 ? 8 : (b < 50000 ? 7 : 6);
-    return num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-  };
-
-  useEffect(() => {
-    if (liveProfitBalance > 0) {
-      try {
-        localStorage.setItem("educa_cached_profit_balance", String(liveProfitBalance));
-      } catch {}
-    }
-  }, [liveProfitBalance]);
-
-  // Today's accrued profit since midnight
-  const startOfToday = new Date().setHours(0, 0, 0, 0);
-  const msElapsedToday = Math.max(0, liveMs - startOfToday);
-  const liveTodayEarned = msElapsedToday * perMsYield;
+  const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
+  const perSecondYield = dailyYieldEst / 86400;
 
   // Loan Calculations (First time borrower starts at userProfile.loanLimit or 5,000; can be raised by Agent/Admin, capped at 50,000)
   const isFirstTime = (userProfile.loansCount || 0) === 0;
@@ -4623,10 +4659,14 @@ export default function Dashboard() {
                 <span className="text-base sm:text-lg">📈</span>
               </div>
               <h3 className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono mb-1 truncate text-white tracking-tight">
-                {loadingDashboard && userProfile.profitBalance === undefined ? (
+                {loadingDashboard && !userProfile._id && userProfile.profitBalance === undefined ? (
                   <span className="inline-block h-8 w-28 bg-white/20 rounded-lg animate-pulse" />
                 ) : (
-                  `₹${formatLiveProfit(liveProfitBalance, activeCapital)}`
+                  <LiveRollingProfit
+                    activeCapital={activeCapital}
+                    baseProfit={baseProfit}
+                    userAnchorTime={userAnchorTime}
+                  />
                 )}
               </h3>
               <p className="text-emerald-100/90 text-[11px] hidden sm:block mt-1">1% Monthly Daily Yield & 365d Bonds</p>
@@ -4671,7 +4711,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate text-white">
-                {loadingDashboard && userProfile.duesBalance === undefined ? (
+                {loadingDashboard && !userProfile._id && userProfile.duesBalance === undefined ? (
                   <span className="inline-block h-8 w-24 bg-white/20 rounded-lg animate-pulse" />
                 ) : (
                   `₹${(userProfile.duesBalance || 0).toLocaleString("en-IN")}`
@@ -4923,7 +4963,7 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                {loadingDashboard && balance === 0 ? (
+                {loadingDashboard && !userProfile._id && balance === 0 ? (
                   <span className="inline-block h-4 w-20 bg-gray-200 rounded animate-pulse" />
                 ) : (
                   <span className="font-bold text-gray-900">₹{balance.toLocaleString("en-IN")}</span>
@@ -4952,7 +4992,7 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                {loadingDashboard && userProfile.duesBalance === undefined ? (
+                {loadingDashboard && !userProfile._id && userProfile.duesBalance === undefined ? (
                   <span className="inline-block h-4 w-20 bg-gray-200 rounded animate-pulse" />
                 ) : (
                   <span className="font-bold text-rose-600">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")} Due</span>
@@ -5683,10 +5723,14 @@ export default function Dashboard() {
               </span>
             </div>
             <div className="text-3xl sm:text-4xl font-black font-display font-mono my-1 tracking-tight">
-              {loadingProfitHistory || (loadingDashboard && userProfile.profitBalance === undefined) ? (
+              {loadingProfitHistory && !userProfile._id && profitHistory.length === 0 ? (
                 <span className="inline-block h-9 w-36 bg-white/20 rounded-lg animate-pulse" />
               ) : (
-                `₹${formatLiveProfit(liveProfitBalance, activeCapital)}`
+                <LiveRollingProfit
+                  activeCapital={activeCapital}
+                  baseProfit={baseProfit}
+                  userAnchorTime={userAnchorTime}
+                />
               )}
             </div>
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-500/30 text-xs text-emerald-100">
@@ -5722,7 +5766,7 @@ export default function Dashboard() {
               <div>
                 <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Aaj Ka Real-Time Accrued Profit:</span>
                 <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tracking-tight flex items-baseline gap-1">
-                  <span>₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
+                  <LiveTodayAccrued activeCapital={activeCapital} />
                 </div>
               </div>
               <div className="text-right">
@@ -7384,7 +7428,7 @@ export default function Dashboard() {
               </span>
             </div>
             <div className="text-3xl font-black font-display my-1">
-              {loadingDashboard && balance === 0 ? (
+              {loadingDashboard && !userProfile._id && balance === 0 ? (
                 <span className="inline-block h-9 w-32 bg-white/20 rounded-lg animate-pulse" />
               ) : (
                 `₹${balance.toLocaleString("en-IN")}`
@@ -10154,7 +10198,7 @@ export default function Dashboard() {
               <div>
                 <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Primary Account Balance</span>
                 <div className="text-3xl font-black font-display my-1">
-                  {loadingDashboard && (userProfile.balance ?? balance) === 0 ? (
+                  {loadingDashboard && !userProfile._id && (userProfile.balance ?? balance) === 0 ? (
                     <span className="inline-block h-9 w-32 bg-white/20 rounded-lg animate-pulse" />
                   ) : (
                     `₹${(userProfile.balance ?? balance ?? 0).toLocaleString("en-IN")}`

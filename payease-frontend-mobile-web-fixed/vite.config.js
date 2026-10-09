@@ -14,6 +14,8 @@ export default defineConfig({
         // -> browser cache kar leta hai, baar baar download nahi karna padta
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            if (id.includes('html5-qrcode')) return 'qr-scanner';
+            if (id.includes('qrcode')) return 'qr-generator';
             if (id.includes('react-router-dom')) return 'router';
             if (id.includes('react') || id.includes('react-dom')) return 'vendor';
           }

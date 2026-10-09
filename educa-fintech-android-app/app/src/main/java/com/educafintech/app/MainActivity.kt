@@ -437,8 +437,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             val logoView = android.widget.ImageView(this).apply {
-                setImageResource(R.mipmap.ic_launcher)
-                layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(88), dpToPx(88)).apply {
+                setImageResource(R.mipmap.ic_launcher_foreground)
+                layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(96), dpToPx(96)).apply {
                     bottomMargin = dpToPx(16)
                 }
             }

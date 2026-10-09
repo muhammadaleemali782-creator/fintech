@@ -57,11 +57,10 @@ function LoadingScreen() {
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-50 select-none">
       <div className="relative flex items-center justify-center mb-4">
-        <div className="absolute w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 animate-ping opacity-25" />
         <img
           src="/icon-192.png"
           alt="Educa Fintech Logo"
-          className="w-20 h-20 rounded-2xl shadow-xl object-contain relative bg-white border border-gray-100"
+          className="w-24 h-24 object-contain relative"
         />
       </div>
       <h2 className="text-xl font-extrabold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">

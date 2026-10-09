@@ -4,6 +4,8 @@
         <item name="colorPrimaryVariant">#1558CC</item>
         <item name="colorOnPrimary">#FFFFFF</item>
         <item name="colorSecondary">#0DC98A</item>
-        <item name="android:statusBarColor">#1D6AE5</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+        <item name="android:windowBackground">@drawable/launch_splash</item>
     </style>
 </resources>

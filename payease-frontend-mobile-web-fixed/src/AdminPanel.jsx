@@ -561,8 +561,12 @@ export default function AdminPanel() {
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const [tab, setTab] = useState("analytics");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [historyFilterOpen, setHistoryFilterOpen] = useState(false);
   const switchTab = useCallback((nextTab) => {
     if (tab === nextTab) return;
+    setMobileNavOpen(false);
+    setHistoryFilterOpen(false);
     React.startTransition(() => {
       setTab(nextTab);
     });
@@ -1158,6 +1162,9 @@ export default function AdminPanel() {
       if (!res.ok) throw new Error(d.message);
       showToast(d.message || "Agent approved successfully!", "success");
       apiCache.clear();
+      appCache.remove("educa_admin_audit_all_all");
+      appCache.remove("educa_admin_audit_agent_all");
+      appCache.remove("educa_admin_cached_audit_history");
       loadAgents(true);
       loadUsers(true);
     } catch (err) {
@@ -1189,6 +1196,9 @@ export default function AdminPanel() {
       if (!res.ok) throw new Error(d.message);
       showToast(d.message || "Agent commission rates updated successfully!", "success");
       apiCache.clear();
+      appCache.remove("educa_admin_audit_all_all");
+      appCache.remove("educa_admin_audit_agent_all");
+      appCache.remove("educa_admin_cached_audit_history");
       loadAgents(true);
     } catch (err) {
       showToast(err.message, "error");
@@ -1907,8 +1917,6 @@ export default function AdminPanel() {
   const [tempCategory, setTempCategory] = useState("all");
   const [tempStatus, setTempStatus] = useState("all");
   const [historySearch, setHistorySearch] = useState("");
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [historyFilterOpen, setHistoryFilterOpen] = useState(false);
   const [sendingYieldAlert, setSendingYieldAlert] = useState(false);
 
   const triggerYieldNotifications = async () => {
@@ -1965,14 +1973,9 @@ export default function AdminPanel() {
     const ONE_HOUR = 60 * 60 * 1000;
     const now = Date.now();
 
-    // 1. Instant Frame-0 display from local storage
+    // 1. Instant Frame-0 display from local storage (0ms latency)
     if (cachedMeta && Array.isArray(cachedMeta.data) && cachedMeta.data.length > 0) {
       setAuditHistory(cachedMeta.data);
-      // If data is less than 1 hour old and not a forced refresh or search, skip network request
-      if (!force && !historySearch && cachedMeta.savedAt && (now - cachedMeta.savedAt < ONE_HOUR)) {
-        setHistoryLoading(false);
-        return;
-      }
     } else if (!historySearch) {
       // Instant in-memory filter fallback from root "all" cache
       const rootCached = appCache.get(getAuditCacheKey("all", "all"), null);
@@ -2000,7 +2003,8 @@ export default function AdminPanel() {
         status: historyStatus,
         search: historySearch
       });
-      const res = await cachedAdminFetch(`${API}/admin/audit-history?${query}`, { headers }, 60000, force);
+      // Background revalidation: fetch fresh data from server (15s TTL so admin updates show up immediately)
+      const res = await cachedAdminFetch(`${API}/admin/audit-history?${query}`, { headers }, 15000, force);
       const data = await res.json();
       if (data && Array.isArray(data.history)) {
         if (data.history.length > 0) {
@@ -2057,6 +2061,10 @@ export default function AdminPanel() {
       const data = await res.json();
       if (res.ok) {
         showToast(data.message || `Agent converted to ${targetModel === 'team_1' ? 'Team System' : 'Solo Direct'}!`, "success");
+        apiCache.clear();
+        appCache.remove("educa_admin_audit_all_all");
+        appCache.remove("educa_admin_audit_agent_all");
+        appCache.remove("educa_admin_cached_audit_history");
         loadAgents(true);
         loadUsers(true);
       } else {
@@ -2412,6 +2420,14 @@ export default function AdminPanel() {
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black flex items-center gap-1 active:scale-95 shadow-xs cursor-pointer shrink-0"
+                title="Switch Operations Desk"
+              >
+                <span>☰</span> <span>Desks</span>
+              </button>
               <Link
                 to="/dashboard"
                 className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95"
@@ -2427,7 +2443,7 @@ export default function AdminPanel() {
           </div>
         </nav>
 
-        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0 pb-28 lg:pb-8">
           {/* Rate Limit (429) & Network Error Alert Banner */}
           {rateLimitError && (
             <div className="mb-4 sm:mb-6 p-4 bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-sm animate-in fade-in">
@@ -4440,6 +4456,19 @@ export default function AdminPanel() {
                 </div>
 
                 <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
+                  {/* Exit History button for fast mobile/tablet navigation */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      switchTab("analytics");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 shadow-2xs"
+                  >
+                    <span>←</span>
+                    <span>Exit History</span>
+                  </button>
+
                   {/* 24h Daily Profit Notification Dispatch Button */}
                   <button
                     type="button"
@@ -4825,16 +4854,16 @@ export default function AdminPanel() {
                             {item.category === "agent" ? (
                               <div className="flex flex-wrap items-center justify-end gap-1 shrink-0 max-w-[65%]">
                                 <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono font-bold text-[9px]">
-                                  Loan: {item.commissions?.loan ?? 1}%
+                                  Loan: {item.commissions?.loan ?? item.commissionRate ?? 1}%
                                 </span>
                                 <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono font-bold text-[9px]">
-                                  Lend: {item.commissions?.lending ?? 4}%
+                                  Lend: {item.commissions?.lending ?? item.commissionRate ?? 4}%
                                 </span>
                                 <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-mono font-bold text-[9px]">
-                                  Debt: {item.commissions?.investment ?? 1}%
+                                  Debt: {item.commissions?.investment ?? item.commissionRate ?? 1}%
                                 </span>
                                 <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-mono font-bold text-[9px]">
-                                  Bond: {item.commissions?.bond ?? 4}%
+                                  Bond: {item.commissions?.bond ?? item.commissionRate ?? 4}%
                                 </span>
                               </div>
                             ) : isMonetary ? (
@@ -5065,16 +5094,16 @@ export default function AdminPanel() {
                                 {item.category === "agent" ? (
                                   <div className="flex flex-wrap items-center justify-end gap-1">
                                     <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
-                                      Loan: {item.commissions?.loan ?? 1}%
+                                      Loan: {item.commissions?.loan ?? item.commissionRate ?? 1}%
                                     </span>
                                     <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
-                                      Lend: {item.commissions?.lending ?? 4}%
+                                      Lend: {item.commissions?.lending ?? item.commissionRate ?? 4}%
                                     </span>
                                     <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
-                                      Debt: {item.commissions?.investment ?? 1}%
+                                      Debt: {item.commissions?.investment ?? item.commissionRate ?? 1}%
                                     </span>
                                     <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold">
-                                      Bond: {item.commissions?.bond ?? 4}%
+                                      Bond: {item.commissions?.bond ?? item.commissionRate ?? 4}%
                                     </span>
                                   </div>
                                 ) : isMonetary ? (
@@ -9079,6 +9108,44 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Persistent Bottom Desk Navigation Bar for Mobile */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex items-center justify-around safe-bottom shadow-2xl">
+          {[
+            { key: "analytics", label: "Reserves", icon: "📊" },
+            { key: "pending", label: "Pending", icon: "⏳", badge: pending.length },
+            { key: "users", label: "Users", icon: "👥" },
+            { key: "history", label: "History", icon: "📜" },
+          ].map(({ key, label, icon, badge }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                switchTab(key);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] font-bold transition active:scale-95 cursor-pointer ${
+                tab === key ? "text-blue-400 font-black" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span className="text-base leading-none">{icon}</span>
+              <span className="mt-0.5">{label}</span>
+              {!!badge && (
+                <span className="absolute -top-0.5 right-1 text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.2 rounded-full">
+                  {badge}
+                </span>
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] font-bold text-slate-300 hover:text-white transition active:scale-95 cursor-pointer"
+          >
+            <span className="text-base leading-none">☰</span>
+            <span className="mt-0.5">All ({tabs.length})</span>
+          </button>
         </div>
       </div>
 

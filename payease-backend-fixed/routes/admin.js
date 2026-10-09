@@ -1416,16 +1416,24 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           { 'agentProfile.status': { $in: ['approved', 'rejected', 'pending'] } },
           { role: 'agent' }
         ]
-      }).select('name email phone accountNumber agentProfile createdAt');
+      }).select('name email phone accountNumber agentProfile createdAt').lean();
 
       for (const a of agentUsers) {
         const aStatus = a.agentProfile?.status || 'approved';
         if (status !== 'all' && aStatus !== status && !(status === 'approved' && aStatus === 'approved')) continue;
 
         const ts = a.agentProfile?.approvedAt || a.agentProfile?.appliedAt || a.createdAt;
-        const comms = a.agentProfile?.commissions || { loan: 1, lending: 4, investment: 1, bond: 4 };
+        const rawComms = a.agentProfile?.commissions || null;
+        const baseRate = a.agentProfile?.commissionRate;
+        const hasBase = typeof baseRate === 'number' && !isNaN(baseRate);
+        const comms = {
+          loan: rawComms?.loan !== undefined ? rawComms.loan : (hasBase ? baseRate : 1),
+          lending: rawComms?.lending !== undefined ? rawComms.lending : (hasBase ? baseRate : 4),
+          investment: rawComms?.investment !== undefined ? rawComms.investment : (hasBase ? baseRate : 1),
+          bond: rawComms?.bond !== undefined ? rawComms.bond : (hasBase ? baseRate : 4)
+        };
         const agentRef = a.accountNumber ? `A/C: ${a.accountNumber}` : `Agent: ${a.phone}`;
-        const agentNote = `${a.agentProfile?.businessName || 'Business Partner'} • Loan: ${comms.loan ?? 1}% | Lend: ${comms.lending ?? 4}% | Debt: ${comms.investment ?? 1}% | Bond: ${comms.bond ?? 4}%`;
+        const agentNote = `${a.agentProfile?.businessName || 'Business Partner'} • Loan: ${comms.loan}% | Lend: ${comms.lending}% | Debt: ${comms.investment}% | Bond: ${comms.bond}%`;
 
         historyItems.push({
           id: 'agent_' + a._id,
@@ -1438,7 +1446,7 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           accountNumber: a.accountNumber || '—',
           amount: 0,
           commissions: comms,
-          commissionRate: comms.loan || 1,
+          commissionRate: hasBase ? baseRate : (comms.loan || 1),
           status: aStatus === 'approved' ? 'approved' : aStatus,
           timestamp: ts,
           createdAt: ts,

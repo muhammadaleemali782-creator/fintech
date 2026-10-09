@@ -406,6 +406,9 @@ export default function Dashboard() {
   const [editLoanLimitCustomer, setEditLoanLimitCustomer] = useState(null);
   const [editLimitVal, setEditLimitVal] = useState("");
   const [updatingLimit, setUpdatingLimit] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editProfileForm, setEditProfileForm] = useState({ name: "", phone: "", address: "" });
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Dues & Loan Installment states
   const [activeLoanDetails, setActiveLoanDetails] = useState(() => {
@@ -1915,6 +1918,59 @@ export default function Dashboard() {
       loadAgentMetrics();
     }
   }, [isAgent, loadAgentMetrics]);
+
+  const handleOpenEditProfile = () => {
+    setEditProfileForm({
+      name: userProfile.name || userStored.name || "",
+      phone: userProfile.phone || userStored.phone || "",
+      address: userProfile.address || userProfile.kycDocuments?.address || ""
+    });
+    setIsEditingProfile(true);
+  };
+
+  const handleSaveProfile = async (e) => {
+    if (e) e.preventDefault();
+    if (!editProfileForm.name.trim()) {
+      showToast("Pura naam darj karna zaroori hai", "error");
+      return;
+    }
+    if (!editProfileForm.phone.trim()) {
+      showToast("Mobile number darj karna zaroori hai", "error");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const res = await fetch(`${API}/user/update`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editProfileForm.name.trim(),
+          phone: editProfileForm.phone.trim(),
+          address: editProfileForm.address.trim()
+        })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || "Failed to update profile");
+      const updatedUser = d.user || d;
+      setUserProfile(prev => ({
+        ...prev,
+        ...updatedUser
+      }));
+      try {
+        const stored = JSON.parse(localStorage.getItem("user") || "{}");
+        const merged = { ...stored, ...updatedUser, role: updatedUser.role || stored.role };
+        localStorage.setItem("user", JSON.stringify(merged));
+        localStorage.setItem("educa_cached_profile", JSON.stringify(merged));
+      } catch (e) {}
+      showToast(d.message || "Profile details updated successfully!", "success");
+      setIsEditingProfile(false);
+      loadDashboard();
+    } catch (err) {
+      showToast(err.message || "Update karne me samasya aayi", "error");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const activateWallet = async (walletType) => {
     setActivatingWallet(walletType);
@@ -8531,18 +8587,121 @@ export default function Dashboard() {
       {/* PROFILE SHEET */}
       <Sheet open={modal === "profile"} onClose={closeModal} title="My Profile & Member ID" icon="👤">
         <div className="space-y-4">
-          <div className="flex items-center gap-3.5 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 text-white rounded-full flex items-center justify-center font-bold text-xl shrink-0 shadow-md">
-              {(userStored.name || "U")[0].toUpperCase()}
+          {/* USER PROFILE INFO & EDIT ID SECTION */}
+          {isEditingProfile ? (
+            <form onSubmit={handleSaveProfile} className="p-4 bg-white border border-blue-200 rounded-2xl shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <span className="font-extrabold text-xs sm:text-sm text-gray-900 flex items-center gap-1.5">
+                  <span>✏️</span> Edit ID Details (Name, Phone & Pata)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="text-gray-400 hover:text-gray-600 text-xs font-bold cursor-pointer"
+                >
+                  ✕ Cancel
+                </button>
+              </div>
+
+              {/* 1. Name */}
+              <div>
+                <label className="text-[11px] font-bold text-gray-600 block mb-1">
+                  👤 Pura Naam (Full Name) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editProfileForm.name}
+                  onChange={e => setEditProfileForm({ ...editProfileForm, name: e.target.value })}
+                  placeholder="Apna pura naam likhein"
+                  className="w-full px-3 py-2 text-xs font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:bg-white transition"
+                />
+              </div>
+
+              {/* 2. Phone */}
+              <div>
+                <label className="text-[11px] font-bold text-gray-600 block mb-1">
+                  📱 Mobile / Phone Number *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editProfileForm.phone}
+                  onChange={e => setEditProfileForm({ ...editProfileForm, phone: e.target.value })}
+                  placeholder="10-digit mobile number"
+                  className="w-full px-3 py-2 text-xs font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:bg-white transition font-mono"
+                />
+              </div>
+
+              {/* 3. Address / Pata */}
+              <div>
+                <label className="text-[11px] font-bold text-gray-600 block mb-1">
+                  📍 Pata (Address)
+                </label>
+                <textarea
+                  rows={2}
+                  value={editProfileForm.address}
+                  onChange={e => setEditProfileForm({ ...editProfileForm, address: e.target.value })}
+                  placeholder="Gaon, Shahar, Pin Code sahit apna pura pata likhein"
+                  className="w-full px-3 py-2 text-xs text-gray-900 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:bg-white transition resize-none font-medium"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="flex-1 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="flex-1 py-2 text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-xs active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>💾</span> {savingProfile ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-500 text-white rounded-full flex items-center justify-center font-bold text-lg shrink-0 shadow-md">
+                    {(userProfile.name || userStored.name || "U")[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-extrabold text-sm text-gray-900">{userProfile.name || userStored.name || "User"}</p>
+                    <p className="text-[11px] text-gray-500">{userProfile.email || userStored.email}</p>
+                    <span className="inline-block mt-0.5 px-2 py-0.5 bg-green-100 text-green-800 text-[10px] font-black rounded-full">
+                      ✓ Active Account
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenEditProfile}
+                  className="px-3 py-1.5 bg-white hover:bg-blue-50 border border-blue-200 text-blue-700 rounded-xl text-xs font-extrabold transition active:scale-95 shadow-2xs flex items-center gap-1 cursor-pointer"
+                >
+                  <span>✏️</span> Edit ID
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-blue-100/70 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="p-2 bg-white/80 rounded-xl border border-blue-100/60">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase block">Mobile Number</span>
+                  <span className="font-mono font-bold text-gray-800">{userProfile.phone || userStored.phone || "N/A"}</span>
+                </div>
+                <div className="p-2 bg-white/80 rounded-xl border border-blue-100/60">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase block">Pata / Address</span>
+                  <span className="font-medium text-gray-800 line-clamp-2">
+                    {userProfile.address || userProfile.kycDocuments?.address || "Pata darj nahi hai"}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="font-extrabold text-base text-gray-900">{userStored.name || "User"}</p>
-              <p className="text-xs text-gray-500">{userProfile.email || userStored.email}</p>
-              <span className="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-800 text-[10px] font-black rounded-full">
-                ✓ Active Account
-              </span>
-            </div>
-          </div>
+          )}
 
           {/* PERMANENT EDUCA MEMBER ID CARD */}
           <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50/50 border border-blue-200/80 rounded-2xl shadow-xs space-y-2 relative overflow-hidden">

@@ -203,36 +203,70 @@ router.post('/pin/reset', protect, async (req, res) => {
 
 router.put('/update', protect, async (req, res) => {
   try {
-    const { upiId, bankAccount } = req.body;
-
-    // upiId sirf string ho, bankAccount sirf expected fields ho
-    // (isse galat/malicious data se save() fail ho ke crash hone se bacha)
-    if (upiId && typeof upiId !== 'string') {
-      return res.status(400).json({ message: 'Invalid UPI ID' });
-    }
-    if (bankAccount && typeof bankAccount !== 'object') {
-      return res.status(400).json({ message: 'Invalid bank account details' });
-    }
+    const { name, phone, address, upiId, bankAccount } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    if (upiId) user.upiId = upiId;
+    // 1. Name update
+    if (name !== undefined) {
+      const cleanName = String(name).trim();
+      if (!cleanName) {
+        return res.status(400).json({ message: 'Valid name is required' });
+      }
+      user.name = cleanName;
+    }
+
+    // 2. Phone update (with duplicate check)
+    if (phone !== undefined) {
+      const cleanPhone = String(phone).trim();
+      if (!cleanPhone) {
+        return res.status(400).json({ message: 'Valid phone number is required' });
+      }
+      if (cleanPhone !== user.phone) {
+        const clash = await User.findOne({ phone: cleanPhone, _id: { $ne: user._id } });
+        if (clash) {
+          return res.status(400).json({ message: 'Yeh mobile number pehle se kisi doosre account me darj hai' });
+        }
+        user.phone = cleanPhone;
+      }
+    }
+
+    // 3. Address / Pata update
+    if (address !== undefined) {
+      const cleanAddress = String(address).trim();
+      user.address = cleanAddress;
+      if (user.kycDocuments) {
+        user.kycDocuments.address = cleanAddress;
+      }
+    }
+
+    // upiId validation
+    if (upiId) {
+      if (typeof upiId !== 'string') return res.status(400).json({ message: 'Invalid UPI ID' });
+      user.upiId = upiId.trim();
+    }
+
+    // bankAccount validation
     if (bankAccount) {
+      if (typeof bankAccount !== 'object') return res.status(400).json({ message: 'Invalid bank account details' });
       user.bankAccount = {
         accountNumber: String(bankAccount.accountNumber || ''),
         ifsc: String(bankAccount.ifsc || ''),
         holderName: String(bankAccount.holderName || '')
       };
     }
+
     await user.save();
 
-    // password hash kabhi bhi client ko response me nahi jaana chahiye
     const safeUser = user.toObject();
     delete safeUser.password;
+    safeUser.user = safeUser;
+    safeUser.message = 'Profile details updated successfully!';
     res.json(safeUser);
   } catch (err) {
-    res.status(500).json({ message: 'Something went wrong. Please try again.' });
+    console.error('Profile update error:', err);
+    res.status(500).json({ message: err.message || 'Something went wrong. Please try again.' });
   }
 });
 

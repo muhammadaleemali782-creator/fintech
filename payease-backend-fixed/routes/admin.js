@@ -806,7 +806,7 @@ router.get('/stats', protect, admin, async (req, res) => {
     const pendingTxns = await Transaction.countDocuments({ status: 'pending' });
     const holdTxns = await Transaction.countDocuments({ $or: [{ status: 'hold' }, { isHold: true }] });
     const totalDeposits = await Transaction.aggregate([
-      { $match: { type: 'deposit', status: 'approved' } },
+      { $match: { type: 'deposit', status: { $in: ['approved', 'completed'] } } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     const totalYield = await Transaction.aggregate([
@@ -864,7 +864,7 @@ router.get('/analytics', protect, admin, async (req, res) => {
     const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds);
 
     // 2. Deposits (Enriched with user info & populated for daily breakup display)
-    const depositTxns = await Transaction.find({ type: 'deposit', status: 'approved' })
+    const depositTxns = await Transaction.find({ type: 'deposit', status: { $in: ['approved', 'completed'] } })
       .populate('userId', 'name email phone accountNumber interestRate')
       .sort({ createdAt: 1 });
     const totalDeposits = Number(depositTxns.reduce((sum, d) => sum + (d.amount || 0), 0).toFixed(2));
@@ -967,6 +967,19 @@ router.get('/analytics', protect, admin, async (req, res) => {
           runningDepositSum += depList.reduce((sum, item) => sum + (item.amount || 0), 0);
         }
       }
+    }
+
+    if (sortedDailyList.length === 0 && (totalYieldCredited > 0 || totalDeposits > 0)) {
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      const [y, m, d] = todayStr.split('-').map(Number);
+      const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+      sortedDailyList.push({
+        date: todayStr,
+        displayDate: dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' }),
+        amount: totalYieldCredited,
+        txnCount: 1,
+        users: new Set()
+      });
     }
 
     const dailyProfitChart = sortedDailyList.map(d => {

@@ -272,9 +272,38 @@ router.post('/users/:id/assign-agent', protect, admin, async (req, res) => {
     const { agentId } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.referredBy = agentId || null;
+
+    const prevAgentId = user.referredBy ? String(user.referredBy) : null;
+    const targetAgentId = agentId ? String(agentId) : null;
+
+    if (targetAgentId) {
+      const newAgent = await User.findById(targetAgentId);
+      if (!newAgent) return res.status(404).json({ message: 'Selected agent not found' });
+      user.referredBy = newAgent._id;
+      user.referredByCode = newAgent.referralCode || undefined;
+    } else {
+      user.referredBy = null;
+      user.referredByCode = undefined;
+    }
     await user.save();
-    res.json({ message: 'Referral agent updated successfully', user });
+
+    // Adjust referral counts
+    if (prevAgentId && prevAgentId !== targetAgentId) {
+      await User.findByIdAndUpdate(prevAgentId, { $inc: { referralCount: -1 } });
+    }
+    if (targetAgentId && prevAgentId !== targetAgentId) {
+      await User.findByIdAndUpdate(targetAgentId, { $inc: { referralCount: 1 } });
+    }
+
+    res.json({
+      message: targetAgentId ? 'Customer safaltapoorvak naye agent se link ho gaya hai!' : 'Customer ko direct bana diya gaya hai (No Agent).',
+      user: {
+        _id: user._id,
+        name: user.name,
+        referredBy: user.referredBy,
+        referredByCode: user.referredByCode
+      }
+    });
   } catch (err) {
     res.status(500).json({ message: 'Failed to update referral agent' });
   }

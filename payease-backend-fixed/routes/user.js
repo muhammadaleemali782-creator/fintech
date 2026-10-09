@@ -7,6 +7,7 @@ const { protect } = require('../middleware/auth');
 const { sendNotification } = require('../utils/notifier');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
+const { getEducaMailUser } = require('../utils/educaMail');
 const router = express.Router();
 
 // Helper to evaluate and credit daily profit on primary Savings Account balance (IST Calendar)
@@ -98,6 +99,29 @@ router.get('/me', protect, async (req, res) => {
       user.upiId = `${user.accountNumber.toLowerCase()}@educa`;
       await user.save();
     }
+
+    // Auto-sync real phone number & name from Educa Mail if placeholder or missing
+    if (user.phone && user.phone.startsWith('EM') && user.email) {
+      try {
+        const mailData = await getEducaMailUser(user.email);
+        if (mailData && mailData.phone && mailData.phone.trim()) {
+          const cleanPhone = mailData.phone.trim();
+          if (/^\+?[0-9\s-]{10,15}$/.test(cleanPhone)) {
+            const clash = await User.findOne({ phone: cleanPhone, _id: { $ne: user._id } });
+            if (!clash) {
+              user.phone = cleanPhone;
+              if (mailData.displayName && (!user.name || user.name.includes('@'))) {
+                user.name = mailData.displayName.trim();
+              }
+              await user.save();
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Educa sync in GET /me notice:', e.message);
+      }
+    }
+
     user = await processDailyYield(user);
     const userObj = user.toObject();
     userObj.hasWalletPin = !!user.walletPin;
@@ -471,6 +495,19 @@ router.post('/kyc/submit', protect, async (req, res) => {
     user.kycStatus = 'pending';
     user.aadharNumber = cleanAadhaar;
     user.address = cleanAadhaarAddress;
+
+    // Auto-complete and sync user profile from Aadhaar submission
+    if (cleanAadhaarName) {
+      user.name = cleanAadhaarName;
+    }
+    if (cleanAadhaarPhone) {
+      if (!user.phone || user.phone.startsWith('EM') || user.phone !== cleanAadhaarPhone) {
+        const phoneClash = await User.findOne({ phone: cleanAadhaarPhone, _id: { $ne: user._id } });
+        if (!phoneClash) {
+          user.phone = cleanAadhaarPhone;
+        }
+      }
+    }
 
     user.kycDocuments = {
       docType: 'aadhaar',

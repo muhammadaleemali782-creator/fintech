@@ -4171,7 +4171,7 @@ export default function Dashboard() {
                 {/* 1. Loan Commission */}
                 <div className="bg-gradient-to-br from-blue-950/60 to-slate-900/80 border border-blue-500/30 rounded-2xl p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-blue-300 font-bold uppercase">🏦 Loans</span>
+                    <span className="text-[10px] text-blue-300 font-bold uppercase">🏦 Loan</span>
                     <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30">
                       {agentMetrics?.agentInfo?.commissions?.loan ?? 1}% Rate
                     </span>
@@ -4179,13 +4179,13 @@ export default function Dashboard() {
                   <div className="text-base sm:text-lg font-black font-mono text-blue-400">
                     ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.loan || 0).toLocaleString("en-IN")}
                   </div>
-                  <span className="text-[9px] text-gray-400">Borrower Disbursals</span>
+                  <span className="text-[9px] text-gray-400">Customer Loans</span>
                 </div>
 
-                {/* 2. Peer Lending Commission */}
+                {/* 2. Lending Account Commission */}
                 <div className="bg-gradient-to-br from-emerald-950/60 to-slate-900/80 border border-emerald-500/30 rounded-2xl p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-emerald-300 font-bold uppercase">🤝 Peer Lending</span>
+                    <span className="text-[10px] text-emerald-300 font-bold uppercase">🤝 Lending Account</span>
                     <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
                       {agentMetrics?.agentInfo?.commissions?.lending ?? 4}% Rate
                     </span>
@@ -4193,13 +4193,13 @@ export default function Dashboard() {
                   <div className="text-base sm:text-lg font-black font-mono text-emerald-400">
                     ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.lending || 0).toLocaleString("en-IN")}
                   </div>
-                  <span className="text-[9px] text-gray-400">Monthly Lending Bonds</span>
+                  <span className="text-[9px] text-gray-400">Lending Account</span>
                 </div>
 
-                {/* 3. Investment Commission */}
+                {/* 3. Debt Account Commission */}
                 <div className="bg-gradient-to-br from-amber-950/60 to-slate-900/80 border border-amber-500/30 rounded-2xl p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-amber-300 font-bold uppercase">📈 Investment</span>
+                    <span className="text-[10px] text-amber-300 font-bold uppercase">📈 Debt Account</span>
                     <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30">
                       {agentMetrics?.agentInfo?.commissions?.investment ?? 1}% Rate
                     </span>
@@ -4207,13 +4207,13 @@ export default function Dashboard() {
                   <div className="text-base sm:text-lg font-black font-mono text-amber-300">
                     ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.investment || 0).toLocaleString("en-IN")}
                   </div>
-                  <span className="text-[9px] text-gray-400">Customer Deposits</span>
+                  <span className="text-[9px] text-gray-400">Debt Account</span>
                 </div>
 
                 {/* 4. Bond Commission */}
                 <div className="bg-gradient-to-br from-purple-950/60 to-slate-900/80 border border-purple-500/30 rounded-2xl p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-purple-300 font-bold uppercase">📜 Fixed Bonds</span>
+                    <span className="text-[10px] text-purple-300 font-bold uppercase">📜 Bonds</span>
                     <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30">
                       {agentMetrics?.agentInfo?.commissions?.bond ?? 4}% Rate
                     </span>

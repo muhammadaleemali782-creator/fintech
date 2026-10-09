@@ -839,6 +839,8 @@ export default function AdminPanel() {
         setIssueSelectedUser(prev => ({ ...prev, referredBy: selectedAgentForAssign || null }));
       }
       apiCache.clear();
+      loadAgents(true);
+      loadUsers(true);
       setAssignAgentModalUser(null);
     } catch (err) {
       showToast(err.message, "error");
@@ -5138,7 +5140,7 @@ export default function AdminPanel() {
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                             {/* 1. Loan Commission */}
                             <div className="p-2.5 bg-blue-50/70 border border-blue-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-blue-900 block mb-1">🏦 Loan Disbursal</span>
+                              <span className="text-[11px] font-bold text-blue-900 block mb-1">🏦 Loan</span>
                               <div className="flex items-center gap-1">
                                 <input
                                   type="number"
@@ -5166,7 +5168,7 @@ export default function AdminPanel() {
 
                             {/* 2. Peer Lending Commission */}
                             <div className="p-2.5 bg-emerald-50/70 border border-emerald-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-emerald-900 block mb-1">🤝 Peer Lending</span>
+                              <span className="text-[11px] font-bold text-emerald-900 block mb-1">🤝 Lending Account</span>
                               <div className="flex items-center gap-1">
                                 <input
                                   type="number"
@@ -5192,9 +5194,9 @@ export default function AdminPanel() {
                               </div>
                             </div>
 
-                            {/* 3. Investment Commission */}
+                            {/* 3. Debt Account Commission */}
                             <div className="p-2.5 bg-amber-50/70 border border-amber-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-amber-900 block mb-1">📈 Investment/Deposit</span>
+                              <span className="text-[11px] font-bold text-amber-900 block mb-1">📈 Debt Account</span>
                               <div className="flex items-center gap-1">
                                 <input
                                   type="number"
@@ -5286,7 +5288,7 @@ export default function AdminPanel() {
 
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                             <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs">
-                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">🏦 Loans</span>
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">🏦 Loan</span>
                               <div className="font-black font-mono text-blue-700 text-sm">
                                 ₹{(a.earningsBreakdown?.loan || 0).toLocaleString("en-IN")}
                               </div>
@@ -5294,7 +5296,7 @@ export default function AdminPanel() {
                             </div>
 
                             <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs">
-                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">🤝 Peer Lending</span>
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">🤝 Lending Account</span>
                               <div className="font-black font-mono text-emerald-700 text-sm">
                                 ₹{(a.earningsBreakdown?.lending || 0).toLocaleString("en-IN")}
                               </div>
@@ -5302,7 +5304,7 @@ export default function AdminPanel() {
                             </div>
 
                             <div className="bg-white p-2.5 rounded-xl border border-amber-100 shadow-2xs">
-                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">📈 Investments</span>
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">📈 Debt Account</span>
                               <div className="font-black font-mono text-amber-700 text-sm">
                                 ₹{(a.earningsBreakdown?.investment || 0).toLocaleString("en-IN")}
                               </div>
@@ -5310,7 +5312,7 @@ export default function AdminPanel() {
                             </div>
 
                             <div className="bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs">
-                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">📜 Fixed Bonds</span>
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">📜 Bonds</span>
                               <div className="font-black font-mono text-purple-700 text-sm">
                                 ₹{(a.earningsBreakdown?.bond || 0).toLocaleString("en-IN")}
                               </div>
@@ -5326,17 +5328,37 @@ export default function AdminPanel() {
                               <span className="font-bold text-gray-800 flex items-center gap-1.5 text-[11px]">
                                 <span>👥</span> Attached Team & Customer Network ({a.referredMembers.length})
                               </span>
-                              <span className="text-[10px] text-gray-500">Auto-Linked via Referral</span>
+                              <span className="text-[10px] text-gray-500 font-medium">Click to Reassign Agent</span>
                             </div>
-                            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                            <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1">
                               {a.referredMembers.map(m => (
-                                <span
+                                <div
                                   key={m.id}
-                                  className="px-2.5 py-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-[10px] font-bold text-gray-800 flex items-center gap-1.5 shadow-2xs transition"
+                                  className="px-2.5 py-1.5 bg-gray-50 hover:bg-indigo-50/70 border border-gray-200 hover:border-indigo-300 rounded-xl text-[10px] font-bold text-gray-800 flex items-center gap-2 shadow-2xs transition"
                                 >
-                                  <span>👤</span> {m.name}
-                                  <span className="text-gray-400 font-mono">({m.phone || m.email})</span>
-                                </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span>👤</span>
+                                    <span>{m.name}</span>
+                                    <span className="text-gray-400 font-mono text-[9px]">({m.phone || m.email})</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAssignAgentModalUser({
+                                        _id: m.id,
+                                        name: m.name,
+                                        phone: m.phone,
+                                        email: m.email,
+                                        referredBy: a._id
+                                      });
+                                      setSelectedAgentForAssign(String(a._id));
+                                    }}
+                                    className="px-2 py-0.5 bg-white hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 hover:border-indigo-600 rounded-md text-[9px] font-extrabold transition cursor-pointer flex items-center gap-1 shadow-2xs active:scale-95"
+                                    title="Is customer ka agent badle / change karein"
+                                  >
+                                    <span>⇄</span> Change Agent
+                                  </button>
+                                </div>
                               ))}
                             </div>
                           </div>

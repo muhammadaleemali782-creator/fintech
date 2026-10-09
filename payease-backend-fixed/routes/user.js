@@ -31,9 +31,9 @@ async function processDailyYield(user) {
   const perMsRate = annualRate / (365 * 86400 * 1000);
 
   if (elapsedMs >= 100) {
-    const totalEarned = Number((baseBal * perMsRate * elapsedMs).toFixed(4));
+    const totalEarned = Number((baseBal * perMsRate * elapsedMs).toFixed(6));
     if (totalEarned > 0) {
-      user.profitBalance = Number(((user.profitBalance || 0) + totalEarned).toFixed(4));
+      user.profitBalance = Number(((user.profitBalance || 0) + totalEarned).toFixed(6));
       user.lastYieldCalculatedAt = now;
       user.lowestBalance24h = user.balance;
       await user.save();

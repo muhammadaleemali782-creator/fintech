@@ -72,23 +72,66 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
   }
 };
 
-// Real-time ticking profit balance display component (High-FPS, isolated from Dashboard re-renders)
-function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, userAnchorTime = Date.now(), className = "" }) {
-  const [liveMs, setLiveMs] = useState(Date.now());
+// Real-time ticking profit balance display component (High-FPS, strictly monotonic — NEVER resets to zero)
+function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }) {
+  // Read previously accumulated profit from localStorage so old data displays instantly (no zero flicker)
+  const [profit, setProfit] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem("educa_cached_profit_balance") || 0);
+      return Math.max(Number(baseProfit || 0), saved, 0);
+    } catch {
+      return Math.max(Number(baseProfit || 0), 0);
+    }
+  });
+
+  const profitRef = useRef(profit);
+  profitRef.current = profit;
+  const lastTickRef = useRef(Date.now());
   const lastPersistRef = useRef(0);
 
   const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
   const perSecondYield = dailyYieldEst / 86400;
   const perMsYield = perSecondYield / 1000;
 
+  // If server credits higher profit (e.g. daily/hourly settlement), smoothly sync upward — NEVER down to zero
+  useEffect(() => {
+    const serverVal = Number(baseProfit || 0);
+    if (serverVal > profitRef.current) {
+      profitRef.current = serverVal;
+      setProfit(serverVal);
+    }
+  }, [baseProfit]);
+
   useEffect(() => {
     let timer = null;
+    lastTickRef.current = Date.now();
+
+    const tick = () => {
+      const now = Date.now();
+      const deltaMs = Math.max(0, now - lastTickRef.current);
+      lastTickRef.current = now;
+
+      if (activeCapital > 0 && deltaMs > 0) {
+        const increment = deltaMs * perMsYield;
+        profitRef.current = profitRef.current + increment;
+        setProfit(profitRef.current);
+
+        // Persist to localStorage every 3 seconds so restarts keep accumulated value
+        if (now - lastPersistRef.current > 3000) {
+          lastPersistRef.current = now;
+          try {
+            localStorage.setItem("educa_cached_profit_balance", String(profitRef.current));
+            localStorage.setItem("educa_last_profit_tick", String(now));
+          } catch {}
+        }
+      }
+    };
+
     const startTimer = () => {
       if (timer) clearInterval(timer);
       if (activeCapital > 0 && typeof document !== "undefined" && !document.hidden) {
-        timer = setInterval(() => {
-          setLiveMs(Date.now());
-        }, 50); // 50ms: Khoob tez ultra-fast speed, smooth tick
+        lastTickRef.current = Date.now();
+        timer = setInterval(tick, 50); // 50ms ultra-fast smooth tick
       }
     };
 
@@ -96,7 +139,14 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, userAnchorTime =
       if (document.hidden) {
         if (timer) clearInterval(timer);
       } else {
-        setLiveMs(Date.now());
+        // App reopened / returned from background: smoothly add offline accumulated profit without zeroing
+        const now = Date.now();
+        const delta = Math.min(Math.max(0, now - lastTickRef.current), 7 * 86400 * 1000);
+        lastTickRef.current = now;
+        if (activeCapital > 0 && delta > 0) {
+          profitRef.current = profitRef.current + (delta * perMsYield);
+          setProfit(profitRef.current);
+        }
         startTimer();
       }
     };
@@ -107,23 +157,9 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, userAnchorTime =
       if (timer) clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [activeCapital]);
+  }, [activeCapital, perMsYield]);
 
-  const elapsedUserMs = Math.max(0, liveMs - userAnchorTime);
-  const liveProfitBalance = baseProfit + (elapsedUserMs * perMsYield);
-
-  // Throttle localStorage writes to once every 4 seconds to eliminate main-thread I/O freeze
-  useEffect(() => {
-    const now = Date.now();
-    if (liveProfitBalance > 0 && now - lastPersistRef.current > 4000) {
-      lastPersistRef.current = now;
-      try {
-        localStorage.setItem("educa_cached_profit_balance", String(liveProfitBalance));
-      } catch {}
-    }
-  }, [liveProfitBalance]);
-
-  const num = Number(liveProfitBalance || 0);
+  const num = Number(profit || 0);
   const b = Number(activeCapital || 0);
   let formatted = "0.000000";
   if (b > 0 || num > 0) {
@@ -2249,20 +2285,25 @@ export default function Dashboard() {
     }
   }, [loadDashboard]);
 
+  const lastSyncTimeRef = useRef(Date.now());
+
   useEffect(() => {
     // Immediate silent refresh on open in background
     silentSyncAll();
 
-    // Foreground-only background polling every 35 seconds (30-60s recommended range)
+    // Foreground-only gentle background polling every 2.5 minutes (prevents constant network churn & resets)
     const pollInterval = setInterval(() => {
       if (typeof document !== "undefined" && !document.hidden) {
+        lastSyncTimeRef.current = Date.now();
         silentSyncAll();
       }
-    }, 35000);
+    }, 150000);
 
-    // Instant silent sync when app returns from background / unhidden / focus
+    // Throttled silent sync on app resume / window focus (at most once every 60s)
     const handleResume = () => {
-      if (typeof document !== "undefined" && !document.hidden) {
+      const now = Date.now();
+      if (now - lastSyncTimeRef.current > 60000 && typeof document !== "undefined" && !document.hidden) {
+        lastSyncTimeRef.current = now;
         silentSyncAll();
       }
     };
@@ -2294,22 +2335,17 @@ export default function Dashboard() {
   }, []);
 
   const activeCapital = Number(userProfile.balance ?? balance ?? 0);
-  const [userAnchorTime, setUserAnchorTime] = useState(() => Date.now());
 
   useEffect(() => {
     if (userProfile?.profitBalance !== undefined) {
       const serverVal = Number(userProfile.profitBalance);
       setCachedProfitBalance(prev => Math.max(prev || 0, serverVal));
       try {
-        localStorage.setItem("educa_cached_profit_balance", String(Math.max(cachedProfitBalance || 0, serverVal)));
+        const highest = Math.max(Number(localStorage.getItem("educa_cached_profit_balance") || 0), serverVal);
+        localStorage.setItem("educa_cached_profit_balance", String(highest));
       } catch {}
-      const sTime = userProfile.serverTime || userProfile.lastYieldCalculatedAt;
-      if (sTime) {
-        const parsed = new Date(sTime).getTime();
-        if (!isNaN(parsed)) setUserAnchorTime(parsed);
-      }
     }
-  }, [userProfile?.profitBalance, userProfile?.serverTime, userProfile?.lastYieldCalculatedAt]);
+  }, [userProfile?.profitBalance]);
 
   const baseProfit = Math.max(Number(userProfile?.profitBalance || 0), Number(cachedProfitBalance || 0));
   const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
@@ -4810,7 +4846,6 @@ export default function Dashboard() {
                 <LiveRollingProfit
                   activeCapital={activeCapital}
                   baseProfit={baseProfit}
-                  userAnchorTime={userAnchorTime}
                 />
               </h3>
               <p className="text-emerald-100/90 text-[11px] hidden sm:block mt-1">1% Monthly Daily Yield & 365d Bonds</p>
@@ -5858,7 +5893,6 @@ export default function Dashboard() {
               <LiveRollingProfit
                 activeCapital={activeCapital}
                 baseProfit={baseProfit}
-                userAnchorTime={userAnchorTime}
               />
             </div>
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-500/30 text-xs text-emerald-100">

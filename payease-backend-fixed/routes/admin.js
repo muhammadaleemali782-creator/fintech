@@ -335,10 +335,25 @@ router.get('/agent-applications', protect, admin, async (req, res) => {
       referredBy: { $in: agentIds }
     }).select('_id name phone email referredBy balance duesBalance loansCount createdAt');
 
+    const nominatorIds = applicants.map(a => a.agentProfile?.nominatedBy).filter(Boolean);
+    const nominators = await User.find({ _id: { $in: nominatorIds } }).select('_id name phone referralCode');
+
     const enrichedApplicants = applicants.map(a => {
       const aObj = a.toObject();
       const aBonus = bonusTxns.filter(t => t.userId.toString() === a._id.toString());
       const aMembers = referredUsers.filter(u => u.referredBy && u.referredBy.toString() === a._id.toString());
+
+      if (aObj.agentProfile?.nominatedBy) {
+        const nom = nominators.find(n => n._id.toString() === aObj.agentProfile.nominatedBy.toString());
+        if (nom) {
+          aObj.nominatedBy = {
+            id: nom._id,
+            name: nom.name,
+            phone: nom.phone,
+            referralCode: nom.referralCode
+          };
+        }
+      }
 
       let loanEarnings = 0;
       let lendingEarnings = 0;
@@ -411,6 +426,27 @@ router.post('/agent-applications/:id/approve', protect, admin, async (req, res) 
     if (!user.agentProfile) user.agentProfile = {};
     user.agentProfile.status = 'approved';
     user.agentProfile.approvedAt = new Date();
+
+    if (!user.referralCode) {
+      const cleanPrefix = (user.name || 'EF').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'EF';
+      const randomDigits = Math.floor(1000 + Math.random() * 9000);
+      user.referralCode = `EF${cleanPrefix}${randomDigits}`;
+    }
+
+    if (user.agentProfile.nominatedBy) {
+      user.referredBy = user.agentProfile.nominatedBy;
+      const nomAgent = await User.findById(user.agentProfile.nominatedBy);
+      if (nomAgent) {
+        user.referredByCode = nomAgent.referralCode || undefined;
+        await User.findByIdAndUpdate(nomAgent._id, { $inc: { referralCount: 1 } });
+        sendNotification({
+          type: 'sub_agent_approved',
+          title: 'Sub-Agent Approved! 🎉',
+          message: `Aapke dwara nominate kiye gaye Sub-Agent ${user.name} (${user.phone}) ko Admin ne approve kar diya hai.`,
+          data: { subAgentId: user._id, subAgentName: user.name }
+        });
+      }
+    }
 
     if (!user.agentProfile.commissions) {
       user.agentProfile.commissions = { loan: 1, lending: 4, investment: 1, bond: 4 };

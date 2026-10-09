@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema({
     },
     businessName: { type: String, default: '' },
     city: { type: String, default: '' },
+    nominatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     appliedAt: { type: Date, default: null },
     approvedAt: { type: Date, default: null }
   },

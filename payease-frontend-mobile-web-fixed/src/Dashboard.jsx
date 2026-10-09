@@ -481,6 +481,9 @@ export default function Dashboard() {
   const [addCustomerModalOpen, setAddCustomerModalOpen] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({ name: "", phone: "", email: "", password: "12345678" });
   const [submittingCustomer, setSubmittingCustomer] = useState(false);
+  const [nominateSubAgentModalOpen, setNominateSubAgentModalOpen] = useState(false);
+  const [subAgentForm, setSubAgentForm] = useState({ candidateUserId: "", name: "", phone: "", businessName: "", city: "" });
+  const [submittingSubAgent, setSubmittingSubAgent] = useState(false);
 
   const getAdvisorGreeting = (l = "hinglish") => {
     if (l === "english") {
@@ -858,6 +861,7 @@ export default function Dashboard() {
         submitInstallmentModal ||
         agentBroadcastModalOpen ||
         addCustomerModalOpen ||
+        nominateSubAgentModalOpen ||
         editLoanLimitCustomer
       );
 
@@ -876,6 +880,7 @@ export default function Dashboard() {
         setSubmitInstallmentModal(null);
         setAgentBroadcastModalOpen(false);
         setAddCustomerModalOpen(false);
+        setNominateSubAgentModalOpen(false);
         setEditLoanLimitCustomer(null);
         return true;
       }
@@ -910,6 +915,7 @@ export default function Dashboard() {
       setSubmitInstallmentModal(null);
       setAgentBroadcastModalOpen(false);
       setAddCustomerModalOpen(false);
+      setNominateSubAgentModalOpen(false);
       setEditLoanLimitCustomer(null);
       setLightboxImg(null);
     };
@@ -929,6 +935,7 @@ export default function Dashboard() {
     submitInstallmentModal,
     agentBroadcastModalOpen,
     addCustomerModalOpen,
+    nominateSubAgentModalOpen,
     editLoanLimitCustomer,
     qrTab,
     cardTab,
@@ -936,7 +943,7 @@ export default function Dashboard() {
   ]);
 
   useEffect(() => {
-    const isOverlayOpen = Boolean(modal || accountModal || showLoans || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen || addCustomerModalOpen);
+    const isOverlayOpen = Boolean(modal || accountModal || showLoans || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen || addCustomerModalOpen || nominateSubAgentModalOpen);
     if (isOverlayOpen) {
       window.history.pushState({ educaSheetOpen: true }, "");
       const onPopState = () => {
@@ -959,13 +966,14 @@ export default function Dashboard() {
           return;
         }
         closeModal();
+        setNominateSubAgentModalOpen(false);
       };
       window.addEventListener("popstate", onPopState);
       return () => {
         window.removeEventListener("popstate", onPopState);
       };
     }
-  }, [modal, accountModal, showLoans, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen]);
+  }, [modal, accountModal, showLoans, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen, addCustomerModalOpen, nominateSubAgentModalOpen]);
 
   const [hasBiometric, setHasBiometric] = useState(false);
 
@@ -1623,6 +1631,37 @@ export default function Dashboard() {
       setToast({ text: err.message, type: "error" });
     } finally {
       setSubmittingCustomer(false);
+    }
+  };
+
+  const handleNominateSubAgent = async (e) => {
+    e.preventDefault();
+    if (!subAgentForm.candidateUserId && !subAgentForm.name.trim()) {
+      setToast({ text: "Candidate ka naam ya existing customer select karein", type: "error" });
+      return;
+    }
+    const cleanPhone = subAgentForm.phone ? String(subAgentForm.phone).trim() : "";
+    if (!subAgentForm.candidateUserId && (!cleanPhone || cleanPhone.length !== 10)) {
+      setToast({ text: "Valid 10-digit mobile number enter karein", type: "error" });
+      return;
+    }
+    setSubmittingSubAgent(true);
+    try {
+      const res = await fetch(`${API}/user/agent/nominate-subagent`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(subAgentForm)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Sub-agent nomination request fail ho gayi");
+      setToast({ text: data.message || "Sub-Agent nomination request admin ko bhej di gayi hai!", type: "success" });
+      setNominateSubAgentModalOpen(false);
+      setSubAgentForm({ candidateUserId: "", name: "", phone: "", businessName: "", city: "" });
+      loadAgentMetrics();
+    } catch (err) {
+      setToast({ text: err.message, type: "error" });
+    } finally {
+      setSubmittingSubAgent(false);
     }
   };
 
@@ -4276,6 +4315,20 @@ export default function Dashboard() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    const isTeam = agentMetrics?.agentInfo?.isTeamModel || agentMetrics?.isTeamModel || userProfile.agentProfile?.commissionModel === "team_1" || userProfile.agentProfile?.commissionModel === "team";
+                    if (!isTeam) {
+                      setToast({ text: "Sub-Agent nomination sirf Team Model me available hai. Admin se Team Model activate karwayen.", type: "error" });
+                      return;
+                    }
+                    setNominateSubAgentModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white font-black rounded-xl transition active:scale-95 text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>👥</span> Nominate Sub-Agent
+                </button>
+                <button
+                  type="button"
                   onClick={() => setAgentBroadcastModalOpen(true)}
                   className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black rounded-xl transition active:scale-95 text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
@@ -4293,6 +4346,45 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
+
+            {/* Team Model Sub-Agents & Pending Nominations Banner */}
+            {Boolean(agentMetrics?.agentInfo?.isTeamModel || agentMetrics?.isTeamModel || userProfile.agentProfile?.commissionModel === "team_1" || userProfile.agentProfile?.commissionModel === "team") && (
+              <div className="mt-3 p-3 bg-purple-950/40 border border-purple-500/30 rounded-2xl text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-purple-300 flex items-center gap-1.5">
+                    <span>👥</span> My Sub-Agent Network ({agentMetrics?.subAgents?.length || agentMetrics?.stats?.teamMembersCount || 0})
+                  </span>
+                  <span className="text-[10px] bg-purple-500/20 text-purple-200 border border-purple-500/30 px-2 py-0.5 rounded-full font-bold">
+                    Team Model
+                  </span>
+                </div>
+                {agentMetrics?.pendingSubAgents && agentMetrics.pendingSubAgents.length > 0 && (
+                  <div className="p-2 bg-amber-500/15 border border-amber-400/30 rounded-xl text-[11px] text-amber-200 space-y-1">
+                    <span className="font-bold block">⏳ Pending Admin Review ({agentMetrics.pendingSubAgents.length}):</span>
+                    {agentMetrics.pendingSubAgents.map((p, idx) => (
+                      <div key={idx} className="flex justify-between items-center text-[10px] bg-black/40 px-2 py-1 rounded">
+                        <span>{p.name} ({p.phone})</span>
+                        <span className="text-amber-300 font-semibold">Under Review by Admin</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {agentMetrics?.subAgents && agentMetrics.subAgents.length > 0 ? (
+                  <div className="space-y-1">
+                    {agentMetrics.subAgents.map((sa, idx) => (
+                      <div key={idx} className="flex justify-between items-center text-[11px] bg-black/30 border border-white/5 px-2.5 py-1.5 rounded-xl">
+                        <span className="font-bold text-white">{sa.name} <span className="font-mono text-gray-400 text-[10px]">({sa.phone})</span></span>
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded font-bold font-mono">Code: {sa.referralCode}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-purple-200/70">
+                    Aapke team me abhi koi sub-agent active nahi hai. Upar <strong>Nominate Sub-Agent</strong> button se naye sub-agent ke liye nomination bhej sakte hain.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Early Settlement Commission Benefit Guide */}
             <div className="mt-3 p-3.5 bg-white/5 border border-amber-400/25 rounded-2xl text-xs space-y-2">
@@ -10964,6 +11056,158 @@ export default function Dashboard() {
                   <>
                     <span>✓</span>
                     <span>Create & Link Customer Under Me →</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </Sheet>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          AGENT NOMINATE SUB-AGENT MODAL SHEET (TEAM MODEL)
+      ══════════════════════════════════════════════════════ */}
+      {nominateSubAgentModalOpen && (
+        <Sheet
+          open={nominateSubAgentModalOpen}
+          onClose={() => setNominateSubAgentModalOpen(false)}
+          title="Nominate Sub-Agent Under My Team"
+          icon="🤝"
+        >
+          <form onSubmit={handleNominateSubAgent} className="space-y-4">
+            <div className="p-3 bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-purple-500/5 border border-purple-300 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-purple-800 uppercase font-black tracking-wider">Team Hierarchy Expansion</span>
+                <h4 className="text-sm font-black text-purple-950">
+                  Sub-Agent Request to Admin
+                </h4>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-purple-600 text-white uppercase shadow-2xs font-mono">
+                Team Model
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-600 leading-tight">
+              Aap apne niche kisi bhi vyakti ya existing customer ko <strong>Sub-Agent</strong> banane ke liye nomination request bhej sakte hain. Admin review karke approve karega, jiske baad candidate Sub-Agent ban jayega aur team commission share activate ho jayega.
+            </p>
+
+            {/* Select existing customer or new */}
+            {agentMetrics?.customers && agentMetrics.customers.length > 0 && (
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  Existing Customer se chunein (Optional)
+                </label>
+                <select
+                  value={subAgentForm.candidateUserId}
+                  onChange={(e) => {
+                    const selId = e.target.value;
+                    const cust = agentMetrics.customers.find((c) => (c._id || c.id) === selId);
+                    if (cust) {
+                      setSubAgentForm({
+                        ...subAgentForm,
+                        candidateUserId: selId,
+                        name: cust.name || "",
+                        phone: cust.phone || "",
+                        businessName: subAgentForm.businessName || `${cust.name} Business`
+                      });
+                    } else {
+                      setSubAgentForm({ ...subAgentForm, candidateUserId: "" });
+                    }
+                  }}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">-- Naya candidate enter karein --</option>
+                  {agentMetrics.customers.map((c) => (
+                    <option key={c._id || c.id} value={c._id || c.id}>
+                      {c.name} ({c.phone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Candidate Name */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                Candidate Full Name <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                disabled={Boolean(subAgentForm.candidateUserId)}
+                value={subAgentForm.name}
+                onChange={(e) => setSubAgentForm({ ...subAgentForm, name: e.target.value })}
+                placeholder="e.g. Rahul Sharma"
+                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-60"
+              />
+            </div>
+
+            {/* Mobile Number */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                10-Digit Mobile Number <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="tel"
+                required
+                maxLength={10}
+                disabled={Boolean(subAgentForm.candidateUserId)}
+                value={subAgentForm.phone}
+                onChange={(e) => setSubAgentForm({ ...subAgentForm, phone: e.target.value.replace(/\D/g, "") })}
+                placeholder="e.g. 9876543210"
+                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-60"
+              />
+            </div>
+
+            {/* Shop / Business Name */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                Dukaan / Business Name (Optional)
+              </label>
+              <input
+                type="text"
+                value={subAgentForm.businessName}
+                onChange={(e) => setSubAgentForm({ ...subAgentForm, businessName: e.target.value })}
+                placeholder="e.g. Sharma Communication"
+                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-900 outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            {/* City / Location */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                City / Location (Optional)
+              </label>
+              <input
+                type="text"
+                value={subAgentForm.city}
+                onChange={(e) => setSubAgentForm({ ...subAgentForm, city: e.target.value })}
+                placeholder="e.g. Delhi, Jaipur"
+                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-900 outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            {/* Note about Admin Approval */}
+            <div className="p-2.5 bg-amber-500/10 border border-amber-300 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
+              <span className="text-base">⏳</span>
+              <div>
+                <strong>Admin Approval:</strong> Request Admin ke paas jayegi. Admin approve karne ke baad candidate aapka official Sub-Agent ban jayega.
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={submittingSubAgent}
+                className="w-full py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-black rounded-xl text-xs shadow-md transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+              >
+                {submittingSubAgent ? (
+                  <span>Submitting Nomination Request...</span>
+                ) : (
+                  <>
+                    <span>🤝</span>
+                    <span>Submit Sub-Agent Nomination to Admin →</span>
                   </>
                 )}
               </button>

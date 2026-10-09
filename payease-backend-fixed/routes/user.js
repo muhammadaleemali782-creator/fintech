@@ -692,6 +692,7 @@ router.get('/agent/stats', protect, async (req, res) => {
 
     const isTeamModel = agent.agentProfile?.commissionModel === 'team_1' || agent.agentProfile?.commissionModel === 'team';
     const subAgents = await User.find({ referredBy: agent._id, role: 'agent' });
+    const pendingSubAgents = await User.find({ 'agentProfile.nominatedBy': agent._id, 'agentProfile.status': 'pending' });
 
     // Fetch commission earnings breakdown from transactions
     const bonusTxns = await Transaction.find({
@@ -790,7 +791,22 @@ router.get('/agent/stats', protect, async (req, res) => {
           kycStatus: c.kycStatus || 'none',
           joinedAt: c.createdAt
         };
-      })
+      }),
+      subAgents: subAgents.map(sa => ({
+        id: sa._id,
+        name: sa.name,
+        phone: sa.phone,
+        referralCode: sa.referralCode,
+        status: sa.agentProfile?.status || 'approved',
+        joinedAt: sa.createdAt
+      })),
+      pendingSubAgents: pendingSubAgents.map(psa => ({
+        id: psa._id,
+        name: psa.name,
+        phone: psa.phone,
+        status: 'pending',
+        appliedAt: psa.agentProfile?.appliedAt || psa.createdAt
+      }))
     });
   } catch (err) {
     console.error('Agent stats error:', err);
@@ -1007,6 +1023,111 @@ router.post('/agent/add-customer', protect, async (req, res) => {
   } catch (err) {
     console.error('Add customer error:', err);
     res.status(500).json({ message: 'Customer add karne me error aaya. Kripya dobara try karein.' });
+  }
+});
+
+// ------------------ AGENT: NOMINATE SUB-AGENT (TEAM MODEL EXCLUSIVE) ------------------
+router.post('/agent/nominate-subagent', protect, async (req, res) => {
+  try {
+    const agent = await User.findById(req.user._id);
+    if (!agent) return res.status(404).json({ message: 'User not found' });
+
+    const isAgent = agent.role === 'agent' || agent.agentProfile?.status === 'approved' || agent.role === 'admin';
+    if (!isAgent) return res.status(403).json({ message: 'Agent access required' });
+
+    // Strict condition: Only Team Model agents can nominate sub-agents
+    const isTeamModel = agent.agentProfile?.commissionModel === 'team_1' || agent.agentProfile?.commissionModel === 'team';
+    if (!isTeamModel && agent.role !== 'admin') {
+      return res.status(403).json({
+        message: 'Sirf Team Model wale agents hi apne niche Sub-Agent bana sakte hain. Solo agents ke paas yeh suvidha uplabdh nahi hai. Kripya Admin se Team Model activate karwayen.'
+      });
+    }
+
+    const { candidateUserId, name, phone, email, businessName, city } = req.body;
+
+    let candidate = null;
+    if (candidateUserId) {
+      candidate = await User.findById(candidateUserId);
+    } else if (phone) {
+      const cleanPhone = String(phone).replace(/\D/g, '').trim();
+      if (cleanPhone) candidate = await User.findOne({ phone: cleanPhone });
+    }
+
+    if (candidate) {
+      if (candidate.role === 'agent' && candidate.agentProfile?.status === 'approved') {
+        return res.status(400).json({ message: 'Yeh candidate pehle se ek approved active agent hai.' });
+      }
+
+      if (!candidate.agentProfile) candidate.agentProfile = {};
+      candidate.agentProfile.applied = true;
+      candidate.agentProfile.status = 'pending';
+      candidate.agentProfile.nominatedBy = agent._id;
+      candidate.agentProfile.commissionModel = 'team_1';
+      candidate.agentProfile.businessName = (businessName && businessName.trim()) || candidate.agentProfile.businessName || `${candidate.name} Business`;
+      candidate.agentProfile.city = (city && city.trim()) || candidate.agentProfile.city || agent.agentProfile?.city || '';
+      candidate.agentProfile.appliedAt = new Date();
+      candidate.referredBy = agent._id;
+      candidate.referredByCode = agent.referralCode;
+      await candidate.save();
+    } else {
+      if (!name || name.trim().length < 2) {
+        return res.status(400).json({ message: 'Candidate ka naam zaroori hai (min 2 characters)' });
+      }
+      const cleanPhone = phone ? String(phone).replace(/\D/g, '').trim() : '';
+      if (!cleanPhone || cleanPhone.length !== 10) {
+        return res.status(400).json({ message: 'Valid 10-digit mobile number enter karein' });
+      }
+
+      const cleanEmail = email && email.trim() ? email.trim().toLowerCase() : `${cleanPhone}@educa.internal`;
+      const existing = await User.findOne({ $or: [{ phone: cleanPhone }, { email: cleanEmail }] });
+      if (existing) {
+        return res.status(400).json({ message: 'Yeh mobile number ya email pehle se registered hai.' });
+      }
+
+      const bcrypt = require('bcryptjs');
+      const hashed = await bcrypt.hash('12345678', 12);
+
+      candidate = await User.create({
+        name: name.trim(),
+        phone: cleanPhone,
+        email: cleanEmail,
+        password: hashed,
+        role: 'user',
+        referredBy: agent._id,
+        referredByCode: agent.referralCode,
+        agentProfile: {
+          applied: true,
+          status: 'pending',
+          nominatedBy: agent._id,
+          commissionModel: 'team_1',
+          businessName: (businessName && businessName.trim()) || `${name.trim()} Shop`,
+          city: (city && city.trim()) || agent.agentProfile?.city || '',
+          appliedAt: new Date()
+        }
+      });
+    }
+
+    // Real-time alert to Admin for review & approval
+    sendNotification({
+      type: 'sub_agent_nomination',
+      title: 'New Sub-Agent Nomination Request 🤝',
+      message: `${agent.name} ne ${candidate.name} (${candidate.phone}) ko apne niche Sub-Agent banane ke liye request bheji hai.`,
+      data: {
+        agentId: agent._id,
+        agentName: agent.name,
+        candidateId: candidate._id,
+        candidateName: candidate.name,
+        candidatePhone: candidate.phone
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `🎉 Sub-Agent nomination request Admin ko safaltapoorvak bhej di gayi hai! Admin review karke approve karenge tab ${candidate.name} aapka Sub-Agent ban jayega.`
+    });
+  } catch (err) {
+    console.error('Nominate subagent error:', err);
+    res.status(500).json({ message: 'Sub-Agent nomination request bhejne me samasya aayi.' });
   }
 });
 

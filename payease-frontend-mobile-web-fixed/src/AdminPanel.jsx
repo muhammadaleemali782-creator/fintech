@@ -5065,10 +5065,15 @@ export default function AdminPanel() {
                                 {prof.status || "pending"}
                               </span>
                             </div>
-                            <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                            <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center">
                               <span>📞 <a href={`tel:${a.phone}`} className="text-blue-600 font-bold hover:underline">{a.phone}</a></span>
                               <span>✉️ {a.email}</span>
                               {prof.city && <span>📍 {prof.city}</span>}
+                              {a.nominatedBy && (
+                                <span className="bg-purple-100 text-purple-950 px-2 py-0.5 rounded-md font-extrabold border border-purple-300 text-[11px] flex items-center gap-1">
+                                  <span>👥</span> Nominated as Sub-Agent by: <strong className="text-purple-900">{a.nominatedBy.name}</strong> ({a.nominatedBy.phone})
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -5090,7 +5095,7 @@ export default function AdminPanel() {
                                   })}
                                   className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm active:scale-95 cursor-pointer"
                                 >
-                                  ✓ Approve Agent
+                                  {a.nominatedBy ? "✓ Approve Sub-Agent" : "✓ Approve Agent"}
                                 </button>
                                 <button
                                   onClick={() => rejectAgent(a._id)}

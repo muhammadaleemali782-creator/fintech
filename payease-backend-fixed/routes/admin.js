@@ -516,11 +516,22 @@ router.post('/agent-applications/:id/switch-model', protect, admin, async (req, 
 
     if (!user.agentProfile) user.agentProfile = {};
     user.agentProfile.commissionModel = targetModel;
+    if (user.role !== 'agent') {
+      user.role = 'agent';
+      user.agentProfile.status = 'approved';
+      user.agentProfile.applied = true;
+      if (!user.agentProfile.businessName) user.agentProfile.businessName = (user.name || 'Agent') + ' Business';
+    }
+    if (!user.referralCode) {
+      const cleanPrefix = (user.name || 'EF').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'EF';
+      const randomDigits = Math.floor(1000 + Math.random() * 9000);
+      user.referralCode = `EF${cleanPrefix}${randomDigits}`;
+    }
     await user.save();
 
     res.json({
       success: true,
-      message: `Agent converted to ${targetModel === 'team_1' ? 'Team System' : 'Solo Direct'} successfully!`,
+      message: `${user.name} ko ${targetModel === 'team_1' ? 'Team System' : 'Solo Direct'} me safaltapoorvak convert kar diya gaya hai!`,
       user
     });
   } catch (err) {

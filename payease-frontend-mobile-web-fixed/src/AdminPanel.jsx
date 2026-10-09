@@ -1580,7 +1580,8 @@ export default function AdminPanel() {
       const data = await res.json();
       if (res.ok) {
         showToast(data.message || `Agent converted to ${targetModel === 'team_1' ? 'Team System' : 'Solo Direct'}!`, "success");
-        loadAgents();
+        loadAgents(true);
+        loadUsers(true);
       } else {
         showToast(data.message || "Failed to switch agent model", "error");
       }
@@ -5110,18 +5111,42 @@ export default function AdminPanel() {
                           </div>
 
                           <div className="p-2.5 bg-white rounded-xl border border-gray-100">
-                            <span className="text-gray-400 font-medium block text-[11px]">Model & Hierarchy</span>
-                            <div className="flex items-center justify-between gap-1 mt-0.5">
-                              <span className="font-bold text-gray-800">
-                                {isTeamModel ? (
-                                  <span className="text-amber-700 font-black">👥 Team Model (Hierarchy Allowed)</span>
-                                ) : (
-                                  <span className="text-blue-700 font-black">👤 Solo Direct (Independent Agent)</span>
-                                )}
-                              </span>
-                              <span className="px-2 py-0.5 rounded-full font-black text-[11px] bg-indigo-100 text-indigo-900 border border-indigo-200">
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-400 font-medium block text-[11px]">Model & Hierarchy</span>
+                              <span className="px-2 py-0.5 rounded-full font-black text-[10px] bg-indigo-100 text-indigo-900 border border-indigo-200">
                                 4-Category Commission Active
                               </span>
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
+                              <span className="font-bold text-gray-800 text-xs">
+                                {isTeamModel ? (
+                                  <span className="text-amber-700 font-black flex items-center gap-1.5">
+                                    <span>👥</span> Team Model (Hierarchy Allowed)
+                                  </span>
+                                ) : (
+                                  <span className="text-blue-700 font-black flex items-center gap-1.5">
+                                    <span>👤</span> Solo Direct (Independent Agent)
+                                  </span>
+                                )}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const target = isTeamModel ? "solo_2" : "team_1";
+                                  const label = isTeamModel ? "Solo Direct" : "Team Model";
+                                  if (window.confirm(`Kya aap ${a.name} ko ${label} me convert karna chahte hain?`)) {
+                                    switchAgentModel(a._id, target);
+                                  }
+                                }}
+                                className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition cursor-pointer flex items-center gap-1.5 shadow-2xs border ${
+                                  isTeamModel
+                                    ? "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300"
+                                    : "bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-300"
+                                } active:scale-95`}
+                                title={isTeamModel ? "Convert to Solo Direct" : "Convert to Team Model"}
+                              >
+                                <span>⇄</span> {isTeamModel ? "Convert to Solo" : "Convert to Team Model"}
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -5331,35 +5356,79 @@ export default function AdminPanel() {
                               <span className="text-[10px] text-gray-500 font-medium">Click to Reassign Agent</span>
                             </div>
                             <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1">
-                              {a.referredMembers.map(m => (
-                                <div
-                                  key={m.id}
-                                  className="px-2.5 py-1.5 bg-gray-50 hover:bg-indigo-50/70 border border-gray-200 hover:border-indigo-300 rounded-xl text-[10px] font-bold text-gray-800 flex items-center gap-2 shadow-2xs transition"
-                                >
-                                  <div className="flex items-center gap-1.5">
-                                    <span>👤</span>
-                                    <span>{m.name}</span>
-                                    <span className="text-gray-400 font-mono text-[9px]">({m.phone || m.email})</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setAssignAgentModalUser({
-                                        _id: m.id,
-                                        name: m.name,
-                                        phone: m.phone,
-                                        email: m.email,
-                                        referredBy: a._id
-                                      });
-                                      setSelectedAgentForAssign(String(a._id));
-                                    }}
-                                    className="px-2 py-0.5 bg-white hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 hover:border-indigo-600 rounded-md text-[9px] font-extrabold transition cursor-pointer flex items-center gap-1 shadow-2xs active:scale-95"
-                                    title="Is customer ka agent badle / change karein"
-                                  >
-                                    <span>⇄</span> Change Agent
-                                  </button>
-                                </div>
-                              ))}
+                                {a.referredMembers.map(m => {
+                                  const memberAgent = agents.find(ag => String(ag._id) === String(m.id));
+                                  const isMemberAgent = !!memberAgent;
+                                  const memberIsTeam = memberAgent?.agentProfile?.commissionModel === 'team_1';
+
+                                  return (
+                                    <div
+                                      key={m.id}
+                                      className="px-2.5 py-1.5 bg-gray-50 hover:bg-indigo-50/70 border border-gray-200 hover:border-indigo-300 rounded-xl text-[10px] font-bold text-gray-800 flex items-center gap-2 shadow-2xs transition"
+                                    >
+                                      <div className="flex items-center gap-1.5">
+                                        <span>{isMemberAgent ? (memberIsTeam ? "👥" : "👤") : "👤"}</span>
+                                        <span>{m.name}</span>
+                                        <span className="text-gray-400 font-mono text-[9px]">({m.phone || m.email})</span>
+                                        {isMemberAgent && (
+                                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-black ${memberIsTeam ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"}`}>
+                                            {memberIsTeam ? "Sub-Agent (Team)" : "Sub-Agent (Solo)"}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <div className="flex items-center gap-1 ml-auto">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setAssignAgentModalUser({
+                                              _id: m.id,
+                                              name: m.name,
+                                              phone: m.phone,
+                                              email: m.email,
+                                              referredBy: a._id
+                                            });
+                                            setSelectedAgentForAssign(String(a._id));
+                                          }}
+                                          className="px-2 py-0.5 bg-white hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 hover:border-indigo-600 rounded-md text-[9px] font-extrabold transition cursor-pointer flex items-center gap-1 shadow-2xs active:scale-95"
+                                          title="Is customer ka agent badle / change karein"
+                                        >
+                                          <span>⇄</span> Change Agent
+                                        </button>
+
+                                        {isMemberAgent ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const target = memberIsTeam ? "solo_2" : "team_1";
+                                              const label = memberIsTeam ? "Solo Direct" : "Team Model";
+                                              if (window.confirm(`Kya aap Sub-Agent ${m.name} ko ${label} me convert karna chahte hain?`)) {
+                                                switchAgentModel(m.id, target);
+                                              }
+                                            }}
+                                            className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-600 text-indigo-800 hover:text-white border border-indigo-300 hover:border-indigo-600 rounded-md text-[9px] font-extrabold transition cursor-pointer flex items-center gap-1 shadow-2xs active:scale-95"
+                                            title="Switch Sub-Agent Model"
+                                          >
+                                            <span>⇄</span> {memberIsTeam ? "Make Solo" : "Make Team"}
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (window.confirm(`Kya aap ${m.name} ko Sub-Agent (Team Model) banana chahte hain?`)) {
+                                                switchAgentModel(m.id, "team_1");
+                                              }
+                                            }}
+                                            className="px-2 py-0.5 bg-amber-50 hover:bg-amber-600 text-amber-800 hover:text-white border border-amber-300 hover:border-amber-600 rounded-md text-[9px] font-extrabold transition cursor-pointer flex items-center gap-1 shadow-2xs active:scale-95"
+                                            title="Promote to Sub-Agent in Team Model"
+                                          >
+                                            <span>👑</span> Make Team Agent
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                             </div>
                           </div>
                         )}

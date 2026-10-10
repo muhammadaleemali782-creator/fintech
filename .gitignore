@@ -6,6 +6,10 @@ node_modules/
 **/.env.local
 .env.production
 **/.env.production
+*.env*
+**/*.env*
+RENDER_ENV_COPY_PASTE.txt
+*COPY_PASTE*
 dist/
 **/dist/
 dist-ssr/

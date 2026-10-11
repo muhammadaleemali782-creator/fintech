@@ -19,14 +19,14 @@ async function processDailyYield(user) {
   if (baseBal <= 0) return user;
 
   const firstDeposit = await Transaction.findOne({ userId: user._id, type: 'deposit', status: 'approved' }).sort({ createdAt: 1 });
-  if (!firstDeposit) return user;
-
   const now = new Date();
   
-  // Single source of truth: user.lastYieldCalculatedAt or firstDeposit.createdAt
-  const lastCalc = user.lastYieldCalculatedAt ? new Date(user.lastYieldCalculatedAt) : new Date(firstDeposit.createdAt);
+  // Single source of truth: user.lastYieldCalculatedAt or firstDeposit.createdAt or user.createdAt
+  const anchorDate = user.lastYieldCalculatedAt
+    ? new Date(user.lastYieldCalculatedAt)
+    : (firstDeposit ? new Date(firstDeposit.createdAt) : new Date(user.createdAt || (now.getTime() - 86400000)));
 
-  const elapsedMs = Math.max(0, now.getTime() - lastCalc.getTime());
+  const elapsedMs = Math.max(0, now.getTime() - anchorDate.getTime());
   const annualRate = (user.interestRate || 12) / 100; // default 12% p.a.
   const perMsRate = annualRate / (365 * 86400 * 1000);
 
@@ -41,14 +41,14 @@ async function processDailyYield(user) {
       // IST calendar date boundaries (Asia/Kolkata)
       const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
       const startOfTodayIST = new Date(`${todayStr}T00:00:00+05:30`);
-      const dailyCap = Number(((baseBal * annualRate) / 365).toFixed(4));
+      const dailyCap = Number(((baseBal * annualRate) / 365).toFixed(6));
 
       const recordDailyYield = async (dateStr, earnedToAdd, txnDate) => {
         if (earnedToAdd <= 0) return;
         const refId = `yield_${user._id}_${dateStr}`;
         const existing = await Transaction.findOne({ referenceId: refId });
         const currentAmt = existing ? (existing.amount || 0) : 0;
-        const newAmt = Math.min(dailyCap, Number((currentAmt + earnedToAdd).toFixed(4)));
+        const newAmt = Math.min(dailyCap, Number((currentAmt + earnedToAdd).toFixed(6)));
         if (!existing || newAmt > currentAmt) {
           await Transaction.findOneAndUpdate(
             { referenceId: refId },
@@ -68,15 +68,15 @@ async function processDailyYield(user) {
         }
       };
 
-      if (lastCalc < startOfTodayIST) {
+      if (anchorDate < startOfTodayIST) {
         // Split: part before midnight IST belongs to previous day, rest to today
-        const prevMs = Math.max(0, startOfTodayIST.getTime() - lastCalc.getTime());
-        const earnedPrev = Number((baseBal * perMsRate * prevMs).toFixed(4));
-        const prevStr = lastCalc.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const prevMs = Math.max(0, startOfTodayIST.getTime() - anchorDate.getTime());
+        const earnedPrev = Number((baseBal * perMsRate * prevMs).toFixed(6));
+        const prevStr = anchorDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
         await recordDailyYield(prevStr, earnedPrev, new Date(startOfTodayIST.getTime() - 1000));
 
         const todayMs = Math.max(0, now.getTime() - startOfTodayIST.getTime());
-        const earnedToday = Number((baseBal * perMsRate * todayMs).toFixed(4));
+        const earnedToday = Number((baseBal * perMsRate * todayMs).toFixed(6));
         await recordDailyYield(todayStr, earnedToday, now);
       } else {
         await recordDailyYield(todayStr, totalEarned, now);

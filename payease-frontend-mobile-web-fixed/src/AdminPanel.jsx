@@ -532,7 +532,14 @@ export default function AdminPanel() {
     const old = appCache.get("educa_admin_cached_pending", null);
     return Array.isArray(old) ? old : [];
   });
-  const [pendingSubTab, setPendingSubTab] = useState("active"); // "active" | "hold"
+  const [pendingSubTab, setPendingSubTab] = useState("active"); // "active" | "loans" | "bonds" | "hold" | "approved"
+  const [approvedRequests, setApprovedRequests] = useState(() => {
+    const v = appCache.get("educa_admin_cached_approved_requests", null);
+    return Array.isArray(v) ? v : [];
+  });
+  const [approvedLoading, setApprovedLoading] = useState(false);
+  const [approvedFilter, setApprovedFilter] = useState("all");
+  const [approvedSearch, setApprovedSearch] = useState("");
   const [holdData, setHoldData] = useState(() => appCache.get("educa_admin_cached_hold", { holdCount: 0, groups: [] }));
   const [loadingHold, setLoadingHold] = useState(false);
   const [agents, setAgents] = useState(() => {
@@ -1028,6 +1035,72 @@ export default function AdminPanel() {
       setLoadingHold(false);
     }
   }, []); // eslint-disable-line
+
+  const loadApprovedRequests = useCallback(async (force = false) => {
+    setApprovedLoading(true);
+    try {
+      const res = await cachedAdminFetch(`${API}/admin/audit-history?status=approved&limit=250`, { headers }, 15000, force);
+      if (res.status === 429) return;
+      if (!res.ok) return;
+      const d = await res.json();
+      if (d && Array.isArray(d.history)) {
+        setApprovedRequests(d.history);
+        try { appCache.set("educa_admin_cached_approved_requests", d.history); } catch {}
+      }
+    } catch (e) {
+      console.warn("Failed to load approved requests:", e);
+    } finally {
+      setApprovedLoading(false);
+    }
+  }, [headers]); // eslint-disable-line
+
+  const viewKycDocInLightbox = useCallback(async (item, docKey) => {
+    const directUrl = item?.documents?.[docKey];
+    if (directUrl && (directUrl.startsWith("http://") || directUrl.startsWith("https://") || directUrl.startsWith("data:"))) {
+      setLightboxImg(directUrl);
+      setZoomLevel(1);
+      return;
+    }
+    const rawId = (item.id || "").toString().replace("kyc_", "");
+    if (!rawId) return;
+    try {
+      showToast("Loading document image...", "info");
+      const res = await fetch(`${API}/admin/kyc-doc/${rawId}/${docKey}`, { headers });
+      const d = await res.json();
+      if (d && d.url) {
+        setLightboxImg(d.url);
+        setZoomLevel(1);
+      } else {
+        showToast("Document image not available", "error");
+      }
+    } catch {
+      showToast("Error loading document", "error");
+    }
+  }, [headers]); // eslint-disable-line
+
+  const viewProofInLightbox = useCallback(async (item) => {
+    const directUrl = item?.proofUrl || item?.screenshotUrl;
+    if (directUrl && (directUrl.startsWith("http://") || directUrl.startsWith("https://") || directUrl.startsWith("data:"))) {
+      setLightboxImg(directUrl);
+      setZoomLevel(1);
+      return;
+    }
+    const rawId = (item.id || item._id || "").toString();
+    if (!rawId || rawId.startsWith("kyc_")) return;
+    try {
+      showToast("Loading proof image...", "info");
+      const res = await fetch(`${API}/admin/txn-proof/${rawId}`, { headers });
+      const d = await res.json();
+      if (d && d.url) {
+        setLightboxImg(d.url);
+        setZoomLevel(1);
+      } else {
+        showToast("Proof receipt not available", "error");
+      }
+    } catch {
+      showToast("Error loading receipt", "error");
+    }
+  }, [headers]); // eslint-disable-line
 
   const loadUsers = useCallback(async (force = false) => {
     try {
@@ -2181,14 +2254,14 @@ export default function AdminPanel() {
         if (data.history.length > 0) {
           setAuditHistory(data.history);
           if (!historySearch) {
-            appCache.set(cacheKey, data.history);
+            try { appCache.set(cacheKey, data.history); } catch {}
             // Pre-warm individual category caches from root "all" list for 0ms sub-filter access
             if (historyCategory === "all" && historyStatus === "all") {
               AUDIT_CATEGORIES.forEach(cat => {
                 if (cat.key !== "all") {
                   const subItems = data.history.filter(i => i.category === cat.key || i.type === cat.key);
                   if (subItems.length > 0) {
-                    appCache.set(getAuditCacheKey(cat.key, "all"), subItems);
+                    try { appCache.set(getAuditCacheKey(cat.key, "all"), subItems); } catch {}
                   }
                 }
               });
@@ -2196,13 +2269,16 @@ export default function AdminPanel() {
           }
         } else if (historyCategory === "all" && historyStatus === "all" && !historySearch) {
           setAuditHistory(DEFAULT_AUDIT_HISTORY);
-          appCache.set(cacheKey, DEFAULT_AUDIT_HISTORY);
+          try { appCache.set(cacheKey, DEFAULT_AUDIT_HISTORY); } catch {}
         } else {
           setAuditHistory([]);
         }
+      } else {
+        setAuditHistory(prev => prev && prev.length > 0 ? prev : []);
       }
     } catch (err) {
       console.warn("Failed to load audit history:", err);
+      setAuditHistory(prev => prev && prev.length > 0 ? prev : []);
     } finally {
       setHistoryLoading(false);
     }
@@ -3950,6 +4026,30 @@ export default function AdminPanel() {
                       {holdData?.holdCount || 0}
                     </span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingSubTab("approved");
+                      loadApprovedRequests(true);
+                    }}
+                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      pendingSubTab === "approved"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50"
+                    }`}
+                  >
+                    <span>✅ Approved Requests</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      approvedRequests.length > 0
+                        ? pendingSubTab === "approved"
+                          ? "bg-white text-emerald-900"
+                          : "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                        : "bg-slate-200 text-slate-600"
+                    }`}>
+                      {approvedRequests.length}
+                    </span>
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-2 text-xs">
@@ -3959,6 +4059,7 @@ export default function AdminPanel() {
                       if (pendingSubTab === "hold") loadHoldData(true);
                       else if (pendingSubTab === "loans") loadLoans(true);
                       else if (pendingSubTab === "bonds") loadBonds(true);
+                      else if (pendingSubTab === "approved") loadApprovedRequests(true);
                       else loadPending(true);
                     }}
                     className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-1 shadow-2xs"
@@ -4317,7 +4418,7 @@ export default function AdminPanel() {
                               <span className="text-xs font-black text-amber-900 block">
                                 Disbursal & Advance EMI Option:
                               </span>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <button
                                   type="button"
                                   onClick={() => setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "none" }))}
@@ -4327,8 +4428,8 @@ export default function AdminPanel() {
                                       : "bg-white/80 border-slate-200 hover:bg-white"
                                   }`}
                                 >
-                                  <span className="font-bold text-xs text-slate-900 block">Normal Disbursal (No Advance)</span>
-                                  <span className="text-[11px] text-slate-600">Puri amount ₹{Number(l.disbursalAmount || l.amount).toLocaleString("en-IN")} disburse hogi.</span>
+                                  <span className="font-bold text-xs text-slate-900 block">Normal Disbursal</span>
+                                  <span className="text-[11px] text-slate-600 block mt-0.5">Puri amount ₹{Number(l.disbursalAmount || l.amount).toLocaleString("en-IN")} disburse hogi.</span>
                                 </button>
                                 <button
                                   type="button"
@@ -4340,7 +4441,19 @@ export default function AdminPanel() {
                                   }`}
                                 >
                                   <span className="font-bold text-xs text-amber-950 block">🟡 1st EMI Advance Kaatein</span>
-                                  <span className="text-[11px] text-amber-800">Borrower ko milega: ₹{advancePayout.toLocaleString("en-IN")}. Kist #1 paid ho jayegi.</span>
+                                  <span className="text-[11px] text-amber-800 block mt-0.5">Milega: ₹{advancePayout.toLocaleString("en-IN")}. Kist #1 paid ho jayegi.</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "defer" }))}
+                                  className={`p-2.5 rounded-lg border text-left transition cursor-pointer ${
+                                    chosenOpt === "defer"
+                                      ? "bg-sky-50 border-sky-500 ring-2 ring-sky-400/30 shadow-2xs"
+                                      : "bg-white/80 border-slate-200 hover:bg-white"
+                                  }`}
+                                >
+                                  <span className="font-bold text-xs text-sky-950 block">⏳ 1st Kist Baad Me Lein</span>
+                                  <span className="text-[11px] text-sky-800 block mt-0.5">Puri ₹{Number(l.disbursalAmount || l.amount).toLocaleString("en-IN")} milegi. Kist #1 grace period ke baad.</span>
                                 </button>
                               </div>
                             </div>
@@ -4765,6 +4878,325 @@ export default function AdminPanel() {
                   )}
                 </div>
               )}
+
+              {/* SUB-TAB 5: APPROVED REQUESTS DESK (With Granular Universal Filters) */}
+              {pendingSubTab === "approved" && (() => {
+                const depCount = approvedRequests.filter(i => i.category === "deposit" || i.type === "deposit").length;
+                const withCount = approvedRequests.filter(i => i.category === "withdrawal" || i.type === "withdrawal").length;
+                const normKycCount = approvedRequests.filter(i => i.category === "kyc" && i.subCategory === "normal_kyc").length;
+                const fullKycCount = approvedRequests.filter(i => i.category === "kyc" && i.subCategory === "loan_lending_kyc").length;
+                const loanCount = approvedRequests.filter(i => i.category === "loan").length;
+                const bondCount = approvedRequests.filter(i => i.category === "bond").length;
+
+                const filtered = approvedRequests.filter(item => {
+                  if (approvedFilter === "deposit" && !(item.category === "deposit" || item.type === "deposit")) return false;
+                  if (approvedFilter === "withdrawal" && !(item.category === "withdrawal" || item.type === "withdrawal")) return false;
+                  if (approvedFilter === "normal_kyc" && !(item.category === "kyc" && item.subCategory === "normal_kyc")) return false;
+                  if (approvedFilter === "loan_kyc" && !(item.category === "kyc" && item.subCategory === "loan_lending_kyc")) return false;
+                  if (approvedFilter === "loan" && item.category !== "loan") return false;
+                  if (approvedFilter === "bond" && item.category !== "bond") return false;
+
+                  if (approvedSearch && approvedSearch.trim()) {
+                    const s = approvedSearch.trim().toLowerCase();
+                    return (
+                      (item.userName || "").toLowerCase().includes(s) ||
+                      (item.userEmail || "").toLowerCase().includes(s) ||
+                      (item.userPhone || "").toLowerCase().includes(s) ||
+                      (item.accountNumber || "").toLowerCase().includes(s) ||
+                      (item.reference || "").toLowerCase().includes(s) ||
+                      (item.remarks || "").toLowerCase().includes(s)
+                    );
+                  }
+                  return true;
+                });
+
+                return (
+                  <div className="space-y-4">
+                    {/* Header + Stats Bar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 border border-emerald-200 p-4 rounded-2xl shadow-2xs">
+                      <div>
+                        <h3 className="text-base sm:text-lg font-bold font-display text-emerald-950 flex items-center gap-2">
+                          <span>✅</span> Approved Requests Console
+                        </h3>
+                        <p className="text-xs text-emerald-800 mt-0.5 font-medium">
+                          Approved deposits, withdrawals, normal KYC, barrier cheque KYC, loans and bonds.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => loadApprovedRequests(true)}
+                          disabled={approvedLoading}
+                          className="px-3.5 py-2 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+                        >
+                          <span className={approvedLoading ? "animate-spin" : ""}>🔄</span>
+                          <span>Refresh</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Filter Pills Bar (User requested: kyc, payment, withdrawal, full kyc vs normal kyc, loans, bonds) */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                      <button
+                        type="button"
+                        onClick={() => setApprovedFilter("all")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          approvedFilter === "all"
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                        }`}
+                      >
+                        All ({approvedRequests.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApprovedFilter("deposit")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          approvedFilter === "deposit"
+                            ? "bg-emerald-600 text-white shadow-xs"
+                            : "bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-200"
+                        }`}
+                      >
+                        💰 Deposits ({depCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApprovedFilter("withdrawal")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          approvedFilter === "withdrawal"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "bg-white text-blue-800 hover:bg-blue-50 border border-blue-200"
+                        }`}
+                      >
+                        💸 Withdrawals ({withCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApprovedFilter("normal_kyc")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          approvedFilter === "normal_kyc"
+                            ? "bg-teal-600 text-white shadow-xs"
+                            : "bg-white text-teal-800 hover:bg-teal-50 border border-teal-200"
+                        }`}
+                      >
+                        🪪 Normal KYC ({normKycCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApprovedFilter("loan_kyc")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          approvedFilter === "loan_kyc"
+                            ? "bg-purple-600 text-white shadow-xs"
+                            : "bg-white text-purple-800 hover:bg-purple-50 border border-purple-200"
+                        }`}
+                      >
+                        🏛️ Full KYC / Barrier ({fullKycCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApprovedFilter("loan")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          approvedFilter === "loan"
+                            ? "bg-indigo-600 text-white shadow-xs"
+                            : "bg-white text-indigo-800 hover:bg-indigo-50 border border-indigo-200"
+                        }`}
+                      >
+                        🏦 Loans ({loanCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApprovedFilter("bond")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          approvedFilter === "bond"
+                            ? "bg-violet-600 text-white shadow-xs"
+                            : "bg-white text-violet-800 hover:bg-violet-50 border border-violet-200"
+                        }`}
+                      >
+                        🤝 Bonds ({bondCount})
+                      </button>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                        🔍
+                      </span>
+                      <input
+                        type="text"
+                        value={approvedSearch}
+                        onChange={(e) => setApprovedSearch(e.target.value)}
+                        placeholder="Search approved records by name, phone, account number, UTR, ref..."
+                        className="w-full pl-8 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                      />
+                    </div>
+
+                    {/* Content List */}
+                    {approvedLoading && approvedRequests.length === 0 ? (
+                      <div className="py-14 text-center text-slate-500 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2">
+                        <div className="text-2xl animate-spin inline-block">🔄</div>
+                        <p className="text-xs font-bold text-slate-700">Approved records sync ho rahe hain...</p>
+                      </div>
+                    ) : filtered.length === 0 ? (
+                      <div className="py-14 text-center text-gray-400 bg-slate-50 rounded-2xl border border-dashed border-gray-200">
+                        <span className="text-3xl block mb-2">📋</span>
+                        <p className="text-sm font-semibold">Koi approved record nahi mila is filter ke sath.</p>
+                        <p className="text-xs text-gray-400 mt-1">Try changing filter pills or clearing search.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {filtered.map((item, idx) => {
+                          const isDeposit = item.category === "deposit" || item.type === "deposit";
+                          const isWithdrawal = item.category === "withdrawal" || item.type === "withdrawal";
+                          const isNormalKyc = item.category === "kyc" && item.subCategory === "normal_kyc";
+                          const isFullKyc = item.category === "kyc" && item.subCategory === "loan_lending_kyc";
+                          const isLoan = item.category === "loan";
+                          const isBond = item.category === "bond";
+
+                          const badgeBg = isDeposit
+                            ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                            : isWithdrawal
+                            ? "bg-blue-100 text-blue-800 border-blue-300"
+                            : isNormalKyc
+                            ? "bg-teal-100 text-teal-800 border-teal-300"
+                            : isFullKyc
+                            ? "bg-purple-100 text-purple-800 border-purple-300"
+                            : isLoan
+                            ? "bg-indigo-100 text-indigo-800 border-indigo-300"
+                            : "bg-violet-100 text-violet-800 border-violet-300";
+
+                          const icon = isDeposit ? "💰" : isWithdrawal ? "💸" : isNormalKyc ? "🪪" : isFullKyc ? "🏛️" : isLoan ? "🏦" : "🤝";
+
+                          return (
+                            <div key={item.id || idx} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3 transition hover:border-slate-300">
+                              {/* Top Bar: Icon + Badge + Date */}
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-lg">{icon}</span>
+                                  <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeBg}`}>
+                                    {isDeposit ? "Deposit Approved" : isWithdrawal ? "Withdrawal Completed" : isNormalKyc ? "Normal KYC Verified" : isFullKyc ? "Full KYC Verified (Barrier)" : isLoan ? "Loan Disbursed" : isBond ? "Bond Activated" : item.title}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-medium">
+                                  <span>{item.approvedAt ? new Date(item.approvedAt).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Approved"}</span>
+                                  {item.turnaround && (
+                                    <span className="ml-2 font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                      ⚡ {item.turnaround}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Middle Row: User Details + Amount */}
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-slate-900 text-sm">{item.userName || "User"}</span>
+                                    {item.accountNumber && item.accountNumber !== "—" && (
+                                      <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                        {item.accountNumber}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-600 mt-0.5 flex flex-wrap gap-x-3">
+                                    <span>📞 {item.userPhone || "N/A"}</span>
+                                    <span>✉️ {item.userEmail || "N/A"}</span>
+                                  </div>
+                                </div>
+
+                                {item.amount > 0 && (
+                                  <div className="text-left sm:text-right">
+                                    <span className="text-[10px] text-slate-400 block font-bold uppercase">Amount</span>
+                                    <span className="font-black font-mono text-base text-emerald-700">
+                                      ₹{Number(item.amount).toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Details / Notes / References */}
+                              {(item.reference || item.notes || item.remarks) && (
+                                <div className="text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-100 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                  {item.reference && (
+                                    <span className="font-mono font-bold text-slate-800">
+                                      Ref: {item.reference}
+                                    </span>
+                                  )}
+                                  {(item.notes || item.remarks) && (
+                                    <span className="text-slate-500">
+                                      • {item.notes || item.remarks}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Documents / Proof Actions */}
+                              <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-slate-100">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {item.category === "kyc" && item.documents && (
+                                    <>
+                                      {item.documents.doc1Url && (
+                                        <button
+                                          type="button"
+                                          onClick={() => viewKycDocInLightbox(item, "doc1Url")}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer active:scale-95"
+                                        >
+                                          <span>🪪</span> UID Front 🔍
+                                        </button>
+                                      )}
+                                      {item.documents.doc1BackUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => viewKycDocInLightbox(item, "doc1BackUrl")}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer active:scale-95"
+                                        >
+                                          <span>🔄</span> UID Back 🔍
+                                        </button>
+                                      )}
+                                      {item.documents.doc2Url && (
+                                        <button
+                                          type="button"
+                                          onClick={() => viewKycDocInLightbox(item, "doc2Url")}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer active:scale-95"
+                                        >
+                                          <span>📑</span> {item.subCategory === "loan_lending_kyc" ? "Cheque Front" : "PAN Front"} 🔍
+                                        </button>
+                                      )}
+                                      {item.documents.doc2BackUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => viewKycDocInLightbox(item, "doc2BackUrl")}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer active:scale-95"
+                                        >
+                                          <span>📄</span> {item.subCategory === "loan_lending_kyc" ? "Cheque Back" : "PAN Back"} 🔍
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+
+                                  {item.hasProof && item.category !== "kyc" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => viewProofInLightbox(item)}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-blue-700 transition cursor-pointer active:scale-95"
+                                    >
+                                      <span>🧾</span> Evidence Receipt 🔍
+                                    </button>
+                                  )}
+                                </div>
+
+                                <div className="text-[10px] text-slate-400 font-medium ml-auto flex items-center gap-1">
+                                  <span>{item.approverDevice || "💻 Admin Console"}</span>
+                                  <span>• Approved by {item.approverName || "Admin"}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -5673,14 +6105,16 @@ export default function AdminPanel() {
                           )}
 
                           {/* Evidence Photo preview on mobile */}
-                          {item.proofUrl && (
+                          {item.hasProof && item.category !== "kyc" && (
                             <div className="pt-1 border-t border-slate-100">
                               <button
                                 type="button"
-                                onClick={() => { setLightboxImg(item.proofUrl); setZoomLevel(1); }}
+                                onClick={() => viewProofInLightbox(item)}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95 shadow-2xs"
                               >
-                                <img src={item.proofUrl} alt="Evidence" className="w-4 h-4 object-cover rounded border border-slate-200" />
+                                {item.proofUrl && item.proofUrl.startsWith("http") ? (
+                                  <img src={item.proofUrl} alt="Evidence" className="w-4 h-4 object-cover rounded border border-slate-200" />
+                                ) : <span>🧾</span>}
                                 <span>Evidence Photo / Receipt</span>
                                 <span>🔍</span>
                               </button>
@@ -5693,7 +6127,7 @@ export default function AdminPanel() {
                               {item.documents.doc1Url && (
                                 <button
                                   type="button"
-                                  onClick={() => setLightboxImg(item.documents.doc1Url)}
+                                  onClick={() => viewKycDocInLightbox(item, "doc1Url")}
                                   className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
                                 >
                                   {item.documents.doc1Url.startsWith("data:image") ? (
@@ -5706,7 +6140,7 @@ export default function AdminPanel() {
                               {item.documents.doc1BackUrl && (
                                 <button
                                   type="button"
-                                  onClick={() => setLightboxImg(item.documents.doc1BackUrl)}
+                                  onClick={() => viewKycDocInLightbox(item, "doc1BackUrl")}
                                   className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
                                 >
                                   {item.documents.doc1BackUrl.startsWith("data:image") ? (
@@ -5719,7 +6153,7 @@ export default function AdminPanel() {
                               {item.documents.doc2Url && (
                                 <button
                                   type="button"
-                                  onClick={() => setLightboxImg(item.documents.doc2Url)}
+                                  onClick={() => viewKycDocInLightbox(item, "doc2Url")}
                                   className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
                                 >
                                   {item.documents.doc2Url.startsWith("data:image") ? (
@@ -5732,7 +6166,7 @@ export default function AdminPanel() {
                               {item.documents.doc2BackUrl && (
                                 <button
                                   type="button"
-                                  onClick={() => setLightboxImg(item.documents.doc2BackUrl)}
+                                  onClick={() => viewKycDocInLightbox(item, "doc2BackUrl")}
                                   className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
                                 >
                                   {item.documents.doc2BackUrl.startsWith("data:image") ? (
@@ -5902,14 +6336,16 @@ export default function AdminPanel() {
                                 )}
 
                                 {/* Evidence Photo Preview Thumbnail */}
-                                {item.proofUrl && (
+                                {item.hasProof && item.category !== "kyc" && (
                                   <div className="mt-1.5 pt-1 border-t border-slate-100">
                                     <button
                                       type="button"
-                                      onClick={() => { setLightboxImg(item.proofUrl); setZoomLevel(1); }}
+                                      onClick={() => viewProofInLightbox(item)}
                                       className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-blue-700 cursor-pointer transition active:scale-95 shadow-2xs"
                                     >
-                                      <img src={item.proofUrl} alt="Evidence" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
+                                      {item.proofUrl && item.proofUrl.startsWith("http") ? (
+                                        <img src={item.proofUrl} alt="Evidence" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
+                                      ) : <span>🧾</span>}
                                       <span>Evidence Receipt</span>
                                       <span>🔍</span>
                                     </button>
@@ -5928,7 +6364,7 @@ export default function AdminPanel() {
                                           {item.documents.doc1Url && (
                                             <button
                                               type="button"
-                                              onClick={() => setLightboxImg(item.documents.doc1Url)}
+                                              onClick={() => viewKycDocInLightbox(item, "doc1Url")}
                                               className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 cursor-pointer transition active:scale-95 group/doc shadow-2xs"
                                             >
                                               {item.documents.doc1Url.startsWith("data:image") ? (
@@ -5941,7 +6377,7 @@ export default function AdminPanel() {
                                           {item.documents.doc1BackUrl && (
                                             <button
                                               type="button"
-                                              onClick={() => setLightboxImg(item.documents.doc1BackUrl)}
+                                              onClick={() => viewKycDocInLightbox(item, "doc1BackUrl")}
                                               className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 cursor-pointer transition active:scale-95 group/doc shadow-2xs"
                                             >
                                               {item.documents.doc1BackUrl.startsWith("data:image") ? (
@@ -5954,7 +6390,7 @@ export default function AdminPanel() {
                                           {item.documents.doc2Url && (
                                             <button
                                               type="button"
-                                              onClick={() => setLightboxImg(item.documents.doc2Url)}
+                                              onClick={() => viewKycDocInLightbox(item, "doc2Url")}
                                               className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 cursor-pointer transition active:scale-95 group/doc shadow-2xs"
                                             >
                                               {item.documents.doc2Url.startsWith("data:image") ? (
@@ -5967,7 +6403,7 @@ export default function AdminPanel() {
                                           {item.documents.doc2BackUrl && (
                                             <button
                                               type="button"
-                                              onClick={() => setLightboxImg(item.documents.doc2BackUrl)}
+                                              onClick={() => viewKycDocInLightbox(item, "doc2BackUrl")}
                                               className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 cursor-pointer transition active:scale-95 group/doc shadow-2xs"
                                             >
                                               {item.documents.doc2BackUrl.startsWith("data:image") ? (
@@ -10499,6 +10935,34 @@ export default function AdminPanel() {
                     </p>
                     <p className="text-[10px] text-sky-700 mt-0.5">
                       ✓ Kist #1 free me 'Paid' ho jayegi.
+                    </p>
+                  </div>
+                </label>
+
+                {/* Option 4: Defer 1st installment (Baad me lein) */}
+                <label className={`flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-2xl border-2 cursor-pointer transition ${
+                  advanceOption === "defer"
+                    ? "bg-purple-50/90 border-purple-500 ring-2 ring-purple-300 shadow-xs"
+                    : "bg-white border-gray-200 hover:bg-gray-50"
+                }`}>
+                  <input
+                    type="radio"
+                    name="advanceOption"
+                    value="defer"
+                    checked={advanceOption === "defer"}
+                    onChange={() => setAdvanceOption("defer")}
+                    className="mt-1 text-purple-600 cursor-pointer accent-purple-600"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-extrabold text-purple-950 flex items-center justify-between gap-1">
+                      <span className="text-xs">⏳ 1st Kist Baad Me Lein</span>
+                      <span className="text-[9px] sm:text-[10px] bg-purple-100 text-purple-800 border border-purple-200 px-1.5 sm:px-2 py-0.5 rounded-full font-black shrink-0 whitespace-nowrap">GRACE PERIOD</span>
+                    </div>
+                    <p className="text-[11px] text-gray-700 mt-1 font-medium">
+                      Net Disburse: <strong className="text-purple-700 font-extrabold text-xs">₹{Math.max(0, loanApproveModal.amount - (loanApproveModal.processingFee || 0) - (loanApproveModal.upiCharges || 0)).toLocaleString("en-IN")}</strong>
+                    </p>
+                    <p className="text-[10px] text-purple-700 mt-0.5">
+                      ✓ Pehli kist baad me li jayegi (extra grace period ke baad schedule shuru hoga).
                     </p>
                   </div>
                 </label>

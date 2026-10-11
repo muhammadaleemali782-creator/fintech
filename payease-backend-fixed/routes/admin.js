@@ -1260,14 +1260,51 @@ router.get('/bonds', protect, admin, async (req, res) => {
   }
 });
 
-// Comprehensive Multi-Category Audit History Endpoint
+// On-demand KYC Document Fetch (Instant, lightweight - prevents transferring megabytes in lists)
+router.get('/kyc-doc/:userId/:docKey', protect, admin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('kycDocuments');
+    if (!user || !user.kycDocuments) return res.status(404).json({ message: 'User or documents not found' });
+    const keyMap = {
+      doc1: 'doc1Url',
+      doc1Url: 'doc1Url',
+      doc1Back: 'doc1BackUrl',
+      doc1BackUrl: 'doc1BackUrl',
+      doc2: 'doc2Url',
+      doc2Url: 'doc2Url',
+      doc2Back: 'doc2BackUrl',
+      doc2BackUrl: 'doc2BackUrl',
+      cheque: 'chequeUrl',
+      chequeUrl: 'chequeUrl'
+    };
+    const field = keyMap[req.params.docKey] || req.params.docKey;
+    const url = user.kycDocuments[field] || '';
+    res.json({ success: true, url });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch KYC document' });
+  }
+});
+
+// On-demand Transaction Proof Fetch (Prevents base64 bloat in bulk audit query)
+router.get('/txn-proof/:id', protect, admin, async (req, res) => {
+  try {
+    const txn = await Transaction.findById(req.params.id).select('proofUrl screenshotUrl');
+    if (!txn) return res.status(404).json({ message: 'Transaction not found' });
+    res.json({ success: true, url: txn.proofUrl || txn.screenshotUrl || '' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch transaction proof' });
+  }
+});
+
+// Comprehensive Multi-Category Audit History Endpoint (Ultra-fast metadata-only projection)
 router.get('/audit-history', protect, admin, async (req, res) => {
   try {
     const { category = 'all', status = 'all', search = '', limit = 150 } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 150, 300);
 
     const historyItems = [];
 
-    // 1. Transactions (Deposits, Withdrawals, P2P Transfers, Yields, Loan events)
+    // 1. Transactions (Deposits, Withdrawals, P2P Transfers, Yields)
     const isTxCategory = ['all', 'deposit', 'withdrawal', 'transfer', 'yield'].includes(category);
     if (isTxCategory) {
       const txQuery = {};
@@ -1281,10 +1318,43 @@ router.get('/audit-history', protect, admin, async (req, res) => {
         else txQuery.status = status;
       }
 
-      const txns = await Transaction.find(txQuery)
-        .populate('userId', 'name email phone accountNumber upiId')
-        .sort({ createdAt: -1 })
-        .limit(parseInt(limit) || 150);
+      const txns = await Transaction.aggregate([
+        { $match: txQuery },
+        { $sort: { createdAt: -1 } },
+        { $limit: limitNum },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'userId',
+            foreignField: '_id',
+            as: 'userDoc'
+          }
+        },
+        { $unwind: { path: '$userDoc', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            type: 1, amount: 1, status: 1, createdAt: 1, approvedAt: 1, approverName: 1, approverDevice: 1, remarks: 1, utrNumber: 1, referenceId: 1, method: 1,
+            'userId._id': '$userDoc._id',
+            'userId.name': '$userDoc.name',
+            'userId.email': '$userDoc.email',
+            'userId.phone': '$userDoc.phone',
+            'userId.accountNumber': '$userDoc.accountNumber',
+            hasProof: {
+              $or: [
+                { $gt: [{ $strLenCP: { $ifNull: ['$proofUrl', ''] } }, 0] },
+                { $gt: [{ $strLenCP: { $ifNull: ['$screenshotUrl', ''] } }, 0] }
+              ]
+            },
+            proofUrl: {
+              $cond: [
+                { $regexMatch: { input: { $ifNull: ['$proofUrl', ''] }, regex: '^https?://' } },
+                '$proofUrl',
+                ''
+              ]
+            }
+          }
+        }
+      ]);
 
       for (const t of txns) {
         const ref = t.utrNumber ? `UTR: ${t.utrNumber}` : (t.referenceId || `TXN_${t._id.toString().slice(-6).toUpperCase()}`);
@@ -1304,7 +1374,7 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           else if (diffSec < 3600) turnaround = `${Math.round(diffSec / 60)}m`;
           else turnaround = `${(diffSec / 3600).toFixed(1)}h`;
         }
-        const proof = t.proofUrl || t.screenshotUrl || '';
+        const proof = t.proofUrl || '';
 
         historyItems.push({
           id: t._id,
@@ -1326,7 +1396,7 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           approverDevice: t.approverDevice || (isApproved ? '💻 Windows PC • Chrome' : ''),
           proofUrl: proof,
           screenshotUrl: proof,
-          hasProof: Boolean(proof),
+          hasProof: Boolean(rawProof),
           reference: ref,
           referenceId: ref,
           notes: t.remarks || (isTransfer ? 'Peer-to-Peer Wallet Transfer' : t.method ? `Mode: ${t.method}` : 'Platform record'),
@@ -1335,19 +1405,35 @@ router.get('/audit-history', protect, admin, async (req, res) => {
       }
     }
 
-    // 2. KYC History (Strictly Isolated: Normal User KYC vs Lending/Loan KYC with Document Photos)
+    // 2. KYC History (Ultra-fast projection without multi-megabyte base64 images)
     if (category === 'all' || category === 'kyc' || category === 'normal_kyc' || category === 'loan_kyc') {
-      const kycUsers = await User.find({
-        $or: [
-          { kycStatus: { $in: ['verified', 'rejected', 'pending'] } },
-          { 'kycDocuments.submittedAt': { $ne: null } }
-        ]
-      }).select('name email phone accountNumber kycStatus kycDocuments kycVerifiedAt kycApprovedBy createdAt');
+      const kycUsers = await User.aggregate([
+        {
+          $match: {
+            $or: [
+              { kycStatus: { $in: ['verified', 'rejected', 'pending'] } },
+              { 'kycDocuments.submittedAt': { $ne: null } }
+            ]
+          }
+        },
+        {
+          $project: {
+            name: 1, email: 1, phone: 1, accountNumber: 1, kycStatus: 1, kycVerifiedAt: 1, kycApprovedBy: 1, createdAt: 1,
+            'kycDocuments.docType': 1, 'kycDocuments.doc1Type': 1, 'kycDocuments.doc2Type': 1,
+            'kycDocuments.aadharNumber': 1, 'kycDocuments.panNumber': 1, 'kycDocuments.chequeNumber': 1,
+            'kycDocuments.submittedAt': 1, 'kycDocuments.adminRemarks': 1,
+            hasDoc1: { $gt: [{ $strLenCP: { $ifNull: ['$kycDocuments.doc1Url', ''] } }, 0] },
+            hasDoc1Back: { $gt: [{ $strLenCP: { $ifNull: ['$kycDocuments.doc1BackUrl', ''] } }, 0] },
+            hasDoc2: { $gt: [{ $strLenCP: { $ifNull: ['$kycDocuments.doc2Url', ''] } }, 0] },
+            hasDoc2Back: { $gt: [{ $strLenCP: { $ifNull: ['$kycDocuments.doc2BackUrl', ''] } }, 0] }
+          }
+        }
+      ]);
 
       const userIds = kycUsers.map(u => u._id);
       const [loansForUsers, bondsForUsers] = await Promise.all([
         Loan.find({ userId: { $in: userIds } }).select('userId amount status loanType').lean(),
-        Bond.find({ userId: { $in: userIds } }).select('userId principalAmount planName monthlyPayout status documents').lean()
+        Bond.find({ userId: { $in: userIds } }).select('userId principalAmount planName monthlyPayout status documents.chequeUrl').lean()
       ]);
 
       const loanMap = {};
@@ -1372,18 +1458,7 @@ router.get('/audit-history', protect, admin, async (req, res) => {
         const userBonds = bondMap[uIdStr] || [];
         const docs = u.kycDocuments || {};
 
-        const doc1Front = docs.doc1Url || docs.docUrl || docs.aadharUrl || '';
-        const doc1Back = docs.doc1BackUrl || docs.aadharBackUrl || '';
-        const doc2Front = docs.doc2Url || docs.panUrl || docs.chequeUrl || '';
-        const doc2Back = docs.doc2BackUrl || docs.panBackUrl || docs.chequeBackUrl || '';
-
-        let bondCheque = '';
-        let bondChequeBack = '';
-        if (userBonds.length > 0 && userBonds[0].documents) {
-          bondCheque = userBonds[0].documents.chequeUrl || '';
-          bondChequeBack = userBonds[0].documents.chequeBackUrl || '';
-        }
-
+        const hasBondCheque = userBonds.length > 0 && !!(userBonds[0].documents?.chequeUrl);
         const isLoanLending = docs.doc2Type === 'cheque' || !!docs.chequeNumber || userLoans.length > 0 || userBonds.length > 0;
 
         if (category === 'normal_kyc' && isLoanLending) continue;
@@ -1393,7 +1468,7 @@ router.get('/audit-history', protect, admin, async (req, res) => {
         const aadharNo = docs.aadharNumber || '';
         const panNo = docs.panNumber || '';
         const chequeNo = docs.chequeNumber || '';
-        const hasPhotos = !!(doc1Front || doc1Back || doc2Front || doc2Back || bondCheque);
+        const hasPhotos = Boolean(u.hasDoc1 || u.hasDoc1Back || u.hasDoc2 || u.hasDoc2Back || hasBondCheque);
 
         const refParts = [];
         if (aadharNo) refParts.push(`UID: ${aadharNo}`);
@@ -1442,8 +1517,8 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           turnaround,
           approverName: u.kycApprovedBy?.name || (isVerifiedKyc ? 'Admin' : ''),
           approverDevice: u.kycApprovedBy?.device || (isVerifiedKyc ? '💻 Windows PC • Chrome' : ''),
-          proofUrl: doc1Front || doc2Front || '',
-          screenshotUrl: doc1Front || doc2Front || '',
+          proofUrl: '',
+          screenshotUrl: '',
           hasProof: hasPhotos,
           reference: kycRef,
           referenceId: kycRef,
@@ -1451,10 +1526,10 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           remarks: detailsNote,
           hasPhotos,
           documents: {
-            doc1Url: doc1Front,
-            doc1BackUrl: doc1Back,
-            doc2Url: doc2Front || bondCheque,
-            doc2BackUrl: doc2Back || bondChequeBack
+            doc1Url: u.hasDoc1 ? 'doc1Url' : '',
+            doc1BackUrl: u.hasDoc1Back ? 'doc1BackUrl' : '',
+            doc2Url: (u.hasDoc2 || hasBondCheque) ? 'doc2Url' : '',
+            doc2BackUrl: u.hasDoc2Back ? 'doc2BackUrl' : ''
           },
           docLabels: {
             doc1: 'Aadhaar Front',
@@ -1526,9 +1601,11 @@ router.get('/audit-history', protect, admin, async (req, res) => {
       }
 
       const allLoans = await Loan.find(loanQuery)
+        .select('accountNumber loanType amount status installmentsCount interestRate disbursalAmount totalPayable remainingAmount createdAt approvedAt approverName approverDevice userId documents.chequeNumber')
         .populate('userId', 'name email phone accountNumber')
         .sort({ createdAt: -1 })
-        .limit(parseInt(limit) || 100);
+        .limit(limitNum)
+        .lean();
 
       for (const l of allLoans) {
         const ts = l.createdAt || new Date();
@@ -1546,7 +1623,7 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           else if (diffSec < 3600) turnaround = `${Math.round(diffSec / 60)}m`;
           else turnaround = `${(diffSec / 3600).toFixed(1)}h`;
         }
-        const proof = l.documents?.chequeUrl || l.documents?.doc1Url || '';
+        const proof = (l.documents?.chequeUrl && (l.documents.chequeUrl.startsWith('http://') || l.documents.chequeUrl.startsWith('https://'))) ? l.documents.chequeUrl : '';
 
         historyItems.push({
           id: 'loan_' + l._id,
@@ -1568,7 +1645,7 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           approverDevice: l.approverDevice || (isApprovedLoan ? '💻 Windows PC • Chrome' : ''),
           proofUrl: proof,
           screenshotUrl: proof,
-          hasProof: Boolean(proof),
+          hasProof: Boolean(l.documents?.chequeUrl || l.documents?.doc1Url),
           reference: loanRef,
           referenceId: loanRef,
           notes: loanNote,
@@ -1577,26 +1654,78 @@ router.get('/audit-history', protect, admin, async (req, res) => {
       }
     }
 
+    // 5. Corporate / Lending Bonds History
+    if (category === 'all' || category === 'bond') {
+      const bondQuery = {};
+      if (status !== 'all') {
+        if (status === 'approved') bondQuery.status = { $in: ['active', 'matured'] };
+        else bondQuery.status = status;
+      }
+
+      const allBonds = await Bond.find(bondQuery)
+        .select('accountNumber planName principalAmount monthlyPayout status createdAt userId documents.chequeNumber')
+        .populate('userId', 'name email phone accountNumber')
+        .sort({ createdAt: -1 })
+        .limit(limitNum)
+        .lean();
+
+      for (const b of allBonds) {
+        const ts = b.createdAt || new Date();
+        const bondRef = b.accountNumber || `BOND_${b._id.toString().slice(-6).toUpperCase()}`;
+        const bondNote = `${b.planName || 'Corporate'} Bond • Monthly Payout: ₹${Number(b.monthlyPayout || 0).toLocaleString('en-IN')} • Principal: ₹${Number(b.principalAmount || 0).toLocaleString('en-IN')}`;
+        const isApprovedBond = ['active', 'matured'].includes(b.status);
+        const reqDate = b.createdAt || new Date();
+        const appDate = isApprovedBond ? b.createdAt : null;
+
+        historyItems.push({
+          id: 'bond_' + b._id,
+          category: 'bond',
+          type: 'bond_investment',
+          title: `${b.planName || 'Corporate'} Lending Bond`,
+          userName: b.userId?.name || 'Investor',
+          userEmail: b.userId?.email || 'N/A',
+          userPhone: b.userId?.phone || 'N/A',
+          accountNumber: b.accountNumber || b.userId?.accountNumber || '—',
+          amount: b.principalAmount || 0,
+          status: b.status === 'active' ? 'approved' : b.status,
+          timestamp: ts,
+          createdAt: ts,
+          requestedAt: reqDate,
+          approvedAt: appDate,
+          turnaround: '',
+          approverName: isApprovedBond ? 'Admin' : '',
+          approverDevice: isApprovedBond ? '💻 Windows PC • Chrome' : '',
+          proofUrl: '',
+          screenshotUrl: '',
+          hasProof: Boolean(b.documents?.chequeUrl),
+          reference: bondRef,
+          referenceId: bondRef,
+          notes: bondNote,
+          remarks: bondNote
+        });
+      }
+    }
+
     // Sort descending by timestamp
     historyItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    // Search filter if provided
+    // Search filter if provided (with safe null guards)
     let filtered = historyItems;
     if (search && search.trim()) {
       const s = search.trim().toLowerCase();
       filtered = filtered.filter(item =>
-        item.userName.toLowerCase().includes(s) ||
-        item.userEmail.toLowerCase().includes(s) ||
-        item.userPhone.toLowerCase().includes(s) ||
-        item.accountNumber.toLowerCase().includes(s) ||
-        item.remarks.toLowerCase().includes(s)
+        (item.userName || '').toLowerCase().includes(s) ||
+        (item.userEmail || '').toLowerCase().includes(s) ||
+        (item.userPhone || '').toLowerCase().includes(s) ||
+        (item.accountNumber || '').toLowerCase().includes(s) ||
+        (item.remarks || '').toLowerCase().includes(s)
       );
     }
 
     res.json({
       success: true,
       total: filtered.length,
-      history: filtered.slice(0, parseInt(limit) || 150)
+      history: filtered.slice(0, limitNum)
     });
   } catch (err) {
     console.error('Audit history error:', err);

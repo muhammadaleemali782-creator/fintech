@@ -1301,6 +1301,7 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       // advanceOption: 'none' (Default - regular schedule, no advance deduction)
       //               'deduct' (Deduct 1st installment upfront from payout & mark paid)
       //               'waive'  (Waive/free 1st installment & disburse standard payout)
+      //               'defer'  (Admin pehli kist baad me lega - Extra Grace Period)
       const { advanceOption = 'none' } = req.body;
       const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
       const baseDisbursal = Math.max(0, loan.amount - (loan.processingFee || 0) - (loan.upiCharges || 0));
@@ -1337,6 +1338,38 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
         loan.advanceDeduction = 0;
         loan.paidAmount = installmentAmt;
         loan.remainingAmount = Math.max(0, loan.totalPayable - installmentAmt);
+      } else if (advanceOption === 'defer') {
+        // Admin pehli kist baad me lega (Extra Grace Period)
+        payout = baseDisbursal;
+        loan.advanceDeduction = 0;
+        loan.paidAmount = 0;
+        loan.remainingAmount = loan.totalPayable;
+        loan.advanceOption = 'defer';
+        const shiftDays = loan.collectionFrequency === 'daily' ? 1 : 10;
+        if (loan.installmentSchedule && loan.installmentSchedule.length > 0) {
+          loan.installmentSchedule.forEach((item, idx) => {
+            if (item.dueDate) {
+              const d = new Date(item.dueDate);
+              d.setDate(d.getDate() + shiftDays);
+              item.dueDate = d;
+            }
+            if (idx === 0) {
+              item.adminEvidenceNote = 'Pehli kist baad me shuru hogi (Admin Grace Period)';
+            }
+          });
+        }
+        if (loan.emiSchedule && loan.emiSchedule.length > 0) {
+          loan.emiSchedule.forEach((item, idx) => {
+            if (item.dueDate) {
+              const d = new Date(item.dueDate);
+              d.setDate(d.getDate() + shiftDays);
+              item.dueDate = d;
+            }
+            if (idx === 0) {
+              item.adminEvidenceNote = 'Pehli kist baad me shuru hogi (Admin Grace Period)';
+            }
+          });
+        }
       } else {
         // 'none' (Default) - No advance deduction, regular schedule starting at installment 1
         payout = baseDisbursal;

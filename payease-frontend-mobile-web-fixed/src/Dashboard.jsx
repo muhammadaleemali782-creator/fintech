@@ -72,14 +72,15 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
   }
 };
 
-// Real-time ticking profit balance display component (High-FPS, strictly monotonic — NEVER resets to zero)
+// Real-time ticking profit balance display component (High-FPS, strictly monotonic when capital > 0)
 function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false, className = "" }) {
-  // Read previously accumulated profit safely (never NaN, never drops to zero; admin is strictly 0)
+  const cap = Math.max(Number(activeCapital || 0), 0);
   const [profit, setProfit] = useState(() => {
     if (isAdmin) return 0;
-    const saved = parseCachedNumber(typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_balance") : 0);
     const base = parseCachedNumber(baseProfit);
-    return Math.max(base, saved, 0);
+    if (cap <= 0) return base;
+    const saved = parseCachedNumber(typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_balance") : 0);
+    return saved > 0 ? saved : base;
   });
 
   const profitRef = useRef(profit);
@@ -87,33 +88,31 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
   const lastTickRef = useRef(Date.now());
   const lastPersistRef = useRef(0);
 
-  // Capital & Yield Math (Simulate fast realistic yield so all users see rapid movement like Admin Reserves)
-  const cap = Math.max(Number(activeCapital || 0), 0);
-  // Baseline effective capital ensures ALL users (even with ₹0 balance) see fluid live fast ticks; Admin is strictly 0
-  const effectiveCap = isAdmin ? 0 : Math.max(cap, 1500);
-  const dailyYieldEst = isAdmin ? 0 : (effectiveCap * 0.12) / 365;
-  const perMsYield = isAdmin ? 0 : (dailyYieldEst / 86400000);
+  // Capital & Yield Math: Yield accrues ONLY if user has real activeCapital (> 0) and is not admin
+  const dailyYieldEst = (isAdmin || cap <= 0) ? 0 : (cap * 0.12) / 365;
+  const perMsYield = dailyYieldEst / 86400000;
 
-  // If server credits higher profit, smoothly sync upward — NEVER down; Admin cleared to 0
+  // Sync when server data changes — fresh server data always takes precedence
   useEffect(() => {
-    if (isAdmin) {
-      profitRef.current = 0;
-      setProfit(0);
-      try {
-        localStorage.removeItem("educa_cached_profit_balance");
-        localStorage.removeItem("educa_last_profit_tick");
-      } catch {}
+    if (isAdmin || cap <= 0) {
+      const serverVal = isAdmin ? 0 : parseCachedNumber(baseProfit);
+      profitRef.current = serverVal;
+      setProfit(serverVal);
+      if (serverVal === 0) {
+        try {
+          localStorage.removeItem("educa_cached_profit_balance");
+          localStorage.removeItem("educa_last_profit_tick");
+        } catch {}
+      }
       return;
     }
     const serverVal = parseCachedNumber(baseProfit);
-    if (serverVal > profitRef.current) {
-      profitRef.current = serverVal;
-      setProfit(serverVal);
-    }
-  }, [baseProfit, isAdmin]);
+    profitRef.current = serverVal;
+    setProfit(serverVal);
+  }, [baseProfit, isAdmin, cap]);
 
   useEffect(() => {
-    if (isAdmin) return;
+    if (isAdmin || perMsYield <= 0) return;
     let timer = null;
     lastTickRef.current = Date.now();
 
@@ -173,30 +172,27 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
     };
   }, [perMsYield, isAdmin]);
 
-  if (isAdmin) {
+  if (isAdmin || (cap <= 0 && profit <= 0)) {
     return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹0.00</span>;
   }
 
   const num = Number(profit || 0);
-  const b = Number(activeCapital || 0);
-  // Display 8 decimals so trailing digits rapidly spin and stay fast for all users
-  const decimals = b >= 100000 ? 6 : (b >= 10000 ? 7 : 8);
+  const decimals = cap >= 100000 ? 6 : (cap >= 10000 ? 7 : (cap > 0 ? 8 : 2));
   const formatted = isFinite(num)
     ? num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-    : "0.00000000";
+    : "0.00";
 
   return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
 }
 
 // Live Today's Accrued Yield Counter (Accrues in real time since midnight)
 function LiveTodayAccrued({ activeCapital = 0, isAdmin = false }) {
-  if (isAdmin) {
+  const cap = Math.max(Number(activeCapital || 0), 0);
+  if (isAdmin || cap <= 0) {
     return <span className="font-mono tabular-nums tracking-tight">₹0.00</span>;
   }
   const [liveMs, setLiveMs] = useState(Date.now());
-  const cap = Math.max(Number(activeCapital || 0), 0);
-  const effectiveCap = Math.max(cap, 1500);
-  const dailyYieldEst = (effectiveCap * 0.12) / 365;
+  const dailyYieldEst = (cap * 0.12) / 365;
   const perSecondYield = dailyYieldEst / 86400;
   const perMsYield = perSecondYield / 1000;
 
@@ -1240,11 +1236,11 @@ export default function Dashboard() {
         appCache.set("educa_cached_profit_history", history);
         if (res.data.profitBalance !== undefined) {
           const pb = parseCachedNumber(res.data.profitBalance);
-          setCachedProfitBalance(prev => Math.max(prev || 0, pb));
+          setCachedProfitBalance(pb);
           appCache.set("educa_cached_profit_balance", pb);
           setUserProfile(prev => ({
             ...prev,
-            profitBalance: Math.max(parseCachedNumber(prev.profitBalance), pb),
+            profitBalance: pb,
             balance: res.data.balance !== undefined ? res.data.balance : prev.balance
           }));
         }
@@ -2082,7 +2078,7 @@ export default function Dashboard() {
         }
         if (data.profitBalance !== undefined) {
           const pb = parseCachedNumber(data.profitBalance);
-          setCachedProfitBalance(prev => Math.max(prev || 0, pb));
+          setCachedProfitBalance(pb);
           appCache.set("educa_cached_profit_balance", pb);
         }
 
@@ -2385,19 +2381,21 @@ export default function Dashboard() {
     }
     if (userProfile?.profitBalance !== undefined) {
       const serverVal = parseCachedNumber(userProfile.profitBalance);
-      setCachedProfitBalance(prev => Math.max(prev || 0, serverVal));
+      setCachedProfitBalance(serverVal);
       try {
-        const storedVal = parseCachedNumber(localStorage.getItem("educa_cached_profit_balance"));
-        const highest = Math.max(storedVal, serverVal);
-        if (highest > 0) {
-          localStorage.setItem("educa_cached_profit_balance", String(highest));
-          appCache.set("educa_cached_profit_balance", highest);
+        if (serverVal > 0) {
+          localStorage.setItem("educa_cached_profit_balance", String(serverVal));
+          appCache.set("educa_cached_profit_balance", serverVal);
+        } else {
+          localStorage.removeItem("educa_cached_profit_balance");
+          localStorage.removeItem("educa_last_profit_tick");
+          appCache.set("educa_cached_profit_balance", 0);
         }
       } catch {}
     }
   }, [userProfile?.profitBalance, isAdmin]);
 
-  const baseProfit = isAdmin ? 0 : Math.max(parseCachedNumber(userProfile?.profitBalance), parseCachedNumber(cachedProfitBalance));
+  const baseProfit = isAdmin ? 0 : parseCachedNumber(userProfile?.profitBalance !== undefined ? userProfile.profitBalance : cachedProfitBalance);
   const dailyYieldEst = !isAdmin && activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
   const perSecondYield = dailyYieldEst / 86400;
 
@@ -2503,7 +2501,9 @@ export default function Dashboard() {
         setUserAnchorTime(Date.now());
         setLiveMs(Date.now());
         setCachedProfitBalance(0);
-        localStorage.setItem("educa_cached_profit_balance", "0");
+        localStorage.removeItem("educa_cached_profit_balance");
+        localStorage.removeItem("educa_last_profit_tick");
+        appCache.set("educa_cached_profit_balance", 0);
         setUserProfile(prev => ({
           ...prev,
           balance: data.newBalance !== undefined ? data.newBalance : (prev.balance + currentProfit),
@@ -3271,7 +3271,7 @@ export default function Dashboard() {
           }
           if (freshData.profitBalance !== undefined) {
             curProfit = Number(freshData.profitBalance);
-            setCachedProfitBalance(prev => Math.max(prev || 0, curProfit));
+            setCachedProfitBalance(curProfit);
             appCache.set("educa_cached_profit_balance", curProfit);
           }
           setUserProfile(prev => ({ ...prev, ...freshData }));

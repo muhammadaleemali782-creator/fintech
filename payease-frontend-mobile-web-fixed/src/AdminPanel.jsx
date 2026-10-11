@@ -563,6 +563,9 @@ export default function AdminPanel() {
     const old = appCache.get("educa_admin_cached_bonds", null);
     return Array.isArray(old) ? old : [];
   });
+  const pendingLoans = useMemo(() => (Array.isArray(loans) ? loans.filter(l => l.status === "pending") : []), [loans]);
+  const pendingBonds = useMemo(() => (Array.isArray(bonds) ? bonds.filter(b => b.status === "pending") : []), [bonds]);
+  const totalPendingDeskCount = (pending?.length || 0) + pendingLoans.length + pendingBonds.length;
   const [notifications, setNotifications] = useState(() => {
     const v = appCache.get("educa_admin_cached_notifications_list", null);
     if (Array.isArray(v)) return v;
@@ -1437,8 +1440,10 @@ export default function AdminPanel() {
         loadStats(true);
       }, 2 * 60 * 1000);
     } else if (tab === "pending") {
-      loadPending();
-      loadHoldData();
+      loadPending(true);
+      loadLoans(true);
+      loadBonds(true);
+      loadHoldData(true);
       loadDepositDetails();
     } else if (tab === "agents") {
       loadAgents();
@@ -1770,6 +1775,36 @@ export default function AdminPanel() {
     }
   };
 
+  const approveBond = async (bondId) => {
+    if (!window.confirm("Approve this bond / lending account?")) return;
+    try {
+      const res = await fetch(`${API}/bond/${bondId}/approve`, { method: "POST", headers });
+      const data = await res.json();
+      showToast(data.message || "Bond approved!", res.ok ? "success" : "error");
+      if (res.ok) {
+        apiCache.clear();
+        loadBonds(true);
+      }
+    } catch {
+      showToast("Network error approving bond", "error");
+    }
+  };
+
+  const rejectBond = async (bondId) => {
+    if (!window.confirm("Reject this bond request? Principal amount will be refunded to user wallet.")) return;
+    try {
+      const res = await fetch(`${API}/bond/${bondId}/reject`, { method: "POST", headers });
+      const data = await res.json();
+      showToast(data.message || "Bond rejected", res.ok ? "success" : "error");
+      if (res.ok) {
+        apiCache.clear();
+        loadBonds(true);
+      }
+    } catch {
+      showToast("Network error rejecting bond", "error");
+    }
+  };
+
   const approveInstallment = async (loanId, installmentNo) => {
     if (!window.confirm(`Installment #${installmentNo} approve karein? Balance update ho jayega.`)) return;
     try {
@@ -1960,14 +1995,14 @@ export default function AdminPanel() {
 
   const tabs = [
     { key: "analytics", label: "Profit & Reserves", icon: "📈" },
-    { key: "pending", label: "Pending", icon: "⏳", badge: pending.length },
+    { key: "pending", label: "Pending", icon: "⏳", badge: totalPendingDeskCount },
     { key: "kyc", label: "KYC Requests", icon: "📄", badge: pendingKycCount },
     { key: "history", label: "Audit History", icon: "📜" },
     { key: "alerts", label: "Live Alerts", icon: "🔔", badge: unreadNotifs },
     { key: "agents", label: "Agent Partners", icon: "🤝", badge: pendingAgentsCount },
-    { key: "loans", label: "Loans", icon: "🏦" },
+    { key: "loans", label: "Loans", icon: "🏦", badge: pendingLoans.length || undefined },
     { key: "issue-loan", label: "Issue Loan Desk", icon: "➕🏦" },
-    { key: "lending", label: "Lending Accounts", icon: "🤝", badge: bonds.length },
+    { key: "lending", label: "Lending Accounts", icon: "🤝", badge: pendingBonds.length || bonds.length || undefined },
     { key: "users", label: "Users & Accounts", icon: "👥" },
     { key: "devices", label: "App Lock", icon: "🔒", badge: devices.filter(d => d.adminStatus === "active").length },
     { key: "settings", label: "Settings", icon: "⚙️" },
@@ -2714,7 +2749,7 @@ export default function AdminPanel() {
             <div className="grid grid-cols-4 gap-1.5 pt-1 border-t border-slate-100">
               {[
                 { key: "analytics", label: "Reserves", icon: "📊" },
-                { key: "pending", label: "Pending", icon: "⏳", badge: pending.length },
+                { key: "pending", label: "Pending", icon: "⏳", badge: totalPendingDeskCount },
                 { key: "kyc", label: "KYC", icon: "📄", badge: pendingKycCount },
                 { key: "history", label: "History", icon: "📜" },
               ].map(({ key, label, icon, badge }) => (
@@ -3782,23 +3817,66 @@ export default function AdminPanel() {
                 </button>
               </div>
 
-              {/* Sub-Navigation: Active Pending vs On Hold (Duplicate UTR) */}
+              {/* Sub-Navigation: Active Deposits vs Loans vs Bonds vs On Hold (Duplicate UTR) */}
               <div className="flex flex-wrap items-center justify-between gap-3 mb-5 border-b border-gray-100 pb-3">
-                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-2xl w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setPendingSubTab("active")}
-                    className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-2 ${
+                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
                       pendingSubTab === "active"
                         ? "bg-white text-slate-900 shadow-xs"
                         : "text-slate-500 hover:text-slate-900"
                     }`}
                   >
-                    <span>⏳ Active Pending</span>
+                    <span>💰 Deposits ({pending.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingSubTab("loans");
+                      loadLoans(true);
+                    }}
+                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      pendingSubTab === "loans"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-blue-700 hover:text-blue-900 hover:bg-blue-50"
+                    }`}
+                  >
+                    <span>🏦 Loans</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                      pending.length > 0 ? "bg-amber-100 text-amber-900" : "bg-slate-200 text-slate-600"
+                      pendingLoans.length > 0
+                        ? pendingSubTab === "loans"
+                          ? "bg-white text-blue-900 animate-pulse"
+                          : "bg-blue-100 text-blue-900 animate-pulse border border-blue-300"
+                        : "bg-slate-200 text-slate-600"
                     }`}>
-                      {pending.length}
+                      {pendingLoans.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingSubTab("bonds");
+                      loadBonds(true);
+                    }}
+                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      pendingSubTab === "bonds"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50"
+                    }`}
+                  >
+                    <span>🤝 Bonds</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      pendingBonds.length > 0
+                        ? pendingSubTab === "bonds"
+                          ? "bg-white text-indigo-900 animate-pulse"
+                          : "bg-indigo-100 text-indigo-900 animate-pulse border border-indigo-300"
+                        : "bg-slate-200 text-slate-600"
+                    }`}>
+                      {pendingBonds.length}
                     </span>
                   </button>
 
@@ -3808,13 +3886,13 @@ export default function AdminPanel() {
                       setPendingSubTab("hold");
                       loadHoldData(true);
                     }}
-                    className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-2 ${
+                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
                       pendingSubTab === "hold"
                         ? "bg-rose-600 text-white shadow-xs"
                         : "text-rose-600 hover:text-rose-800 hover:bg-rose-50"
                     }`}
                   >
-                    <span>⚠️ On Hold — Duplicate UTR</span>
+                    <span>⚠️ On Hold</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                       (holdData?.holdCount || 0) > 0
                         ? pendingSubTab === "hold"
@@ -3832,6 +3910,8 @@ export default function AdminPanel() {
                     type="button"
                     onClick={() => {
                       if (pendingSubTab === "hold") loadHoldData(true);
+                      else if (pendingSubTab === "loans") loadLoans(true);
+                      else if (pendingSubTab === "bonds") loadBonds(true);
                       else loadPending(true);
                     }}
                     className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-1 shadow-2xs"
@@ -3856,10 +3936,32 @@ export default function AdminPanel() {
                   </div>
 
                   {pending.length === 0 ? (
-                    <div className="py-12 text-center space-y-2 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
+                    <div className="py-10 text-center space-y-3 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
                       <span className="text-4xl block">🎉</span>
                       <p className="font-extrabold text-gray-800 text-sm">No Pending Transactions</p>
-                      <p className="text-xs text-gray-400">Sabhi requests process ho chuki hain.</p>
+                      <p className="text-xs text-gray-400">Sabhi deposit aur withdrawal requests process ho chuki hain.</p>
+                      {(pendingLoans.length > 0 || pendingBonds.length > 0) && (
+                        <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                          {pendingLoans.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setPendingSubTab("loans")}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+                            >
+                              🏦 {pendingLoans.length} Pending Loan(s) Dekhein
+                            </button>
+                          )}
+                          {pendingBonds.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setPendingSubTab("bonds")}
+                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+                            >
+                              🤝 {pendingBonds.length} Pending Bond(s) Dekhein
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -3992,7 +4094,394 @@ export default function AdminPanel() {
               )}
 
               {/* ══════════════════════════════════════════════════════
-                  VIEW 2: ON HOLD — DUPLICATE UTR CONFLICTS
+                  VIEW 2: PENDING LOAN APPROVALS
+              ══════════════════════════════════════════════════════ */}
+              {pendingSubTab === "loans" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
+                        <span>🏦</span>
+                        <span>Pending Loan Requests</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-800">
+                          {pendingLoans.length}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Personal, Micro Business aur Student loan applications jinhe review aur approval chahiye.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => loadLoans(true)}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                    >
+                      <span>🔄 Refresh Loans</span>
+                    </button>
+                  </div>
+
+                  {pendingLoans.length === 0 ? (
+                    <div className="py-12 text-center space-y-2 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
+                      <span className="text-4xl block">🎉</span>
+                      <p className="font-extrabold text-gray-800 text-sm">No Pending Loan Requests</p>
+                      <p className="text-xs text-gray-400">Sabhi loan applications process ho chuki hain.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {pendingLoans.map(l => {
+                        const docs = l.documents || {};
+                        const instAmt = l.installmentAmount || l.emiAmount || 0;
+                        const chosenOpt = cardAdvanceOptions[l._id] || "none";
+                        const isAdvance = chosenOpt === "deduct";
+                        const advancePayout = Math.max(0, (l.disbursalAmount || l.amount) - instAmt);
+                        const currentDisburseAmount = isAdvance ? advancePayout : (l.disbursalAmount || l.amount);
+
+                        return (
+                          <div key={l._id} className="border border-slate-200 rounded-2xl p-4 sm:p-5 bg-white shadow-xs space-y-4">
+                            {/* Card Header */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
+                                  🏦
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="font-extrabold text-gray-900 text-base">{l.userId?.name || "Borrower"}</h4>
+                                    <span className="bg-blue-50 text-blue-700 text-xs font-black font-mono px-2.5 py-0.5 rounded-full border border-blue-200">
+                                      A/C: {l.accountNumber || "EFS0000XXX"}
+                                    </span>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                      {l.loanType === "micro_business" ? "MICRO BUSINESS (DAILY)" : l.loanType === "student" ? "STUDENT LOAN" : "PERSONAL LOAN (10-DAY)"}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    📞 {l.userId?.phone || docs.applicantPhone || "N/A"} • ✉️ {l.userId?.email || docs.applicantEmail || "N/A"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-left sm:text-right text-xs text-gray-400">
+                                <span>Applied: {new Date(l.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                              </div>
+                            </div>
+
+                            {/* Loan Terms Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl text-xs">
+                              <div>
+                                <span className="text-gray-400 block font-medium">Requested Amount</span>
+                                <span className="font-extrabold text-gray-900 text-base font-mono">₹{Number(l.amount || 0).toLocaleString("en-IN")}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 block font-medium">Installments</span>
+                                <span className="font-bold text-gray-900 text-sm">{l.installmentsCount || 15} Kistein @ ₹{instAmt}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 block font-medium">Total Payable</span>
+                                <span className="font-bold text-gray-900 text-sm font-mono">₹{Number(l.totalPayable || 0).toLocaleString("en-IN")}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 block font-medium">Disbursal Amount</span>
+                                <span className="font-extrabold text-emerald-700 text-sm font-mono">₹{Number(l.disbursalAmount || l.amount).toLocaleString("en-IN")}</span>
+                              </div>
+                            </div>
+
+                            {/* Purpose & Nominee */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                              {l.purpose && (
+                                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                                  <span className="text-gray-400 block font-medium text-[10px]">Purpose</span>
+                                  <span className="font-bold text-slate-800">{l.purpose}</span>
+                                </div>
+                              )}
+                              {l.nominee?.name && (
+                                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                                  <span className="text-gray-400 block font-medium text-[10px]">Nominee Details</span>
+                                  <span className="font-bold text-slate-800">
+                                    {l.nominee.name} ({l.nominee.relation || "Nominee"}) • {l.nominee.phone || "N/A"}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Submitted Documents Lightbox Zoom */}
+                            {(docs.doc1Url || docs.doc2Url || docs.studentProofUrl || docs.chequeUrl || docs.aadharUrl || docs.panUrl) && (
+                              <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2">
+                                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                                  <span className="flex items-center gap-1.5">
+                                    <span>📄</span> Submitted Verification Documents
+                                  </span>
+                                  {docs.bankAccountNumber && (
+                                    <span className="text-[11px] font-mono text-slate-600">
+                                      A/C: {docs.bankAccountNumber} ({docs.bankName || "Bank"}, IFSC: {docs.bankIfsc || "N/A"})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {(docs.doc1Url || docs.aadharUrl) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.doc1Url || docs.aadharUrl); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>🆔</span> Aadhaar (Front) 🔍
+                                    </button>
+                                  )}
+                                  {(docs.doc1BackUrl || docs.aadharBackUrl) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.doc1BackUrl || docs.aadharBackUrl); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>🆔</span> Aadhaar (Back) 🔍
+                                    </button>
+                                  )}
+                                  {(docs.doc2Url || docs.panUrl) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.doc2Url || docs.panUrl); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>💳</span> PAN Card 🔍
+                                    </button>
+                                  )}
+                                  {(docs.chequeUrl || docs.chequeFrontUrl) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.chequeUrl || docs.chequeFrontUrl); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>🏦</span> Cheque 🔍
+                                    </button>
+                                  )}
+                                  {docs.studentProofUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.studentProofUrl); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>🎓</span> Student Proof 🔍
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Advance Option Selector */}
+                            <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3 space-y-2">
+                              <span className="text-xs font-black text-amber-900 block">
+                                Disbursal & Advance EMI Option:
+                              </span>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "none" }))}
+                                  className={`p-2.5 rounded-lg border text-left transition cursor-pointer ${
+                                    chosenOpt === "none"
+                                      ? "bg-white border-blue-500 ring-2 ring-blue-400/30 shadow-2xs"
+                                      : "bg-white/80 border-slate-200 hover:bg-white"
+                                  }`}
+                                >
+                                  <span className="font-bold text-xs text-slate-900 block">Normal Disbursal (No Advance)</span>
+                                  <span className="text-[11px] text-slate-600">Puri amount ₹{Number(l.disbursalAmount || l.amount).toLocaleString("en-IN")} disburse hogi.</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "deduct" }))}
+                                  className={`p-2.5 rounded-lg border text-left transition cursor-pointer ${
+                                    chosenOpt === "deduct"
+                                      ? "bg-amber-100 border-amber-500 ring-2 ring-amber-400/30 shadow-2xs"
+                                      : "bg-white/80 border-slate-200 hover:bg-white"
+                                  }`}
+                                >
+                                  <span className="font-bold text-xs text-amber-950 block">🟡 1st EMI Advance Kaatein</span>
+                                  <span className="text-[11px] text-amber-800">Borrower ko milega: ₹{advancePayout.toLocaleString("en-IN")}. Kist #1 paid ho jayegi.</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 sm:gap-3 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAdvanceOption(chosenOpt);
+                                  setLoanApproveModal(l);
+                                  triggerAdminHeroFly(l._id);
+                                }}
+                                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                              >
+                                <span>✅ Approve & Disburse (₹{currentDisburseAmount.toLocaleString("en-IN")})</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={rejectLoadingId === l._id}
+                                onClick={() => rejectLoan(l._id)}
+                                className="px-5 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                              >
+                                {rejectLoadingId === l._id ? "Rejecting..." : "✗ Reject"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ══════════════════════════════════════════════════════
+                  VIEW 3: PENDING BOND & LENDING APPROVALS
+              ══════════════════════════════════════════════════════ */}
+              {pendingSubTab === "bonds" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
+                        <span>🤝</span>
+                        <span>Pending Bond & Lending Requests</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-800">
+                          {pendingBonds.length}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Fixed Return Bond (365 Days) aur Monthly Lending (40m / 80m) accounts review aur approval ke liye.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => loadBonds(true)}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                    >
+                      <span>🔄 Refresh Bonds</span>
+                    </button>
+                  </div>
+
+                  {pendingBonds.length === 0 ? (
+                    <div className="py-12 text-center space-y-2 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
+                      <span className="text-4xl block">🎉</span>
+                      <p className="font-extrabold text-gray-800 text-sm">No Pending Bond Requests</p>
+                      <p className="text-xs text-gray-400">Sabhi bond aur lending applications process ho chuki hain.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {pendingBonds.map(b => {
+                        const docs = b.documents || {};
+                        return (
+                          <div key={b._id} className="border border-slate-200 rounded-2xl p-4 sm:p-5 bg-white shadow-xs space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
+                                  🤝
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="font-extrabold text-gray-900 text-base">{b.userId?.name || "Investor"}</h4>
+                                    <span className="bg-indigo-50 text-indigo-700 text-xs font-black font-mono px-2.5 py-0.5 rounded-full border border-indigo-200">
+                                      A/C: {b.accountNumber || "EFS0000XXX"}
+                                    </span>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                      {b.bondType === "debit_365" ? "365-DAY FIXED BOND" : b.bondType === "lending_80" ? "80 MONTHS LENDING" : "40 MONTHS LENDING"}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    📞 {b.userId?.phone || docs.applicantPhone || "N/A"} • ✉️ {b.userId?.email || docs.applicantEmail || "N/A"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-left sm:text-right text-xs text-gray-400">
+                                <span>Applied: {new Date(b.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl text-xs">
+                              <div>
+                                <span className="text-gray-400 block font-medium">Principal Deposited</span>
+                                <span className="font-extrabold text-gray-900 text-base font-mono">₹{Number(b.principalAmount || 0).toLocaleString("en-IN")}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 block font-medium">Monthly Payout</span>
+                                <span className="font-bold text-emerald-700 text-sm font-mono">₹{Number(b.monthlyPayout || 0).toLocaleString("en-IN")}/mo</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 block font-medium">Total Return</span>
+                                <span className="font-bold text-gray-900 text-sm font-mono">₹{Number(b.returnAmount || 0).toLocaleString("en-IN")}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 block font-medium">Tenure</span>
+                                <span className="font-bold text-gray-900 text-sm">{b.tenureMonths ? `${b.tenureMonths} Months` : `${b.tenureDays || 365} Days`}</span>
+                              </div>
+                            </div>
+
+                            {/* Documents */}
+                            {(docs.aadharUrl || docs.doc1Url || docs.panUrl || docs.doc2Url || docs.chequeUrl) && (
+                              <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2">
+                                <span className="text-xs font-bold text-slate-800 block">📄 Submitted Investor Documents:</span>
+                                <div className="flex flex-wrap gap-2">
+                                  {(docs.aadharUrl || docs.doc1Url) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.aadharUrl || docs.doc1Url); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>🆔</span> Aadhaar (Front) 🔍
+                                    </button>
+                                  )}
+                                  {(docs.aadharBackUrl || docs.doc1BackUrl) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.aadharBackUrl || docs.doc1BackUrl); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>🆔</span> Aadhaar (Back) 🔍
+                                    </button>
+                                  )}
+                                  {(docs.panUrl || docs.doc2Url) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.panUrl || docs.doc2Url); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>💳</span> PAN Card 🔍
+                                    </button>
+                                  )}
+                                  {docs.chequeUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.chequeUrl); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>🏦</span> Cheque 🔍
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex gap-2 sm:gap-3 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => approveBond(b._id)}
+                                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                              >
+                                <span>✅ Approve Bond</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => rejectBond(b._id)}
+                                className="px-5 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center justify-center gap-1.5"
+                              >
+                                <span>✗ Reject & Refund</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ══════════════════════════════════════════════════════
+                  VIEW 4: ON HOLD — DUPLICATE UTR CONFLICTS
               ══════════════════════════════════════════════════════ */}
               {pendingSubTab === "hold" && (
                 <div className="space-y-6">

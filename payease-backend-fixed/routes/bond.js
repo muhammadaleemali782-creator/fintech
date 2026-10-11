@@ -471,4 +471,61 @@ router.get('/my', protect, async (req, res) => {
   }
 });
 
+// Admin: Approve a pending bond
+router.post('/:id/approve', protect, admin, async (req, res) => {
+  try {
+    const bond = await Bond.findById(req.params.id);
+    if (!bond) return res.status(404).json({ message: 'Bond not found' });
+    if (bond.status === 'active') return res.status(400).json({ message: 'Bond is already active' });
+
+    bond.status = 'active';
+    await bond.save();
+
+    await Transaction.create({
+      userId: bond.userId,
+      type: 'bond_approved',
+      amount: bond.principalAmount,
+      method: 'wallet',
+      status: 'completed',
+      referenceId: bond._id.toString(),
+      remarks: `Bond (${bond.accountNumber || 'EFS0000XXX'}) approved by Admin`
+    });
+
+    res.json({ message: `Bond (${bond.accountNumber || 'EFS0000XXX'}) approved successfully!`, bond });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Failed to approve bond' });
+  }
+});
+
+// Admin: Reject a pending bond and refund
+router.post('/:id/reject', protect, admin, async (req, res) => {
+  try {
+    const bond = await Bond.findById(req.params.id);
+    if (!bond) return res.status(404).json({ message: 'Bond not found' });
+    if (bond.status === 'rejected') return res.status(400).json({ message: 'Bond is already rejected' });
+
+    bond.status = 'rejected';
+    await bond.save();
+
+    // Refund principal to user's wallet
+    await User.findByIdAndUpdate(bond.userId, {
+      $inc: { balance: bond.principalAmount }
+    });
+
+    await Transaction.create({
+      userId: bond.userId,
+      type: 'bond_refund',
+      amount: bond.principalAmount,
+      method: 'wallet',
+      status: 'completed',
+      referenceId: bond._id.toString(),
+      remarks: `Bond request rejected. ₹${bond.principalAmount.toLocaleString('en-IN')} refunded to wallet.`
+    });
+
+    res.json({ message: `Bond rejected and ₹${bond.principalAmount.toLocaleString('en-IN')} refunded to user wallet.`, bond });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Failed to reject bond' });
+  }
+});
+
 module.exports = router;

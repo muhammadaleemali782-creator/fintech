@@ -390,15 +390,26 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Please enter your email address' });
 
-    let normalizedEmail = email.trim().toLowerCase();
-    if (normalizedEmail.endsWith('@gmail.com')) {
-      normalizedEmail = normalizedEmail.replace(/@gmail\.com$/, '@educa.com');
+    const rawInput = (email || '').trim().toLowerCase();
+    const prefix = rawInput.split('@')[0];
+    const phoneDigits = rawInput.replace(/[^0-9]/g, '');
+
+    const searchConditions = [
+      { email: rawInput },
+      { email: `${prefix}@educa.com` },
+      { email: `${prefix}@gmail.com` },
+      { email: `${prefix}@educa` }
+    ];
+    if (phoneDigits.length >= 10) {
+      searchConditions.push({ phone: phoneDigits });
     }
-    const user = await User.findOne({ email: normalizedEmail });
 
-    const responseMsg = `Password reset link aapke Educa Mail (${normalizedEmail}) par bhej di gayi hai.`;
+    const user = await User.findOne({ $or: searchConditions });
 
-    // Security practice: Always respond positively so attacker can't enumerate emails
+    const targetEmail = user ? user.email : (rawInput.includes('@') ? rawInput : `${prefix}@educa.com`);
+    const responseMsg = `Password reset link aapke Educa Mail (${targetEmail}) par bhej di gayi hai.`;
+
+    // Security practice: If user not found, still return friendly message
     if (!user) {
       return res.json({ message: 'Password reset link aapke Educa Mail par bhej di gayi hai.' });
     }
@@ -419,8 +430,8 @@ router.post('/forgot-password', async (req, res) => {
 
     const mailBody = `Namaste ${user.name},\n\nNaya password set karne ke liye is link par click karein:\n\n${resetLink}\n\nTeam Educa Fintech`;
 
-    // Deliver reset link directly to Educa Mail inbox (handles Render sleep wakeup)
-    sendEducaMailMessage(normalizedEmail, 'Educa Fintech — Password Reset Link', mailBody).catch(() => {});
+    // Deliver reset link directly to Educa Mail inbox (instant direct DB insertion + API)
+    await sendEducaMailMessage(user.email, 'Educa Fintech — Password Reset Link', mailBody);
 
     // Also send internal notification to admin
     sendNotification({

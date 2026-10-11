@@ -143,19 +143,24 @@ export const CacheManager = {
     if (!key) return fallback;
     // 1. Try L1 memory cache
     const mem = memoryCache.get(key);
-    if (mem && mem.data !== undefined) return mem.data;
+    if (mem !== undefined && mem !== null) {
+      if (typeof mem === "object" && "data" in mem) return mem.data;
+      return mem;
+    }
 
     // 2. Fallback to localStorage
     const raw = storage.get(key);
-    if (raw) {
+    if (raw !== null && raw !== undefined) {
       try {
         const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object" && "data" in parsed) {
+        if (parsed !== null && typeof parsed === "object" && "data" in parsed) {
           memoryCache.set(key, parsed);
           return parsed.data;
         }
+        memoryCache.set(key, parsed);
         return parsed !== undefined ? parsed : fallback;
       } catch {
+        memoryCache.set(key, raw);
         return raw;
       }
     }
@@ -166,19 +171,26 @@ export const CacheManager = {
   getWithMetaSync(key, fallback = null) {
     if (!key) return { data: fallback, lastUpdated: 0 };
     const mem = memoryCache.get(key);
-    if (mem && mem.data !== undefined) {
-      return { data: mem.data, lastUpdated: mem.lastUpdated || 0 };
+    if (mem !== undefined && mem !== null) {
+      if (typeof mem === "object" && "data" in mem) {
+        return { data: mem.data, lastUpdated: mem.lastUpdated || 0 };
+      }
+      return { data: mem, lastUpdated: 0 };
     }
     const raw = storage.get(key);
-    if (raw) {
+    if (raw !== null && raw !== undefined) {
       try {
         const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object" && "data" in parsed) {
+        if (parsed !== null && typeof parsed === "object" && "data" in parsed) {
           memoryCache.set(key, parsed);
           return { data: parsed.data, lastUpdated: parsed.lastUpdated || 0 };
         }
+        memoryCache.set(key, parsed);
         return { data: parsed, lastUpdated: 0 };
-      } catch {}
+      } catch {
+        memoryCache.set(key, raw);
+        return { data: raw, lastUpdated: 0 };
+      }
     }
     return { data: fallback, lastUpdated: 0 };
   },
@@ -354,9 +366,9 @@ export const CacheManager = {
 // -------------------------------------------------------------
 export async function smartFetch(url, options = {}, config = {}) {
   const {
-    timeoutMs = 60000, // 60s timeout accommodates Render free-tier cold-start
+    timeoutMs = 75000, // 75s timeout accommodates Render free-tier cold-start
     retries = 2,       // 2 silent retries with backoff
-    backoffs = [3000, 6000],
+    backoffs = [3000, 8000],
     validateResponse = (data) => data !== null && data !== undefined
   } = config;
 

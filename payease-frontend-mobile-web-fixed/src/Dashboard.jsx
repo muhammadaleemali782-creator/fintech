@@ -400,37 +400,54 @@ export default function Dashboard() {
   } catch {}
   useEffect(() => { if (!token) window.location.href = "/"; }, [token]);
 
-  // Isolate account data: if cached profile belongs to another user, purge immediately
   const currentUserId = userStored?.id || userStored?._id;
-  const cachedProf = appCache.get("educa_cached_profile", null);
-  if (cachedProf && currentUserId) {
-    const isOwner = cachedProf._id === currentUserId || cachedProf.id === currentUserId || (userStored.email && cachedProf.email === userStored.email);
-    if (!isOwner) {
-      appCache.clearUserData();
-    }
-  }
+  const userRole = userStored?.role || "user";
+  const userScopedProfile = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "profile"), null) : null;
+  const cachedProf = userScopedProfile || appCache.get("educa_cached_profile", null) || userStored;
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const [balance, setBalance] = useState(() => {
-    return parseCachedNumber(appCache.get("educa_cached_balance", userStored.balance || 0));
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "balance"), null) : null;
+    const globalCached = appCache.get("educa_cached_balance", null);
+    const profBal = cachedProf?.balance;
+    const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_balance") : null;
+    const val = userScoped ?? globalCached ?? profBal ?? rawLocal ?? userStored?.balance ?? 0;
+    return parseCachedNumber(val);
   });
   const [cachedProfitBalance, setCachedProfitBalance] = useState(() => {
-    if (userStored?.role === "admin") return 0;
-    return parseCachedNumber(appCache.get("educa_cached_profit_balance", userStored.profitBalance || 0));
+    if (userRole === "admin") return 0;
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "profit_balance"), null) : null;
+    const globalCached = appCache.get("educa_cached_profit_balance", null);
+    const profPb = cachedProf?.profitBalance;
+    const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_balance") : null;
+    const val = userScoped ?? globalCached ?? profPb ?? rawLocal ?? userStored?.profitBalance ?? 0;
+    return parseCachedNumber(val);
   });
   const [loadingDashboard, setLoadingDashboard] = useState(!appCache.has("educa_cached_profile"));
   const [txns, setTxns] = useState(() => {
-    const cached = appCache.get("educa_cached_txns", null);
-    return Array.isArray(cached) ? cached : [];
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "transactions"), null) : null;
+    const globalCached = appCache.get("educa_cached_txns", null);
+    if (Array.isArray(userScoped) && userScoped.length > 0) return userScoped;
+    if (Array.isArray(globalCached) && globalCached.length > 0) return globalCached;
+    return [];
   });
   const [loans, setLoans] = useState(() => {
-    return appCache.get("educa_cached_loans", []);
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "loans"), null) : null;
+    const globalCached = appCache.get("educa_cached_loans", []);
+    if (Array.isArray(userScoped)) return userScoped;
+    if (Array.isArray(globalCached)) return globalCached;
+    return [];
   });
   const [bonds, setBonds] = useState(() => {
-    return appCache.get("educa_cached_bonds", []);
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "bonds"), null) : null;
+    const globalCached = appCache.get("educa_cached_bonds", []);
+    if (Array.isArray(userScoped)) return userScoped;
+    if (Array.isArray(globalCached)) return globalCached;
+    return [];
   });
   const [showLoans, setShowLoans] = useState(() => {
-    const cachedLoans = appCache.get("educa_cached_loans", []);
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "loans"), null) : null;
+    const cachedLoans = Array.isArray(userScoped) ? userScoped : appCache.get("educa_cached_loans", []);
     return Array.isArray(cachedLoans) && cachedLoans.length > 0;
   });
   const [toast, setToast] = useState({ text: "", type: "" });
@@ -1989,9 +2006,13 @@ export default function Dashboard() {
       }
       if (res.notModified) return;
       if (res.data) {
-        const data = res.data;
+        const uId = data._id || data.id || "guest";
+        const role = data.role || "user";
         setUserProfile(prev => (isDataEqual(prev, data) ? prev : data));
         appCache.set("educa_cached_profile", data);
+        CacheManager.set(CacheManager.createKey(role, uId, "profile"), data);
+        try { localStorage.setItem("educa_cached_profile", JSON.stringify(data)); } catch {}
+
         // Keep user object in localStorage fresh and strictly preserve role
         const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
         localStorage.setItem("user", JSON.stringify({ ...currentUser, ...data, role: data.role || currentUser.role }));
@@ -1999,11 +2020,15 @@ export default function Dashboard() {
         if (data.balance !== undefined) {
           setBalance(prev => (prev === data.balance ? prev : data.balance));
           appCache.set("educa_cached_balance", data.balance);
+          CacheManager.set(CacheManager.createKey(role, uId, "balance"), data.balance);
+          try { localStorage.setItem("educa_cached_balance", String(data.balance)); } catch {}
         }
         if (data.profitBalance !== undefined) {
           const pb = parseCachedNumber(data.profitBalance);
           setCachedProfitBalance(pb);
           appCache.set("educa_cached_profit_balance", pb);
+          CacheManager.set(CacheManager.createKey(role, uId, "profit_balance"), pb);
+          try { localStorage.setItem("educa_cached_profit_balance", String(pb)); } catch {}
         }
 
         // Native Android App: Register device silently in background without intrusive prompts
@@ -2238,20 +2263,34 @@ export default function Dashboard() {
         const uId = d.profile?._id || d.profile?.id || userStored?.id || userStored?._id || "guest";
 
         if (d.profile) {
-          setUserProfile(prev => (isDataEqual(prev, d.profile) ? prev : d.profile));
-          CacheManager.set(CacheManager.createKey(role, uId, "profile"), d.profile);
-          const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-          localStorage.setItem("user", JSON.stringify({ ...currentUser, ...d.profile, role: d.profile.role || currentUser.role }));
-          if (d.profile.balance !== undefined) {
-            setBalance(prev => (prev === d.profile.balance ? prev : d.profile.balance));
-            CacheManager.set(CacheManager.createKey(role, uId, "balance"), d.profile.balance);
+          const freshProf = d.profile;
+          const freshBal = freshProf.balance !== undefined ? freshProf.balance : balance;
+          const freshPb = freshProf.profitBalance !== undefined ? parseCachedNumber(freshProf.profitBalance) : cachedProfitBalance;
+
+          setUserProfile(prev => (isDataEqual(prev, freshProf) ? prev : freshProf));
+          setBalance(prev => (prev === freshBal ? prev : freshBal));
+          if (role !== "admin") {
+            setCachedProfitBalance(freshPb);
           }
-          if (d.profile.profitBalance !== undefined) {
-            const pb = parseCachedNumber(d.profile.profitBalance);
-            setCachedProfitBalance(pb);
-            CacheManager.set(CacheManager.createKey(role, uId, "profit_balance"), pb);
-          }
-          if (d.profile.hasWalletPin) {
+
+          CacheManager.set(CacheManager.createKey(role, uId, "profile"), freshProf);
+          CacheManager.set(CacheManager.createKey(role, uId, "balance"), freshBal);
+          CacheManager.set(CacheManager.createKey(role, uId, "profit_balance"), freshPb);
+
+          appCache.set("educa_cached_profile", freshProf);
+          appCache.set("educa_cached_balance", freshBal);
+          appCache.set("educa_cached_profit_balance", freshPb);
+
+          try {
+            const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+            const updatedUser = { ...currentUser, ...freshProf, balance: freshBal, profitBalance: freshPb, role: freshProf.role || currentUser.role };
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+            localStorage.setItem("educa_cached_profile", JSON.stringify(freshProf));
+            localStorage.setItem("educa_cached_balance", String(freshBal));
+            localStorage.setItem("educa_cached_profit_balance", String(freshPb));
+          } catch {}
+
+          if (freshProf.hasWalletPin) {
             localStorage.setItem("hasWalletPin", "true");
           } else {
             localStorage.setItem("hasWalletPin", "false");
@@ -2262,42 +2301,50 @@ export default function Dashboard() {
           setTxns(prev => (isDataEqual(prev, d.transactions) ? prev : d.transactions));
           CacheManager.set(CacheManager.createKey(role, uId, "transactions"), d.transactions);
           appCache.set("educa_cached_txns", d.transactions);
+          try { localStorage.setItem("educa_cached_txns", JSON.stringify(d.transactions)); } catch {}
         }
         if (Array.isArray(d.loans)) {
           setLoans(prev => (isDataEqual(prev, d.loans) ? prev : d.loans));
           CacheManager.set(CacheManager.createKey(role, uId, "loans"), d.loans);
           appCache.set("educa_cached_loans", d.loans);
+          try { localStorage.setItem("educa_cached_loans", JSON.stringify(d.loans)); } catch {}
           setShowLoans(true);
         }
         if (d.activeLoan) {
           setActiveLoanDetails(prev => (isDataEqual(prev, d.activeLoan) ? prev : d.activeLoan));
           CacheManager.set(CacheManager.createKey(role, uId, "active_loan"), d.activeLoan);
           appCache.set("educa_cached_active_loan", d.activeLoan);
+          try { localStorage.setItem("educa_cached_active_loan", JSON.stringify(d.activeLoan)); } catch {}
         }
         if (Array.isArray(d.bonds)) {
           setBonds(prev => (isDataEqual(prev, d.bonds) ? prev : d.bonds));
           CacheManager.set(CacheManager.createKey(role, uId, "bonds"), d.bonds);
           appCache.set("educa_cached_bonds", d.bonds);
+          try { localStorage.setItem("educa_cached_bonds", JSON.stringify(d.bonds)); } catch {}
         }
         if (Array.isArray(d.profitHistory)) {
           setProfitHistory(prev => (isDataEqual(prev, d.profitHistory) ? prev : d.profitHistory));
           CacheManager.set(CacheManager.createKey(role, uId, "profit_history"), d.profitHistory);
           appCache.set("educa_cached_profit_history", d.profitHistory);
+          try { localStorage.setItem("educa_cached_profit_history", JSON.stringify(d.profitHistory)); } catch {}
         }
         if (d.depositDetails) {
           setDepositDetails(prev => (isDataEqual(prev, d.depositDetails) ? prev : d.depositDetails));
           CacheManager.set(CacheManager.createKey(role, uId, "deposit_details"), d.depositDetails);
           appCache.set("educa_cached_deposit_details", d.depositDetails);
+          try { localStorage.setItem("educa_cached_deposit_details", JSON.stringify(d.depositDetails)); } catch {}
         }
         if (d.currentRate) {
           setCurrentRate(prev => (prev === d.currentRate ? prev : d.currentRate));
           CacheManager.set(CacheManager.createKey(role, uId, "current_rate"), d.currentRate);
           appCache.set("educa_cached_current_rate", d.currentRate);
+          try { localStorage.setItem("educa_cached_current_rate", String(d.currentRate)); } catch {}
         }
         if (d.agentStats) {
           setAgentMetrics(prev => (isDataEqual(prev, d.agentStats) ? prev : d.agentStats));
           CacheManager.set(CacheManager.createKey(role, uId, "agent_stats"), d.agentStats);
           appCache.set("educa_cached_agent_metrics", d.agentStats);
+          try { localStorage.setItem("educa_cached_agent_metrics", JSON.stringify(d.agentStats)); } catch {}
         }
         setLastSyncedAt(Date.now());
         return true;

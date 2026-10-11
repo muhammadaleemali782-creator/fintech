@@ -1315,6 +1315,15 @@ export default function AdminPanel() {
         };
         setStats(statsPayload);
         appCache.set("educa_admin_cached_stats", statsPayload);
+        try {
+          localStorage.setItem("educa_admin_cached_stats", JSON.stringify(statsPayload));
+          localStorage.setItem("educa_admin_cached_reserves", String(statsPayload.netFintechReserve));
+          localStorage.setItem("educa_admin_cached_deposits", String(statsPayload.totalDeposits));
+          localStorage.setItem("educa_admin_cached_profit", String(statsPayload.totalYield));
+          localStorage.setItem("educa_admin_cached_users_count", String(statsPayload.totalUsers));
+          localStorage.setItem("educa_admin_cached_pending_count", String(statsPayload.pendingTxns));
+          localStorage.setItem("educa_admin_cached_loans_count", String(statsPayload.totalLoans));
+        } catch {}
       }
     } catch (e) {
       console.warn("Bootstrap admin fetch error:", e);

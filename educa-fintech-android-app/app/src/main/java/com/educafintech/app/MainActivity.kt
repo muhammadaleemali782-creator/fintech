@@ -789,20 +789,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        try {
-            if (level >= TRIM_MEMORY_MODERATE && ::webView.isInitialized) {
-                webView.clearCache(false)
-            }
-        } catch (_: Exception) {}
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
-        try {
-            if (::webView.isInitialized) {
-                webView.clearCache(false)
-            }
-        } catch (_: Exception) {}
     }
 
     override fun onDestroy() {

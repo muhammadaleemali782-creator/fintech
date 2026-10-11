@@ -5,7 +5,8 @@ import StatusBadge from "./components/StatusBadge";
 
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
-import { appCache } from "./utils/dataCache";
+import { CacheManager, appCache } from "./utils/dataCache";
+import LiveRefreshBadge from "./components/LiveRefreshBadge";
 
 // --- PERSISTENT & IN-MEMORY CACHE WITH STALE-WHILE-REVALIDATE ---
 const apiCache = new Map();
@@ -430,6 +431,8 @@ export default function AdminPanel() {
   useEffect(() => { if (!token || user?.role !== "admin") window.location.href = "/"; }, []); // eslint-disable-line
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const [adminCountdown, setAdminCountdown] = useState(30);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [tab, setTab] = useState("analytics");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [historyFilterOpen, setHistoryFilterOpen] = useState(false);
@@ -1254,29 +1257,110 @@ export default function AdminPanel() {
     }
   };
 
+  const loadBootstrapAdmin = useCallback(async (force = false) => {
+    try {
+      setIsRefreshing(true);
+      const res = await cachedAdminFetch(`${API}/bootstrap/admin`, { headers }, 30000, force);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || !data.success) return;
+
+      if (data.users && Array.isArray(data.users)) {
+        setUsers(data.users);
+        appCache.set("educa_admin_cached_users_list", data.users);
+      }
+      if (data.pendingTxns && Array.isArray(data.pendingTxns)) {
+        setPending(data.pendingTxns);
+        appCache.set("educa_admin_cached_pending_list", data.pendingTxns);
+      }
+      if (data.holdTxns && Array.isArray(data.holdTxns)) {
+        const holdPayload = { holdCount: data.holdTxns.length, groups: data.holdTxns };
+        setHoldData(holdPayload);
+        appCache.set("educa_admin_cached_hold", holdPayload);
+      }
+      if (data.loans && Array.isArray(data.loans)) {
+        setLoans(data.loans);
+        appCache.set("educa_admin_cached_loans_list", data.loans);
+      }
+      if (data.bonds && Array.isArray(data.bonds)) {
+        setBonds(data.bonds);
+        appCache.set("educa_admin_cached_bonds_list", data.bonds);
+      }
+      if (data.agentApplications && Array.isArray(data.agentApplications)) {
+        setAgents(data.agentApplications);
+        appCache.set("educa_admin_cached_agents_list", data.agentApplications);
+      }
+      if (data.devices && Array.isArray(data.devices)) {
+        setDevices(data.devices);
+        appCache.set("educa_admin_cached_devices_list", data.devices);
+      }
+      if (data.depositDetails) {
+        setDepositDetails(data.depositDetails);
+        appCache.set("educa_admin_cached_deposit_details", data.depositDetails);
+      }
+      if (data.settings) {
+        if (data.settings.loanInterestRate) setInterestRate(data.settings.loanInterestRate);
+        if (data.settings.referralCommissionRate) setCommissionRate(data.settings.referralCommissionRate);
+        if (data.settings.googleDriveUrl) setGoogleDriveUrl(data.settings.googleDriveUrl);
+      }
+      if (data.analytics) {
+        const statsPayload = {
+          totalUsers: data.analytics.totalUsers || 0,
+          totalDeposits: data.analytics.totalDeposits || 0,
+          netFintechReserve: data.analytics.fintechReserves || 0,
+          totalYield: data.analytics.totalProfitCredited || 0,
+          totalUserProfits: data.analytics.totalProfitCredited || 0,
+          pendingTxns: data.analytics.pendingTxns || 0,
+          totalLoans: data.analytics.activeLoans || 0
+        };
+        setStats(statsPayload);
+        appCache.set("educa_admin_cached_stats", statsPayload);
+      }
+    } catch (e) {
+      console.warn("Bootstrap admin fetch error:", e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [headers]); // eslint-disable-line
+
   const loadAll = useCallback(() => {
     apiCache.clear();
-    loadStats(true);
-    loadPending(true);
-    loadUsers(true);
+    loadBootstrapAdmin(true);
     loadAnalytics(true);
-  }, [loadStats, loadPending, loadUsers, loadAnalytics]);
+  }, [loadBootstrapAdmin, loadAnalytics]);
 
-  // PRIORITY LOADING: Cached render first + immediate background network fetch from DB
+  // PRIORITY LOADING: Cached render first + single bootstrap fetch + background interval
   useEffect(() => {
-    loadStats(true);
-    loadPending(true);
-    loadUsers(true);
+    loadBootstrapAdmin(false);
     loadAnalytics(true);
-
-    // 60s background heartbeat interval to keep live DB stats synced
-    const i = setInterval(() => {
-      loadStats(true);
-      loadPending(true);
-      loadAnalytics(true);
-    }, 60000);
-    return () => clearInterval(i);
   }, []); // eslint-disable-line
+
+  // 30s countdown ticker with background visibility pausing
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      setAdminCountdown((prev) => {
+        if (prev <= 1) {
+          loadBootstrapAdmin(true);
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadBootstrapAdmin(true);
+        setAdminCountdown(30);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [loadBootstrapAdmin]);
 
   // LAZY LOADING: Sections fetch when admin navigates to that tab
   useEffect(() => {
@@ -2095,7 +2179,16 @@ export default function AdminPanel() {
     }
   };
 
-  const logout = () => { localStorage.clear(); window.location.href = "/"; };
+  const logout = () => {
+    try {
+      if (user?._id || user?.id) {
+        CacheManager.clearUser("admin", user._id || user.id);
+      }
+    } catch (_) {}
+    tokenStorage.removeToken();
+    sessionStorage.clear();
+    window.location.href = "/";
+  };
 
   const cleanCached = (key, legacyVal) => {
     if (typeof localStorage === "undefined") return 0;
@@ -2350,6 +2443,19 @@ export default function AdminPanel() {
             </div>
           )}
           <button
+            onClick={() => {
+              if (window.confirm("Admin offline cache clear karein? Sab fresh load hoga.")) {
+                CacheManager.clearUser("admin", user?._id || user?.id || "admin");
+                window.location.reload();
+              }
+            }}
+            title={isSidebarCollapsed ? "Clear Cache" : undefined}
+            className="w-full px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <span>🧹</span>
+            {!isSidebarCollapsed && <span>Clear Cache</span>}
+          </button>
+          <button
             onClick={logout}
             title={isSidebarCollapsed ? "Logout" : undefined}
             className="w-full px-2.5 py-1.5 bg-rose-600/90 hover:bg-rose-600 text-white rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
@@ -2372,6 +2478,14 @@ export default function AdminPanel() {
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
+              <LiveRefreshBadge
+                secondsToNext={adminCountdown}
+                isRefreshing={isRefreshing}
+                onRefresh={() => {
+                  setAdminCountdown(30);
+                  loadBootstrapAdmin(true);
+                }}
+              />
               <Link
                 to="/dashboard"
                 className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-md text-[11px] font-bold flex items-center gap-1 active:scale-95"
@@ -2391,6 +2505,42 @@ export default function AdminPanel() {
             </div>
           </div>
         </nav>
+
+        {/* DESKTOP TOP BAR WITH LIVE SYNC BADGE */}
+        <header className="hidden lg:flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <h2 className="text-slate-900 font-bold text-base capitalize flex items-center gap-2">
+              <span>{tabs.find(t => t.key === tab)?.icon || "📊"}</span>
+              <span>{tabs.find(t => t.key === tab)?.label || "Dashboard"}</span>
+            </h2>
+            <span className="text-xs text-slate-400 font-medium">| Educa Executive Console</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <LiveRefreshBadge
+              secondsToNext={adminCountdown}
+              isRefreshing={isRefreshing}
+              onRefresh={() => {
+                setAdminCountdown(30);
+                loadBootstrapAdmin(true);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Admin offline cache clear karein? Sab fresh load hoga.")) {
+                  CacheManager.clearUser("admin", user?._id || user?.id || "admin");
+                  window.location.reload();
+                }
+              }}
+              title="Clear Saved Offline Data"
+              className="text-xs text-slate-500 hover:text-rose-600 font-semibold px-2 py-1 rounded hover:bg-slate-100 transition cursor-pointer flex items-center gap-1"
+            >
+              <span>🧹</span> Clear Cache
+            </button>
+            <div className="h-4 w-px bg-slate-200" />
+            <span className="text-xs font-semibold text-slate-700">{user.name}</span>
+          </div>
+        </header>
 
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 w-full min-w-0">
           {/* Rate Limit (429) & Network Error Alert Banner */}

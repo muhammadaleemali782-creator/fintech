@@ -219,16 +219,8 @@ app.get(['/health', '/api/health'], (req, res) => {
 // Disable Express ETag so client fetch() always receives complete 200 OK JSON bodies
 app.set('etag', false);
 
-// Render Free Tier Keep-Alive Self Ping (prevents 1-4 min cold start spin down)
-const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || 'https://educafintech.onrender.com';
-setInterval(() => {
-  try {
-    const https = require('https');
-    https.get(`${keepAliveUrl}/health`, () => {}).on('error', () => {});
-  } catch {}
-}, 10 * 60 * 1000).unref();
-
 // ------------------ ROUTES ------------------
+app.use('/api/bootstrap', require('./routes/bootstrap'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/user', require('./routes/user'));
 app.use('/api/transaction', require('./routes/transaction'));

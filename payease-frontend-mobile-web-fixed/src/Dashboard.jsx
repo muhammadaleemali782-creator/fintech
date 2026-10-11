@@ -7,10 +7,11 @@ import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
 import BottomNav from "./components/BottomNav";
 import FloatingCuteRobotAdvisor from "./components/FloatingCuteRobotAdvisor";
+import LiveRefreshBadge from "./components/LiveRefreshBadge";
 
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
-import { appCache, isDataEqual, silentFetch, parseCachedNumber } from "./utils/dataCache";
+import { CacheManager, appCache, isDataEqual, silentFetch, smartFetch, parseCachedNumber } from "./utils/dataCache";
 
 // Helper: Calculate upcoming 1st, 11th, and 21st collection dates
 const getUpcomingDates = (count = 6) => {
@@ -2212,34 +2213,131 @@ export default function Dashboard() {
     } catch {}
   };
 
-  // Dedicated Silent Background Polling & Visibility Controller
+  // -------------------------------------------------------------
+  // Instant Cached Data + Silent Background Refresh Engine
+  // -------------------------------------------------------------
+  const [secondsToNext, setSecondsToNext] = useState(30);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(() => Date.now());
   const isSyncingRef = useRef(false);
 
+  // Single Combined Bootstrap Call: Fetches all data in 1 fast query
+  const loadBootstrap = useCallback(async () => {
+    const role = userProfile?.role || userStored?.role || "user";
+    const endpoint = role === "agent" ? `${API}/bootstrap/agent` : `${API}/bootstrap/user`;
+    try {
+      const res = await smartFetch(endpoint, { headers }, { timeoutMs: 60000, retries: 2 });
+      if (res.unauthorized) {
+        tokenStorage.removeToken();
+        localStorage.removeItem("user");
+        navigate("/login");
+        return false;
+      }
+      if (res.success && res.data) {
+        const d = res.data;
+        const uId = d.profile?._id || d.profile?.id || userStored?.id || userStored?._id || "guest";
+
+        if (d.profile) {
+          setUserProfile(prev => (isDataEqual(prev, d.profile) ? prev : d.profile));
+          CacheManager.set(CacheManager.createKey(role, uId, "profile"), d.profile);
+          const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+          localStorage.setItem("user", JSON.stringify({ ...currentUser, ...d.profile, role: d.profile.role || currentUser.role }));
+          if (d.profile.balance !== undefined) {
+            setBalance(prev => (prev === d.profile.balance ? prev : d.profile.balance));
+            CacheManager.set(CacheManager.createKey(role, uId, "balance"), d.profile.balance);
+          }
+          if (d.profile.profitBalance !== undefined) {
+            const pb = parseCachedNumber(d.profile.profitBalance);
+            setCachedProfitBalance(pb);
+            CacheManager.set(CacheManager.createKey(role, uId, "profit_balance"), pb);
+          }
+          if (d.profile.hasWalletPin) {
+            localStorage.setItem("hasWalletPin", "true");
+          } else {
+            localStorage.setItem("hasWalletPin", "false");
+            setAppLocked(false);
+          }
+        }
+        if (Array.isArray(d.transactions)) {
+          setTxns(prev => (isDataEqual(prev, d.transactions) ? prev : d.transactions));
+          CacheManager.set(CacheManager.createKey(role, uId, "transactions"), d.transactions);
+          appCache.set("educa_cached_txns", d.transactions);
+        }
+        if (Array.isArray(d.loans)) {
+          setLoans(prev => (isDataEqual(prev, d.loans) ? prev : d.loans));
+          CacheManager.set(CacheManager.createKey(role, uId, "loans"), d.loans);
+          appCache.set("educa_cached_loans", d.loans);
+          setShowLoans(true);
+        }
+        if (d.activeLoan) {
+          setActiveLoanDetails(prev => (isDataEqual(prev, d.activeLoan) ? prev : d.activeLoan));
+          CacheManager.set(CacheManager.createKey(role, uId, "active_loan"), d.activeLoan);
+          appCache.set("educa_cached_active_loan", d.activeLoan);
+        }
+        if (Array.isArray(d.bonds)) {
+          setBonds(prev => (isDataEqual(prev, d.bonds) ? prev : d.bonds));
+          CacheManager.set(CacheManager.createKey(role, uId, "bonds"), d.bonds);
+          appCache.set("educa_cached_bonds", d.bonds);
+        }
+        if (Array.isArray(d.profitHistory)) {
+          setProfitHistory(prev => (isDataEqual(prev, d.profitHistory) ? prev : d.profitHistory));
+          CacheManager.set(CacheManager.createKey(role, uId, "profit_history"), d.profitHistory);
+          appCache.set("educa_cached_profit_history", d.profitHistory);
+        }
+        if (d.depositDetails) {
+          setDepositDetails(prev => (isDataEqual(prev, d.depositDetails) ? prev : d.depositDetails));
+          CacheManager.set(CacheManager.createKey(role, uId, "deposit_details"), d.depositDetails);
+          appCache.set("educa_cached_deposit_details", d.depositDetails);
+        }
+        if (d.currentRate) {
+          setCurrentRate(prev => (prev === d.currentRate ? prev : d.currentRate));
+          CacheManager.set(CacheManager.createKey(role, uId, "current_rate"), d.currentRate);
+          appCache.set("educa_cached_current_rate", d.currentRate);
+        }
+        if (d.agentStats) {
+          setAgentMetrics(prev => (isDataEqual(prev, d.agentStats) ? prev : d.agentStats));
+          CacheManager.set(CacheManager.createKey(role, uId, "agent_stats"), d.agentStats);
+          appCache.set("educa_cached_agent_metrics", d.agentStats);
+        }
+        setLastSyncedAt(Date.now());
+        return true;
+      }
+    } catch {}
+    return false;
+  }, [headers, userProfile?.role, userStored?.role, userStored?.id, userStored?._id, navigate]);
+
   const silentSyncAll = useCallback(async () => {
-    // Avoid overlapping concurrent sync cycles
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
+    setIsRefreshing(true);
 
     try {
-      await Promise.allSettled([
-        loadDashboard(true),
-        loadCurrentRate(),
-        loadLoans(),
-        loadBonds(),
-        loadTransactions(),
-        loadProfitHistory(),
-        silentFetch(`${API}/settings/deposit-details`, {}, 35000).then(r => {
-          if (r.data && r.data.upiId) {
-            setDepositDetails(prev => (isDataEqual(prev, r.data) ? prev : r.data));
-            appCache.set("educa_cached_deposit_details", r.data);
-          }
-        }).catch(() => {})
-      ]);
+      const ok = await loadBootstrap();
+      if (!ok) {
+        // Fallback to individual endpoints if bootstrap is unavailable
+        await Promise.allSettled([
+          loadDashboard(true),
+          loadCurrentRate(),
+          loadLoans(),
+          loadBonds(),
+          loadTransactions(),
+          loadProfitHistory(),
+          silentFetch(`${API}/settings/deposit-details`, {}, 35000).then(r => {
+            if (r.data && r.data.upiId) {
+              setDepositDetails(prev => (isDataEqual(prev, r.data) ? prev : r.data));
+              appCache.set("educa_cached_deposit_details", r.data);
+            }
+          }).catch(() => {})
+        ]);
+      }
+      setLastSyncedAt(Date.now());
     } catch {}
     finally {
       isSyncingRef.current = false;
+      setIsRefreshing(false);
+      setSecondsToNext(30);
     }
-  }, [loadDashboard]);
+  }, [loadBootstrap, loadDashboard]);
 
   const lastSyncTimeRef = useRef(Date.now());
 
@@ -2247,19 +2345,25 @@ export default function Dashboard() {
     // Immediate silent refresh on open in background
     silentSyncAll();
 
-    // Foreground-only silent background polling every 30 seconds (seamless fresh data sync)
-    const pollInterval = setInterval(() => {
-      if (typeof document !== "undefined" && !document.hidden) {
-        lastSyncTimeRef.current = Date.now();
-        silentSyncAll();
+    // 1-second ticking countdown for live badge (pauses when tab hidden)
+    const countdownTimer = setInterval(() => {
+      if (typeof document !== "undefined" && !document.hidden && !isSyncingRef.current) {
+        setSecondsToNext(prev => {
+          if (prev <= 1) {
+            silentSyncAll();
+            return 30;
+          }
+          return prev - 1;
+        });
       }
-    }, 30000);
+    }, 1000);
 
     // Instant silent sync on app resume / window focus (5s cooldown)
     const handleResume = () => {
       const now = Date.now();
       if (now - lastSyncTimeRef.current > 5000 && typeof document !== "undefined" && !document.hidden) {
         lastSyncTimeRef.current = now;
+        setSecondsToNext(30);
         silentSyncAll();
       }
     };
@@ -2274,7 +2378,7 @@ export default function Dashboard() {
       tourTimer = setTimeout(() => setShowTour(true), 1200);
     }
     return () => {
-      clearInterval(pollInterval);
+      clearInterval(countdownTimer);
       document.removeEventListener("visibilitychange", handleResume);
       window.removeEventListener("focus", handleResume);
       if (tourTimer) clearTimeout(tourTimer);
@@ -3953,8 +4057,13 @@ export default function Dashboard() {
   };
 
   const logout = () => {
+    try {
+      const uId = userProfile?._id || userProfile?.id;
+      if (uId) {
+        CacheManager.clearUser(userProfile?.role || "user", uId);
+      }
+    } catch (_) {}
     tokenStorage.removeToken();
-    localStorage.clear();
     sessionStorage.clear();
     window.location.href = "/";
   };
@@ -4194,6 +4303,15 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-2.5">
+            <LiveRefreshBadge
+              isRefreshing={isRefreshing}
+              lastUpdated={lastSyncedAt}
+              secondsToNext={secondsToNext}
+              onRefresh={() => {
+                setSecondsToNext(30);
+                silentSyncAll();
+              }}
+            />
             {(userStored.role === "admin" || userProfile?.role === "admin") && (
               <a
                 href="/admin"
@@ -9369,6 +9487,25 @@ export default function Dashboard() {
             >
               <span className="flex items-center gap-1.5"><span>🎓</span> Replay App Feature Tour</span>
               <span className="text-gray-400">→</span>
+            </button>
+            {/* Clear Offline Cache */}
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Saved offline data clear karein? Agli baar internet connection hone par fresh data download hoga.")) {
+                  const uId = userProfile?._id || userProfile?.id;
+                  if (uId) CacheManager.clearUser(userProfile?.role || "user", uId);
+                  else CacheManager.clearAll();
+                  showToast("Offline cache clear ho gaya! Reload ho raha hai...", "info");
+                  setTimeout(() => window.location.reload(), 500);
+                }
+              }}
+              className="w-full py-2.5 px-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 rounded-xl font-bold text-xs flex items-center justify-between transition cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5">
+                <span>🧹</span> Clear Saved Offline Data
+              </span>
+              <span className="text-[10px] text-gray-400 font-medium">Free storage</span>
             </button>
           </div>
 

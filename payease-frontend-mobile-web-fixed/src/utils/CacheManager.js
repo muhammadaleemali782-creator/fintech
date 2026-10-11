@@ -34,13 +34,15 @@ if (typeof window !== "undefined" && window.localStorage) {
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && (key.includes(":") || key.startsWith("educa_cached_"))) {
+      if (key && (key.includes(":") || key.startsWith("educa_cached_") || key.startsWith("educa_admin_"))) {
         const raw = localStorage.getItem(key);
         if (raw) {
           try {
             const parsed = JSON.parse(raw);
             memoryCache.set(key, parsed);
-          } catch {}
+          } catch {
+            memoryCache.set(key, raw);
+          }
         }
       }
     }
@@ -332,7 +334,7 @@ export const CacheManager = {
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
-          if (k && (k.includes(":") || k.startsWith("educa_cached_") || k.startsWith("educa_custom_"))) {
+          if (k && (k.includes(":") || k.startsWith("educa_cached_") || k.startsWith("educa_admin_") || k.startsWith("educa_custom_"))) {
             keysToRemove.push(k);
           }
         }

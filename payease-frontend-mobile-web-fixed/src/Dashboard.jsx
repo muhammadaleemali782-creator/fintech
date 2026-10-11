@@ -77,7 +77,8 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
 function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false, className = "" }) {
   const cap = Math.max(Number(activeCapital || 0), 0);
   if (isAdmin || cap <= 0) {
-    const num = isAdmin ? 0 : parseCachedNumber(baseProfit);
+    const rolled = typeof localStorage !== "undefined" ? parseCachedNumber(localStorage.getItem("educa_cached_profit_rolled"), 0) : 0;
+    const num = isAdmin ? 0 : (parseCachedNumber(baseProfit) || rolled);
     const formatted = num > 0 ? num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
     return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
   }
@@ -86,6 +87,7 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
   const dailyYieldEst = (cap * 0.12) / 365;
   const perSecondYield = dailyYieldEst / 86400;
   const perMsYield = perSecondYield / 1000;
+  const lastSaveRef = useRef(0);
 
   useEffect(() => {
     let timer = null;
@@ -103,6 +105,31 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
   // Total profit = database base balance + today's real-time accrued yield
   const totalProfit = serverBase + liveTodayEarned;
 
+  // Persist rolled profit every 3s and on phone cut/lock/background
+  useEffect(() => {
+    const now = Date.now();
+    if (totalProfit > 0 && now - lastSaveRef.current > 3000) {
+      lastSaveRef.current = now;
+      try { localStorage.setItem("educa_cached_profit_rolled", String(totalProfit)); } catch {}
+    }
+  }, [totalProfit]);
+
+  useEffect(() => {
+    const handleSave = () => {
+      try {
+        if (totalProfit > 0) localStorage.setItem("educa_cached_profit_rolled", String(totalProfit));
+      } catch {}
+    };
+    window.addEventListener("pagehide", handleSave);
+    window.addEventListener("beforeunload", handleSave);
+    document.addEventListener("visibilitychange", handleSave);
+    return () => {
+      window.removeEventListener("pagehide", handleSave);
+      window.removeEventListener("beforeunload", handleSave);
+      document.removeEventListener("visibilitychange", handleSave);
+    };
+  }, [totalProfit]);
+
   const decimals = cap >= 100000 ? 6 : (cap >= 10000 ? 7 : 8);
   const formatted = totalProfit.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
@@ -113,12 +140,17 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
 function LiveTodayAccrued({ activeCapital = 0, isAdmin = false }) {
   const cap = Math.max(Number(activeCapital || 0), 0);
   if (isAdmin || cap <= 0) {
+    const saved = typeof localStorage !== "undefined" ? parseCachedNumber(localStorage.getItem("educa_cached_today_accrued"), 0) : 0;
+    if (saved > 0) {
+      return <span className="font-mono tabular-nums tracking-tight">₹{saved.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
+    }
     return <span className="font-mono tabular-nums tracking-tight">₹0.00</span>;
   }
   const [liveMs, setLiveMs] = useState(Date.now());
   const dailyYieldEst = (cap * 0.12) / 365;
   const perSecondYield = dailyYieldEst / 86400;
   const perMsYield = perSecondYield / 1000;
+  const lastSaveRef = useRef(0);
 
   useEffect(() => {
     let timer = null;
@@ -131,6 +163,14 @@ function LiveTodayAccrued({ activeCapital = 0, isAdmin = false }) {
   const startOfToday = new Date().setHours(0, 0, 0, 0);
   const msElapsedToday = Math.max(0, liveMs - startOfToday);
   const liveTodayEarned = msElapsedToday * perMsYield;
+
+  useEffect(() => {
+    const now = Date.now();
+    if (liveTodayEarned > 0 && now - lastSaveRef.current > 3000) {
+      lastSaveRef.current = now;
+      try { localStorage.setItem("educa_cached_today_accrued", String(liveTodayEarned)); } catch {}
+    }
+  }, [liveTodayEarned]);
 
   const decimals = cap >= 100000 ? 4 : (cap >= 10000 ? 5 : 6);
   return <span className="font-mono tabular-nums tracking-tight">₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</span>;
@@ -406,13 +446,21 @@ export default function Dashboard() {
   const cachedProf = userScopedProfile || appCache.get("educa_cached_profile", null) || userStored;
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  const pickPositiveNumber = (...candidates) => {
+    for (const c of candidates) {
+      const n = parseCachedNumber(c, null);
+      if (n !== null && isFinite(n) && n > 0) return n;
+    }
+    return 0;
+  };
+
   const [balance, setBalance] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "balance"), null) : null;
     const globalCached = appCache.get("educa_cached_balance", null);
     const profBal = cachedProf?.balance;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_balance") : null;
-    const val = userScoped ?? globalCached ?? profBal ?? rawLocal ?? userStored?.balance ?? 0;
-    return parseCachedNumber(val);
+    return pickPositiveNumber(userScoped, globalCached, profBal, rawLocal, userStored?.balance);
   });
   const [cachedProfitBalance, setCachedProfitBalance] = useState(() => {
     if (userRole === "admin") return 0;
@@ -420,29 +468,50 @@ export default function Dashboard() {
     const globalCached = appCache.get("educa_cached_profit_balance", null);
     const profPb = cachedProf?.profitBalance;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_balance") : null;
-    const val = userScoped ?? globalCached ?? profPb ?? rawLocal ?? userStored?.profitBalance ?? 0;
-    return parseCachedNumber(val);
+    const rolledLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_rolled") : null;
+    return pickPositiveNumber(userScoped, globalCached, profPb, rawLocal, rolledLocal, userStored?.profitBalance);
   });
   const [loadingDashboard, setLoadingDashboard] = useState(!appCache.has("educa_cached_profile"));
   const [txns, setTxns] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "transactions"), null) : null;
-    const globalCached = appCache.get("educa_cached_txns", null);
     if (Array.isArray(userScoped) && userScoped.length > 0) return userScoped;
+    const globalCached = appCache.get("educa_cached_txns", null);
     if (Array.isArray(globalCached) && globalCached.length > 0) return globalCached;
+    const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_txns") : null;
+    if (rawLocal) {
+      try {
+        const parsed = JSON.parse(rawLocal);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
     return [];
   });
   const [loans, setLoans] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "loans"), null) : null;
+    if (Array.isArray(userScoped) && userScoped.length > 0) return userScoped;
     const globalCached = appCache.get("educa_cached_loans", []);
-    if (Array.isArray(userScoped)) return userScoped;
-    if (Array.isArray(globalCached)) return globalCached;
+    if (Array.isArray(globalCached) && globalCached.length > 0) return globalCached;
+    const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_loans") : null;
+    if (rawLocal) {
+      try {
+        const parsed = JSON.parse(rawLocal);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
     return [];
   });
   const [bonds, setBonds] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "bonds"), null) : null;
+    if (Array.isArray(userScoped) && userScoped.length > 0) return userScoped;
     const globalCached = appCache.get("educa_cached_bonds", []);
-    if (Array.isArray(userScoped)) return userScoped;
-    if (Array.isArray(globalCached)) return globalCached;
+    if (Array.isArray(globalCached) && globalCached.length > 0) return globalCached;
+    const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_bonds") : null;
+    if (rawLocal) {
+      try {
+        const parsed = JSON.parse(rawLocal);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
     return [];
   });
   const [showLoans, setShowLoans] = useState(() => {
@@ -462,7 +531,11 @@ export default function Dashboard() {
   const [navTab, setNavTab] = useState("home");
   const [agentTab, setAgentTab] = useState("overview"); // 'overview' | 'commissions' | 'customers'
   const [userProfile, setUserProfile] = useState(() => {
-    return appCache.get("educa_cached_profile", userStored || {});
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "profile"), null) : null;
+    const globalCached = appCache.get("educa_cached_profile", null);
+    let localObj = null;
+    try { localObj = JSON.parse(localStorage.getItem("educa_cached_profile") || "null"); } catch {}
+    return userScoped || globalCached || localObj || userStored || {};
   });
   const [cardTab, setCardTab] = useState(() => {
     const prof = appCache.get("educa_cached_profile", userStored || {});
@@ -588,8 +661,18 @@ export default function Dashboard() {
 
   // Profit Wallet Statement / History State
   const [profitHistory, setProfitHistory] = useState(() => {
-    const cached = appCache.get("educa_cached_profit_history", null);
-    return Array.isArray(cached) ? cached : [];
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "profit_history"), null) : null;
+    if (Array.isArray(userScoped) && userScoped.length > 0) return userScoped;
+    const globalCached = appCache.get("educa_cached_profit_history", null);
+    if (Array.isArray(globalCached) && globalCached.length > 0) return globalCached;
+    const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_history") : null;
+    if (rawLocal) {
+      try {
+        const parsed = JSON.parse(rawLocal);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return [];
   });
   const [loadingProfitHistory, setLoadingProfitHistory] = useState(false);
 
@@ -2006,6 +2089,7 @@ export default function Dashboard() {
       }
       if (res.notModified) return;
       if (res.data) {
+        const data = res.data;
         const uId = data._id || data.id || "guest";
         const role = data.role || "user";
         setUserProfile(prev => (isDataEqual(prev, data) ? prev : data));
@@ -2441,6 +2525,50 @@ export default function Dashboard() {
     };
   }, []);
 
+  // Persist exact state on pagehide / visibilitychange / beforeunload ("jaha pe phone cute wahi pe ka data save rhe")
+  useEffect(() => {
+    const saveSnapshot = () => {
+      try {
+        if (balance > 0) {
+          localStorage.setItem("educa_cached_balance", String(balance));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "balance"), balance);
+        }
+        if (cachedProfitBalance > 0) {
+          localStorage.setItem("educa_cached_profit_balance", String(cachedProfitBalance));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profit_balance"), cachedProfitBalance);
+        }
+        if (userProfile && (userProfile._id || userProfile.id)) {
+          localStorage.setItem("educa_cached_profile", JSON.stringify(userProfile));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profile"), userProfile);
+        }
+        if (Array.isArray(txns) && txns.length > 0) {
+          localStorage.setItem("educa_cached_txns", JSON.stringify(txns));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "transactions"), txns);
+        }
+        if (Array.isArray(loans) && loans.length > 0) {
+          localStorage.setItem("educa_cached_loans", JSON.stringify(loans));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "loans"), loans);
+        }
+        if (Array.isArray(bonds) && bonds.length > 0) {
+          localStorage.setItem("educa_cached_bonds", JSON.stringify(bonds));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "bonds"), bonds);
+        }
+        if (Array.isArray(profitHistory) && profitHistory.length > 0) {
+          localStorage.setItem("educa_cached_profit_history", JSON.stringify(profitHistory));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profit_history"), profitHistory);
+        }
+      } catch {}
+    };
+    window.addEventListener("pagehide", saveSnapshot);
+    window.addEventListener("beforeunload", saveSnapshot);
+    document.addEventListener("visibilitychange", saveSnapshot);
+    return () => {
+      window.removeEventListener("pagehide", saveSnapshot);
+      window.removeEventListener("beforeunload", saveSnapshot);
+      document.removeEventListener("visibilitychange", saveSnapshot);
+    };
+  }, [balance, cachedProfitBalance, userProfile, txns, loans, bonds, profitHistory, currentUserId, userRole]);
+
   const activeCapital = Number(userProfile.balance ?? balance ?? 0);
 
   useEffect(() => {
@@ -2455,17 +2583,13 @@ export default function Dashboard() {
     }
     if (userProfile?.profitBalance !== undefined) {
       const serverVal = parseCachedNumber(userProfile.profitBalance);
-      setCachedProfitBalance(serverVal);
-      try {
-        if (serverVal > 0) {
+      if (serverVal > 0) {
+        setCachedProfitBalance(serverVal);
+        try {
           localStorage.setItem("educa_cached_profit_balance", String(serverVal));
           appCache.set("educa_cached_profit_balance", serverVal);
-        } else {
-          localStorage.removeItem("educa_cached_profit_balance");
-          localStorage.removeItem("educa_last_profit_tick");
-          appCache.set("educa_cached_profit_balance", 0);
-        }
-      } catch {}
+        } catch {}
+      }
     }
   }, [userProfile?.profitBalance, isAdmin]);
 
@@ -6179,80 +6303,94 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {loadingProfitHistory && profitHistory.length === 0 ? (
-              <div className="py-8 text-center text-gray-400 text-xs animate-pulse">
-                Loading profit statement...
-              </div>
-            ) : profitHistory.length === 0 && activeCapital <= 0 ? (
-              <div className="py-8 text-center text-gray-400 text-xs bg-gray-50 rounded-2xl border border-gray-100 p-4">
-                <span className="text-2xl block mb-1">🌱</span>
-                Abhi tak koi profit entry nahi hai. Primary wallet me balance rakhein ya 365-day bond create karein roz profit paane ke liye!
-              </div>
-            ) : (
-              <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
-                {activeCapital > 0 && (
-                  <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl shadow-xs flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">
-                        ⚡
-                      </div>
-                      <div>
-                        <p className="text-xs font-extrabold text-emerald-950">Daily Savings Yield (12% APY)</p>
-                        <p className="text-[11px] text-emerald-700 font-medium">Aaj Ka Live Accrued Yield (Compounding)</p>
-                        <p className="text-[10px] text-emerald-600 mt-0.5">
-                          {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} • Real-Time Accrual
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xs sm:text-sm font-black text-emerald-700 block font-mono">
-                        +<LiveTodayAccrued activeCapital={activeCapital} isAdmin={isAdmin} />
-                      </span>
-                      <span className="text-[10px] font-bold text-emerald-600 uppercase">Accruing</span>
-                    </div>
+            {(() => {
+              const displayProfitList = profitHistory.length > 0
+                ? profitHistory
+                : txns.filter(t => ["profit_transfer", "daily_yield", "interest", "bond_payout", "referral_bonus"].includes(t.type));
+
+              if (loadingProfitHistory && displayProfitList.length === 0) {
+                return (
+                  <div className="py-8 text-center text-gray-400 text-xs animate-pulse">
+                    Loading profit statement...
                   </div>
-                )}
-                {profitHistory.map((item) => (
-                  <div
-                    key={item._id}
-                    className="p-3.5 bg-white border border-gray-100 rounded-2xl shadow-xs flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg font-bold shrink-0">
-                        {item.type === "daily_yield" ? "⚡" : item.type === "bond_payout" ? "🏛️" : "🎁"}
-                      </div>
-                      <div>
-                        <p className="text-xs font-extrabold text-gray-900">
-                          {item.type === "daily_yield"
-                            ? "Daily Savings Yield"
-                            : item.type === "bond_payout"
-                            ? "Bond Payout / Return"
-                            : "Referral Bonus"}
-                        </p>
-                        <p className="text-[11px] text-gray-500 max-w-[200px] sm:max-w-xs truncate">
-                          {item.remarks || "Profit credited to account"}
-                        </p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          {new Date(item.createdAt).toLocaleString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xs sm:text-sm font-black text-emerald-600 block">
-                        +₹{Number(item.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                      <span className="text-[10px] font-bold text-emerald-500 uppercase">Credited</span>
-                    </div>
+                );
+              }
+              if (displayProfitList.length === 0 && activeCapital <= 0) {
+                return (
+                  <div className="py-8 text-center text-gray-400 text-xs bg-gray-50 rounded-2xl border border-gray-100 p-4">
+                    <span className="text-2xl block mb-1">🌱</span>
+                    Abhi tak koi profit entry nahi hai. Primary wallet me balance rakhein ya 365-day bond create karein roz profit paane ke liye!
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              }
+              return (
+                <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                  {activeCapital > 0 && (
+                    <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl shadow-xs flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">
+                          ⚡
+                        </div>
+                        <div>
+                          <p className="text-xs font-extrabold text-emerald-950">Daily Savings Yield (12% APY)</p>
+                          <p className="text-[11px] text-emerald-700 font-medium">Aaj Ka Live Accrued Yield (Compounding)</p>
+                          <p className="text-[10px] text-emerald-600 mt-0.5">
+                            {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} • Real-Time Accrual
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-xs sm:text-sm font-black text-emerald-700 block font-mono">
+                          +<LiveTodayAccrued activeCapital={activeCapital} isAdmin={isAdmin} />
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase">Accruing</span>
+                      </div>
+                    </div>
+                  )}
+                  {displayProfitList.map((item) => (
+                    <div
+                      key={item._id || item.transactionId || Math.random()}
+                      className="p-3.5 bg-white border border-gray-100 rounded-2xl shadow-xs flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg font-bold shrink-0">
+                          {item.type === "daily_yield" ? "⚡" : item.type === "bond_payout" ? "🏛️" : item.type === "profit_transfer" ? "🔄" : "🎁"}
+                        </div>
+                        <div>
+                          <p className="text-xs font-extrabold text-gray-900">
+                            {item.type === "daily_yield"
+                              ? "Daily Savings Yield"
+                              : item.type === "bond_payout"
+                              ? "Bond Payout / Return"
+                              : item.type === "profit_transfer"
+                              ? "Profit Wallet Transfer"
+                              : "Referral Bonus"}
+                          </p>
+                          <p className="text-[11px] text-gray-500 max-w-[200px] sm:max-w-xs truncate">
+                            {item.remarks || "Profit credited to account"}
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {new Date(item.createdAt).toLocaleString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-xs sm:text-sm font-black text-emerald-600 block">
+                          +₹{Number(item.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-500 uppercase">Credited</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Action to Explore Bonds */}

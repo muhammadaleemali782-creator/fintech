@@ -59,8 +59,8 @@ router.get('/user', protect, async (req, res) => {
       Bond.find({ userId }).sort({ createdAt: -1 }).lean(),
       Transaction.find({
         userId,
-        type: { $in: ['daily_yield', 'bond_payout', 'referral_bonus'] }
-      }).sort({ createdAt: -1 }).limit(40).lean(),
+        type: { $in: ['daily_yield', 'bond_payout', 'referral_bonus', 'profit_transfer', 'interest'] }
+      }).sort({ createdAt: -1 }).limit(50).lean(),
       getDepositDetails(),
       Settings.findOne({ key: 'loanInterestRate' }).lean()
     ]);

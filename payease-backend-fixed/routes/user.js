@@ -386,7 +386,7 @@ router.get('/profit-history', protect, async (req, res) => {
 
     const history = await Transaction.find({
       userId: req.user._id,
-      type: { $in: ['daily_yield', 'bond_payout', 'referral_bonus'] }
+      type: { $in: ['daily_yield', 'bond_payout', 'referral_bonus', 'profit_transfer', 'interest'] }
     }).sort({ createdAt: -1 }).limit(100);
 
     res.json({

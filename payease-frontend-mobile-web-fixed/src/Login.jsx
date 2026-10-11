@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
-import { appCache } from "./utils/dataCache";
+import { appCache, CacheManager } from "./utils/dataCache";
 
 export default function Login({ isApp = false }) {
   const navigate = useNavigate();
@@ -66,17 +66,23 @@ export default function Login({ isApp = false }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Invalid credentials");
-      // Clear old account caches so user B never sees user A's txns or loans
-      appCache.clearUserData();
       tokenStorage.setToken(data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       if (data.user) {
+        const uId = data.user._id || data.user.id || "guest";
+        const role = data.user.role || "user";
         localStorage.setItem("educa_cached_profile", JSON.stringify(data.user));
+        appCache.set("educa_cached_profile", data.user);
+        CacheManager.set(CacheManager.createKey(role, uId, "profile"), data.user);
         if (data.user.balance !== undefined) {
           localStorage.setItem("educa_cached_balance", String(data.user.balance));
+          appCache.set("educa_cached_balance", data.user.balance);
+          CacheManager.set(CacheManager.createKey(role, uId, "balance"), data.user.balance);
         }
         if (data.user.profitBalance !== undefined) {
           localStorage.setItem("educa_cached_profit_balance", String(data.user.profitBalance));
+          appCache.set("educa_cached_profit_balance", data.user.profitBalance);
+          CacheManager.set(CacheManager.createKey(role, uId, "profit_balance"), data.user.profitBalance);
         }
       }
       showMsg("Login successful! Redirecting...", "success");
@@ -106,17 +112,23 @@ export default function Login({ isApp = false }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Educa Mail login failed");
-      // Clear old account caches so user B never sees user A's txns or loans
-      appCache.clearUserData();
       tokenStorage.setToken(data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       if (data.user) {
+        const uId = data.user._id || data.user.id || "guest";
+        const role = data.user.role || "user";
         localStorage.setItem("educa_cached_profile", JSON.stringify(data.user));
+        appCache.set("educa_cached_profile", data.user);
+        CacheManager.set(CacheManager.createKey(role, uId, "profile"), data.user);
         if (data.user.balance !== undefined) {
           localStorage.setItem("educa_cached_balance", String(data.user.balance));
+          appCache.set("educa_cached_balance", data.user.balance);
+          CacheManager.set(CacheManager.createKey(role, uId, "balance"), data.user.balance);
         }
         if (data.user.profitBalance !== undefined) {
           localStorage.setItem("educa_cached_profit_balance", String(data.user.profitBalance));
+          appCache.set("educa_cached_profit_balance", data.user.profitBalance);
+          CacheManager.set(CacheManager.createKey(role, uId, "profit_balance"), data.user.profitBalance);
         }
       }
       showMsg("Logged in with Educa Mail (30 Days Active)! Redirecting...", "success");
@@ -153,13 +165,17 @@ export default function Login({ isApp = false }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Registration failed");
-      // Clear old account caches
-      appCache.clearUserData();
       tokenStorage.setToken(data.token);
       if (data.user) {
+        const uId = data.user._id || data.user.id || "guest";
+        const role = data.user.role || "user";
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("educa_cached_profile", JSON.stringify(data.user));
+        appCache.set("educa_cached_profile", data.user);
+        CacheManager.set(CacheManager.createKey(role, uId, "profile"), data.user);
         localStorage.setItem("educa_cached_balance", "0");
+        appCache.set("educa_cached_balance", 0);
+        CacheManager.set(CacheManager.createKey(role, uId, "balance"), 0);
       }
       showMsg(
         regData.isAgent

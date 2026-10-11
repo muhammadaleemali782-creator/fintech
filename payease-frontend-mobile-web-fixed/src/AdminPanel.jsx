@@ -622,6 +622,12 @@ export default function AdminPanel() {
     instructions: "Payment complete karne ke baad 12-digit UTR number enter karein."
   }));
   const [savingDepositDetails, setSavingDepositDetails] = useState(false);
+  const [approveTxnModal, setApproveTxnModal] = useState(null);
+  const [adminUtrInput, setAdminUtrInput] = useState("");
+  const [adminEvidenceInput, setAdminEvidenceInput] = useState("");
+  const [adminEvidenceName, setAdminEvidenceName] = useState("");
+  const [adminNoteInput, setAdminNoteInput] = useState("");
+  const [isApprovingTxn, setIsApprovingTxn] = useState(false);
   const [previewKycUser, setPreviewKycUser] = useState(null);
   const [kycReviewRemarks, setKycReviewRemarks] = useState("");
   const [kycFilter, setKycFilter] = useState("all");
@@ -1078,8 +1084,24 @@ export default function AdminPanel() {
     }
   }, [headers]); // eslint-disable-line
 
-  const viewProofInLightbox = useCallback(async (item) => {
-    const directUrl = item?.proofUrl || item?.screenshotUrl;
+  const viewProofInLightbox = useCallback(async (item, targetType = "proof") => {
+    if (targetType === "qr") {
+      const qrDirect = item?.paymentDetails?.qrCodeUrl;
+      if (qrDirect) {
+        setLightboxImg(qrDirect);
+        setZoomLevel(1);
+        return;
+      }
+    }
+    if (targetType === "admin_evidence") {
+      const adminDirect = item?.adminEvidenceUrl;
+      if (adminDirect && (adminDirect.startsWith("http://") || adminDirect.startsWith("https://") || adminDirect.startsWith("data:"))) {
+        setLightboxImg(adminDirect);
+        setZoomLevel(1);
+        return;
+      }
+    }
+    const directUrl = targetType === "admin_evidence" ? item?.adminEvidenceUrl : (item?.proofUrl || item?.screenshotUrl);
     if (directUrl && (directUrl.startsWith("http://") || directUrl.startsWith("https://") || directUrl.startsWith("data:"))) {
       setLightboxImg(directUrl);
       setZoomLevel(1);
@@ -1088,17 +1110,20 @@ export default function AdminPanel() {
     const rawId = (item.id || item._id || "").toString();
     if (!rawId || rawId.startsWith("kyc_")) return;
     try {
-      showToast("Loading proof image...", "info");
+      showToast("Loading image...", "info");
       const res = await fetch(`${API}/admin/txn-proof/${rawId}`, { headers });
       const d = await res.json();
-      if (d && d.url) {
-        setLightboxImg(d.url);
+      const targetUrl = targetType === "admin_evidence"
+        ? (d.adminEvidenceUrl || d.url)
+        : (targetType === "qr" ? d.qrCodeUrl : (d.proofUrl || d.url));
+      if (targetUrl) {
+        setLightboxImg(targetUrl);
         setZoomLevel(1);
       } else {
-        showToast("Proof receipt not available", "error");
+        showToast("Image not available", "error");
       }
     } catch {
-      showToast("Error loading receipt", "error");
+      showToast("Error loading image", "error");
     }
   }, [headers]); // eslint-disable-line
 
@@ -1651,6 +1676,7 @@ export default function AdminPanel() {
     window.forceDismissActiveModal = () => {
       setAdminPayModal(null);
       setLoanApproveModal(null);
+      setApproveTxnModal(null);
       setAssignAgentModalUser(null);
       setPreviewKycUser(null);
       setExpandedLoanId(null);
@@ -1661,11 +1687,93 @@ export default function AdminPanel() {
       window.handleAndroidBackPressed = null;
       window.forceDismissActiveModal = null;
     };
-  }, [adminPayModal, loanApproveModal, lightboxImg, assignAgentModalUser, previewKycUser, expandedLoanId, tab]);
+  }, [adminPayModal, loanApproveModal, approveTxnModal, lightboxImg, assignAgentModalUser, previewKycUser, expandedLoanId, tab]);
 
-  const approve = async (id) => {
+  const handleAdminEvidenceUpload = (file) => {
+    if (!file) return;
+    if (file.type && !file.type.startsWith("image/")) {
+      showToast("Kripya sirf photo / image file upload karein", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 1200;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        setAdminEvidenceInput(canvas.toDataURL("image/jpeg", 0.8));
+        setAdminEvidenceName(file.name);
+      };
+      img.onerror = () => {
+        setAdminEvidenceInput(event.target.result);
+        setAdminEvidenceName(file.name);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const openApproveTxnModal = (targetTxn) => {
+    if (!targetTxn) return;
+    setApproveTxnModal(targetTxn);
+    setAdminUtrInput(targetTxn.utrNumber || "");
+    setAdminEvidenceInput("");
+    setAdminEvidenceName("");
+    setAdminNoteInput("");
+  };
+
+  const submitApproveTxn = async () => {
+    if (!approveTxnModal) return;
+    setIsApprovingTxn(true);
+    try {
+      const res = await fetch(`${API}/admin/transaction/${approveTxnModal._id}/approve`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          approverName: user.name || "Admin",
+          approverDevice: getClientDeviceInfo(),
+          utrNumber: adminUtrInput.trim(),
+          adminEvidenceUrl: adminEvidenceInput,
+          adminEvidenceNote: adminNoteInput.trim()
+        })
+      });
+      const data = await res.json();
+      showToast(data.message || "Transaction approved!", res.ok ? "success" : "error");
+      if (res.ok) {
+        setApproveTxnModal(null);
+        apiCache.clear();
+        loadPending(true);
+        loadHoldData(true);
+        loadStats(true);
+        if (pendingSubTab === "approved") loadApprovedRequests(true);
+      }
+    } catch {
+      showToast("Approval failed. Please try again.", "error");
+    } finally {
+      setIsApprovingTxn(false);
+    }
+  };
+
+  const approve = async (idOrTxn) => {
+    if (typeof idOrTxn === "object" && idOrTxn !== null && idOrTxn._id) {
+      openApproveTxnModal(idOrTxn);
+      return;
+    }
+    const found = pending.find(p => p._id === idOrTxn);
+    if (found) {
+      openApproveTxnModal(found);
+      return;
+    }
     if (!window.confirm("Approve this transaction?")) return;
-    const res = await fetch(`${API}/admin/transaction/${id}/approve`, {
+    const res = await fetch(`${API}/admin/transaction/${idOrTxn}/approve`, {
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1680,6 +1788,7 @@ export default function AdminPanel() {
       loadPending(true);
       loadHoldData(true);
       loadStats(true);
+      if (pendingSubTab === "approved") loadApprovedRequests(true);
     }
   };
 
@@ -4156,15 +4265,45 @@ export default function AdminPanel() {
                                       </button>
                                     </div>
                                   )}
-                                  {t.paymentDetails && (
-                                    <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                                      {t.paymentDetails.upiId ? `UPI: ${t.paymentDetails.upiId}` : (t.paymentDetails.accountNumber ? `A/C: ${t.paymentDetails.accountNumber}` : "")}
+                                  {t.paymentDetails?.upiId && (
+                                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-800 mt-1">
+                                      <span className="text-gray-500 font-normal">UPI:</span>
+                                      <span className="font-mono">{t.paymentDetails.upiId}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => { navigator.clipboard?.writeText(t.paymentDetails.upiId); showToast("UPI ID Copied!", "success"); }}
+                                        className="text-[10px] text-blue-600 hover:text-blue-800 cursor-pointer px-1 py-0.2 bg-blue-50 rounded border border-blue-200"
+                                      >
+                                        📋 Copy
+                                      </button>
+                                    </div>
+                                  )}
+                                  {t.paymentDetails?.qrCodeUrl && (
+                                    <div className="flex items-center gap-2 mt-1 p-1 bg-purple-50/70 border border-purple-200 rounded-lg">
+                                      <img
+                                        src={t.paymentDetails.qrCodeUrl}
+                                        alt="User QR"
+                                        onClick={() => { setLightboxImg(t.paymentDetails.qrCodeUrl); setZoomLevel(1); }}
+                                        className="w-8 h-8 object-contain bg-white rounded border border-purple-200 cursor-zoom-in hover:scale-105 transition"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => { setLightboxImg(t.paymentDetails.qrCodeUrl); setZoomLevel(1); }}
+                                        className="text-[11px] text-purple-700 hover:text-purple-900 font-bold underline cursor-pointer"
+                                      >
+                                        User QR Code 📷
+                                      </button>
+                                    </div>
+                                  )}
+                                  {t.paymentDetails?.accountNumber && (
+                                    <div className="text-[11px] text-gray-600 mt-1 font-mono">
+                                      A/C: {t.paymentDetails.accountNumber} {t.paymentDetails.ifsc ? `(${t.paymentDetails.ifsc})` : ""}
                                     </div>
                                   )}
                                 </td>
                                 <td className="py-3">
                                   <div className="flex gap-2">
-                                    <button onClick={() => approve(t._id)} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 cursor-pointer active:scale-95 transition">✓ Approve</button>
+                                    <button onClick={() => approve(t)} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 cursor-pointer active:scale-95 transition">✓ Approve</button>
                                     <button onClick={() => reject(t._id)} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 cursor-pointer active:scale-95 transition">✗ Reject</button>
                                   </div>
                                 </td>
@@ -4224,13 +4363,51 @@ export default function AdminPanel() {
                                 </button>
                               </div>
                             )}
-                            {t.paymentDetails && (
-                              <p className="text-xs text-gray-500 truncate">
-                                {t.paymentDetails.upiId ? `UPI: ${t.paymentDetails.upiId}` : (t.paymentDetails.accountNumber ? `A/C: ${t.paymentDetails.accountNumber}` : JSON.stringify(t.paymentDetails))}
+                            {t.paymentDetails?.upiId && (
+                              <div className="flex items-center justify-between p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                                <span className="text-gray-500 font-medium">UPI ID:</span>
+                                <div className="flex items-center gap-1.5 font-mono font-bold text-slate-800">
+                                  <span>{t.paymentDetails.upiId}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => { navigator.clipboard?.writeText(t.paymentDetails.upiId); showToast("UPI ID Copied!", "success"); }}
+                                    className="text-[10px] text-blue-600 px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded font-bold"
+                                  >
+                                    📋 Copy
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {t.paymentDetails?.qrCodeUrl && (
+                              <div className="p-2 bg-purple-50/60 border border-purple-200 rounded-xl flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <img
+                                    src={t.paymentDetails.qrCodeUrl}
+                                    alt="User QR"
+                                    onClick={() => { setLightboxImg(t.paymentDetails.qrCodeUrl); setZoomLevel(1); }}
+                                    className="w-10 h-10 object-contain bg-white rounded-lg border border-purple-200 cursor-zoom-in"
+                                  />
+                                  <div>
+                                    <span className="text-xs font-bold text-purple-900 block">User Payment QR</span>
+                                    <span className="text-[10px] text-purple-700">Scan to pay borrower</span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => { setLightboxImg(t.paymentDetails.qrCodeUrl); setZoomLevel(1); }}
+                                  className="px-2 py-1 bg-white text-purple-700 border border-purple-200 rounded-lg text-xs font-bold"
+                                >
+                                  📷 Zoom QR
+                                </button>
+                              </div>
+                            )}
+                            {t.paymentDetails?.accountNumber && (
+                              <p className="text-xs text-gray-500 font-mono">
+                                A/C: {t.paymentDetails.accountNumber} {t.paymentDetails.ifsc ? `(${t.paymentDetails.ifsc})` : ""}
                               </p>
                             )}
                             <div className="flex gap-2 pt-1">
-                              <button onClick={() => approve(t._id)} className="flex-1 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 active:bg-green-700 cursor-pointer">✓ Approve</button>
+                              <button onClick={() => approve(t)} className="flex-1 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 active:bg-green-700 cursor-pointer">✓ Approve</button>
                               <button onClick={() => reject(t._id)} className="flex-1 py-2 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 active:bg-red-700 cursor-pointer">✗ Reject</button>
                             </div>
                           </div>
@@ -5182,6 +5359,29 @@ export default function AdminPanel() {
                                       <span>🧾</span> Evidence Receipt 🔍
                                     </button>
                                   )}
+                                  {(item.hasAdminEvidence || item.adminEvidenceUrl) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => viewProofInLightbox(item, "admin_evidence")}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg text-[10px] font-bold text-emerald-800 transition cursor-pointer active:scale-95"
+                                    >
+                                      <span>✅</span> Admin Payout Proof 🔍
+                                    </button>
+                                  )}
+                                  {(item.hasUserQr || item.paymentDetails?.qrCodeUrl) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => viewProofInLightbox(item, "qr")}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-lg text-[10px] font-bold text-purple-800 transition cursor-pointer active:scale-95"
+                                    >
+                                      <span>📷</span> User QR 🔍
+                                    </button>
+                                  )}
+                                  {item.utrNumber && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-md text-[10px] font-mono font-bold text-slate-800">
+                                      UTR: {item.utrNumber}
+                                    </span>
+                                  )}
                                 </div>
 
                                 <div className="text-[10px] text-slate-400 font-medium ml-auto flex items-center gap-1">
@@ -6121,6 +6321,34 @@ export default function AdminPanel() {
                             </div>
                           )}
 
+                          {(item.hasAdminEvidence || item.adminEvidenceUrl) && (
+                            <div className="pt-1 border-t border-slate-100">
+                              <button
+                                type="button"
+                                onClick={() => viewProofInLightbox(item, "admin_evidence")}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold border border-emerald-300 transition cursor-pointer active:scale-95 shadow-2xs"
+                              >
+                                <span>✅</span>
+                                <span>Admin Payout Proof</span>
+                                <span>🔍</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {(item.hasUserQr || item.paymentDetails?.qrCodeUrl) && (
+                            <div className="pt-1 border-t border-slate-100">
+                              <button
+                                type="button"
+                                onClick={() => viewProofInLightbox(item, "qr")}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-[10px] font-bold border border-purple-300 transition cursor-pointer active:scale-95 shadow-2xs"
+                              >
+                                <span>📷</span>
+                                <span>User Payment QR</span>
+                                <span>🔍</span>
+                              </button>
+                            </div>
+                          )}
+
                           {/* KYC Document preview pills on mobile with tap to zoom */}
                           {item.category === "kyc" && item.hasPhotos && item.documents && (
                             <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100">
@@ -6347,6 +6575,34 @@ export default function AdminPanel() {
                                         <img src={item.proofUrl} alt="Evidence" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
                                       ) : <span>🧾</span>}
                                       <span>Evidence Receipt</span>
+                                      <span>🔍</span>
+                                    </button>
+                                  </div>
+                                )}
+
+                                {(item.hasAdminEvidence || item.adminEvidenceUrl) && (
+                                  <div className="mt-1.5 pt-1 border-t border-slate-100">
+                                    <button
+                                      type="button"
+                                      onClick={() => viewProofInLightbox(item, "admin_evidence")}
+                                      className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg text-[10px] font-bold text-emerald-800 cursor-pointer transition active:scale-95 shadow-2xs"
+                                    >
+                                      <span>✅</span>
+                                      <span>Admin Payout Proof</span>
+                                      <span>🔍</span>
+                                    </button>
+                                  </div>
+                                )}
+
+                                {(item.hasUserQr || item.paymentDetails?.qrCodeUrl) && (
+                                  <div className="mt-1.5 pt-1 border-t border-slate-100">
+                                    <button
+                                      type="button"
+                                      onClick={() => viewProofInLightbox(item, "qr")}
+                                      className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-lg text-[10px] font-bold text-purple-800 cursor-pointer transition active:scale-95 shadow-2xs"
+                                    >
+                                      <span>📷</span>
+                                      <span>User Payment QR</span>
                                       <span>🔍</span>
                                     </button>
                                   </div>
@@ -10647,6 +10903,216 @@ export default function AdminPanel() {
                   <span>✓</span> KYC Verified (Locked)
                 </button>
               ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TRANSACTION APPROVAL MODAL (WITH UTR, EVIDENCE SCREENSHOT & USER QR) */}
+      {approveTxnModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-4 max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">✅</span>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-gray-900 leading-tight">
+                    Approve Transaction Payout
+                  </h3>
+                  <p className="text-[11px] text-gray-500 font-medium">
+                    {approveTxnModal.type === "withdrawal" ? "💸 Withdrawal Payout Verification" : "💰 Deposit Approval Verification"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApproveTxnModal(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Transaction Overview Card */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-extrabold text-sm text-slate-900">{approveTxnModal.userId?.name || "User"}</p>
+                  <p className="text-xs text-gray-400">{approveTxnModal.userId?.email || approveTxnModal.userId?.phone || ""}</p>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono font-black text-base text-slate-900 block">
+                    ₹{Number(approveTxnModal.amount || 0).toLocaleString("en-IN")}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                    approveTxnModal.type === "withdrawal" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                  }`}>
+                    {approveTxnModal.type}
+                  </span>
+                </div>
+              </div>
+
+              {/* User Payout Details */}
+              <div className="pt-2 border-t border-slate-200/80 space-y-1.5 text-xs">
+                <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">
+                  Payment Target / Destination:
+                </span>
+                {approveTxnModal.paymentDetails?.upiId && (
+                  <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-200">
+                    <span className="text-gray-600">User UPI ID:</span>
+                    <div className="flex items-center gap-1.5 font-mono font-bold text-slate-800">
+                      <span>{approveTxnModal.paymentDetails.upiId}</span>
+                      <button
+                        type="button"
+                        onClick={() => { navigator.clipboard?.writeText(approveTxnModal.paymentDetails.upiId); showToast("UPI ID Copied!", "success"); }}
+                        className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-bold hover:bg-blue-100 cursor-pointer"
+                      >
+                        📋 Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {approveTxnModal.paymentDetails?.qrCodeUrl && (
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={approveTxnModal.paymentDetails.qrCodeUrl}
+                        alt="User QR"
+                        onClick={() => { setLightboxImg(approveTxnModal.paymentDetails.qrCodeUrl); setZoomLevel(1); }}
+                        className="w-12 h-12 object-contain bg-white rounded-lg border border-slate-300 p-0.5 cursor-zoom-in"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 block">User Payment QR Code</span>
+                        <span className="text-[10px] text-gray-500">Scan to pay from PhonePe / GPay</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setLightboxImg(approveTxnModal.paymentDetails.qrCodeUrl); setZoomLevel(1); }}
+                      className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-bold hover:bg-purple-100 cursor-pointer"
+                    >
+                      🔍 Fullscreen QR
+                    </button>
+                  </div>
+                )}
+
+                {approveTxnModal.paymentDetails?.accountNumber && (
+                  <div className="bg-white p-2 rounded-xl border border-slate-200 space-y-0.5">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Account No:</span>
+                      <span className="font-mono font-bold text-slate-800">{approveTxnModal.paymentDetails.accountNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">IFSC Code:</span>
+                      <span className="font-mono font-bold text-slate-800">{approveTxnModal.paymentDetails.ifsc}</span>
+                    </div>
+                  </div>
+                )}
+
+                {(approveTxnModal.proofUrl || approveTxnModal.screenshotUrl) && (
+                  <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-200">
+                    <span className="text-gray-600">User Deposit Receipt:</span>
+                    <button
+                      type="button"
+                      onClick={() => { setLightboxImg(approveTxnModal.proofUrl || approveTxnModal.screenshotUrl); setZoomLevel(1); }}
+                      className="text-blue-600 font-bold underline cursor-pointer"
+                    >
+                      View Receipt 🔍
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Admin Input: UTR & Evidence Screenshot */}
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  Bank / UPI UTR Number (Transaction ID)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 12-digit UTR (e.g. 428194829104 / Ref No)"
+                  value={adminUtrInput}
+                  onChange={e => setAdminUtrInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-xs sm:text-sm font-mono font-bold"
+                />
+                <span className="text-[10px] text-gray-400 block mt-0.5">Payout complete hone ke baad UPI ya bank se mila hua UTR number yahan daalein.</span>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  Payment Evidence / Payout Screenshot (Receipt)
+                </label>
+                {adminEvidenceInput ? (
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={adminEvidenceInput}
+                        alt="Evidence Preview"
+                        onClick={() => { setLightboxImg(adminEvidenceInput); setZoomLevel(1); }}
+                        className="w-12 h-12 object-cover rounded-lg border border-emerald-300 cursor-zoom-in"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-emerald-900 block">Evidence Attached ✓</span>
+                        <span className="text-[10px] text-emerald-700 font-medium">{adminEvidenceName || "Tap image to preview"}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setAdminEvidenceInput(""); setAdminEvidenceName(""); }}
+                      className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded-lg font-bold cursor-pointer"
+                    >
+                      Remove ✕
+                    </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-gray-50/50 hover:bg-blue-50/30 transition text-xs font-bold text-gray-600">
+                    <span>📎 Upload Payment Screenshot / Receipt</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => handleAdminEvidenceUpload(e.target.files?.[0])}
+                    />
+                  </label>
+                )}
+                <span className="text-[10px] text-gray-400 block mt-0.5">GPay / PhonePe / Bank transfer confirmation ka screenshot attach karein.</span>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  Admin Remarks / Evidence Note (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Paid via PhonePe Business UPI"
+                  value={adminNoteInput}
+                  onChange={e => setAdminNoteInput(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2.5 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setApproveTxnModal(null)}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isApprovingTxn}
+                onClick={submitApproveTxn}
+                className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                {isApprovingTxn ? "Approving..." : "✓ Confirm & Complete Approval"}
+              </button>
             </div>
           </div>
         </div>

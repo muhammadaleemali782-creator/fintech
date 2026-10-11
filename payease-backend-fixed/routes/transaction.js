@@ -318,6 +318,20 @@ router.post('/withdraw', protect, async (req, res) => {
   if (paymentDetails && typeof paymentDetails !== 'object')
     return res.status(400).json({ message: 'Invalid payment details' });
 
+  if (method === 'upi') {
+    const hasUpi = Boolean(paymentDetails?.upiId && String(paymentDetails.upiId).trim());
+    const hasQr = Boolean(paymentDetails?.qrCodeUrl && String(paymentDetails.qrCodeUrl).trim());
+    if (!hasUpi && !hasQr) {
+      return res.status(400).json({ message: 'Kripya apna UPI ID daalein ya Payment QR Code upload karein.' });
+    }
+    if (hasQr && String(paymentDetails.qrCodeUrl).startsWith('data:')) {
+      const checkQr = validateBase64Upload(paymentDetails.qrCodeUrl);
+      if (!checkQr.valid) {
+        return res.status(400).json({ message: 'Invalid QR code image: ' + checkQr.error });
+      }
+    }
+  }
+
   const isProfitSource = sourceWallet === 'profit';
   const field = isProfitSource ? 'profitBalance' : 'balance';
   const available = user[field] || 0;
@@ -358,18 +372,30 @@ router.post('/withdraw', protect, async (req, res) => {
         await User.findByIdAndUpdate(req.user._id, { $min: { lowestBalance24h: newBalance } }, { session });
       }
 
+      const cleanPaymentDetails = {
+        upiId: paymentDetails?.upiId ? String(paymentDetails.upiId).trim() : '',
+        qrCodeUrl: paymentDetails?.qrCodeUrl || '',
+        accountNumber: paymentDetails?.accountNumber ? String(paymentDetails.accountNumber).trim() : '',
+        ifsc: paymentDetails?.ifsc ? String(paymentDetails.ifsc).trim().toUpperCase() : '',
+        bankName: paymentDetails?.bankName ? String(paymentDetails.bankName).trim() : ''
+      };
+
+      const remarksText = method === 'upi'
+        ? (cleanPaymentDetails.upiId ? `Withdrawal to UPI: ${cleanPaymentDetails.upiId}` : 'Withdrawal to User QR Code')
+        : `Withdrawal to Bank A/C: ${cleanPaymentDetails.accountNumber} (${cleanPaymentDetails.ifsc})`;
+
       const created = await Transaction.create(
         [{
           userId: req.user._id,
           type: 'withdrawal',
           amount: numAmount,
           method,
-          paymentDetails,
+          paymentDetails: cleanPaymentDetails,
           sourceWallet: isProfitSource ? 'profit' : 'main',
           slaHours,
           slaLabel,
           status: 'pending',
-          remarks: `Money Out to ${method.toUpperCase()} [${slaLabel}]`
+          remarks: `${remarksText} [${slaLabel}]`
         }],
         { session }
       );

@@ -752,7 +752,7 @@ export default function Dashboard() {
     });
   });
   const [copiedDepField, setCopiedDepField] = useState("");
-  const [wdForm, setWdForm] = useState({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "", sourceWallet: "main" });
+  const [wdForm, setWdForm] = useState({ amount: "", method: "upi", upiId: "", qrCode: "", qrCodeName: "", accountNumber: "", ifsc: "", sourceWallet: "main" });
   
   // P2P Transfer & 6-Digit UPI PIN Intercept State
   const [sendForm, setSendForm] = useState({ recipient: "", amount: "", notes: "", pin: "", sourceWallet: "main" });
@@ -3450,6 +3450,32 @@ export default function Dashboard() {
     }
   };
 
+  const handleWdQrUpload = (file) => {
+    if (!file) return;
+    if (file.type && !file.type.startsWith("image/")) {
+      showToast("Kripya sirf photo / image file upload karein", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 800;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        setWdForm(prev => ({ ...prev, qrCode: canvas.toDataURL("image/jpeg", 0.8), qrCodeName: file.name }));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const submitWithdraw = async () => {
     const amt = Number(wdForm.amount);
     if (!amt || amt < 100) return showToast("Amount kam se kam ₹100 hona chahiye", "error");
@@ -3463,7 +3489,19 @@ export default function Dashboard() {
         "error"
       );
     }
-    const paymentDetails = wdForm.method === "upi" ? { upiId: wdForm.upiId } : { accountNumber: wdForm.accountNumber, ifsc: wdForm.ifsc };
+    if (wdForm.method === "upi") {
+      const cleanUpi = (wdForm.upiId || "").trim();
+      if (!cleanUpi && !wdForm.qrCode) {
+        return showToast("Kripya apna UPI ID daalein ya Payment QR Code upload karein", "error");
+      }
+    } else {
+      if (!wdForm.accountNumber?.trim() || !wdForm.ifsc?.trim()) {
+        return showToast("Account Number aur IFSC Code dono enter karein", "error");
+      }
+    }
+    const paymentDetails = wdForm.method === "upi"
+      ? { upiId: (wdForm.upiId || "").trim(), qrCodeUrl: wdForm.qrCode || "" }
+      : { accountNumber: (wdForm.accountNumber || "").trim(), ifsc: (wdForm.ifsc || "").trim().toUpperCase() };
     const res = await fetch(`${API}/transaction/withdraw`, {
       method: "POST",
       headers,
@@ -3478,7 +3516,7 @@ export default function Dashboard() {
     showToast(data.message, res.ok ? "success" : "error");
     if (res.ok) {
       closeModal();
-      setWdForm({ amount: "", method: "upi", upiId: "", accountNumber: "", ifsc: "", sourceWallet: "main" });
+      setWdForm({ amount: "", method: "upi", upiId: "", qrCode: "", qrCodeName: "", accountNumber: "", ifsc: "", sourceWallet: "main" });
       loadDashboard();
     }
   };
@@ -9121,11 +9159,90 @@ export default function Dashboard() {
             <option value="bank">Bank Transfer</option>
           </select>
           {wdForm.method === "upi" ? (
-            <input type="text" placeholder="Your UPI ID" value={wdForm.upiId} onChange={e => setWdForm({ ...wdForm, upiId: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm" />
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold text-gray-700">UPI ID</label>
+                  {(userProfile.customQrUpi || userProfile.upiId) && wdForm.upiId !== (userProfile.customQrUpi || userProfile.upiId) && (
+                    <button
+                      type="button"
+                      onClick={() => setWdForm(prev => ({ ...prev, upiId: userProfile.customQrUpi || userProfile.upiId }))}
+                      className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                    >
+                      Use Saved UPI
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. mobile@paytm / name@okhdfcbank"
+                  value={wdForm.upiId}
+                  onChange={e => setWdForm({ ...wdForm, upiId: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm font-medium"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">YA / OR PAYMENT QR</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  Payment QR Code (PhonePe / GPay / Paytm QR)
+                </label>
+                {wdForm.qrCode ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={wdForm.qrCode}
+                        alt="Payout QR"
+                        onClick={() => { setLightboxImg(wdForm.qrCode); setZoomLevel(1); }}
+                        className="w-12 h-12 object-contain bg-white rounded-lg border border-slate-300 p-0.5 cursor-zoom-in"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">QR Attached ✓</span>
+                        <span className="text-[10px] text-emerald-600 font-semibold">{wdForm.qrCodeName || "Tap image to preview"}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWdForm(prev => ({ ...prev, qrCode: "", qrCodeName: "" }))}
+                      className="px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded-lg font-bold cursor-pointer"
+                    >
+                      Remove ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-gray-50/50 hover:bg-blue-50/30 transition text-xs font-bold text-gray-600">
+                      <span>📷 Select QR Code Image</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={e => handleWdQrUpload(e.target.files?.[0])}
+                      />
+                    </label>
+                    {userProfile.customQrUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setWdForm(prev => ({ ...prev, qrCode: userProfile.customQrUrl, qrCodeName: "Profile QR" }))}
+                        className="w-full py-1.5 px-2 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700 font-bold hover:bg-blue-100 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <span>📲</span> Use Saved Profile QR ({userProfile.customQrApp || "PhonePe/GPay"})
+                      </button>
+                    )}
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400 mt-1">Admin is QR code ko scan karke ya UPI ID par payout bhejega.</p>
+              </div>
+            </div>
           ) : (
             <div className="space-y-3">
-              <input type="text" placeholder="Account Number" value={wdForm.accountNumber} onChange={e => setWdForm({ ...wdForm, accountNumber: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none text-base sm:text-sm" />
-              <input type="text" placeholder="IFSC Code" value={wdForm.ifsc} onChange={e => setWdForm({ ...wdForm, ifsc: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none text-base sm:text-sm" />
+              <input type="text" placeholder="Account Number" value={wdForm.accountNumber} onChange={e => setWdForm({ ...wdForm, accountNumber: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none text-base sm:text-sm font-medium" />
+              <input type="text" placeholder="IFSC Code" value={wdForm.ifsc} onChange={e => setWdForm({ ...wdForm, ifsc: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none text-base sm:text-sm font-medium uppercase" />
             </div>
           )}
         </div>
@@ -11069,6 +11186,25 @@ export default function Dashboard() {
                         <p className="text-[11px] text-gray-500 truncate mt-0.5">
                           {details}
                         </p>
+                        {t.paymentDetails?.upiId && (
+                          <p className="text-[10px] text-gray-500 mt-0.5 font-medium">
+                            UPI: {t.paymentDetails.upiId}
+                          </p>
+                        )}
+                        {t.utrNumber && (
+                          <p className="text-[10px] font-mono font-bold text-emerald-700 mt-0.5">
+                            UTR: {t.utrNumber}
+                          </p>
+                        )}
+                        {t.adminEvidenceUrl && (
+                          <button
+                            type="button"
+                            onClick={() => { setLightboxImg(t.adminEvidenceUrl); setZoomLevel(1); }}
+                            className="text-[10px] text-blue-600 hover:text-blue-800 font-bold underline mt-0.5 block cursor-pointer"
+                          >
+                            View Payout Receipt 🔍
+                          </button>
+                        )}
                         <p className="text-[10px] text-gray-400 mt-0.5">
                           {timeStr}
                         </p>

@@ -202,6 +202,21 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
       txn.approvedAt = new Date();
       txn.approverName = req.body.approverName || req.user.name || 'Admin';
       txn.approverDevice = req.body.approverDevice || parseServerUserAgent(req.headers['user-agent']);
+      if (req.body.utrNumber && typeof req.body.utrNumber === 'string') {
+        txn.utrNumber = req.body.utrNumber.trim();
+      }
+      if (req.body.adminEvidenceUrl && typeof req.body.adminEvidenceUrl === 'string') {
+        const checkEv = validateBase64Upload(req.body.adminEvidenceUrl);
+        if (checkEv.valid || req.body.adminEvidenceUrl.startsWith('http')) {
+          txn.adminEvidenceUrl = req.body.adminEvidenceUrl;
+        }
+      }
+      if (req.body.adminEvidenceNote && typeof req.body.adminEvidenceNote === 'string') {
+        txn.adminEvidenceNote = req.body.adminEvidenceNote.trim();
+      }
+      if (req.body.remarks && typeof req.body.remarks === 'string') {
+        txn.remarks = req.body.remarks.trim();
+      }
       await txn.save({ session });
       resultTxn = txn;
     });
@@ -1288,9 +1303,15 @@ router.get('/kyc-doc/:userId/:docKey', protect, admin, async (req, res) => {
 // On-demand Transaction Proof Fetch (Prevents base64 bloat in bulk audit query)
 router.get('/txn-proof/:id', protect, admin, async (req, res) => {
   try {
-    const txn = await Transaction.findById(req.params.id).select('proofUrl screenshotUrl');
+    const txn = await Transaction.findById(req.params.id).select('proofUrl screenshotUrl adminEvidenceUrl paymentDetails');
     if (!txn) return res.status(404).json({ message: 'Transaction not found' });
-    res.json({ success: true, url: txn.proofUrl || txn.screenshotUrl || '' });
+    res.json({
+      success: true,
+      url: txn.adminEvidenceUrl || txn.proofUrl || txn.screenshotUrl || '',
+      proofUrl: txn.proofUrl || txn.screenshotUrl || '',
+      adminEvidenceUrl: txn.adminEvidenceUrl || '',
+      qrCodeUrl: txn.paymentDetails?.qrCodeUrl || ''
+    });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch transaction proof' });
   }
@@ -1339,16 +1360,31 @@ router.get('/audit-history', protect, admin, async (req, res) => {
             'userId.email': '$userDoc.email',
             'userId.phone': '$userDoc.phone',
             'userId.accountNumber': '$userDoc.accountNumber',
+            adminEvidenceNote: 1,
+            paymentDetails: 1,
             hasProof: {
               $or: [
                 { $gt: [{ $strLenCP: { $ifNull: ['$proofUrl', ''] } }, 0] },
                 { $gt: [{ $strLenCP: { $ifNull: ['$screenshotUrl', ''] } }, 0] }
               ]
             },
+            hasAdminEvidence: {
+              $gt: [{ $strLenCP: { $ifNull: ['$adminEvidenceUrl', ''] } }, 0]
+            },
+            hasUserQr: {
+              $gt: [{ $strLenCP: { $ifNull: ['$paymentDetails.qrCodeUrl', ''] } }, 0]
+            },
             proofUrl: {
               $cond: [
                 { $regexMatch: { input: { $ifNull: ['$proofUrl', ''] }, regex: '^https?://' } },
                 '$proofUrl',
+                ''
+              ]
+            },
+            adminEvidenceUrl: {
+              $cond: [
+                { $regexMatch: { input: { $ifNull: ['$adminEvidenceUrl', ''] }, regex: '^https?://' } },
+                '$adminEvidenceUrl',
                 ''
               ]
             }
@@ -1396,7 +1432,13 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           approverDevice: t.approverDevice || (isApproved ? '💻 Windows PC • Chrome' : ''),
           proofUrl: proof,
           screenshotUrl: proof,
-          hasProof: Boolean(rawProof),
+          hasProof: Boolean(t.hasProof),
+          hasAdminEvidence: Boolean(t.hasAdminEvidence),
+          adminEvidenceUrl: t.adminEvidenceUrl || '',
+          adminEvidenceNote: t.adminEvidenceNote || '',
+          hasUserQr: Boolean(t.hasUserQr),
+          paymentDetails: t.paymentDetails || null,
+          utrNumber: t.utrNumber || '',
           reference: ref,
           referenceId: ref,
           notes: t.remarks || (isTransfer ? 'Peer-to-Peer Wallet Transfer' : t.method ? `Mode: ${t.method}` : 'Platform record'),

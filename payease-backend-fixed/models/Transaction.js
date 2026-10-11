@@ -32,13 +32,17 @@ const transactionSchema = new mongoose.Schema({
   utrNumber: String,
   proofUrl: String,
   screenshotUrl: String,
+  adminEvidenceUrl: String,
+  adminEvidenceNote: String,
   slaHours: Number,
   slaLabel: String,
   sourceWallet: String,
   paymentDetails: {
     upiId: String,
+    qrCodeUrl: String,
     accountNumber: String,
-    ifsc: String
+    ifsc: String,
+    bankName: String
   },
   senderUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   receiverUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

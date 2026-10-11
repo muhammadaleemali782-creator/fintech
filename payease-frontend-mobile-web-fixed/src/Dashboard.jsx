@@ -73,9 +73,10 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
 };
 
 // Real-time ticking profit balance display component (High-FPS, strictly monotonic — NEVER resets to zero)
-function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }) {
-  // Read previously accumulated profit safely (never NaN, never drops to zero)
+function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false, className = "" }) {
+  // Read previously accumulated profit safely (never NaN, never drops to zero; admin is strictly 0)
   const [profit, setProfit] = useState(() => {
+    if (isAdmin) return 0;
     const saved = parseCachedNumber(typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_balance") : 0);
     const base = parseCachedNumber(baseProfit);
     return Math.max(base, saved, 0);
@@ -88,21 +89,31 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
 
   // Capital & Yield Math (Simulate fast realistic yield so all users see rapid movement like Admin Reserves)
   const cap = Math.max(Number(activeCapital || 0), 0);
-  // Baseline effective capital ensures ALL users (even with ₹0 balance) see fluid live fast ticks like Admin Panel
-  const effectiveCap = Math.max(cap, 1500);
-  const dailyYieldEst = (effectiveCap * 0.12) / 365;
-  const perMsYield = dailyYieldEst / 86400000;
+  // Baseline effective capital ensures ALL users (even with ₹0 balance) see fluid live fast ticks; Admin is strictly 0
+  const effectiveCap = isAdmin ? 0 : Math.max(cap, 1500);
+  const dailyYieldEst = isAdmin ? 0 : (effectiveCap * 0.12) / 365;
+  const perMsYield = isAdmin ? 0 : (dailyYieldEst / 86400000);
 
-  // If server credits higher profit, smoothly sync upward — NEVER down
+  // If server credits higher profit, smoothly sync upward — NEVER down; Admin cleared to 0
   useEffect(() => {
+    if (isAdmin) {
+      profitRef.current = 0;
+      setProfit(0);
+      try {
+        localStorage.removeItem("educa_cached_profit_balance");
+        localStorage.removeItem("educa_last_profit_tick");
+      } catch {}
+      return;
+    }
     const serverVal = parseCachedNumber(baseProfit);
     if (serverVal > profitRef.current) {
       profitRef.current = serverVal;
       setProfit(serverVal);
     }
-  }, [baseProfit]);
+  }, [baseProfit, isAdmin]);
 
   useEffect(() => {
+    if (isAdmin) return;
     let timer = null;
     lastTickRef.current = Date.now();
 
@@ -160,7 +171,11 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
       if (timer) clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [perMsYield]);
+  }, [perMsYield, isAdmin]);
+
+  if (isAdmin) {
+    return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹0.00</span>;
+  }
 
   const num = Number(profit || 0);
   const b = Number(activeCapital || 0);
@@ -174,7 +189,10 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, className = "" }
 }
 
 // Live Today's Accrued Yield Counter (Accrues in real time since midnight)
-function LiveTodayAccrued({ activeCapital = 0 }) {
+function LiveTodayAccrued({ activeCapital = 0, isAdmin = false }) {
+  if (isAdmin) {
+    return <span className="font-mono tabular-nums tracking-tight">₹0.00</span>;
+  }
   const [liveMs, setLiveMs] = useState(Date.now());
   const cap = Math.max(Number(activeCapital || 0), 0);
   const effectiveCap = Math.max(cap, 1500);
@@ -474,6 +492,7 @@ export default function Dashboard() {
     return parseCachedNumber(appCache.get("educa_cached_balance", userStored.balance || 0));
   });
   const [cachedProfitBalance, setCachedProfitBalance] = useState(() => {
+    if (userStored?.role === "admin") return 0;
     return parseCachedNumber(appCache.get("educa_cached_profit_balance", userStored.profitBalance || 0));
   });
   const [loadingDashboard, setLoadingDashboard] = useState(!appCache.has("educa_cached_profile"));
@@ -1674,6 +1693,11 @@ export default function Dashboard() {
     userProfile.agentProfile?.status === "approved"
   );
 
+  const isAdmin = Boolean(
+    userProfile.role === "admin" ||
+    userStored.role === "admin"
+  );
+
   // 5-Day Due Date Alert Calculation: checks active loans for any installment with daysLeft <= 5
   const upcomingDueInstallment = useMemo(() => {
     if (!loans || loans.length === 0) return null;
@@ -2347,6 +2371,15 @@ export default function Dashboard() {
   const activeCapital = Number(userProfile.balance ?? balance ?? 0);
 
   useEffect(() => {
+    if (isAdmin) {
+      setCachedProfitBalance(0);
+      try {
+        localStorage.removeItem("educa_cached_profit_balance");
+        localStorage.removeItem("educa_last_profit_tick");
+        appCache.set("educa_cached_profit_balance", 0);
+      } catch {}
+      return;
+    }
     if (userProfile?.profitBalance !== undefined) {
       const serverVal = parseCachedNumber(userProfile.profitBalance);
       setCachedProfitBalance(prev => Math.max(prev || 0, serverVal));
@@ -2359,10 +2392,10 @@ export default function Dashboard() {
         }
       } catch {}
     }
-  }, [userProfile?.profitBalance]);
+  }, [userProfile?.profitBalance, isAdmin]);
 
-  const baseProfit = Math.max(parseCachedNumber(userProfile?.profitBalance), parseCachedNumber(cachedProfitBalance));
-  const dailyYieldEst = activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
+  const baseProfit = isAdmin ? 0 : Math.max(parseCachedNumber(userProfile?.profitBalance), parseCachedNumber(cachedProfitBalance));
+  const dailyYieldEst = !isAdmin && activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
   const perSecondYield = dailyYieldEst / 86400;
 
   // Loan Calculations (First time borrower starts at userProfile.loanLimit or 5,000; can be raised by Agent/Admin, capped at 50,000)
@@ -4924,6 +4957,7 @@ export default function Dashboard() {
                 <LiveRollingProfit
                   activeCapital={activeCapital}
                   baseProfit={baseProfit}
+                  isAdmin={isAdmin}
                 />
               </h3>
               <p className="text-emerald-100/90 text-[11px] hidden sm:block mt-1">1% Monthly Daily Yield & 365d Bonds</p>
@@ -5971,6 +6005,7 @@ export default function Dashboard() {
               <LiveRollingProfit
                 activeCapital={activeCapital}
                 baseProfit={baseProfit}
+                isAdmin={isAdmin}
               />
             </div>
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-500/30 text-xs text-emerald-100">
@@ -6006,7 +6041,7 @@ export default function Dashboard() {
               <div>
                 <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Aaj Ka Real-Time Accrued Profit:</span>
                 <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tracking-tight flex items-baseline gap-1">
-                  <LiveTodayAccrued activeCapital={activeCapital} />
+                  <LiveTodayAccrued activeCapital={activeCapital} isAdmin={isAdmin} />
                 </div>
               </div>
               <div className="text-right">

@@ -471,7 +471,7 @@ export default function Dashboard() {
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const [balance, setBalance] = useState(() => {
-    return Number(appCache.get("educa_cached_balance", userStored.balance || 0));
+    return parseCachedNumber(appCache.get("educa_cached_balance", userStored.balance || 0));
   });
   const [cachedProfitBalance, setCachedProfitBalance] = useState(() => {
     return parseCachedNumber(appCache.get("educa_cached_profit_balance", userStored.profitBalance || 0));
@@ -1217,9 +1217,12 @@ export default function Dashboard() {
         setProfitHistory(prev => (isDataEqual(prev, history) ? prev : history));
         appCache.set("educa_cached_profit_history", history);
         if (res.data.profitBalance !== undefined) {
+          const pb = parseCachedNumber(res.data.profitBalance);
+          setCachedProfitBalance(prev => Math.max(prev || 0, pb));
+          appCache.set("educa_cached_profit_balance", pb);
           setUserProfile(prev => ({
             ...prev,
-            profitBalance: res.data.profitBalance,
+            profitBalance: Math.max(parseCachedNumber(prev.profitBalance), pb),
             balance: res.data.balance !== undefined ? res.data.balance : prev.balance
           }));
         }
@@ -2298,18 +2301,18 @@ export default function Dashboard() {
     // Immediate silent refresh on open in background
     silentSyncAll();
 
-    // Foreground-only gentle background polling every 2.5 minutes (prevents constant network churn & resets)
+    // Foreground-only silent background polling every 30 seconds (seamless fresh data sync)
     const pollInterval = setInterval(() => {
       if (typeof document !== "undefined" && !document.hidden) {
         lastSyncTimeRef.current = Date.now();
         silentSyncAll();
       }
-    }, 150000);
+    }, 30000);
 
-    // Throttled silent sync on app resume / window focus (at most once every 60s)
+    // Instant silent sync on app resume / window focus (5s cooldown)
     const handleResume = () => {
       const now = Date.now();
-      if (now - lastSyncTimeRef.current > 60000 && typeof document !== "undefined" && !document.hidden) {
+      if (now - lastSyncTimeRef.current > 5000 && typeof document !== "undefined" && !document.hidden) {
         lastSyncTimeRef.current = now;
         silentSyncAll();
       }

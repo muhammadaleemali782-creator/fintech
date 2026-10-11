@@ -35,16 +35,14 @@ export const appCache = {
     }
   },
 
-  // Persists data with savedAt timestamp (Asynchronous defer to prevent main-thread UI freeze)
+  // Persists data with savedAt timestamp
   set(key, data) {
     if (typeof window === "undefined" || !window.localStorage) return;
-    setTimeout(() => {
-      try {
-        localStorage.setItem(key, JSON.stringify({ data, savedAt: Date.now() }));
-      } catch {
-        // Storage quota safety: clear temporary items if full
-      }
-    }, 0);
+    try {
+      localStorage.setItem(key, JSON.stringify({ data, savedAt: Date.now() }));
+    } catch {
+      // Storage quota safety: clear temporary items if full
+    }
   },
 
   has(key) {

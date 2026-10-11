@@ -1442,6 +1442,7 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
         type: 'loan_disbursal',
         amount: payout,
         method: 'profit_wallet',
+        sourceWallet: 'profit',
         status: 'completed',
         referenceId: loan._id.toString(),
         remarks: `Disbursal for ${loan.accountNumber || 'Loan'} (Net ₹${payout}) credited to Profit Wallet`

@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
+const Settings = require('../models/Settings');
 const { protect } = require('../middleware/auth');
 const { isValidAmount } = require('../utils/validateAmount');
 const { validateBase64Upload } = require('../utils/validateUpload');
@@ -287,6 +288,30 @@ router.post('/deposit', protect, async (req, res) => {
     
     memoryCache.delPrefix('user_me_' + req.user._id);
 
+    // Background Google Drive sync for deposit evidence
+    if (finalProof && finalProof.startsWith('data:')) {
+      try {
+        const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+        const adminDriveUrl = adminDriveSetting?.value;
+        if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
+          fetch(adminDriveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'deposit_proof',
+              transactionId: txn._id.toString(),
+              userId: req.user._id.toString(),
+              userName: req.user.name,
+              amount: numAmount,
+              utrNumber: cleanUtr,
+              proofUrl: finalProof,
+              submittedAt: new Date().toISOString()
+            })
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
     res.json({
       message: '✅ Deposit request with evidence submitted. Awaiting admin approval.',
       txn
@@ -377,7 +402,8 @@ router.post('/withdraw', protect, async (req, res) => {
         qrCodeUrl: paymentDetails?.qrCodeUrl || '',
         accountNumber: paymentDetails?.accountNumber ? String(paymentDetails.accountNumber).trim() : '',
         ifsc: paymentDetails?.ifsc ? String(paymentDetails.ifsc).trim().toUpperCase() : '',
-        bankName: paymentDetails?.bankName ? String(paymentDetails.bankName).trim() : ''
+        bankName: paymentDetails?.bankName ? String(paymentDetails.bankName).trim() : '',
+        holderName: paymentDetails?.holderName ? String(paymentDetails.holderName).trim() : ''
       };
 
       const remarksText = method === 'upi'
@@ -401,6 +427,43 @@ router.post('/withdraw', protect, async (req, res) => {
       );
       txn = created[0];
     });
+
+    // Background Google Drive sync for withdrawal QR
+    if (txn && txn.paymentDetails?.qrCodeUrl && txn.paymentDetails.qrCodeUrl.startsWith('data:')) {
+      try {
+        const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+        const adminDriveUrl = adminDriveSetting?.value;
+        if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
+          fetch(adminDriveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'withdrawal_qr',
+              transactionId: txn._id.toString(),
+              userId: req.user._id.toString(),
+              userName: req.user.name,
+              amount: numAmount,
+              method: method,
+              upiId: txn.paymentDetails.upiId,
+              qrCodeUrl: txn.paymentDetails.qrCodeUrl,
+              accountNumber: txn.paymentDetails.accountNumber,
+              ifsc: txn.paymentDetails.ifsc,
+              bankName: txn.paymentDetails.bankName,
+              submittedAt: new Date().toISOString()
+            })
+          })
+          .then(r => r.json())
+          .then(async (driveData) => {
+            if (driveData && (driveData.fileUrl || driveData.folderUrl)) {
+              await Transaction.findByIdAndUpdate(txn._id, {
+                'paymentDetails.googleDriveQrUrl': driveData.fileUrl || driveData.folderUrl
+              });
+            }
+          })
+          .catch(e => console.warn('Withdrawal QR Drive sync warning:', e.message));
+        }
+      } catch (_) {}
+    }
 
     const successMessage = isUnder5k
       ? '✅ Withdrawal request submitted! ₹5,000 tak ki request 24 ghante ke andar Admin dwara approve aur transfer kar di jayegi.'

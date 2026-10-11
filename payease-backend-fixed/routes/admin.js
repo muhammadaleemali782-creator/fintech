@@ -4,6 +4,7 @@ const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const Loan = require('../models/Loan');
 const Bond = require('../models/Bond');
+const Settings = require('../models/Settings');
 const { protect, admin } = require('../middleware/auth');
 const { sendNotification } = require('../utils/notifier');
 const { generateAccountNumber } = require('../utils/accountNumber');
@@ -220,6 +221,40 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
       await txn.save({ session });
       resultTxn = txn;
     });
+
+    // Background Google Drive sync for Admin Payout Evidence Screenshot
+    if (resultTxn && resultTxn.adminEvidenceUrl && resultTxn.adminEvidenceUrl.startsWith('data:')) {
+      try {
+        const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+        const adminDriveUrl = adminDriveSetting?.value;
+        if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
+          fetch(adminDriveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'admin_payout_evidence',
+              transactionId: resultTxn._id.toString(),
+              type: resultTxn.type,
+              amount: resultTxn.amount,
+              utrNumber: resultTxn.utrNumber || '',
+              adminEvidenceUrl: resultTxn.adminEvidenceUrl,
+              adminEvidenceNote: resultTxn.adminEvidenceNote || '',
+              approvedBy: req.user.email || 'Admin',
+              submittedAt: new Date().toISOString()
+            })
+          })
+          .then(r => r.json())
+          .then(async (driveData) => {
+            if (driveData && (driveData.fileUrl || driveData.folderUrl)) {
+              await Transaction.findByIdAndUpdate(resultTxn._id, {
+                adminEvidenceDriveUrl: driveData.fileUrl || driveData.folderUrl
+              });
+            }
+          })
+          .catch(e => console.warn('Admin evidence Drive sync warning:', e.message));
+        }
+      } catch (_) {}
+    }
 
     res.json({ message: 'Transaction approved', txn: resultTxn });
   } catch (err) {

@@ -21,7 +21,11 @@ const transactionSchema = new mongoose.Schema({
     required: true
   },
   amount: { type: Number, required: true },
-  method: { type: String, enum: ['upi', 'bank', 'wallet', 'internal'], default: 'wallet' },
+  method: { 
+    type: String, 
+    enum: ['upi', 'bank', 'wallet', 'internal', 'profit_wallet', 'primary_wallet', 'system', 'admin_override'], 
+    default: 'wallet' 
+  },
   status: { 
     type: String, 
     enum: ['pending', 'approved', 'rejected', 'completed', 'hold'], 
@@ -34,15 +38,18 @@ const transactionSchema = new mongoose.Schema({
   screenshotUrl: String,
   adminEvidenceUrl: String,
   adminEvidenceNote: String,
+  adminEvidenceDriveUrl: String,
   slaHours: Number,
   slaLabel: String,
   sourceWallet: String,
   paymentDetails: {
     upiId: String,
     qrCodeUrl: String,
+    googleDriveQrUrl: String,
     accountNumber: String,
     ifsc: String,
-    bankName: String
+    bankName: String,
+    holderName: String
   },
   senderUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   receiverUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

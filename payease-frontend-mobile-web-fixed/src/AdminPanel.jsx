@@ -475,6 +475,257 @@ function formatLiveTimeElapsed(dateStr) {
   return `${days}d ago`;
 }
 
+// Helper: Disbursal Option Breakdown (Dates timeline, applied percentages, and penalty terms)
+function getDisbursalBreakdown(loan, chosenOpt = "none") {
+  if (!loan) return null;
+  const principal = Number(loan.amount || 0);
+  const count = Number(loan.installmentsCount || loan.dailyTenureDays || 15);
+  const instAmt = Number(loan.installmentAmount || loan.emiAmount || 0);
+  const totalPayable = Number(loan.totalPayable || (instAmt * count));
+
+  // Deductions: Processing Fee + UPI charges
+  const feeDeduction = (loan.processingFee || 0) + (loan.upiCharges || 0) || Math.max(0, principal - Number(loan.disbursalAmount || principal));
+  const feePct = principal > 0 ? ((feeDeduction / principal) * 100).toFixed(1) : "0.0";
+
+  // Interest & Repayment
+  const totalInterest = Math.max(0, totalPayable - principal);
+  const interestPct = principal > 0 ? ((totalInterest / principal) * 100).toFixed(1) : "0.0";
+  const totalRepayPct = principal > 0 ? ((totalPayable / principal) * 100).toFixed(1) : "100.0";
+
+  // Frequency & cycle
+  const cycleDays = (loan.loanType === "micro_business" || loan.collectionFrequency === "daily" || loan.tenureMonths === 1) ? 1 : 10;
+  const cycleLabel = cycleDays === 1 ? "Daily (1 Din)" : "Har 10 Din (10-Day Cycle)";
+
+  // Overdue Penalty: 2% per overdue installment
+  const penaltyPerEmi = Math.round((instAmt * 2) / 100);
+
+  // In-hand payout calculations
+  const basePayout = Math.max(0, principal - feeDeduction);
+  const advancePayout = Math.max(0, basePayout - instAmt);
+  const inHandAmount = chosenOpt === "deduct" ? advancePayout : basePayout;
+  const inHandPct = principal > 0 ? ((inHandAmount / principal) * 100).toFixed(1) : "0.0";
+  const advanceDeductPct = chosenOpt === "deduct" && principal > 0 ? ((instAmt / principal) * 100).toFixed(1) : "0.0";
+
+  // Date offsets from now
+  const now = new Date();
+  const addDays = (d, days) => {
+    const res = new Date(d);
+    res.setDate(res.getDate() + days);
+    return res.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  let schedule = {};
+  if (chosenOpt === "deduct") {
+    schedule = {
+      title: "1st EMI Advance Kaatein",
+      firstEmiTitle: "Kist #1 (Paid Upfront)",
+      firstEmiDate: "Aaj hi Paid (Advance Deduct)",
+      firstEmiDetail: `₹${instAmt.toLocaleString("en-IN")} payout se kat gaya`,
+      firstEmiBadge: "PAID UPFRONT",
+      nextEmiTitle: "Kist #2 Due Date",
+      nextEmiDate: addDays(now, cycleDays * 2),
+      finalMaturityDate: addDays(now, cycleDays * count),
+      remainingCount: Math.max(0, count - 1),
+      paidCount: 1,
+      graceNote: "Pehli kist disburse hote hi Paid mark ho jayegi. Borrower ko agle cycle se Kist #2 bharni hogi."
+    };
+  } else if (chosenOpt === "defer") {
+    schedule = {
+      title: "1st Kist Baad Me Lein (Grace)",
+      firstEmiTitle: "Kist #1 Due Date (+Grace)",
+      firstEmiDate: addDays(now, cycleDays * 2),
+      firstEmiDetail: `+${cycleDays} din extra grace period mila`,
+      firstEmiBadge: `+${cycleDays}D GRACE PERIOD`,
+      nextEmiTitle: "Kist #2 Due Date",
+      nextEmiDate: addDays(now, cycleDays * 3),
+      finalMaturityDate: addDays(now, cycleDays * (count + 1)),
+      remainingCount: count,
+      paidCount: 0,
+      graceNote: `Admin grace period: Pehli kist ${cycleDays} din ke bajaye ${cycleDays * 2} din baad shuru hogi.`
+    };
+  } else {
+    // none or waive
+    schedule = {
+      title: chosenOpt === "waive" ? "Pehli Kist Waive (Free)" : "Normal Disbursal",
+      firstEmiTitle: chosenOpt === "waive" ? "Kist #1 (Waived Free)" : "Kist #1 Due Date",
+      firstEmiDate: chosenOpt === "waive" ? "Aaj Free Paid Mark" : addDays(now, cycleDays),
+      firstEmiDetail: chosenOpt === "waive" ? "Admin taraf se free kist" : `In ${cycleDays} days`,
+      firstEmiBadge: chosenOpt === "waive" ? "FREE WAIVER" : "REGULAR CYCLE",
+      nextEmiTitle: "Kist #2 Due Date",
+      nextEmiDate: addDays(now, cycleDays * 2),
+      finalMaturityDate: addDays(now, cycleDays * count),
+      remainingCount: chosenOpt === "waive" ? Math.max(0, count - 1) : count,
+      paidCount: chosenOpt === "waive" ? 1 : 0,
+      graceNote: chosenOpt === "waive" ? "Kist #1 borrower ke liye waive kar di gayi hai." : `Regular schedule: Pehli kist ${cycleDays} din baad regular cycle par due hogi.`
+    };
+  }
+
+  return {
+    principal,
+    count,
+    instAmt,
+    totalPayable,
+    feeDeduction,
+    feePct,
+    totalInterest,
+    interestPct,
+    totalRepayPct,
+    cycleDays,
+    cycleLabel,
+    penaltyPerEmi,
+    basePayout,
+    advancePayout,
+    inHandAmount,
+    inHandPct,
+    advanceDeductPct,
+    schedule
+  };
+}
+
+// Component: Live selected disbursal breakdown, timeline and penalty terms
+function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
+  const b = getDisbursalBreakdown(loan, chosenOpt);
+  if (!b) return null;
+
+  return (
+    <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 sm:p-4 space-y-3.5 shadow-2xs">
+      {/* Top Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 pb-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-base sm:text-lg">📊</span>
+          <span className="text-xs sm:text-sm font-black text-slate-900">
+            Selected Option Live Schedule & Calculations:
+          </span>
+          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border shadow-2xs ${
+            chosenOpt === "none"
+              ? "bg-blue-100 text-blue-900 border-blue-300"
+              : chosenOpt === "deduct"
+              ? "bg-amber-100 text-amber-950 border-amber-300"
+              : chosenOpt === "defer"
+              ? "bg-sky-100 text-sky-950 border-sky-300"
+              : "bg-purple-100 text-purple-950 border-purple-300"
+          }`}>
+            {b.schedule.title}
+          </span>
+        </div>
+        <span className="text-[11px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+          Frequency: <strong className="text-slate-900">{b.cycleLabel}</strong>
+        </span>
+      </div>
+
+      {/* 1. EMI Dates & Timeline */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+            <span>🗓️</span> EMI Dates & Timeline ({b.count} Kistein @ ₹{b.instAmt.toLocaleString("en-IN")})
+          </span>
+          <span className="text-[11px] font-bold text-emerald-700">
+            {b.schedule.paidCount > 0 ? "1 Paid (Advance) • " : ""}{b.schedule.remainingCount} Kistein Due
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+          <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs">
+            <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">{b.schedule.firstEmiTitle}</span>
+            <span className="font-black text-slate-900 text-xs sm:text-sm block mt-0.5">{b.schedule.firstEmiDate}</span>
+            <span className="text-[10px] font-bold text-blue-700 block mt-0.5">{b.schedule.firstEmiDetail}</span>
+          </div>
+          <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs">
+            <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">{b.schedule.nextEmiTitle}</span>
+            <span className="font-black text-slate-900 text-xs sm:text-sm block mt-0.5">{b.schedule.nextEmiDate}</span>
+            <span className="text-[10px] text-slate-500 font-medium block mt-0.5">₹{b.instAmt.toLocaleString("en-IN")} Due</span>
+          </div>
+          <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs">
+            <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Final Loan Maturity</span>
+            <span className="font-black text-slate-900 text-xs sm:text-sm block mt-0.5">{b.schedule.finalMaturityDate}</span>
+            <span className="text-[10px] text-slate-500 font-medium block mt-0.5">All {b.count} EMIs Completed</span>
+          </div>
+        </div>
+        <p className="text-[11px] text-slate-600 mt-1.5 font-medium flex items-center gap-1">
+          <span>ℹ️</span> {b.schedule.graceNote}
+        </p>
+      </div>
+
+      {/* 2. Percentage & Deductions Matrix */}
+      <div className="border-t border-slate-200/70 pt-2.5">
+        <span className="text-xs font-black text-slate-800 block mb-1.5 flex items-center gap-1.5">
+          <span>🏷️</span> Kitna Percent Lag Raha Hai (Exact Percentage & Amount Breakdown)
+        </span>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs">
+            <span className="text-[10px] text-slate-400 block font-bold">Principal Sanctioned</span>
+            <span className="font-black text-slate-900 text-xs sm:text-sm font-mono">₹{b.principal.toLocaleString("en-IN")}</span>
+            <span className="text-[10px] font-bold text-slate-500 block">100.0% (Mool Rashi)</span>
+          </div>
+          <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl shadow-2xs">
+            <span className="text-[10px] text-amber-800 block font-bold">Processing + Fee</span>
+            <span className="font-black text-amber-900 text-xs sm:text-sm font-mono">-₹{b.feeDeduction.toLocaleString("en-IN")}</span>
+            <span className="text-[10px] font-extrabold text-amber-700 block">{b.feePct}% Deducted</span>
+          </div>
+          <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl shadow-2xs">
+            <span className="text-[10px] text-emerald-800 block font-bold">Net In-Hand Disbursal</span>
+            <span className="font-black text-emerald-800 text-xs sm:text-sm font-mono">₹{b.inHandAmount.toLocaleString("en-IN")}</span>
+            <span className="text-[10px] font-extrabold text-emerald-700 block">{b.inHandPct}% Borrower ko Payout</span>
+          </div>
+          <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl shadow-2xs">
+            <span className="text-[10px] text-blue-800 block font-bold">Total Interest</span>
+            <span className="font-black text-blue-900 text-xs sm:text-sm font-mono">+₹{b.totalInterest.toLocaleString("en-IN")}</span>
+            <span className="text-[10px] font-extrabold text-blue-700 block">+{b.interestPct}% ({b.totalRepayPct}% Total Repay)</span>
+          </div>
+        </div>
+        {chosenOpt === "deduct" && (
+          <div className="mt-2 px-3 py-1.5 bg-amber-100/70 border border-amber-300 rounded-lg text-[11px] text-amber-950 font-semibold flex items-center justify-between">
+            <span>🟡 Kist #1 Advance Kaati Gayi: <strong>₹{b.instAmt.toLocaleString("en-IN")} ({b.advanceDeductPct}%)</strong></span>
+            <span className="text-[10px] font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-amber-200">Kist #1 Abhi Paid Ho Jayegi</span>
+          </div>
+        )}
+      </div>
+
+      {/* 3. Penalty Policy & Live Overdue Display */}
+      <div className="border-t border-slate-200/70 pt-2.5 bg-rose-50/70 p-3 rounded-xl border border-rose-200">
+        <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+          <span className="text-xs font-black text-rose-950 flex items-center gap-1.5">
+            <span>⚠️</span> Overdue Penalty Policy (Kab Aur Kise Lagegi):
+          </span>
+          <span className="text-[10px] font-black bg-rose-200 text-rose-950 px-2 py-0.5 rounded-full border border-rose-300">
+            2% Per Overdue Kist = ₹{b.penaltyPerEmi}/kist
+          </span>
+        </div>
+        <div className="space-y-1 text-[11px] text-slate-700">
+          <p>
+            • <strong className="text-slate-900">Kab Lagegi:</strong> Kist due date nikalne ke baad agle din subah 12:00 AM se overdue status active hota hai.
+          </p>
+          <p>
+            • <strong className="text-slate-900">Kitni Lagegi:</strong> Installment amount (₹{b.instAmt.toLocaleString("en-IN")}) par <strong>2%</strong> = <strong className="text-rose-800">₹{b.penaltyPerEmi} per overdue installment</strong>.
+          </p>
+          <p>
+            • <strong className="text-slate-900">Accumulation (Jod ke):</strong> Pehle ki overdue kist ke saath judkar penalty accumulate hoti hai (e.g. 2 kistein overdue = ₹{b.penaltyPerEmi * 2}).
+          </p>
+          <p>
+            • <strong className="text-slate-900">Kaha & Kaise Dhikegi:</strong> Active loans me overdue hone par live warning badge aur Admin toggle button dikhta hai:
+          </p>
+        </div>
+        {/* Live Preview Badge */}
+        <div className="mt-2 p-2.5 bg-white rounded-lg border border-rose-200 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+              ⚠️ Active Overdue Penalty: ₹{b.penaltyPerEmi}
+            </span>
+            <span className="text-[10px] text-slate-500 font-bold">
+              (1 Overdue Installment Par)
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px]">
+            <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded font-bold border border-amber-200">
+              Admin Waive / Hold Button Available
+            </span>
+            <span className="text-slate-400 font-medium">Borrower passbook me bhi penalty include hoti hai</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPanel() {
   const token = tokenStorage.getToken();
   let user = {};
@@ -4591,48 +4842,68 @@ export default function AdminPanel() {
                             )}
 
                             {/* Advance Option Selector */}
-                            <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3 space-y-2">
-                              <span className="text-xs font-black text-amber-900 block">
-                                Disbursal & Advance EMI Option:
-                              </span>
+                            <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3 space-y-3">
+                              <div className="flex flex-wrap items-center justify-between gap-1">
+                                <span className="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                                  <span>⚡</span> Disbursal & EMI Option (Click karke EMI Time aur % Breakdown dekhein):
+                                </span>
+                                <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-200">
+                                  3 Options Available
+                                </span>
+                              </div>
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <button
                                   type="button"
                                   onClick={() => setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "none" }))}
-                                  className={`p-2.5 rounded-lg border text-left transition cursor-pointer ${
+                                  className={`p-2.5 rounded-xl border text-left transition cursor-pointer relative ${
                                     chosenOpt === "none"
                                       ? "bg-white border-blue-500 ring-2 ring-blue-400/30 shadow-2xs"
                                       : "bg-white/80 border-slate-200 hover:bg-white"
                                   }`}
                                 >
-                                  <span className="font-bold text-xs text-slate-900 block">Normal Disbursal</span>
-                                  <span className="text-[11px] text-slate-600 block mt-0.5">Puri amount ₹{Number(l.disbursalAmount || l.amount).toLocaleString("en-IN")} disburse hogi.</span>
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-bold text-xs text-slate-900 block">Normal Disbursal</span>
+                                    <span className="text-[9px] font-black bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded">94% IN-HAND</span>
+                                  </div>
+                                  <span className="text-[11px] text-slate-600 block mt-1">Puri amount ₹{Number(l.disbursalAmount || l.amount).toLocaleString("en-IN")} disburse hogi.</span>
+                                  <span className="text-[10px] text-blue-700 font-bold block mt-1">⏱️ Kist #1: Regular cycle par</span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "deduct" }))}
-                                  className={`p-2.5 rounded-lg border text-left transition cursor-pointer ${
+                                  className={`p-2.5 rounded-xl border text-left transition cursor-pointer relative ${
                                     chosenOpt === "deduct"
                                       ? "bg-amber-100 border-amber-500 ring-2 ring-amber-400/30 shadow-2xs"
                                       : "bg-white/80 border-slate-200 hover:bg-white"
                                   }`}
                                 >
-                                  <span className="font-bold text-xs text-amber-950 block">🟡 1st EMI Advance Kaatein</span>
-                                  <span className="text-[11px] text-amber-800 block mt-0.5">Milega: ₹{advancePayout.toLocaleString("en-IN")}. Kist #1 paid ho jayegi.</span>
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-bold text-xs text-amber-950 block">🟡 1st EMI Advance Kaatein</span>
+                                    <span className="text-[9px] font-black bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded">ADVANCE CUT</span>
+                                  </div>
+                                  <span className="text-[11px] text-amber-800 block mt-1">Milega: ₹{advancePayout.toLocaleString("en-IN")}. Kist #1 paid ho jayegi.</span>
+                                  <span className="text-[10px] text-amber-900 font-bold block mt-1">⏱️ Kist #1 Paid Today • Kist #2 next cycle</span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "defer" }))}
-                                  className={`p-2.5 rounded-lg border text-left transition cursor-pointer ${
+                                  className={`p-2.5 rounded-xl border text-left transition cursor-pointer relative ${
                                     chosenOpt === "defer"
                                       ? "bg-sky-50 border-sky-500 ring-2 ring-sky-400/30 shadow-2xs"
                                       : "bg-white/80 border-slate-200 hover:bg-white"
                                   }`}
                                 >
-                                  <span className="font-bold text-xs text-sky-950 block">⏳ 1st Kist Baad Me Lein</span>
-                                  <span className="text-[11px] text-sky-800 block mt-0.5">Puri ₹{Number(l.disbursalAmount || l.amount).toLocaleString("en-IN")} milegi. Kist #1 grace period ke baad.</span>
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-bold text-xs text-sky-950 block">⏳ 1st Kist Baad Me Lein</span>
+                                    <span className="text-[9px] font-black bg-sky-200 text-sky-900 px-1.5 py-0.2 rounded">GRACE PERIOD</span>
+                                  </div>
+                                  <span className="text-[11px] text-sky-800 block mt-1">Puri ₹{Number(l.disbursalAmount || l.amount).toLocaleString("en-IN")} milegi.</span>
+                                  <span className="text-[10px] text-sky-900 font-bold block mt-1">⏱️ Kist #1: Grace period ke baad</span>
                                 </button>
                               </div>
+
+                              {/* Interactive Live Breakdown Desk for selected option */}
+                              <DisbursalBreakdownDesk loan={l} chosenOpt={chosenOpt} />
                             </div>
 
                             {/* Action Buttons */}

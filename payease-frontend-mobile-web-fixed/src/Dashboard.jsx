@@ -564,7 +564,17 @@ export default function Dashboard() {
   const [editLimitVal, setEditLimitVal] = useState("");
   const [updatingLimit, setUpdatingLimit] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editProfileForm, setEditProfileForm] = useState({ name: "", phone: "", address: "" });
+  const [editProfileForm, setEditProfileForm] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    bankAccountNumber: "",
+    bankIfsc: "",
+    bankName: "",
+    bankHolderName: "",
+    upiId: "",
+    qrCodeUrl: ""
+  });
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Dues & Loan Installment states
@@ -752,7 +762,48 @@ export default function Dashboard() {
     });
   });
   const [copiedDepField, setCopiedDepField] = useState("");
-  const [wdForm, setWdForm] = useState({ amount: "", method: "upi", upiId: "", qrCode: "", qrCodeName: "", accountNumber: "", ifsc: "", sourceWallet: "main" });
+  const [wdPayoutMode, setWdPayoutMode] = useState("saved"); // "saved" | "change"
+  const [wdSaveToProfile, setWdSaveToProfile] = useState(true);
+  const [wdForm, setWdForm] = useState({
+    amount: "",
+    method: "upi",
+    upiId: "",
+    qrCode: "",
+    qrCodeName: "",
+    accountNumber: "",
+    ifsc: "",
+    bankName: "",
+    sourceWallet: "main"
+  });
+
+  // Auto-fill withdrawal bank & UPI details from profile on modal open
+  useEffect(() => {
+    if (modal === "withdraw") {
+      const bank = userProfile?.bankAccount || {};
+      const kycDocs = userProfile?.kycDocuments || {};
+      const savedUpi = bank.upiId || userProfile?.upiId || userProfile?.customQrUpi || "";
+      const savedQr = bank.qrCodeUrl || userProfile?.customQrUrl || "";
+      const savedAcc = bank.accountNumber || kycDocs.bankAccountNumber || "";
+      const savedIfsc = bank.ifsc || kycDocs.bankIfsc || "";
+      const savedBankName = bank.bankName || kycDocs.bankName || "";
+      const hasSaved = Boolean(savedUpi || savedQr || savedAcc);
+
+      setWdPayoutMode(hasSaved ? "saved" : "change");
+      setWdForm(prev => {
+        const method = (savedAcc && !savedUpi && !savedQr) ? "bank" : "upi";
+        return {
+          ...prev,
+          method: prev.method || method,
+          accountNumber: prev.accountNumber || savedAcc,
+          ifsc: prev.ifsc || savedIfsc,
+          bankName: prev.bankName || savedBankName,
+          upiId: prev.upiId || savedUpi,
+          qrCode: prev.qrCode || savedQr,
+          qrCodeName: prev.qrCodeName || (savedQr ? "Saved Profile QR" : "")
+        };
+      });
+    }
+  }, [modal, userProfile]);
   
   // P2P Transfer & 6-Digit UPI PIN Intercept State
   const [sendForm, setSendForm] = useState({ recipient: "", amount: "", notes: "", pin: "", sourceWallet: "main" });
@@ -2213,12 +2264,46 @@ export default function Dashboard() {
   }, [isAgent, loadAgentMetrics]);
 
   const handleOpenEditProfile = () => {
+    const bank = userProfile.bankAccount || {};
+    const kycDocs = userProfile.kycDocuments || {};
     setEditProfileForm({
       name: userProfile.name || userStored.name || "",
       phone: userProfile.phone || userStored.phone || "",
-      address: userProfile.address || userProfile.kycDocuments?.address || ""
+      address: userProfile.address || kycDocs.address || "",
+      bankAccountNumber: bank.accountNumber || kycDocs.bankAccountNumber || "",
+      bankIfsc: bank.ifsc || kycDocs.bankIfsc || "",
+      bankName: bank.bankName || kycDocs.bankName || "",
+      bankHolderName: bank.holderName || userProfile.name || userStored.name || "",
+      upiId: bank.upiId || userProfile.upiId || userProfile.customQrUpi || "",
+      qrCodeUrl: bank.qrCodeUrl || userProfile.customQrUrl || ""
     });
     setIsEditingProfile(true);
+  };
+
+  const handleProfileQrUpload = (file) => {
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      showToast("File size 8MB se kam honi chahiye", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 1000;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        setEditProfileForm(prev => ({ ...prev, qrCodeUrl: canvas.toDataURL("image/jpeg", 0.8) }));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveProfile = async (e) => {
@@ -2239,7 +2324,16 @@ export default function Dashboard() {
         body: JSON.stringify({
           name: editProfileForm.name.trim(),
           phone: editProfileForm.phone.trim(),
-          address: editProfileForm.address.trim()
+          address: editProfileForm.address.trim(),
+          upiId: (editProfileForm.upiId || "").trim(),
+          bankAccount: {
+            accountNumber: (editProfileForm.bankAccountNumber || "").trim(),
+            ifsc: (editProfileForm.bankIfsc || "").trim().toUpperCase(),
+            bankName: (editProfileForm.bankName || "").trim(),
+            holderName: (editProfileForm.bankHolderName || "").trim(),
+            upiId: (editProfileForm.upiId || "").trim(),
+            qrCodeUrl: editProfileForm.qrCodeUrl || ""
+          }
         })
       });
       const d = await res.json();
@@ -2249,13 +2343,21 @@ export default function Dashboard() {
         ...prev,
         ...updatedUser
       }));
+      setWdForm(prev => ({
+        ...prev,
+        accountNumber: editProfileForm.bankAccountNumber?.trim() || prev.accountNumber,
+        ifsc: editProfileForm.bankIfsc?.trim().toUpperCase() || prev.ifsc,
+        bankName: editProfileForm.bankName?.trim() || prev.bankName,
+        upiId: editProfileForm.upiId?.trim() || prev.upiId,
+        qrCode: editProfileForm.qrCodeUrl || prev.qrCode
+      }));
       try {
         const stored = JSON.parse(localStorage.getItem("user") || "{}");
         const merged = { ...stored, ...updatedUser, role: updatedUser.role || stored.role };
         localStorage.setItem("user", JSON.stringify(merged));
         localStorage.setItem("educa_cached_profile", JSON.stringify(merged));
       } catch (e) {}
-      showToast(d.message || "Profile details updated successfully!", "success");
+      showToast(d.message || "Profile aur bank details safaltapoorvak save ho gayi!", "success");
       setIsEditingProfile(false);
       loadDashboard();
     } catch (err) {
@@ -3501,7 +3603,11 @@ export default function Dashboard() {
     }
     const paymentDetails = wdForm.method === "upi"
       ? { upiId: (wdForm.upiId || "").trim(), qrCodeUrl: wdForm.qrCode || "" }
-      : { accountNumber: (wdForm.accountNumber || "").trim(), ifsc: (wdForm.ifsc || "").trim().toUpperCase() };
+      : {
+          accountNumber: (wdForm.accountNumber || "").trim(),
+          ifsc: (wdForm.ifsc || "").trim().toUpperCase(),
+          bankName: (wdForm.bankName || "").trim()
+        };
     const res = await fetch(`${API}/transaction/withdraw`, {
       method: "POST",
       headers,
@@ -3515,8 +3621,28 @@ export default function Dashboard() {
     const data = await res.json();
     showToast(data.message, res.ok ? "success" : "error");
     if (res.ok) {
+      if (wdSaveToProfile) {
+        fetch(`${API}/user/update`, {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bankAccount: {
+              accountNumber: (wdForm.accountNumber || "").trim(),
+              ifsc: (wdForm.ifsc || "").trim().toUpperCase(),
+              bankName: (wdForm.bankName || "").trim(),
+              upiId: (wdForm.upiId || "").trim(),
+              qrCodeUrl: wdForm.qrCode || ""
+            },
+            upiId: (wdForm.upiId || "").trim()
+          })
+        }).then(r => r.json()).then(d => {
+          if (d && (d.user || d._id)) {
+            setUserProfile(prev => ({ ...prev, ...(d.user || d) }));
+          }
+        }).catch(() => {});
+      }
       closeModal();
-      setWdForm({ amount: "", method: "upi", upiId: "", qrCode: "", qrCodeName: "", accountNumber: "", ifsc: "", sourceWallet: "main" });
+      setWdForm({ amount: "", method: "upi", upiId: "", qrCode: "", qrCodeName: "", accountNumber: "", ifsc: "", bankName: "", sourceWallet: "main" });
       loadDashboard();
     }
   };

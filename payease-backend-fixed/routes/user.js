@@ -275,23 +275,83 @@ router.put('/update', protect, async (req, res) => {
     }
 
     // upiId validation
-    if (upiId) {
-      if (typeof upiId !== 'string') return res.status(400).json({ message: 'Invalid UPI ID' });
-      user.upiId = upiId.trim();
+    if (upiId !== undefined) {
+      user.upiId = String(upiId || '').trim();
     }
 
-    // bankAccount validation
+    // bankAccount validation & sync
+    let shouldSyncQrToDrive = false;
+    let qrToSync = '';
+
     if (bankAccount) {
       if (typeof bankAccount !== 'object') return res.status(400).json({ message: 'Invalid bank account details' });
+      const currentBank = user.bankAccount || {};
+      const newQr = bankAccount.qrCodeUrl !== undefined ? bankAccount.qrCodeUrl : currentBank.qrCodeUrl;
+      if (newQr && String(newQr).startsWith('data:')) {
+        const check = validateBase64Upload(newQr);
+        if (!check.valid) return res.status(400).json({ message: 'Invalid QR code image: ' + check.error });
+        shouldSyncQrToDrive = true;
+        qrToSync = newQr;
+      }
+
       user.bankAccount = {
-        accountNumber: String(bankAccount.accountNumber || ''),
-        ifsc: String(bankAccount.ifsc || ''),
-        holderName: String(bankAccount.holderName || '')
+        accountNumber: String(bankAccount.accountNumber !== undefined ? bankAccount.accountNumber : currentBank.accountNumber || '').trim(),
+        ifsc: String(bankAccount.ifsc !== undefined ? bankAccount.ifsc : currentBank.ifsc || '').trim().toUpperCase(),
+        holderName: String(bankAccount.holderName !== undefined ? bankAccount.holderName : currentBank.holderName || '').trim(),
+        bankName: String(bankAccount.bankName !== undefined ? bankAccount.bankName : currentBank.bankName || '').trim(),
+        upiId: String(bankAccount.upiId !== undefined ? bankAccount.upiId : (upiId || currentBank.upiId || '')).trim(),
+        qrCodeUrl: newQr || '',
+        googleDriveQrUrl: currentBank.googleDriveQrUrl || ''
       };
+
+      if (bankAccount.upiId) {
+        user.upiId = String(bankAccount.upiId).trim();
+      }
+      if (newQr) {
+        user.customQrUrl = newQr;
+      }
     }
 
     await user.save();
     memoryCache.delPrefix('user_me_' + req.user._id);
+
+    // Background Google Drive sync for User Payout QR Code
+    if (shouldSyncQrToDrive && qrToSync) {
+      try {
+        const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+        const adminDriveUrl = adminDriveSetting?.value;
+        if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
+          fetch(adminDriveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'user_payout_qr',
+              userId: user._id.toString(),
+              name: user.name,
+              email: user.email,
+              phone: user.phone,
+              upiId: user.bankAccount?.upiId || user.upiId || '',
+              bankAccountNumber: user.bankAccount?.accountNumber || '',
+              bankIfsc: user.bankAccount?.ifsc || '',
+              bankName: user.bankAccount?.bankName || '',
+              qrCodeUrl: qrToSync,
+              submittedAt: new Date().toISOString()
+            })
+          })
+          .then(r => r.json())
+          .then(async (driveData) => {
+            if (driveData && (driveData.fileUrl || driveData.folderUrl)) {
+              const directLink = driveData.fileUrl || driveData.folderUrl;
+              await User.findByIdAndUpdate(user._id, {
+                'bankAccount.googleDriveQrUrl': directLink,
+                'customQrDriveUrl': directLink
+              });
+            }
+          })
+          .catch(e => console.warn('User QR Drive sync warning:', e.message));
+        }
+      } catch (_) {}
+    }
 
     const safeUser = user.toObject();
     delete safeUser.password;
@@ -900,6 +960,40 @@ router.post('/custom-qr', protect, async (req, res) => {
     user.customQrUpi = (customQrUpi || '').trim();
     user.customQrApp = (customQrApp || 'custom').trim();
     await user.save();
+    memoryCache.delPrefix('user_me_' + req.user._id);
+
+    // Background Google Drive sync
+    if (customQrUrl && customQrUrl.startsWith('data:')) {
+      try {
+        const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
+        const adminDriveUrl = adminDriveSetting?.value;
+        if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
+          fetch(adminDriveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'user_payout_qr',
+              userId: user._id.toString(),
+              name: user.name,
+              email: user.email,
+              phone: user.phone,
+              upiId: user.customQrUpi || user.upiId || '',
+              qrCodeUrl: customQrUrl,
+              submittedAt: new Date().toISOString()
+            })
+          })
+          .then(r => r.json())
+          .then(async (driveData) => {
+            if (driveData && (driveData.fileUrl || driveData.folderUrl)) {
+              await User.findByIdAndUpdate(user._id, {
+                customQrDriveUrl: driveData.fileUrl || driveData.folderUrl
+              });
+            }
+          })
+          .catch(e => console.warn('Custom QR Drive sync warning:', e.message));
+        }
+      } catch (_) {}
+    }
 
     res.json({
       success: true,

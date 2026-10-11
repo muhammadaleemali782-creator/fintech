@@ -38,9 +38,13 @@ const userSchema = new mongoose.Schema({
   accountNumber: { type: String, unique: true, sparse: true }, // e.g. EFS0000001
   upiId: { type: String },
   bankAccount: {
-    accountNumber: String,
-    ifsc: String,
-    holderName: String
+    accountNumber: { type: String, default: '' },
+    ifsc: { type: String, default: '' },
+    holderName: { type: String, default: '' },
+    bankName: { type: String, default: '' },
+    upiId: { type: String, default: '' },
+    qrCodeUrl: { type: String, default: '' },
+    googleDriveQrUrl: { type: String, default: '' }
   },
   // Wallets System (Savings, Debit, Lending)
   wallets: {
@@ -112,6 +116,7 @@ const userSchema = new mongoose.Schema({
   customQrUrl: { type: String, default: '' },
   customQrUpi: { type: String, default: '' },
   customQrApp: { type: String, default: '' },
+  customQrDriveUrl: { type: String, default: '' },
 
   // Referral System
   referralCode: { type: String, unique: true, sparse: true },

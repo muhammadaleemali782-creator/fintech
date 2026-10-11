@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Educa Fintech — 25k Bond (25 Months) Prototype Variants</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       THE PICKER — SPEC SPECIFIED IN PICKER.md (VERBATIM)
+       ═══════════════════════════════════════════════════════════ */
+    .proto-picker {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2147483647;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(10, 10, 10, 0.82);
+      -webkit-backdrop-filter: blur(12px) saturate(1.4);
+      backdrop-filter: blur(12px) saturate(1.4);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+        0 8px 24px rgba(0, 0, 0, 0.24),
+        0 2px 6px rgba(0, 0, 0, 0.12);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      line-height: 1;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .proto-picker-highlight {
+      position: absolute;
+      top: 4px;
+      left: 0;
+      height: 28px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      will-change: transform;
+    }
+
+    .proto-picker[data-ready] .proto-picker-highlight {
+      transition:
+        transform 250ms cubic-bezier(0.23, 1, 0.32, 1),
+        width 250ms cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .proto-picker[data-ready] .proto-picker-highlight { transition: none; }
+    }
+
+    .proto-picker-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      height: 28px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.55);
+      font: inherit;
+      cursor: pointer;
+      transition: color 150ms ease-out;
+    }
+
+    .proto-picker-item:hover {
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .proto-picker-item:active {
+      transform: scale(0.97);
+    }
+
+    .proto-picker-item:focus-visible {
+      outline: 2px solid rgba(255, 255, 255, 0.4);
+      outline-offset: 2px;
+    }
+
+    .proto-picker-item[data-active] {
+      color: #fff;
+    }
+
+    .proto-picker-divider {
+      width: 1px;
+      height: 16px;
+      margin: 0 4px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .proto-picker-replay {
+      padding: 0 10px;
+      font-size: 14px;
+    }
+
+    .proto-picker[data-position="top"] {
+      bottom: auto;
+      top: 24px;
+    }
+
+    /* Subdued custom scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 999px; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-800 antialiased min-h-screen flex flex-col items-center justify-start p-3 sm:p-6 pb-24">
+
+  <!-- Top Context Header -->
+  <header class="w-full max-w-md mb-3 flex items-center justify-between text-white/80 text-xs px-2">
+    <div class="flex items-center gap-2">
+      <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+      <span class="font-extrabold tracking-wide uppercase text-[11px] text-white">Educa Fintech Dev Prototype</span>
+    </div>
+    <span class="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-2 py-0.5 rounded-full font-mono text-[10px]">
+      Tenure: 25 Months • ₹25,000 Bond
+    </span>
+  </header>
+
+  <!-- Phone Container / Screen Shell -->
+  <main class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col min-h-[640px] relative">
+    
+    <!-- Phone Top Bar -->
+    <div class="bg-slate-950 text-white px-5 py-3 flex items-center justify-between border-b border-white/10 shrink-0">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-xs text-white shadow-xs">
+          EF
+        </div>
+        <div>
+          <h1 class="text-xs font-black tracking-tight leading-none text-white">Educa Bonds</h1>
+          <span class="text-[10px] text-slate-400 font-mono">ID: EFS0004921</span>
+        </div>
+      </div>
+      <div class="text-right">
+        <span class="text-[9px] text-slate-400 uppercase font-bold block">Wallet Balance</span>
+        <span class="text-xs font-black font-mono text-emerald-400">₹52,400.00</span>
+      </div>
+    </div>
+
+    <!-- Active Variant Stage -->
+    <div id="stage" class="p-4 sm:p-5 flex-1 overflow-y-auto space-y-4"></div>
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast" class="absolute top-4 left-4 right-4 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 text-xs font-bold transition-all duration-300 transform -translate-y-20 opacity-0 pointer-events-none flex items-center justify-between z-50">
+      <div class="flex items-center gap-2">
+        <span id="toastIcon">🎉</span>
+        <span id="toastMsg">Action Successful</span>
+      </div>
+      <button onclick="hideToast()" class="text-slate-400 hover:text-white text-sm">✕</button>
+    </div>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       THE PICKER HARNESS — VERBATIM MARKUP FROM PICKER.MD
+       ═══════════════════════════════════════════════════════════ -->
+  <nav class="proto-picker" aria-label="Prototype variants">
+    <span class="proto-picker-highlight" aria-hidden="true"></span>
+    <button class="proto-picker-item" data-active aria-current="true">Micro-Passbook</button>
+    <button class="proto-picker-item">Milestone Visualizer</button>
+    <button class="proto-picker-item">Quick-Lock Desk</button>
+    <span class="proto-picker-divider" aria-hidden="true"></span>
+    <button class="proto-picker-item proto-picker-replay" aria-label="Replay animation (R)">↻</button>
+  </nav>
+
+  <script>
+    // Shared state across variant re-mounts
+    let state = {
+      units: 1, // 1 unit = ₹25,000
+      tenure: 25, // 25, 40, or 80 months
+    };
+
+    function triggerToast(msg, icon = '🎉') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+      toastMsg.innerText = msg;
+      toastIcon.innerText = icon;
+      toast.classList.remove('-translate-y-20', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(hideToast, 3500);
+    }
+
+    function hideToast() {
+      const toast = document.getElementById('toast');
+      toast.classList.add('-translate-y-20', 'opacity-0', 'pointer-events-none');
+      toast.classList.remove('translate-y-0', 'opacity-100');
+    }
+
+    function calculateMetrics(units, tenure) {
+      const principal = units * 25000;
+      let monthlyPayout = 0;
+      let totalReturn = 0;
+      let profit = 0;
+
+      if (tenure === 25) {
+        // 25 Months Tenure on 25k (₹1,250/mo per 25k unit)
+        monthlyPayout = units * 1250;
+        totalReturn = units * 31250;
+        profit = totalReturn - principal; // 25% gain
+      } else if (tenure === 40) {
+        // 40 Months: ₹3,500/mo per 1 Lakh = ₹875/mo per 25k unit
+        monthlyPayout = units * 875;
+        totalReturn = units * 35000;
+        profit = totalReturn - principal; // 40% gain
+      } else if (tenure === 80) {
+        // 80 Months: ₹2,500/mo per 1 Lakh = ₹625/mo per 25k unit
+        monthlyPayout = units * 625;
+        totalReturn = units * 50000;
+        profit = totalReturn - principal; // 100% gain
+      }
+
+      return {
+        principal,
+        monthlyPayout,
+        totalReturn,
+        profit,
+        profitPercent: Math.round((profit / principal) * 100)
+      };
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // VARIANT 1: Micro-Passbook
+    // Axis: Compact Banking Density & Passbook Ledger
+    // ─────────────────────────────────────────────────────────────
+    function renderVariant1() {
+      const m = calculateMetrics(state.units, state.tenure);
+      return `
+        <div class="space-y-3.5">
+          <!-- Passbook Header Card -->
+          <div class="bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 text-white rounded-2xl p-4 shadow-sm border border-indigo-500/20 relative overflow-hidden">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <span class="text-[10px] font-bold text-indigo-300 tracking-wider uppercase flex items-center gap-1">
+                  <span>🏛️</span> Monthly Lending Passbook
+                </span>
+                <h2 class="text-xl font-black font-mono tracking-tight mt-0.5">
+                  ₹${m.monthlyPayout.toLocaleString('en-IN')}<span class="text-xs font-semibold text-slate-300"> / Month</span>
+                </h2>
+              </div>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                ${state.tenure} Months Lock
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 text-xs font-mono">
+              <div>
+                <span class="text-[9px] text-slate-400 uppercase font-sans block">Total Investment</span>
+                <span class="font-bold text-white">₹${m.principal.toLocaleString('en-IN')} (${state.units}x 25k)</span>
+              </div>
+              <div>
+                <span class="text-[9px] text-slate-400 uppercase font-sans block">Total Guaranteed</span>
+                <span class="font-bold text-emerald-300">₹${m.totalReturn.toLocaleString('en-IN')} (+${m.profitPercent}%)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Unit Selector (25k Multiples) -->
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5">
+            <div class="flex justify-between items-center text-xs font-bold text-slate-700">
+              <span>Select 25k Bond Units:</span>
+              <span class="text-indigo-600 font-extrabold font-mono">${state.units} Unit = ₹${m.principal.toLocaleString('en-IN')}</span>
+            </div>
+
+            <div class="grid grid-cols-4 gap-1.5">
+              ${[1, 2, 3, 4].map(u => `
+                <button
+                  onclick="state.units = ${u}; renderCurrent();"
+                  class="py-2 px-1 rounded-xl text-xs font-bold transition ${state.units === u ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'}"
+                >
+                  ₹${(u * 25)}k
+                </button>
+              `).join('')}
+            </div>
+
+            <!-- Stepper Controls -->
+            <div class="flex items-center justify-between pt-1">
+              <span class="text-[11px] text-slate-500">Custom Unit Count:</span>
+              <div class="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2 py-0.5">
+                <button onclick="if(state.units > 1){ state.units--; renderCurrent(); }" class="w-6 h-6 flex items-center justify-center font-bold text-slate-700 hover:bg-slate-100 rounded">-</button>
+                <span class="font-mono font-bold text-xs px-2 text-indigo-900">${state.units}</span>
+                <button onclick="if(state.units < 20){ state.units++; renderCurrent(); }" class="w-6 h-6 flex items-center justify-center font-bold text-slate-700 hover:bg-slate-100 rounded">+</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tenure Switcher Tabs -->
+          <div>
+            <label class="text-[11px] font-bold text-slate-600 block mb-1.5 uppercase tracking-wider">Select Payout Duration</label>
+            <div class="grid grid-cols-3 gap-1.5">
+              <button
+                onclick="state.tenure = 25; renderCurrent();"
+                class="p-2.5 rounded-xl border text-center transition ${state.tenure === 25 ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}"
+              >
+                <div class="text-[10px] font-bold uppercase opacity-80">⭐ Starter</div>
+                <div class="text-xs font-black">25 Months</div>
+                <div class="text-[10px] font-mono mt-0.5">₹${(state.units * 1250).toLocaleString('en-IN')}/mo</div>
+              </button>
+
+              <button
+                onclick="state.tenure = 40; renderCurrent();"
+                class="p-2.5 rounded-xl border text-center transition ${state.tenure === 40 ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}"
+              >
+                <div class="text-[10px] font-bold uppercase opacity-80">Regular</div>
+                <div class="text-xs font-black">40 Months</div>
+                <div class="text-[10px] font-mono mt-0.5">₹${(state.units * 875).toLocaleString('en-IN')}/mo</div>
+              </button>
+
+              <button
+                onclick="state.tenure = 80; renderCurrent();"
+                class="p-2.5 rounded-xl border text-center transition ${state.tenure === 80 ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}"
+              >
+                <div class="text-[10px] font-bold uppercase opacity-80">Double</div>
+                <div class="text-xs font-black">80 Months</div>
+                <div class="text-[10px] font-mono mt-0.5">₹${(state.units * 625).toLocaleString('en-IN')}/mo</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Passbook Monthly Ledger Timeline Preview -->
+          <div class="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-2">
+            <div class="flex justify-between items-center text-xs font-extrabold text-slate-900">
+              <span class="flex items-center gap-1.5"><span>📅</span> Monthly Credit Schedule</span>
+              <span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-mono font-bold">Automatic 1st of month</span>
+            </div>
+            <div class="space-y-1.5 text-[11px] font-mono max-h-28 overflow-y-auto pr-1">
+              <div class="flex justify-between p-1.5 rounded-lg bg-slate-50 text-slate-700">
+                <span>Month 1 (Day 30):</span>
+                <span class="font-bold text-emerald-600">+₹${m.monthlyPayout.toLocaleString('en-IN')} Payout</span>
+              </div>
+              <div class="flex justify-between p-1.5 rounded-lg bg-slate-50 text-slate-700">
+                <span>Month 2 (Day 60):</span>
+                <span class="font-bold text-emerald-600">+₹${m.monthlyPayout.toLocaleString('en-IN')} Payout</span>
+              </div>
+              <div class="flex justify-between p-1.5 rounded-lg bg-slate-50 text-slate-700">
+                <span>Month ${state.tenure} (Final Maturity):</span>
+                <span class="font-bold text-indigo-700">₹${m.totalReturn.toLocaleString('en-IN')} Total Paid</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- CTA Button -->
+          <button
+            onclick="triggerToast('🎉 ₹${m.principal.toLocaleString('en-IN')} ka ${state.tenure}-Month Bond successfully locked!');"
+            class="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <span>🔒</span> Lock ₹${m.principal.toLocaleString('en-IN')} (${state.units}x 25k) Bond Now →
+          </button>
+        </div>
+      `;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // VARIANT 2: Milestone Visualizer
+    // Axis: Visual Progression & Milestone Growth
+    // ─────────────────────────────────────────────────────────────
+    function renderVariant2() {
+      const m = calculateMetrics(state.units, state.tenure);
+      const halfTenure = Math.floor(state.tenure / 2);
+      const halfPayout = Math.round(m.monthlyPayout * halfTenure);
+
+      return `
+        <div class="space-y-4">
+          <!-- Growth Hero Card with Visual Gauge -->
+          <div class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-3xl p-5 shadow-lg relative overflow-hidden">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-[10px] font-black uppercase tracking-wider text-emerald-100">Guaranteed Growth Engine</span>
+              <span class="text-xs font-mono font-bold bg-white/20 px-2 py-0.5 rounded-full">+${m.profitPercent}% Total Gain</span>
+            </div>
+
+            <div class="my-2">
+              <div class="text-3xl font-black font-mono tracking-tight text-white">
+                ₹${m.totalReturn.toLocaleString('en-IN')}
+              </div>
+              <p class="text-xs text-emerald-100 font-medium mt-0.5">
+                Invest ₹${m.principal.toLocaleString('en-IN')} today • Get ₹${m.monthlyPayout.toLocaleString('en-IN')} every month for ${state.tenure} months
+              </p>
+            </div>
+
+            <!-- Milestone Progress Bar -->
+            <div class="space-y-1.5 pt-3 border-t border-white/20 mt-3">
+              <div class="w-full bg-black/20 rounded-full h-2 overflow-hidden flex">
+                <div class="bg-white h-full" style="width: 20%"></div>
+                <div class="bg-emerald-300 h-full" style="width: 40%"></div>
+                <div class="bg-amber-300 h-full" style="width: 40%"></div>
+              </div>
+              <div class="flex justify-between text-[10px] font-mono text-emerald-100">
+                <span>Start: ₹${m.principal.toLocaleString('en-IN')}</span>
+                <span>Mo ${halfTenure}: ₹${halfPayout.toLocaleString('en-IN')}</span>
+                <span class="font-bold text-white">End: ₹${m.totalReturn.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Unit Slider & Chips -->
+          <div class="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs">
+            <div class="flex justify-between items-center text-xs font-bold text-slate-800">
+              <span>Choose Investment Size:</span>
+              <span class="text-emerald-700 font-mono font-black text-sm">₹${m.principal.toLocaleString('en-IN')}</span>
+            </div>
+
+            <input
+              type="range"
+              min="1"
+              max="8"
+              step="1"
+              value="${state.units}"
+              oninput="state.units = parseInt(this.value); renderCurrent();"
+              class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+            />
+
+            <div class="flex justify-between text-[10px] font-mono font-bold text-slate-400">
+              <span>1x (25k)</span>
+              <span>2x (50k)</span>
+              <span>4x (1L)</span>
+              <span>8x (2L)</span>
+            </div>
+
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              ${[
+                { u: 1, label: '25k Starter' },
+                { u: 2, label: '50k Bronze' },
+                { u: 4, label: '1 Lakh Silver' },
+              ].map(item => `
+                <button
+                  onclick="state.units = ${item.u}; renderCurrent();"
+                  class="flex-1 py-1.5 text-xs font-bold rounded-lg transition ${state.units === item.u ? 'bg-emerald-50 text-emerald-800 border-2 border-emerald-500' : 'bg-slate-50 text-slate-600 border border-slate-200'}"
+                >
+                  ${item.label}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- 3-Way Tenure Cards -->
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-bold text-slate-600 block uppercase tracking-wider">Select Bond Plan</label>
+            <div class="grid grid-cols-3 gap-2">
+              <div
+                onclick="state.tenure = 25; renderCurrent();"
+                class="p-3 rounded-2xl border cursor-pointer transition ${state.tenure === 25 ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20' : 'bg-white border-slate-200 hover:border-slate-300'}"
+              >
+                <span class="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">NEW</span>
+                <div class="text-xs font-black text-slate-800 mt-1">25 Months</div>
+                <div class="text-xs font-bold text-emerald-600 font-mono mt-0.5">₹${(state.units * 1250).toLocaleString('en-IN')}<span class="text-[10px] text-slate-400">/mo</span></div>
+              </div>
+
+              <div
+                onclick="state.tenure = 40; renderCurrent();"
+                class="p-3 rounded-2xl border cursor-pointer transition ${state.tenure === 40 ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20' : 'bg-white border-slate-200 hover:border-slate-300'}"
+              >
+                <span class="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">CLASSIC</span>
+                <div class="text-xs font-black text-slate-800 mt-1">40 Months</div>
+                <div class="text-xs font-bold text-slate-700 font-mono mt-0.5">₹${(state.units * 875).toLocaleString('en-IN')}<span class="text-[10px] text-slate-400">/mo</span></div>
+              </div>
+
+              <div
+                onclick="state.tenure = 80; renderCurrent();"
+                class="p-3 rounded-2xl border cursor-pointer transition ${state.tenure === 80 ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20' : 'bg-white border-slate-200 hover:border-slate-300'}"
+              >
+                <span class="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">2X VALUE</span>
+                <div class="text-xs font-black text-slate-800 mt-1">80 Months</div>
+                <div class="text-xs font-bold text-slate-700 font-mono mt-0.5">₹${(state.units * 625).toLocaleString('en-IN')}<span class="text-[10px] text-slate-400">/mo</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Action -->
+          <button
+            onclick="triggerToast('🚀 Milestone Plan Activated! ₹${m.monthlyPayout.toLocaleString('en-IN')}/month will credit to Profit Wallet.');"
+            class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <span>✨</span> Activate ₹${m.principal.toLocaleString('en-IN')} (${state.tenure} Mo) Bond Plan
+          </button>
+        </div>
+      `;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // VARIANT 3: Quick-Lock Payout Desk
+    // Axis: Action-Centric & One-Tap Conversion
+    // ─────────────────────────────────────────────────────────────
+    function renderVariant3() {
+      const m = calculateMetrics(state.units, state.tenure);
+      const remainingBalance = 52400 - m.principal;
+      const canAfford = remainingBalance >= 0;
+
+      return `
+        <div class="space-y-3.5">
+          <!-- Quick Status Strip -->
+          <div class="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2">
+              <span class="text-base">⚡</span>
+              <div>
+                <span class="font-extrabold text-amber-900 block leading-tight">Instant 25k Bond Desk</span>
+                <span class="text-[10px] text-amber-700">Zero paperwork for existing KYC users</span>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-200/80 text-amber-900">
+              25 Months
+            </span>
+          </div>
+
+          <!-- Dual Input & Payout Comparison Card -->
+          <div class="bg-white border-2 border-indigo-600 rounded-2xl p-4 shadow-sm space-y-3">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+              <span class="text-xs font-black text-slate-800 uppercase tracking-wide">Investment Package</span>
+              <span class="text-xs font-mono font-bold text-indigo-600">${state.units}x Unit Package</span>
+            </div>
+
+            <!-- Amount Input Field -->
+            <div>
+              <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Enter Bond Amount (Multiples of ₹25k)</label>
+              <div class="relative">
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">₹</span>
+                <input
+                  type="text"
+                  readonly
+                  value="${m.principal.toLocaleString('en-IN')}"
+                  class="w-full pl-8 pr-20 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base font-black font-mono text-slate-900 outline-none"
+                />
+                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  <button
+                    onclick="if(state.units > 1){ state.units--; renderCurrent(); }"
+                    class="px-2 py-1 bg-white border border-slate-200 rounded text-xs font-bold hover:bg-slate-100"
+                  >
+                    -
+                  </button>
+                  <button
+                    onclick="if(state.units < 10){ state.units++; renderCurrent(); }"
+                    class="px-2 py-1 bg-white border border-slate-200 rounded text-xs font-bold hover:bg-slate-100"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 25k Quick Presets -->
+            <div class="flex gap-1.5">
+              ${[
+                { u: 1, label: '₹25,000' },
+                { u: 2, label: '₹50,000' },
+                { u: 4, label: '₹1,00,000' },
+              ].map(preset => `
+                <button
+                  onclick="state.units = ${preset.u}; renderCurrent();"
+                  class="flex-1 py-1 text-[11px] font-mono font-bold rounded-lg transition ${state.units === preset.u ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}"
+                >
+                  ${preset.label}
+                </button>
+              `).join('')}
+            </div>
+
+            <!-- Live Returns Summary Box -->
+            <div class="bg-indigo-50/70 border border-indigo-100 rounded-xl p-3 space-y-1.5 text-xs">
+              <div class="flex justify-between items-center">
+                <span class="text-slate-600 font-medium">Monthly Payout:</span>
+                <span class="font-black font-mono text-indigo-700 text-sm">₹${m.monthlyPayout.toLocaleString('en-IN')} / mo</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-600 font-medium">Payout Duration:</span>
+                <span class="font-bold font-mono text-slate-800">${state.tenure} Months</span>
+              </div>
+              <div class="flex justify-between items-center pt-1 border-t border-indigo-200/50">
+                <span class="text-slate-800 font-bold">Total Return Guaranteed:</span>
+                <span class="font-black font-mono text-emerald-600 text-sm">₹${m.totalReturn.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <!-- Wallet Impact Preview -->
+            <div class="text-[11px] flex justify-between items-center text-slate-500 pt-1 font-mono">
+              <span>Balance After Lock:</span>
+              <span class="${canAfford ? 'text-slate-800 font-bold' : 'text-rose-600 font-bold'}">
+                ₹${Math.max(0, remainingBalance).toLocaleString('en-IN')} ${canAfford ? '✓' : '(Low Balance)'}
+              </span>
+            </div>
+          </div>
+
+          <!-- Instant Lock Button -->
+          <button
+            onclick="${canAfford ? `triggerToast('🔒 ₹${m.principal.toLocaleString('en-IN')} Bond Locked! First payout scheduled in 30 days.');` : `triggerToast('Wallet me balance kam hai. Kripya pehle deposit karein.', '⚠️');`}"
+            class="w-full py-3.5 ${canAfford ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'} rounded-xl font-black text-xs shadow-md active:scale-95 transition flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <span>⚡</span> One-Tap Quick Lock: ₹${m.principal.toLocaleString('en-IN')} (${state.tenure} Mo)
+          </button>
+        </div>
+      `;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // PICKER WIRING — SPEC VERBATIM FROM PICKER.MD
+    // ─────────────────────────────────────────────────────────────
+    const variants = [renderVariant1, renderVariant2, renderVariant3];
+    const stage = document.getElementById('stage');
+    const picker = document.querySelector('.proto-picker');
+    const highlight = picker.querySelector('.proto-picker-highlight');
+    const items = [...picker.querySelectorAll('.proto-picker-item:not(.proto-picker-replay)')];
+    const replay = picker.querySelector('.proto-picker-replay');
+    let current = 0;
+
+    function renderCurrent() {
+      stage.innerHTML = variants[current]();
+    }
+
+    function moveHighlight() {
+      const el = items[current];
+      highlight.style.width = el.offsetWidth + 'px';
+      highlight.style.transform = `translateX(${el.offsetLeft}px)`;
+    }
+
+    function mount(i) {
+      stage.innerHTML = '';
+      requestAnimationFrame(() => {
+        stage.innerHTML = variants[i]();
+      });
+    }
+
+    function setActive(i) {
+      if (i < 0 || i >= variants.length) return;
+      current = i;
+      items.forEach((el, j) => {
+        el.toggleAttribute('data-active', j === i);
+        if (j === i) el.setAttribute('aria-current', 'true');
+        else el.removeAttribute('aria-current');
+      });
+      moveHighlight();
+      const url = new URL(location);
+      url.searchParams.set('v', i + 1);
+      history.replaceState(null, '', url);
+      mount(i);
+    }
+
+    items.forEach((el, i) => el.addEventListener('click', () => setActive(i)));
+    replay?.addEventListener('click', () => mount(current));
+    window.addEventListener('resize', moveHighlight);
+
+    document.addEventListener('keydown', (e) => {
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const num = parseInt(e.key, 10);
+      if (num >= 1 && num <= variants.length) setActive(num - 1);
+      else if (e.key === 'ArrowRight') setActive((current + 1) % variants.length);
+      else if (e.key === 'ArrowLeft') setActive((current - 1 + variants.length) % variants.length);
+      else if (e.key === 'r' || e.key === 'R') mount(current);
+    });
+
+    setActive((parseInt(new URLSearchParams(location.search).get('v'), 10) || 1) - 1);
+    requestAnimationFrame(() => requestAnimationFrame(() => picker.setAttribute('data-ready', '')));
+  </script>
+</body>
+</html>

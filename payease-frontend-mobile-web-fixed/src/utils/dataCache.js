@@ -50,6 +50,17 @@ export const appCache = {
     return localStorage.getItem(key) !== null;
   },
 
+  remove(key) {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  },
+
+  delete(key) {
+    this.remove(key);
+  },
+
   clearUserData() {
     if (typeof window === "undefined" || !window.localStorage) return;
     const userKeys = [

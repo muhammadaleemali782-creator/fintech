@@ -445,7 +445,8 @@ export default function AdminPanel() {
     const cached = appCache.get("educa_admin_cached_stats", null);
     if (cached && typeof cached === "object") {
       if (cached.totalDeposits === 26657112) {
-        appCache.remove("educa_admin_cached_stats");
+        try { localStorage.removeItem("educa_admin_cached_stats"); } catch {}
+        appCache.remove?.("educa_admin_cached_stats");
         return null;
       }
       return cached;
@@ -525,7 +526,8 @@ export default function AdminPanel() {
     const cached = appCache.get("educa_admin_cached_analytics", null);
     if (cached && typeof cached === "object" && cached.stats) {
       if (cached.stats.totalDeposits === 26657112) {
-        appCache.remove("educa_admin_cached_analytics");
+        try { localStorage.removeItem("educa_admin_cached_analytics"); } catch {}
+        appCache.remove?.("educa_admin_cached_analytics");
         return DEFAULT_ANALYTICS;
       }
       return cached;

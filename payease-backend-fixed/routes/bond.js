@@ -7,6 +7,7 @@ const { protect, admin } = require('../middleware/auth');
 const Settings = require('../models/Settings');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
+const { syncToGoogleDrive } = require('../utils/drive');
 const router = express.Router();
 
 // Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
@@ -80,6 +81,29 @@ const calculateBondTerms = (bondType, amount = 100000) => {
     };
   }
 
+  if (bondType === 'bond_25k') {
+    // 25K Bond for 25 Months
+    const principal25k = 25000;
+    const maturityDate = new Date(now);
+    maturityDate.setMonth(maturityDate.getMonth() + 25);
+    const nextPayoutDate = new Date(now);
+    nextPayoutDate.setDate(nextPayoutDate.getDate() + 30);
+    const returnAmount = 35000;
+    const monthlyPayout = 1400;
+
+    return {
+      bondType,
+      principalAmount: principal25k,
+      returnAmount,
+      monthlyPayout,
+      tenureDays: 25 * 30,
+      tenureMonths: 25,
+      startDate: now,
+      maturityDate,
+      nextPayoutDate
+    };
+  }
+
   throw new Error('Invalid bond type');
 };
 
@@ -87,7 +111,7 @@ const calculateBondTerms = (bondType, amount = 100000) => {
 router.post('/create', protect, async (req, res) => {
   const { bondType, amount = 100000, documents } = req.body;
 
-  if (!['debit_365', 'lending_40', 'lending_80'].includes(bondType)) {
+  if (!['debit_365', 'lending_40', 'lending_80', 'bond_25k'].includes(bondType)) {
     return res.status(400).json({ message: 'Invalid bond type' });
   }
 
@@ -95,12 +119,12 @@ router.post('/create', protect, async (req, res) => {
   if (!userDoc) return res.status(404).json({ message: 'User not found' });
 
   // ─────────────────────────────────────────────────────────────
-  // STRICT MANDATORY REQUIREMENTS FOR LENDING ACCOUNTS
+  // STRICT MANDATORY REQUIREMENTS FOR ALL BONDS & LENDING
   // Aadhaar (Front/Back), PAN (Front/Back), Barrier Cheque (Front/Back),
   // Bank Details, UPI ID, Nominee Details, Email & Phone
   // ─────────────────────────────────────────────────────────────
   let bondDocumentsPayload = {};
-  if (['lending_40', 'lending_80'].includes(bondType)) {
+  {
     const docs = documents || {};
     const aadharNumber = (docs.aadharNumber || userDoc.aadharNumber || '').toString().trim();
     const aadharFront = docs.aadharUrl || docs.doc1Url || userDoc.kycDocuments?.doc1Url;
@@ -340,40 +364,18 @@ router.post('/create', protect, async (req, res) => {
       }
     });
 
-    // Background Google Drive sync for lending documents
-    if (['lending_40', 'lending_80'].includes(bondType)) {
-      try {
-        const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
-        const adminDriveUrl = adminDriveSetting?.value;
-        if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
-          fetch(adminDriveUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'upload_lending_application',
-              accountNumber: bond.accountNumber,
-              bondType: bond.bondType,
-              userId: userDoc._id.toString(),
-              userName: userDoc.name,
-              amount: bond.principalAmount,
-              returnAmount: bond.returnAmount,
-              monthlyPayout: bond.monthlyPayout,
-              ...bondDocumentsPayload
-            })
-          })
-          .then(r => r.json())
-          .then(async (driveData) => {
-            if (driveData && (driveData.fileUrl || driveData.folderUrl)) {
-              await Bond.findByIdAndUpdate(bond._id, {
-                'documents.googleDriveFolderUrl': driveData.folderUrl || driveData.fileUrl,
-                'documents.googleDriveSyncStatus': 'synced'
-              });
-            }
-          })
-          .catch(e => console.warn('Lending Drive sync warning:', e.message));
-        }
-      } catch (driveErr) {}
-    }
+    // Fast non-blocking Google Drive sync for all bond applications
+    syncToGoogleDrive({
+      action: 'upload_bond_application',
+      accountNumber: bond.accountNumber,
+      bondType: bond.bondType,
+      userId: userDoc._id.toString(),
+      userName: userDoc.name,
+      amount: bond.principalAmount,
+      returnAmount: bond.returnAmount,
+      monthlyPayout: bond.monthlyPayout,
+      ...bondDocumentsPayload
+    });
 
     res.json({
       message: `🎉 Lending Bond created successfully! Account No: ${bond.accountNumber}`,

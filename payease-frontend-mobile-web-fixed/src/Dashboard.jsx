@@ -813,6 +813,7 @@ export default function Dashboard() {
   const [lookupError, setLookupError] = useState("");
   const [pendingPinAction, setPendingPinAction] = useState(null);
   const pendingPinActionRef = useRef(null);
+  const executeDirectTransferRef = useRef(null);
   useEffect(() => {
     pendingPinActionRef.current = pendingPinAction;
   }, [pendingPinAction]);
@@ -916,8 +917,12 @@ export default function Dashboard() {
   const [debitBondUnits, setDebitBondUnits] = useState(1);
   const [lendingBondUnits, setLendingBondUnits] = useState(1);
 
-  // Lending Bond Selection (40 or 80 months)
+  // Lending Bond Selection (40 or 80 months, or 25 months bond)
   const [lendingBondType, setLendingBondType] = useState("lending_40");
+  const [isSubmittingLendingBond, setIsSubmittingLendingBond] = useState(false);
+  const [isSubmittingDebitBond, setIsSubmittingDebitBond] = useState(false);
+  const [isSubmittingDeposit, setIsSubmittingDeposit] = useState(false);
+  const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
   const [lendingForm, setLendingForm] = useState({
     aadharNumber: "",
     aadharUrl: "",
@@ -1567,15 +1572,24 @@ export default function Dashboard() {
           setPendingPinAction(null);
           if (nextAction?.type === "passbook") {
             setModal("passbook");
+            showToast("Wallet & Passbook Unlocked!", "success");
           } else if (nextAction?.type === "wallet") {
             setModal(null);
             setAccountModal("wallet");
+            showToast("Wallet Unlocked!", "success");
+          } else if (nextAction?.type === "send_money_transfer") {
+            const transferPayload = { ...(nextAction.form || sendForm), pin: activePin };
+            setSendForm(transferPayload);
+            setModal(null);
+            executeDirectTransferRef.current?.(transferPayload, activePin);
           } else if (nextAction?.type === "send_money") {
+            setSendForm(prev => ({ ...prev, pin: activePin }));
             setModal("send_money");
+            showToast("6-Digit UPI PIN verified! Send money confirm karein.", "success");
           } else {
             setModal(null);
+            showToast("Security PIN Verified!", "success");
           }
-          showToast("Wallet & Passbook Unlocked!", "success");
         } else {
           if (data.needsSetup) {
             setPinSetupMode(true);
@@ -3532,26 +3546,34 @@ export default function Dashboard() {
   };
 
   const submitDeposit = async () => {
+    if (isSubmittingDeposit) return;
     if (!depForm.amount || !depForm.utrNumber) return showToast("Amount aur UTR number daalna zaroori hai", "error");
     if (+depForm.amount < 1) return showToast("Kripya valid deposit amount enter karein (min ₹1)", "error");
     if (!depForm.proofUrl) return showToast("Kripya payment screenshot / receipt evidence attach karein", "error");
-    const res = await fetch(`${API}/transaction/deposit`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        amount: +depForm.amount,
-        method: depForm.method,
-        utrNumber: depForm.utrNumber.trim(),
-        proofUrl: depForm.proofUrl || "",
-        screenshotUrl: depForm.proofUrl || ""
-      })
-    });
-    const data = await res.json();
-    showToast(data.message, res.ok ? "success" : "error");
-    if (res.ok) {
-      closeModal();
-      setDepForm({ amount: "", method: "upi", utrNumber: "", proofUrl: "", proofName: "" });
-      loadDashboard();
+    setIsSubmittingDeposit(true);
+    try {
+      const res = await fetch(`${API}/transaction/deposit`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          amount: +depForm.amount,
+          method: depForm.method,
+          utrNumber: depForm.utrNumber.trim(),
+          proofUrl: depForm.proofUrl || "",
+          screenshotUrl: depForm.proofUrl || ""
+        })
+      });
+      const data = await res.json();
+      showToast(data.message, res.ok ? "success" : "error");
+      if (res.ok) {
+        closeModal();
+        setDepForm({ amount: "", method: "upi", utrNumber: "", proofUrl: "", proofName: "" });
+        loadDashboard();
+      }
+    } catch {
+      showToast("Network error submitting deposit request", "error");
+    } finally {
+      setIsSubmittingDeposit(false);
     }
   };
 
@@ -3582,6 +3604,7 @@ export default function Dashboard() {
   };
 
   const submitWithdraw = async () => {
+    if (isSubmittingWithdraw) return;
     const amt = Number(wdForm.amount);
     if (!amt || amt < 100) return showToast("Amount kam se kam ₹100 hona chahiye", "error");
     const isProfit = wdForm.sourceWallet === "profit";
@@ -3611,74 +3634,61 @@ export default function Dashboard() {
           ifsc: (wdForm.ifsc || "").trim().toUpperCase(),
           bankName: (wdForm.bankName || "").trim()
         };
-    const res = await fetch(`${API}/transaction/withdraw`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        amount: amt,
-        method: wdForm.method,
-        paymentDetails,
-        sourceWallet: wdForm.sourceWallet || "main"
-      })
-    });
-    const data = await res.json();
-    showToast(data.message, res.ok ? "success" : "error");
-    if (res.ok) {
-      if (wdSaveToProfile) {
-        fetch(`${API}/user/update`, {
-          method: "PUT",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            bankAccount: {
-              accountNumber: (wdForm.accountNumber || "").trim(),
-              ifsc: (wdForm.ifsc || "").trim().toUpperCase(),
-              bankName: (wdForm.bankName || "").trim(),
-              upiId: (wdForm.upiId || "").trim(),
-              qrCodeUrl: wdForm.qrCode || ""
-            },
-            upiId: (wdForm.upiId || "").trim()
-          })
-        }).then(r => r.json()).then(d => {
-          if (d && (d.user || d._id)) {
-            setUserProfile(prev => ({ ...prev, ...(d.user || d) }));
-          }
-        }).catch(() => {});
+    setIsSubmittingWithdraw(true);
+    try {
+      const res = await fetch(`${API}/transaction/withdraw`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          amount: amt,
+          method: wdForm.method,
+          paymentDetails,
+          sourceWallet: wdForm.sourceWallet || "main"
+        })
+      });
+      const data = await res.json();
+      showToast(data.message, res.ok ? "success" : "error");
+      if (res.ok) {
+        if (wdSaveToProfile) {
+          fetch(`${API}/user/update`, {
+            method: "PUT",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              bankAccount: {
+                accountNumber: (wdForm.accountNumber || "").trim(),
+                ifsc: (wdForm.ifsc || "").trim().toUpperCase(),
+                bankName: (wdForm.bankName || "").trim(),
+                upiId: (wdForm.upiId || "").trim(),
+                qrCodeUrl: wdForm.qrCode || ""
+              },
+              upiId: (wdForm.upiId || "").trim()
+            })
+          }).then(r => r.json()).then(d => {
+            if (d && (d.user || d._id)) {
+              setUserProfile(prev => ({ ...prev, ...(d.user || d) }));
+            }
+          }).catch(() => {});
+        }
+        closeModal();
+        setWdForm({ amount: "", method: "upi", upiId: "", qrCode: "", qrCodeName: "", accountNumber: "", ifsc: "", bankName: "", sourceWallet: "main" });
+        loadDashboard();
       }
-      closeModal();
-      setWdForm({ amount: "", method: "upi", upiId: "", qrCode: "", qrCodeName: "", accountNumber: "", ifsc: "", bankName: "", sourceWallet: "main" });
-      loadDashboard();
+    } catch {
+      showToast("Network error submitting withdrawal", "error");
+    } finally {
+      setIsSubmittingWithdraw(false);
     }
   };
 
-  // Submit P2P Transfer (App-to-App)
-  const submitTransfer = async () => {
-    if (isSendingMoney) return; // Prevent double execution
-    const amt = Number(sendForm.amount);
-    if (!amt || amt < 1 || !Number.isInteger(amt)) {
-      return showToast("Valid amount daalein (minimum ₹1, bina decimals)", "error");
-    }
-    if (!sendForm.recipient) {
-      return showToast("Recipient Phone, Email ya Unique ID daalein", "error");
-    }
-    if (!userProfile.hasWalletPin) {
-      showToast("Kripya pehle apna 6-digit UPI PIN set karein", "info");
-      setPendingPinAction({ type: "send_money" });
-      setPinSetupMode(true);
-      setPinError("");
-      setPinInput("");
-      setConfirmPinInput("");
-      setModal("wallet_pin");
-      return;
-    }
-    if (!sendForm.pin || sendForm.pin.length !== 6) {
-      return showToast("Kripya apna 6-digit UPI PIN enter karein", "error");
-    }
-
+  // Helper to execute verified P2P Transfer (App-to-App)
+  const executeDirectTransfer = async (formPayload, verifiedPin) => {
+    if (isSendingMoney) return;
     setIsSendingMoney(true);
 
-    // Fetch fresh profile from server so payment always checks 100% live server balance
+    const amt = Number(formPayload.amount);
     let curBal = balance;
     let curProfit = Number(userProfile.profitBalance || 0);
+
     try {
       const freshRes = await fetch(`${API}/user/me`, { headers });
       if (freshRes.ok) {
@@ -3699,7 +3709,7 @@ export default function Dashboard() {
       }
     } catch {}
 
-    const isProfit = sendForm.sourceWallet === "profit";
+    const isProfit = formPayload.sourceWallet === "profit";
     const availableFunds = isProfit ? curProfit : curBal;
     if (amt > availableFunds) {
       setIsSendingMoney(false);
@@ -3716,11 +3726,11 @@ export default function Dashboard() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          recipient: sendForm.recipient.trim(),
+          recipient: formPayload.recipient.trim(),
           amount: amt,
-          notes: sendForm.notes.trim(),
-          pin: sendForm.pin,
-          sourceWallet: sendForm.sourceWallet || "main"
+          notes: (formPayload.notes || "").trim(),
+          pin: verifiedPin || formPayload.pin,
+          sourceWallet: formPayload.sourceWallet || "main"
         })
       });
       const data = await res.json();
@@ -3747,14 +3757,14 @@ export default function Dashboard() {
       } else {
         if (data.needsSetup) {
           showToast(data.message || "Kripya pehle 6-digit UPI PIN banayein", "info");
-          setPendingPinAction({ type: "send_money" });
+          setPendingPinAction({ type: "send_money", form: formPayload });
           setPinSetupMode(true);
           setPinError("");
           setPinInput("");
           setConfirmPinInput("");
           setModal("wallet_pin");
         } else {
-          showToast(data.message || "Transfer fail ho gaya", "error");
+          showToast(data.message || "Transfer fail ho gaya. Kripya PIN check karein.", "error");
         }
       }
     } catch {
@@ -3762,6 +3772,40 @@ export default function Dashboard() {
     } finally {
       setIsSendingMoney(false);
     }
+  };
+  executeDirectTransferRef.current = executeDirectTransfer;
+
+  // Submit P2P Transfer (App-to-App)
+  const submitTransfer = async () => {
+    if (isSendingMoney) return; // Prevent double execution
+    const amt = Number(sendForm.amount);
+    if (!amt || amt < 1 || !Number.isInteger(amt)) {
+      return showToast("Valid amount daalein (minimum ₹1, bina decimals)", "error");
+    }
+    if (!sendForm.recipient) {
+      return showToast("Recipient Phone, Email ya Unique ID daalein", "error");
+    }
+    if (!userProfile.hasWalletPin) {
+      showToast("Kripya pehle apna 6-digit UPI PIN set karein", "info");
+      setPendingPinAction({ type: "send_money", form: { ...sendForm } });
+      setPinSetupMode(true);
+      setPinError("");
+      setPinInput("");
+      setConfirmPinInput("");
+      setModal("wallet_pin");
+      return;
+    }
+    if (!sendForm.pin || sendForm.pin.length !== 6) {
+      // Seamlessly prompt with 6-digit UPI PIN pad sheet (PhonePe style)
+      setPendingPinAction({ type: "send_money_transfer", form: { ...sendForm } });
+      setPinSetupMode(false);
+      setPinError("");
+      setPinInput("");
+      setModal("wallet_pin");
+      return;
+    }
+
+    return executeDirectTransfer(sendForm, sendForm.pin);
   };
 
   // Helper to render dual camera/gallery document picker box
@@ -4163,6 +4207,7 @@ export default function Dashboard() {
 
   // Create 365-Day Fixed Bond (Debit)
   const createDebitBond = async () => {
+    if (isSubmittingDebitBond) return;
     const units = Math.max(1, parseInt(debitBondUnits) || 1);
     const amount = units * 100000;
     const profitReturn = Math.round(amount * 1.18);
@@ -4181,12 +4226,34 @@ export default function Dashboard() {
     if (curBal < amount) {
       return showToast(`${units} Lakh (₹${amount.toLocaleString("en-IN")}) ka bond banane ke liye wallet me kam se kam ₹${amount.toLocaleString("en-IN")} hona chahiye. Available: ₹${curBal.toLocaleString("en-IN")}`, "error");
     }
+    const kycDocs = userProfile?.kycDocuments || {};
+    if (!kycDocs.doc1Url || !kycDocs.doc2Url) {
+      showToast("Fixed Bond ke liye pehle Profile me KYC Documents (Aadhaar & PAN) submit karein", "error");
+      setAccountModal("kyc");
+      return;
+    }
     if (!window.confirm(`₹${amount.toLocaleString("en-IN")} (${units} Lakh) ka 365-Day Fixed Bond lock karein? Maturity par ₹${profitReturn.toLocaleString("en-IN")} Profit Wallet me add hoga.`)) return;
+    setIsSubmittingDebitBond(true);
     try {
       const res = await fetch(`${API}/bond/create`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ bondType: "debit_365", amount })
+        body: JSON.stringify({
+          bondType: "debit_365",
+          amount,
+          documents: {
+            aadharUrl: kycDocs.doc1Url,
+            aadharBackUrl: kycDocs.doc1BackUrl,
+            doc1Url: kycDocs.doc1Url,
+            doc1BackUrl: kycDocs.doc1BackUrl,
+            panUrl: kycDocs.doc2Url,
+            panBackUrl: kycDocs.doc2BackUrl,
+            doc2Url: kycDocs.doc2Url,
+            doc2BackUrl: kycDocs.doc2BackUrl,
+            applicantEmail: userProfile?.email || "",
+            applicantPhone: userProfile?.phone || ""
+          }
+        })
       });
       const data = await res.json();
       if (res.ok) {
@@ -4198,15 +4265,31 @@ export default function Dashboard() {
       }
     } catch {
       showToast("Network error creating bond", "error");
+    } finally {
+      setIsSubmittingDebitBond(false);
     }
   };
 
-  // Create Lending Monthly Bond (40 or 80 Months) with Mandatory Document Verification
+  // Create Lending Monthly Bond (40, 80 Months or 25 Months) with Mandatory Document Verification
   const createLendingBond = async (type = "lending_40") => {
-    const units = Math.max(1, parseInt(lendingBondUnits) || 1);
-    const amount = units * 100000;
-    const monthlyPayout = type === "lending_40" ? Math.round(3500 * units) : Math.round(2500 * units);
-    const totalReturn = type === "lending_40" ? Math.round(140000 * units) : Math.round(200000 * units);
+    if (isSubmittingLendingBond) return;
+    let amount;
+    let monthlyPayout;
+    let totalReturn;
+    let planTitle;
+
+    if (type === "bond_25k") {
+      amount = 25000;
+      monthlyPayout = 1400;
+      totalReturn = 35000;
+      planTitle = "25 Months Bond (₹25,000)";
+    } else {
+      const units = Math.max(1, parseInt(lendingBondUnits) || 1);
+      amount = units * 100000;
+      monthlyPayout = type === "lending_40" ? Math.round(3500 * units) : Math.round(2500 * units);
+      totalReturn = type === "lending_40" ? Math.round(140000 * units) : Math.round(200000 * units);
+      planTitle = type === "lending_40" ? `40M (₹${monthlyPayout}/mo)` : `80M (₹${monthlyPayout}/mo)`;
+    }
 
     let curBal = balance;
     try {
@@ -4221,7 +4304,7 @@ export default function Dashboard() {
       }
     } catch {}
     if (curBal < amount) {
-      return showToast(`Lending Bond (${units} Lakh) lock karne ke liye wallet me kam se kam ₹${amount.toLocaleString("en-IN")} hona chahiye. Available: ₹${curBal.toLocaleString("en-IN")}`, "error");
+      return showToast(`${planTitle} lock karne ke liye wallet me kam se kam ₹${amount.toLocaleString("en-IN")} hona chahiye. Available: ₹${curBal.toLocaleString("en-IN")}`, "error");
     }
 
     const form = lendingForm;
@@ -4278,11 +4361,14 @@ export default function Dashboard() {
       return showToast("Valid 10-digit phone number darj karna anivarya hai", "error");
     }
 
-    const msg = type === "lending_40"
-      ? `₹${amount.toLocaleString("en-IN")} (${units} Lakh) ka 40 Months Lending Bond lock karein? (Total ₹${totalReturn.toLocaleString("en-IN")} return @ ₹${monthlyPayout.toLocaleString("en-IN")}/month)`
-      : `₹${amount.toLocaleString("en-IN")} (${units} Lakh) ka 80 Months Lending Bond lock karein? (Total ₹${totalReturn.toLocaleString("en-IN")} return @ ₹${monthlyPayout.toLocaleString("en-IN")}/month)`;
+    const msg = type === "bond_25k"
+      ? `₹25,000 ka 25 Months Bond lock karein? (Total ₹35,000 return @ ₹1,400/month for 25 months)`
+      : type === "lending_40"
+      ? `₹${amount.toLocaleString("en-IN")} ka 40 Months Lending Bond lock karein? (Total ₹${totalReturn.toLocaleString("en-IN")} return @ ₹${monthlyPayout.toLocaleString("en-IN")}/month)`
+      : `₹${amount.toLocaleString("en-IN")} ka 80 Months Lending Bond lock karein? (Total ₹${totalReturn.toLocaleString("en-IN")} return @ ₹${monthlyPayout.toLocaleString("en-IN")}/month)`;
     if (!window.confirm(msg)) return;
 
+    setIsSubmittingLendingBond(true);
     try {
       const res = await fetch(`${API}/bond/create`, {
         method: "POST",
@@ -4326,6 +4412,8 @@ export default function Dashboard() {
       }
     } catch {
       showToast("Network error creating lending bond", "error");
+    } finally {
+      setIsSubmittingLendingBond(false);
     }
   };
 
@@ -6808,13 +6896,18 @@ export default function Dashboard() {
           <button
             onClick={submitTransfer}
             disabled={isSendingMoney}
-            className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+            className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
           >
-            {isSendingMoney
-              ? "Processing Transfer..."
-              : !userProfile.hasWalletPin
-              ? "Set UPI PIN & Send Money →"
-              : "Send Money Now →"}
+            {isSendingMoney ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Processing Transfer...</span>
+              </>
+            ) : !userProfile.hasWalletPin ? (
+              <span>Set UPI PIN & Send Money →</span>
+            ) : (
+              <span>Send Money Now →</span>
+            )}
           </button>
         </div>
       </Sheet>
@@ -7855,9 +7948,17 @@ export default function Dashboard() {
 
             <button
               onClick={createDebitBond}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95 cursor-pointer"
+              disabled={isSubmittingDebitBond}
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Lock ₹{(debitBondUnits * 100000).toLocaleString("en-IN")} ({debitBondUnits} Lakh) Fixed Bond Now →
+              {isSubmittingDebitBond ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Activating Fixed Bond...</span>
+                </>
+              ) : (
+                `Lock ₹${(debitBondUnits * 100000).toLocaleString("en-IN")} (${debitBondUnits} Lakh) Fixed Bond Now →`
+              )}
             </button>
           </div>
 
@@ -7934,86 +8035,113 @@ export default function Dashboard() {
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
             <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Lending Monthly Bonds (Multi-Unit Supported)</span>
             <div className="text-2xl sm:text-3xl font-black font-display my-1">
-              {lendingBondType === "lending_40"
+              {lendingBondType === "bond_25k"
+                ? `₹1,400 / Month (25 Mo)`
+                : lendingBondType === "lending_40"
                 ? `₹${(3500 * lendingBondUnits).toLocaleString("en-IN")} / Month (40 Mo)`
                 : `₹${(2500 * lendingBondUnits).toLocaleString("en-IN")} / Month (80 Mo)`}
             </div>
             <p className="text-xs text-blue-100">
-              {lendingBondUnits} Lakh par {lendingBondType === "lending_40" ? `₹${(140000 * lendingBondUnits).toLocaleString("en-IN")}` : `₹${(200000 * lendingBondUnits).toLocaleString("en-IN")}`} total guaranteed returns. Multiple bonds allow hain!
+              {lendingBondType === "bond_25k"
+                ? "₹25,000 par ₹35,000 total guaranteed returns (₹1,400/mo x 25 months)."
+                : `${lendingBondUnits} Lakh par ${lendingBondType === "lending_40" ? `₹${(140000 * lendingBondUnits).toLocaleString("en-IN")}` : `₹${(200000 * lendingBondUnits).toLocaleString("en-IN")}`} total guaranteed returns. Multiple bonds allow hain!`}
             </p>
           </div>
 
           <div className="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl space-y-3">
-            {/* Units Selector (1 Lakh, 2 Lakh, 3 Lakh, 5 Lakh) */}
-            <div className="space-y-1.5 bg-white p-3 rounded-xl border border-indigo-200">
-              <div className="flex justify-between items-center text-xs font-bold text-indigo-950">
-                <span>Select Investment Amount / Units:</span>
-                <span className="text-indigo-700 font-extrabold font-mono">
-                  {lendingBondUnits} Unit ({lendingBondUnits} Lakh = ₹{(lendingBondUnits * 100000).toLocaleString("en-IN")})
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5 items-center">
-                {[1, 2, 3, 5].map(u => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => setLendingBondUnits(u)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
-                      lendingBondUnits === u
-                        ? "bg-indigo-600 text-white shadow-xs"
-                        : "bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200"
-                    }`}
-                  >
-                    ₹{u} Lakh
-                  </button>
-                ))}
-                <div className="flex items-center gap-1 bg-indigo-50/70 border border-indigo-300 rounded-lg px-2 py-1 ml-auto">
-                  <button
-                    type="button"
-                    onClick={() => setLendingBondUnits(prev => Math.max(1, prev - 1))}
-                    className="w-5 h-5 flex items-center justify-center bg-white text-indigo-900 font-black rounded text-xs hover:bg-indigo-100 cursor-pointer"
-                  >
-                    -
-                  </button>
-                  <span className="text-xs font-black text-indigo-950 px-1 font-mono">{lendingBondUnits}L</span>
-                  <button
-                    type="button"
-                    onClick={() => setLendingBondUnits(prev => prev + 1)}
-                    className="w-5 h-5 flex items-center justify-center bg-white text-indigo-900 font-black rounded text-xs hover:bg-indigo-100 cursor-pointer"
-                  >
-                    +
-                  </button>
+            {/* Units Selector (1 Lakh, 2 Lakh, 3 Lakh, 5 Lakh) - hidden for fixed 25k plan */}
+            {lendingBondType !== "bond_25k" ? (
+              <div className="space-y-1.5 bg-white p-3 rounded-xl border border-indigo-200">
+                <div className="flex justify-between items-center text-xs font-bold text-indigo-950">
+                  <span>Select Investment Amount / Units:</span>
+                  <span className="text-indigo-700 font-extrabold font-mono">
+                    {lendingBondUnits} Unit ({lendingBondUnits} Lakh = ₹{(lendingBondUnits * 100000).toLocaleString("en-IN")})
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {[1, 2, 3, 5].map(u => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setLendingBondUnits(u)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                        lendingBondUnits === u
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200"
+                      }`}
+                    >
+                      ₹{u} Lakh
+                    </button>
+                  ))}
+                  <div className="flex items-center gap-1 bg-indigo-50/70 border border-indigo-300 rounded-lg px-2 py-1 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => setLendingBondUnits(prev => Math.max(1, prev - 1))}
+                      className="w-5 h-5 flex items-center justify-center bg-white text-indigo-900 font-black rounded text-xs hover:bg-indigo-100 cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="text-xs font-black text-indigo-950 px-1 font-mono">{lendingBondUnits}L</span>
+                    <button
+                      type="button"
+                      onClick={() => setLendingBondUnits(prev => prev + 1)}
+                      className="w-5 h-5 flex items-center justify-center bg-white text-indigo-900 font-black rounded text-xs hover:bg-indigo-100 cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-white p-3 rounded-xl border border-indigo-200 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-indigo-950 block">Investment Amount:</span>
+                  <span className="text-[10px] text-gray-500">25 Months Micro Investor Bond</span>
+                </div>
+                <span className="text-sm font-extrabold text-indigo-700 font-mono">₹25,000</span>
+              </div>
+            )}
 
-            <div className="text-xs font-bold text-indigo-900">Select Monthly Bond Option (₹{(lendingBondUnits * 100000).toLocaleString("en-IN")} Investment):</div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="text-xs font-bold text-indigo-900">Select Monthly Bond Option:</div>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setLendingBondType("bond_25k")}
+                className={`p-2.5 sm:p-3 rounded-xl border text-center transition cursor-pointer active:scale-95 ${
+                  lendingBondType === "bond_25k"
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-md font-bold"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-indigo-50"
+                }`}
+              >
+                <div className="text-xs font-bold">25 Months</div>
+                <div className="text-xs sm:text-sm font-black mt-0.5">₹35,000 Return</div>
+                <div className="text-[10px] opacity-80">₹1,400 / mo (₹25k)</div>
+              </button>
               <button
                 type="button"
                 onClick={() => setLendingBondType("lending_40")}
-                className={`p-3 rounded-xl border text-center transition cursor-pointer ${
+                className={`p-2.5 sm:p-3 rounded-xl border text-center transition cursor-pointer active:scale-95 ${
                   lendingBondType === "lending_40"
                     ? "bg-indigo-600 text-white border-indigo-600 shadow-md font-bold"
-                    : "bg-white text-gray-700 border-gray-200 hover:bg-indigo-100"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-indigo-50"
                 }`}
               >
                 <div className="text-xs font-bold">40 Months</div>
-                <div className="text-sm font-black mt-0.5">₹{(140000 * lendingBondUnits).toLocaleString("en-IN")} Return</div>
-                <div className="text-[10px] opacity-80">₹{(3500 * lendingBondUnits).toLocaleString("en-IN")} / month</div>
+                <div className="text-xs sm:text-sm font-black mt-0.5">₹{(140000 * lendingBondUnits).toLocaleString("en-IN")} Return</div>
+                <div className="text-[10px] opacity-80">₹{(3500 * lendingBondUnits).toLocaleString("en-IN")} / mo</div>
               </button>
               <button
                 type="button"
                 onClick={() => setLendingBondType("lending_80")}
-                className={`p-3 rounded-xl border text-center transition cursor-pointer ${
+                className={`p-2.5 sm:p-3 rounded-xl border text-center transition cursor-pointer active:scale-95 ${
                   lendingBondType === "lending_80"
                     ? "bg-indigo-600 text-white border-indigo-600 shadow-md font-bold"
-                    : "bg-white text-gray-700 border-gray-200 hover:bg-indigo-100"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-indigo-50"
                 }`}
               >
                 <div className="text-xs font-bold">80 Months</div>
-                <div className="text-sm font-black mt-0.5">₹{(200000 * lendingBondUnits).toLocaleString("en-IN")} Return</div>
-                <div className="text-[10px] opacity-80">₹{(2500 * lendingBondUnits).toLocaleString("en-IN")} / month</div>
+                <div className="text-xs sm:text-sm font-black mt-0.5">₹{(200000 * lendingBondUnits).toLocaleString("en-IN")} Return</div>
+                <div className="text-[10px] opacity-80">₹{(2500 * lendingBondUnits).toLocaleString("en-IN")} / mo</div>
               </button>
             </div>
 
@@ -8190,9 +8318,19 @@ export default function Dashboard() {
 
             <button
               onClick={() => createLendingBond(lendingBondType)}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-black text-xs shadow-md shadow-indigo-500/25 transition active:scale-95 cursor-pointer"
+              disabled={isSubmittingLendingBond}
+              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-black text-xs shadow-md shadow-indigo-500/25 transition active:scale-95 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Invest ₹{(lendingBondUnits * 100000).toLocaleString("en-IN")} in {lendingBondType === "lending_40" ? `40M (₹${(3500 * lendingBondUnits).toLocaleString("en-IN")}/mo)` : `80M (₹${(2500 * lendingBondUnits).toLocaleString("en-IN")}/mo)`} Lending Bond →
+              {isSubmittingLendingBond ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Processing Bond Application...</span>
+                </>
+              ) : lendingBondType === "bond_25k" ? (
+                "Invest ₹25,000 in 25M (₹1,400/mo) Bond →"
+              ) : (
+                `Invest ₹${(lendingBondUnits * 100000).toLocaleString("en-IN")} in ${lendingBondType === "lending_40" ? `40M (₹${(3500 * lendingBondUnits).toLocaleString("en-IN")}/mo)` : `80M (₹${(2500 * lendingBondUnits).toLocaleString("en-IN")}/mo)`} Lending Bond →`
+              )}
             </button>
           </div>
 
@@ -8204,7 +8342,7 @@ export default function Dashboard() {
             </div>
 
             {(() => {
-              const lendingBonds = bonds.filter(b => b.bondType.startsWith("lending"));
+              const lendingBonds = bonds.filter(b => b.bondType.startsWith("lending") || b.bondType === "bond_25k");
               const lendingTxns = txns.filter(t => t.type === "bond_payout" && (t.remarks?.toLowerCase().includes("lending") || t.remarks?.toLowerCase().includes("monthly")));
 
               if (lendingBonds.length === 0 && lendingTxns.length === 0) {
@@ -8221,7 +8359,7 @@ export default function Dashboard() {
                     <div key={b._id} className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs space-y-1.5">
                       <div className="flex justify-between items-center font-bold">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-indigo-950">{b.bondType === "lending_40" ? "40 Months Bond" : "80 Months Bond"}</span>
+                          <span className="text-indigo-950">{b.bondType === "bond_25k" ? "25 Months Bond" : b.bondType === "lending_40" ? "40 Months Bond" : "80 Months Bond"}</span>
                           {b.accountNumber && (
                             <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-100 text-indigo-900 border border-indigo-200">
                               {b.accountNumber}
@@ -9288,8 +9426,21 @@ export default function Dashboard() {
         </div>
 
         <div className="flex gap-3 mt-5">
-          <button onClick={closeModal} className="flex-1 py-3 bg-gray-100 rounded-xl font-semibold text-sm hover:bg-gray-200 active:bg-gray-300 transition">Cancel</button>
-          <button onClick={submitDeposit} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-sm hover:shadow-lg active:scale-[0.98] transition">Submit Deposit</button>
+          <button onClick={closeModal} className="flex-1 py-3 bg-gray-100 rounded-xl font-semibold text-sm hover:bg-gray-200 active:scale-95 transition cursor-pointer">Cancel</button>
+          <button
+            onClick={submitDeposit}
+            disabled={isSubmittingDeposit}
+            className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-sm hover:shadow-lg active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {isSubmittingDeposit ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Submitting Deposit...</span>
+              </>
+            ) : (
+              <span>Submit Deposit Request →</span>
+            )}
+          </button>
         </div>
       </Sheet>
 
@@ -9475,18 +9626,69 @@ export default function Dashboard() {
           )}
         </div>
         <div className="flex gap-3 mt-5">
-          <button onClick={closeModal} className="flex-1 py-3 bg-gray-100 rounded-xl font-semibold text-sm hover:bg-gray-200 active:bg-gray-300 transition">Cancel</button>
-          <button onClick={submitWithdraw} className="flex-1 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold text-sm hover:shadow-lg active:scale-[0.98] transition">Withdraw</button>
+          <button onClick={closeModal} className="flex-1 py-3 bg-gray-100 rounded-xl font-semibold text-sm hover:bg-gray-200 active:scale-95 transition cursor-pointer">Cancel</button>
+          <button
+            onClick={submitWithdraw}
+            disabled={isSubmittingWithdraw}
+            className="flex-1 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold text-sm hover:shadow-lg active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {isSubmittingWithdraw ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Submitting Request...</span>
+              </>
+            ) : (
+              <span>Submit Withdrawal Request →</span>
+            )}
+          </button>
         </div>
       </Sheet>
 
       {/* ══════════════════════════════════════════════════════
           WALLET 6-DIGIT PIN MODAL (ENTER OR SET)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "wallet_pin"} onClose={closeModal} title={pinSetupMode ? "Set 6-Digit PIN" : "Enter Security PIN"} icon="🔒">
+      <Sheet
+        open={modal === "wallet_pin"}
+        onClose={() => {
+          if (pendingPinAction?.type === "send_money_transfer") {
+            setModal("send_money");
+          } else {
+            closeModal();
+          }
+        }}
+        title={
+          pendingPinAction?.type === "send_money_transfer"
+            ? "Enter 6-Digit UPI PIN"
+            : pendingPinAction?.type === "send_money"
+            ? "Set 6-Digit UPI PIN"
+            : pinSetupMode
+            ? "Set 6-Digit PIN"
+            : "Enter Security PIN"
+        }
+        icon={pendingPinAction?.type === "send_money_transfer" ? "💸" : "🔒"}
+      >
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900">
-            {pinSetupMode ? (
+          <div className={`p-3 rounded-xl border text-xs ${
+            pendingPinAction?.type === "send_money_transfer"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-950"
+              : "bg-blue-50 border-blue-200 text-blue-900"
+          }`}>
+            {pendingPinAction?.type === "send_money_transfer" ? (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-extrabold text-sm text-emerald-900">
+                    Paying ₹{Number(pendingPinAction.form?.amount || sendForm.amount || 0).toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-emerald-700 mt-0.5">
+                    To: <strong>{pendingPinAction.form?.recipient || sendForm.recipient}</strong>
+                  </p>
+                  <p className="text-[10px] text-gray-500 mt-1">🔒 Apna 6-digit secret UPI PIN enter karein.</p>
+                </div>
+                <span className="text-2xl">⚡</span>
+              </div>
+            ) : pendingPinAction?.type === "send_money" ? (
+              <>🔒 <strong>UPI Security PIN:</strong> Send Money transfer ke liye apna 6-digit secret UPI PIN banayein.</>
+            ) : pinSetupMode ? (
               <>🔒 <strong>First-Time Security PIN:</strong> Balance check karne ke liye 6-number ka secret PIN banayein.</>
             ) : (
               <>🔒 Primary Wallet Balance check karne ke liye apna 6-number ka security PIN enter karein.</>
@@ -9558,10 +9760,27 @@ export default function Dashboard() {
 
           <button
             onClick={() => handlePinSubmit()}
-            disabled={pinSubmitting || pinInput.length !== 6 || (pinSetupMode && confirmPinInput.length !== 6)}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md active:scale-95 transition disabled:opacity-50"
+            disabled={pinSubmitting || isSendingMoney || pinInput.length !== 6 || (pinSetupMode && confirmPinInput.length !== 6)}
+            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
           >
-            {pinSubmitting ? "Unlocking..." : (pinSetupMode ? "Set 6-Digit PIN & View Balance" : "Unlock & View Balance")}
+            {pinSubmitting || isSendingMoney ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>
+                  {pendingPinAction?.type === "send_money_transfer"
+                    ? "Verifying PIN & Transferring..."
+                    : "Verifying PIN..."}
+                </span>
+              </>
+            ) : pendingPinAction?.type === "send_money_transfer" ? (
+              `Pay ₹${Number(pendingPinAction.form?.amount || sendForm.amount || 0).toLocaleString("en-IN")} Securely →`
+            ) : pendingPinAction?.type === "send_money" ? (
+              "Set UPI PIN & Continue →"
+            ) : pinSetupMode ? (
+              "Set 6-Digit PIN & View Balance"
+            ) : (
+              "Unlock & View Balance"
+            )}
           </button>
 
           {!pinSetupMode && (
@@ -11661,11 +11880,18 @@ export default function Dashboard() {
 
                 <button
                   type="button"
-                  disabled={(installmentSourceWallet === "profit" ? (userProfile.profitBalance || 0) : (userProfile.balance || 0)) < submitInstallmentModal.amount}
+                  disabled={installmentSubmitting || ((installmentSourceWallet === "profit" ? (userProfile.profitBalance || 0) : (userProfile.balance || 0)) < submitInstallmentModal.amount)}
                   onClick={submitInstallmentProof}
-                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  Pay ₹{submitInstallmentModal.amount} from {installmentSourceWallet === "profit" ? "Profit Wallet" : "Primary Wallet"} →
+                  {installmentSubmitting ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Processing Payment...</span>
+                    </>
+                  ) : (
+                    <span>Pay ₹{submitInstallmentModal.amount} from {installmentSourceWallet === "profit" ? "Profit Wallet" : "Primary Wallet"} →</span>
+                  )}
                 </button>
               </div>
             ) : (
@@ -11758,9 +11984,16 @@ export default function Dashboard() {
                   <button
                     type="submit"
                     disabled={installmentSubmitting}
-                    className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+                    className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                   >
-                    {installmentSubmitting ? "Submitting..." : "Submit Proof →"}
+                    {installmentSubmitting ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Submitting Proof...</span>
+                      </>
+                    ) : (
+                      <span>Submit Proof →</span>
+                    )}
                   </button>
                 </div>
               </form>

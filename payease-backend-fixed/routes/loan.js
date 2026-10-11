@@ -8,6 +8,7 @@ const { protect, admin } = require('../middleware/auth');
 const { isValidAmount } = require('../utils/validateAmount');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
+const { syncToGoogleDrive } = require('../utils/drive');
 const memoryCache = require('../utils/cache');
 const router = express.Router();
 
@@ -612,57 +613,34 @@ router.post('/apply', protect, async (req, res) => {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // BACKGROUND GOOGLE DRIVE SYNC (Saves complete loan bundle to Drive)
-    // ─────────────────────────────────────────────────────────────
-    try {
-      const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
-      const adminDriveUrl = adminDriveSetting?.value;
-      if (adminDriveUrl && adminDriveUrl.startsWith('https://script.google.com/')) {
-        fetch(adminDriveUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'upload_loan_application',
-            loanAccount: createdLoan.accountNumber,
-            loanType: createdLoan.loanType,
-            userId: userDoc._id.toString(),
-            userName: userDoc.name,
-            email: applicantEmail,
-            phone: applicantPhone,
-            amount: createdLoan.amount,
-            aadharNumber,
-            doc1Url: aadharFront,
-            doc1BackUrl: aadharBack,
-            panNumber,
-            doc2Url: panFront,
-            doc2BackUrl: panBack,
-            chequeNumber: chequeNum,
-            chequeUrl: chequeFront,
-            chequeBackUrl: chequeBack,
-            bankName,
-            bankAccountNumber: bankAccount,
-            bankIfsc,
-            upiId,
-            nomineeName,
-            nomineeRelation,
-            nomineePhone,
-            submittedAt: new Date().toISOString()
-          })
-        })
-        .then(res => res.json())
-        .then(async (driveData) => {
-          if (driveData && (driveData.fileUrl || driveData.folderUrl)) {
-            const directLink = driveData.fileUrl || driveData.folderUrl;
-            await Loan.findByIdAndUpdate(createdLoan._id, {
-              'documents.googleDriveLink': directLink
-            });
-          }
-        })
-        .catch(e => console.warn('Drive loan webhook sync warning:', e.message));
-      }
-    } catch (driveErr) {
-      console.warn('Drive sync initiation failed:', driveErr.message);
-    }
+    // Fast non-blocking Google Drive sync (Saves complete loan bundle to Drive)
+    syncToGoogleDrive({
+      action: 'upload_loan_application',
+      loanAccount: createdLoan.accountNumber,
+      loanType: createdLoan.loanType,
+      userId: userDoc._id.toString(),
+      userName: userDoc.name,
+      email: applicantEmail,
+      phone: applicantPhone,
+      amount: createdLoan.amount,
+      aadharNumber,
+      doc1Url: aadharFront,
+      doc1BackUrl: aadharBack,
+      panNumber,
+      doc2Url: panFront,
+      doc2BackUrl: panBack,
+      chequeNumber: chequeNum,
+      chequeUrl: chequeFront,
+      chequeBackUrl: chequeBack,
+      bankName,
+      bankAccountNumber: bankAccount,
+      bankIfsc,
+      upiId,
+      nomineeName,
+      nomineeRelation,
+      nomineePhone,
+      submittedAt: new Date().toISOString()
+    });
 
     res.json({
       message: `${createdLoan.loanType === 'micro_business' ? 'Micro Business' : createdLoan.loanType === 'student' ? 'Student' : 'Personal'} Loan application submitted successfully! Sabhi documents aur details verify hone ke baad sanction hogi.`,
@@ -1540,22 +1518,29 @@ router.post('/:id/reject', protect, admin, async (req, res) => {
   }
 });
 
-// Admin: All loans
+// Admin: All loans (Instant response, background async persistence)
 router.get('/all', protect, admin, async (req, res) => {
   try {
     const loans = await Loan.find()
       .populate('userId', 'name email phone referralCode')
       .sort({ createdAt: -1 });
+    const pendingSaves = [];
     for (const l of loans) {
       if (!l.accountNumber || !l.accountNumber.startsWith('EFS0000')) {
         l.accountNumber = await generateLoanAccountNumber();
+        pendingSaves.push(l.save());
       }
       if (l.status === 'active') {
         syncLoanOverdueAndPenalties(l);
-        await l.save();
+        if (l.isModified && l.isModified()) {
+          pendingSaves.push(l.save());
+        }
       }
     }
     res.json(loans);
+    if (pendingSaves.length > 0) {
+      Promise.all(pendingSaves).catch(err => console.warn('Background loan sync save error:', err.message));
+    }
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
   }
@@ -1606,27 +1591,18 @@ router.post('/:id/submit-installment', protect, async (req, res) => {
     loan.markModified('emiSchedule');
     await loan.save();
 
-    // Silently upload proof to User's Google Drive folder if configured
-    try {
-      const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
-      if (adminDriveSetting && adminDriveSetting.value) {
-        fetch(adminDriveSetting.value, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'loan_installment_proof',
-            userId: req.user._id,
-            userName: req.user.name,
-            loanAccount: loan.accountNumber,
-            installmentNo: target.installmentNo,
-            amount: target.amount,
-            utrNumber: target.utrNumber,
-            proofUrl: proofUrl,
-            submittedAt: new Date()
-          })
-        }).catch(() => {});
-      }
-    } catch (_) {}
+    // Fast non-blocking Google Drive sync for installment proof
+    syncToGoogleDrive({
+      action: 'loan_installment_proof',
+      userId: req.user._id,
+      userName: req.user.name,
+      loanAccount: loan.accountNumber,
+      installmentNo: target.installmentNo,
+      amount: target.amount,
+      utrNumber: target.utrNumber,
+      proofUrl: proofUrl,
+      submittedAt: new Date().toISOString()
+    });
 
     res.json({
       success: true,

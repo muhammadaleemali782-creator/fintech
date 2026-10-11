@@ -560,6 +560,104 @@ function getDisbursalBreakdown(loan, chosenOpt = "none") {
     };
   }
 
+  // Full Schedule of all installments (e.g. 24 or 25) with dynamic rollover and 10:00 AM cutoff
+  let fullSchedule = [];
+  if (Array.isArray(loan.emiSchedule) && loan.emiSchedule.length > 0) {
+    fullSchedule = loan.emiSchedule.map((item, idx) => {
+      const isPaid = item.status === "paid";
+      const isOverdue = item.status === "overdue";
+      const dueObj = item.dueDate ? new Date(item.dueDate) : null;
+      return {
+        installmentNo: item.installmentNo || idx + 1,
+        dueDateFormatted: dueObj ? dueObj.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : `Kist #${idx + 1}`,
+        status: item.status || "pending",
+        isPaid,
+        isOverdue,
+        amount: item.amount || instAmt,
+        cutoffTime: item.cutoffTime || "10:00 AM",
+        overdueNotice: item.overdueNotice || null
+      };
+    });
+  } else {
+    const isDaily = cycleDays === 1;
+    let dates = [];
+    if (isDaily) {
+      let cur = new Date(now);
+      for (let i = 0; i < count; i++) {
+        cur.setDate(cur.getDate() + 1);
+        dates.push(new Date(cur));
+      }
+    } else {
+      let cur = new Date(now);
+      if (chosenOpt === "defer") {
+        cur.setDate(cur.getDate() + 10);
+      }
+      while (dates.length < count) {
+        cur.setDate(cur.getDate() + 1);
+        const day = cur.getDate();
+        if (day === 1 || day === 11 || day === 21) {
+          dates.push(new Date(cur));
+        }
+      }
+    }
+
+    fullSchedule = dates.map((d, idx) => {
+      const isFirst = idx === 0;
+      let status = "pending";
+      let statusLabel = "Due on Date";
+      if (isFirst && chosenOpt === "deduct") {
+        status = "paid";
+        statusLabel = "Paid (Advance Deduct)";
+      } else if (isFirst && chosenOpt === "waive") {
+        status = "paid";
+        statusLabel = "Waived (Free)";
+      }
+      return {
+        installmentNo: idx + 1,
+        dueDateFormatted: (isFirst && (chosenOpt === "deduct" || chosenOpt === "waive"))
+          ? (chosenOpt === "deduct" ? "Aaj hi Paid (Advance Kaati)" : "Aaj hi Free Waived")
+          : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+        status,
+        statusLabel,
+        isPaid: status === "paid",
+        isOverdue: false,
+        amount: instAmt,
+        cutoffTime: "10:00 AM"
+      };
+    });
+  }
+
+  // Dynamic rollover calculation across all installments
+  let accumulatedMissed = 0;
+  let accumulatedPenalty = 0;
+  fullSchedule = fullSchedule.map((row) => {
+    if (row.isOverdue) {
+      accumulatedMissed += row.amount;
+      accumulatedPenalty += penaltyPerEmi;
+      return {
+        ...row,
+        rolledOverToNext: true,
+        payableNow: row.amount + penaltyPerEmi,
+        rolloverText: `⚠️ Chhooti hui: ₹${row.amount} + 2% Penalty: ₹${penaltyPerEmi}`
+      };
+    } else if (row.status === "pending" && accumulatedMissed > 0) {
+      const totalPayableThisKist = row.amount + accumulatedMissed + accumulatedPenalty;
+      const text = `⚠️ Pichli chhooti kist jodkar: ₹${row.amount} + ₹${accumulatedMissed} (Missed) + ₹${accumulatedPenalty} (2% Penalty)`;
+      accumulatedMissed = 0;
+      accumulatedPenalty = 0;
+      return {
+        ...row,
+        hasRollover: true,
+        payableNow: totalPayableThisKist,
+        rolloverText: text
+      };
+    }
+    return {
+      ...row,
+      payableNow: row.amount
+    };
+  });
+
   return {
     principal,
     count,
@@ -578,7 +676,8 @@ function getDisbursalBreakdown(loan, chosenOpt = "none") {
     inHandAmount,
     inHandPct,
     advanceDeductPct,
-    schedule
+    schedule,
+    fullSchedule
   };
 }
 
@@ -643,6 +742,76 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
         <p className="text-[11px] text-slate-600 mt-1.5 font-medium flex items-center gap-1">
           <span>ℹ️</span> {b.schedule.graceNote}
         </p>
+
+        {/* Complete Kist Schedule Table / List View */}
+        <details className="mt-2.5 group border border-slate-200/90 rounded-xl bg-white overflow-hidden shadow-2xs" open>
+          <summary className="flex items-center justify-between p-2.5 sm:p-3 font-black text-xs text-slate-800 cursor-pointer bg-slate-100/70 hover:bg-slate-100 transition select-none">
+            <span className="flex items-center gap-1.5">
+              <span>📋</span> Poori Kist List ({b.count} Kistein Schedule & 10:00 AM Cutoff)
+            </span>
+            <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
+              <span>Timeline Dekhein</span>
+              <span className="group-open:rotate-180 transition-transform">▼</span>
+            </span>
+          </summary>
+          <div className="p-2 sm:p-3 max-h-60 overflow-y-auto space-y-1.5 divide-y divide-slate-100">
+            {b.fullSchedule.map((k) => (
+              <div
+                key={k.installmentNo}
+                className={`pt-1.5 first:pt-0 flex flex-wrap items-center justify-between gap-2 text-xs ${
+                  k.isOverdue
+                    ? "bg-rose-50/70 p-2 rounded-lg border border-rose-200"
+                    : k.hasRollover
+                    ? "bg-amber-50/70 p-2 rounded-lg border border-amber-200"
+                    : k.isPaid
+                    ? "bg-emerald-50/40 p-2 rounded-lg border border-emerald-100"
+                    : "p-1.5"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-[11px] shrink-0 ${
+                    k.isPaid ? "bg-emerald-100 text-emerald-800" : k.isOverdue ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-700"
+                  }`}>
+                    #{k.installmentNo}
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-extrabold text-slate-900">Kist #{k.installmentNo}</span>
+                      <span className="text-[11px] text-slate-500 font-medium">• {k.dueDateFormatted}</span>
+                      <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded border border-slate-200">
+                        ⏰ Cutoff: {k.cutoffTime}
+                      </span>
+                    </div>
+                    {k.rolloverText && (
+                      <span className={`text-[10px] font-bold block mt-0.5 ${k.isOverdue ? "text-rose-700" : "text-amber-800"}`}>
+                        {k.rolloverText}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="flex items-center gap-1.5 justify-end">
+                    <span className="font-black text-slate-900 font-mono">
+                      ₹{(k.payableNow || k.amount).toLocaleString("en-IN")}
+                    </span>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                      k.isPaid
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                        : k.isOverdue
+                        ? "bg-rose-100 text-rose-800 border-rose-300"
+                        : k.hasRollover
+                        ? "bg-amber-100 text-amber-900 border-amber-300"
+                        : "bg-slate-100 text-slate-700 border-slate-200"
+                    }`}>
+                      {k.statusLabel || (k.isPaid ? "PAID" : k.isOverdue ? "OVERDUE (CHHOOTI HUI)" : k.hasRollover ? "ROLLOVER DUE" : "PENDING")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
       </div>
 
       {/* 2. Percentage & Deductions Matrix */}
@@ -690,20 +859,26 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
             2% Per Overdue Kist = ₹{b.penaltyPerEmi}/kist
           </span>
         </div>
-        <div className="space-y-1 text-[11px] text-slate-700">
-          <p>
-            • <strong className="text-slate-900">Kab Lagegi:</strong> Kist due date nikalne ke baad agle din subah 12:00 AM se overdue status active hota hai.
-          </p>
-          <p>
-            • <strong className="text-slate-900">Kitni Lagegi:</strong> Installment amount (₹{b.instAmt.toLocaleString("en-IN")}) par <strong>2%</strong> = <strong className="text-rose-800">₹{b.penaltyPerEmi} per overdue installment</strong>.
-          </p>
-          <p>
-            • <strong className="text-slate-900">Accumulation (Jod ke):</strong> Pehle ki overdue kist ke saath judkar penalty accumulate hoti hai (e.g. 2 kistein overdue = ₹{b.penaltyPerEmi * 2}).
-          </p>
-          <p>
-            • <strong className="text-slate-900">Kaha & Kaise Dhikegi:</strong> Active loans me overdue hone par live warning badge aur Admin toggle button dikhta hai:
-          </p>
-        </div>
+        <details className="mt-1 text-[11px] text-slate-700 bg-white p-2.5 rounded-lg border border-rose-200 select-none">
+          <summary className="font-bold text-rose-900 cursor-pointer flex items-center justify-between">
+            <span>ℹ️ Overdue & Rollover Niyam (Click to View)</span>
+            <span className="text-[10px] text-slate-400">▼ Niyam</span>
+          </summary>
+          <div className="space-y-1 pt-1.5 mt-1 border-t border-slate-100 font-medium">
+            <p>
+              • <strong className="text-slate-900">Kab Lagegi:</strong> Kist due date ko subah <strong>10:00 AM cutoff</strong> nikalne ke baad overdue status active hota hai.
+            </p>
+            <p>
+              • <strong className="text-slate-900">Kitni Lagegi:</strong> Installment amount (₹{b.instAmt.toLocaleString("en-IN")}) par <strong>2%</strong> = <strong className="text-rose-800">₹{b.penaltyPerEmi} per overdue installment</strong>.
+            </p>
+            <p>
+              • <strong className="text-slate-900">Rollover:</strong> Agar koi kist chhoote to agle kist me jud jayegi (Missed EMI + Current EMI + 2% Penalty).
+            </p>
+            <p>
+              • <strong className="text-slate-900">Live Kist List:</strong> Upar poori kist list me live rollover calculation dikhta hai.
+            </p>
+          </div>
+        </details>
         {/* Live Preview Badge */}
         <div className="mt-2 p-2.5 bg-white rounded-lg border border-rose-200 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
           <div className="flex items-center gap-2">
@@ -1013,6 +1188,8 @@ export default function AdminPanel() {
   const [loanApproveLoading, setLoanApproveLoading] = useState(false);
   const [rejectLoadingId, setRejectLoadingId] = useState(null);
   const [adminHeroFlyId, setAdminHeroFlyId] = useState(null);
+  const [bondActionLoadingId, setBondActionLoadingId] = useState(null);
+  const [installmentActionLoadingId, setInstallmentActionLoadingId] = useState(null);
 
   // Issue Loan Desk Form State
   const [issueBorrowerType, setIssueBorrowerType] = useState("existing"); // "existing" | "new"
@@ -2257,6 +2434,7 @@ export default function AdminPanel() {
 
   const approveBond = async (bondId) => {
     if (!window.confirm("Approve this bond / lending account?")) return;
+    setBondActionLoadingId(bondId);
     try {
       const res = await fetch(`${API}/bond/${bondId}/approve`, { method: "POST", headers });
       const data = await res.json();
@@ -2267,11 +2445,14 @@ export default function AdminPanel() {
       }
     } catch {
       showToast("Network error approving bond", "error");
+    } finally {
+      setBondActionLoadingId(null);
     }
   };
 
   const rejectBond = async (bondId) => {
     if (!window.confirm("Reject this bond request? Principal amount will be refunded to user wallet.")) return;
+    setBondActionLoadingId(bondId);
     try {
       const res = await fetch(`${API}/bond/${bondId}/reject`, { method: "POST", headers });
       const data = await res.json();
@@ -2282,11 +2463,14 @@ export default function AdminPanel() {
       }
     } catch {
       showToast("Network error rejecting bond", "error");
+    } finally {
+      setBondActionLoadingId(null);
     }
   };
 
   const approveInstallment = async (loanId, installmentNo) => {
     if (!window.confirm(`Installment #${installmentNo} approve karein? Balance update ho jayega.`)) return;
+    setInstallmentActionLoadingId(`${loanId}_${installmentNo}`);
     try {
       const res = await fetch(`${API}/loan/admin/${loanId}/installment/${installmentNo}/approve`, {
         method: "POST",
@@ -2304,6 +2488,8 @@ export default function AdminPanel() {
       }
     } catch {
       showToast("Network error approving installment", "error");
+    } finally {
+      setInstallmentActionLoadingId(null);
     }
   };
 
@@ -4705,7 +4891,7 @@ export default function AdminPanel() {
                   ) : (
                     <div className="space-y-4">
                       {pendingLoans.map(l => {
-                        const docs = l.documents || {};
+                        const docs = { ...(l.userId?.kycDocuments || {}), ...(l.documents || {}) };
                         const instAmt = l.installmentAmount || l.emiAmount || 0;
                         const chosenOpt = cardAdvanceOptions[l._id] || "none";
                         const isAdvance = chosenOpt === "deduct";
@@ -4796,7 +4982,7 @@ export default function AdminPanel() {
                                     <button
                                       type="button"
                                       onClick={() => { setLightboxImg(docs.doc1Url || docs.aadharUrl); setZoomLevel(1); }}
-                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
                                       <span>🆔</span> Aadhaar (Front) 🔍
                                     </button>
@@ -4805,7 +4991,7 @@ export default function AdminPanel() {
                                     <button
                                       type="button"
                                       onClick={() => { setLightboxImg(docs.doc1BackUrl || docs.aadharBackUrl); setZoomLevel(1); }}
-                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
                                       <span>🆔</span> Aadhaar (Back) 🔍
                                     </button>
@@ -4814,25 +5000,43 @@ export default function AdminPanel() {
                                     <button
                                       type="button"
                                       onClick={() => { setLightboxImg(docs.doc2Url || docs.panUrl); setZoomLevel(1); }}
-                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>💳</span> PAN Card 🔍
+                                      <span>💳</span> PAN Card (Front) 🔍
+                                    </button>
+                                  )}
+                                  {(docs.doc2BackUrl || docs.panBackUrl) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.doc2BackUrl || docs.panBackUrl); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>💳</span> PAN Card (Back) 🔍
                                     </button>
                                   )}
                                   {(docs.chequeUrl || docs.chequeFrontUrl) && (
                                     <button
                                       type="button"
                                       onClick={() => { setLightboxImg(docs.chequeUrl || docs.chequeFrontUrl); setZoomLevel(1); }}
-                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>🏦</span> Cheque 🔍
+                                      <span>🏦</span> Bearer Cheque (Front) 🔍
+                                    </button>
+                                  )}
+                                  {docs.chequeBackUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(docs.chequeBackUrl); setZoomLevel(1); }}
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
+                                    >
+                                      <span>🏦</span> Bearer Cheque (Back) 🔍
                                     </button>
                                   )}
                                   {docs.studentProofUrl && (
                                     <button
                                       type="button"
                                       onClick={() => { setLightboxImg(docs.studentProofUrl); setZoomLevel(1); }}
-                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
                                       <span>🎓</span> Student Proof 🔍
                                     </button>
@@ -5067,17 +5271,26 @@ export default function AdminPanel() {
                             <div className="flex gap-2 sm:gap-3 pt-1">
                               <button
                                 type="button"
+                                disabled={bondActionLoadingId === b._id}
                                 onClick={() => approveBond(b._id)}
-                                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
                               >
-                                <span>✅ Approve Bond</span>
+                                {bondActionLoadingId === b._id ? (
+                                  <>
+                                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <span>Approving...</span>
+                                  </>
+                                ) : (
+                                  <span>✅ Approve Bond</span>
+                                )}
                               </button>
                               <button
                                 type="button"
+                                disabled={bondActionLoadingId === b._id}
                                 onClick={() => rejectBond(b._id)}
-                                className="px-5 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center justify-center gap-1.5"
+                                className="px-5 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
                               >
-                                <span>✗ Reject & Refund</span>
+                                {bondActionLoadingId === b._id ? "Rejecting..." : "✗ Reject & Refund"}
                               </button>
                             </div>
                           </div>
@@ -8553,76 +8766,110 @@ export default function AdminPanel() {
                           </div>
                         )}
                         {/* SUBMITTED LOAN DOCUMENTS */}
-                        {(l.documents?.doc1Url || l.documents?.doc2Url || l.documents?.studentProofUrl || l.hasChequeFacility) && (
-                          <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2 mb-3">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                              <span className="flex items-center gap-1.5">
-                                <span>📄</span> Submitted Loan Documents
-                              </span>
-                              {l.hasChequeFacility && (
-                                <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold">
-                                  Cheque: {l.chequeNumber || 'Yes'}
+                        {(() => {
+                          const userKyc = l.userId?.kycDocuments || {};
+                          const docs = { ...userKyc, ...(l.documents || {}) };
+                          const aadharFront = docs.doc1Url || docs.aadharUrl;
+                          const aadharBack = docs.doc1BackUrl || docs.aadharBackUrl;
+                          const panFront = docs.doc2Url || docs.panUrl || docs.panCardUrl;
+                          const panBack = docs.doc2BackUrl || docs.panBackUrl || docs.panCardBackUrl;
+                          const chequeFront = docs.chequeUrl || docs.chequeFrontUrl || docs.bearerChequeUrl;
+                          const chequeBack = docs.chequeBackUrl || docs.bearerChequeBackUrl;
+                          const studentFront = docs.studentProofUrl;
+                          const studentBack = docs.studentProofBackUrl;
+
+                          const hasAny = Boolean(aadharFront || aadharBack || panFront || panBack || chequeFront || chequeBack || studentFront || studentBack);
+                          if (!hasAny) return null;
+
+                          return (
+                            <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2 mb-3">
+                              <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                                <span className="flex items-center gap-1.5">
+                                  <span>📄</span> Submitted Loan Verification Documents
                                 </span>
-                              )}
+                                {l.hasChequeFacility && (
+                                  <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold">
+                                    Cheque Facility Active
+                                  </span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                                {aadharFront && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setLightboxImg(aadharFront); setZoomLevel(1); }}
+                                    className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                                  >
+                                    <span>🆔</span> Aadhaar (Front) 🔍
+                                  </button>
+                                )}
+                                {aadharBack && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setLightboxImg(aadharBack); setZoomLevel(1); }}
+                                    className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                                  >
+                                    <span>🆔</span> Aadhaar (Back) 🔍
+                                  </button>
+                                )}
+                                {panFront && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setLightboxImg(panFront); setZoomLevel(1); }}
+                                    className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                                  >
+                                    <span>💳</span> PAN (Front) 🔍
+                                  </button>
+                                )}
+                                {panBack && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setLightboxImg(panBack); setZoomLevel(1); }}
+                                    className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                                  >
+                                    <span>💳</span> PAN (Back) 🔍
+                                  </button>
+                                )}
+                                {chequeFront && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setLightboxImg(chequeFront); setZoomLevel(1); }}
+                                    className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-amber-300 rounded-lg text-[11px] font-semibold text-amber-900 hover:bg-amber-50 transition active:scale-95 cursor-pointer shadow-2xs"
+                                  >
+                                    <span>🏦</span> Cheque (Front) 🔍
+                                  </button>
+                                )}
+                                {chequeBack && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setLightboxImg(chequeBack); setZoomLevel(1); }}
+                                    className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-amber-300 rounded-lg text-[11px] font-semibold text-amber-900 hover:bg-amber-50 transition active:scale-95 cursor-pointer shadow-2xs"
+                                  >
+                                    <span>🏦</span> Cheque (Back) 🔍
+                                  </button>
+                                )}
+                                {studentFront && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setLightboxImg(studentFront); setZoomLevel(1); }}
+                                    className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-sky-200 rounded-lg text-[11px] font-semibold text-sky-800 hover:bg-sky-50 transition active:scale-95 cursor-pointer shadow-2xs"
+                                  >
+                                    <span>🎓</span> Student ID (Front) 🔍
+                                  </button>
+                                )}
+                                {studentBack && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setLightboxImg(studentBack); setZoomLevel(1); }}
+                                    className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-sky-200 rounded-lg text-[11px] font-semibold text-sky-800 hover:bg-sky-50 transition active:scale-95 cursor-pointer shadow-2xs"
+                                  >
+                                    <span>🎓</span> Student ID (Back) 🔍
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                              {l.documents?.doc1Url && (
-                                <button
-                                  type="button"
-                                  onClick={() => { setLightboxImg(l.documents.doc1Url); setZoomLevel(1); }}
-                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
-                                >
-                                  <span>🆔</span> Aadhaar (Front) 🔍
-                                </button>
-                              )}
-                              {l.documents?.doc1BackUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() => { setLightboxImg(l.documents.doc1BackUrl); setZoomLevel(1); }}
-                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
-                                >
-                                  <span>🆔</span> Aadhaar (Back) 🔍
-                                </button>
-                              )}
-                              {l.documents?.doc2Url && (
-                                <button
-                                  type="button"
-                                  onClick={() => { setLightboxImg(l.documents.doc2Url); setZoomLevel(1); }}
-                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
-                                >
-                                  <span>💳</span> {l.hasChequeFacility ? "Cheque (Front)" : "PAN (Front)"} 🔍
-                                </button>
-                              )}
-                              {l.documents?.doc2BackUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() => { setLightboxImg(l.documents.doc2BackUrl); setZoomLevel(1); }}
-                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
-                                >
-                                  <span>💳</span> {l.hasChequeFacility ? "Cheque (Back)" : "PAN (Back)"} 🔍
-                                </button>
-                              )}
-                              {l.documents?.studentProofUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() => { setLightboxImg(l.documents.studentProofUrl); setZoomLevel(1); }}
-                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-sky-200 rounded-lg text-[11px] font-semibold text-sky-800 hover:bg-sky-50 transition cursor-pointer shadow-2xs"
-                                >
-                                  <span>🎓</span> Student ID (Front) 🔍
-                                </button>
-                              )}
-                              {l.documents?.studentProofBackUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() => { setLightboxImg(l.documents.studentProofBackUrl); setZoomLevel(1); }}
-                                  className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-sky-200 rounded-lg text-[11px] font-semibold text-sky-800 hover:bg-sky-50 transition cursor-pointer shadow-2xs"
-                                >
-                                  <span>🎓</span> Student ID (Back) 🔍
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                          );
+                        })()}
 
                         {l.status === "pending" && (() => {
                           const chosenOpt = cardAdvanceOptions[l._id] || "none";
@@ -8721,6 +8968,9 @@ export default function AdminPanel() {
                                   </button>
                                 </div>
                               </div>
+
+                              {/* Interactive Live Breakdown Desk for selected option */}
+                              <DisbursalBreakdownDesk loan={l} chosenOpt={chosenOpt} />
 
                               {/* Action Buttons */}
                               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 relative">
@@ -8864,10 +9114,18 @@ export default function AdminPanel() {
                                               )}
                                               <button
                                                 type="button"
+                                                disabled={installmentActionLoadingId === `${l._id}_${inst.installmentNo}`}
                                                 onClick={() => approveInstallment(l._id, inst.installmentNo)}
-                                                className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-xs active:scale-95 transition cursor-pointer"
+                                                className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-xs active:scale-95 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
                                               >
-                                                ✅ Approve Installment
+                                                {installmentActionLoadingId === `${l._id}_${inst.installmentNo}` ? (
+                                                  <>
+                                                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    <span>Approving...</span>
+                                                  </>
+                                                ) : (
+                                                  <span>✅ Approve Installment</span>
+                                                )}
                                               </button>
                                             </>
                                           )}
@@ -10349,7 +10607,7 @@ export default function AdminPanel() {
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl text-xs">
                           <div>
                             <span className="text-gray-400 block font-medium">Plan</span>
-                            <span className="font-bold text-gray-900 text-sm">{b.planName || (b.planId === "lending_80" ? "80 Months Plan" : "40 Months Plan")}</span>
+                            <span className="font-bold text-gray-900 text-sm">{b.planName || (b.bondType === "bond_25k" ? "25 Months Plan (₹25k)" : b.planId === "lending_80" ? "80 Months Plan" : "40 Months Plan")}</span>
                           </div>
                           <div>
                             <span className="text-gray-400 block font-medium">Principal Deposited</span>
@@ -10361,7 +10619,7 @@ export default function AdminPanel() {
                           </div>
                           <div>
                             <span className="text-gray-400 block font-medium">Payout Progress</span>
-                            <span className="font-bold text-blue-700 text-sm">{b.monthsPaid || 0} / {b.monthsTotal || 40} Months</span>
+                            <span className="font-bold text-blue-700 text-sm">{b.monthsPaid || 0} / {b.monthsTotal || (b.bondType === "bond_25k" ? 25 : b.planId === "lending_80" ? 80 : 40)} Months</span>
                           </div>
                         </div>
 
@@ -11743,6 +12001,9 @@ export default function AdminPanel() {
                 </label>
               </div>
             </div>
+
+            {/* Interactive 24/25 Kist Schedule & Dynamic Rollover Desk inside Approve Modal */}
+            <DisbursalBreakdownDesk loan={loanApproveModal} chosenOpt={advanceOption} />
 
             <div className="flex gap-2.5 pt-2 border-t border-gray-100">
               <button

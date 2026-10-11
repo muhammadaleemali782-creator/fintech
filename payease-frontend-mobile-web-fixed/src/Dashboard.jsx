@@ -75,112 +75,35 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
 // Real-time ticking profit balance display component (High-FPS, strictly monotonic when capital > 0)
 function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false, className = "" }) {
   const cap = Math.max(Number(activeCapital || 0), 0);
-  const [profit, setProfit] = useState(() => {
-    if (isAdmin) return 0;
-    const base = parseCachedNumber(baseProfit);
-    if (cap <= 0) return base;
-    const saved = parseCachedNumber(typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_balance") : 0);
-    return saved > 0 ? saved : base;
-  });
-
-  const profitRef = useRef(profit);
-  profitRef.current = profit;
-  const lastTickRef = useRef(Date.now());
-  const lastPersistRef = useRef(0);
-
-  // Capital & Yield Math: Yield accrues ONLY if user has real activeCapital (> 0) and is not admin
-  const dailyYieldEst = (isAdmin || cap <= 0) ? 0 : (cap * 0.12) / 365;
-  const perMsYield = dailyYieldEst / 86400000;
-
-  // Sync when server data changes — fresh server data always takes precedence
-  useEffect(() => {
-    if (isAdmin || cap <= 0) {
-      const serverVal = isAdmin ? 0 : parseCachedNumber(baseProfit);
-      profitRef.current = serverVal;
-      setProfit(serverVal);
-      if (serverVal === 0) {
-        try {
-          localStorage.removeItem("educa_cached_profit_balance");
-          localStorage.removeItem("educa_last_profit_tick");
-        } catch {}
-      }
-      return;
-    }
-    const serverVal = parseCachedNumber(baseProfit);
-    profitRef.current = serverVal;
-    setProfit(serverVal);
-  }, [baseProfit, isAdmin, cap]);
-
-  useEffect(() => {
-    if (isAdmin || perMsYield <= 0) return;
-    let timer = null;
-    lastTickRef.current = Date.now();
-
-    const tick = () => {
-      const now = Date.now();
-      const deltaMs = Math.max(0, now - lastTickRef.current);
-      lastTickRef.current = now;
-
-      if (deltaMs > 0 && perMsYield > 0) {
-        const increment = deltaMs * perMsYield;
-        profitRef.current = profitRef.current + increment;
-        setProfit(profitRef.current);
-
-        // Persist to localStorage every 3 seconds so restarts keep accumulated value
-        if (now - lastPersistRef.current > 3000) {
-          lastPersistRef.current = now;
-          try {
-            const val = profitRef.current;
-            if (isFinite(val) && val > 0) {
-              localStorage.setItem("educa_cached_profit_balance", String(val));
-              localStorage.setItem("educa_last_profit_tick", String(now));
-            }
-          } catch {}
-        }
-      }
-    };
-
-    const startTimer = () => {
-      if (timer) clearInterval(timer);
-      if (typeof document !== "undefined" && !document.hidden) {
-        lastTickRef.current = Date.now();
-        timer = setInterval(tick, 50); // 50ms smooth tick matching Admin Panel speed
-      }
-    };
-
-    const handleVisibility = () => {
-      if (document.hidden) {
-        if (timer) clearInterval(timer);
-      } else {
-        // App reopened / returned from background: smoothly add offline accumulated profit without zeroing
-        const now = Date.now();
-        const delta = Math.min(Math.max(0, now - lastTickRef.current), 7 * 86400 * 1000);
-        lastTickRef.current = now;
-        if (delta > 0 && perMsYield > 0) {
-          profitRef.current = profitRef.current + (delta * perMsYield);
-          setProfit(profitRef.current);
-        }
-        startTimer();
-      }
-    };
-
-    startTimer();
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      if (timer) clearInterval(timer);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, [perMsYield, isAdmin]);
-
-  if (isAdmin || (cap <= 0 && profit <= 0)) {
-    return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹0.00</span>;
+  if (isAdmin || cap <= 0) {
+    const num = isAdmin ? 0 : parseCachedNumber(baseProfit);
+    const formatted = num > 0 ? num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
+    return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
   }
 
-  const num = Number(profit || 0);
-  const decimals = cap >= 100000 ? 6 : (cap >= 10000 ? 7 : (cap > 0 ? 8 : 2));
-  const formatted = isFinite(num)
-    ? num.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-    : "0.00";
+  const [liveMs, setLiveMs] = useState(Date.now());
+  const dailyYieldEst = (cap * 0.12) / 365;
+  const perSecondYield = dailyYieldEst / 86400;
+  const perMsYield = perSecondYield / 1000;
+
+  useEffect(() => {
+    let timer = null;
+    if (typeof document !== "undefined" && !document.hidden) {
+      timer = setInterval(() => setLiveMs(Date.now()), 50); // 50ms
+    }
+    return () => { if (timer) clearInterval(timer); };
+  }, []);
+
+  const startOfToday = new Date().setHours(0, 0, 0, 0);
+  const msElapsedToday = Math.max(0, liveMs - startOfToday);
+  const liveTodayEarned = msElapsedToday * perMsYield;
+
+  const serverBase = parseCachedNumber(baseProfit);
+  // Total profit = database base balance + today's real-time accrued yield
+  const totalProfit = serverBase + liveTodayEarned;
+
+  const decimals = cap >= 100000 ? 6 : (cap >= 10000 ? 7 : 8);
+  const formatted = totalProfit.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
   return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
 }
@@ -6095,13 +6018,35 @@ export default function Dashboard() {
               <div className="py-8 text-center text-gray-400 text-xs animate-pulse">
                 Loading profit statement...
               </div>
-            ) : profitHistory.length === 0 ? (
+            ) : profitHistory.length === 0 && activeCapital <= 0 ? (
               <div className="py-8 text-center text-gray-400 text-xs bg-gray-50 rounded-2xl border border-gray-100 p-4">
                 <span className="text-2xl block mb-1">🌱</span>
                 Abhi tak koi profit entry nahi hai. Primary wallet me balance rakhein ya 365-day bond create karein roz profit paane ke liye!
               </div>
             ) : (
               <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                {activeCapital > 0 && (
+                  <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl shadow-xs flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">
+                        ⚡
+                      </div>
+                      <div>
+                        <p className="text-xs font-extrabold text-emerald-950">Daily Savings Yield (12% APY)</p>
+                        <p className="text-[11px] text-emerald-700 font-medium">Aaj Ka Live Accrued Yield (Compounding)</p>
+                        <p className="text-[10px] text-emerald-600 mt-0.5">
+                          {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} • Real-Time Accrual
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-xs sm:text-sm font-black text-emerald-700 block font-mono">
+                        +<LiveTodayAccrued activeCapital={activeCapital} isAdmin={isAdmin} />
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-600 uppercase">Accruing</span>
+                    </div>
+                  </div>
+                )}
                 {profitHistory.map((item) => (
                   <div
                     key={item._id}

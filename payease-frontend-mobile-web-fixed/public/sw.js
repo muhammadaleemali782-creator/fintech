@@ -1,5 +1,5 @@
 // Service Worker for Educa Fintech PWA
-const CACHE_NAME = 'educa-fintech-v5';
+const CACHE_NAME = 'educa-fintech-v6';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

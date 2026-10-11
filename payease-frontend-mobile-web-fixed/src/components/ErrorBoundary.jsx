@@ -32,13 +32,22 @@ export default class ErrorBoundary extends React.Component {
   }
 
   handleReload = () => {
-    sessionStorage.removeItem("educa_chunk_auto_reloaded");
-    window.location.reload();
+    try {
+      sessionStorage.clear();
+      if (typeof window !== "undefined" && "caches" in window) {
+        caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).catch(() => {});
+      }
+    } catch {}
+    window.location.href = window.location.origin + window.location.pathname + "?t=" + Date.now();
   };
 
   handleGoHome = () => {
-    sessionStorage.removeItem("educa_chunk_auto_reloaded");
-    window.location.href = "/";
+    try {
+      sessionStorage.clear();
+      localStorage.removeItem("token");
+      tokenStorage.clearToken();
+    } catch {}
+    window.location.href = "/login?t=" + Date.now();
   };
 
   render() {
@@ -93,6 +102,17 @@ export default class ErrorBoundary extends React.Component {
                 <span>Back to Login</span>
               </button>
             </div>
+
+            {this.state.error && (
+              <details className="mt-4 text-[10px] text-slate-400 text-left font-mono break-all w-full bg-slate-50 p-2 rounded-xl border border-slate-200">
+                <summary className="cursor-pointer text-center text-slate-500 font-sans text-[11px] font-semibold">
+                  Technical Details
+                </summary>
+                <div className="mt-1 max-h-24 overflow-y-auto">
+                  {String(this.state.error?.message || this.state.error || "Unknown error")}
+                </div>
+              </details>
+            )}
           </div>
         </div>
       );

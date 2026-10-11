@@ -1,5 +1,5 @@
 // Service Worker for Educa Fintech PWA
-const CACHE_NAME = 'educa-fintech-v2';
+const CACHE_NAME = 'educa-fintech-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -16,17 +16,44 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = event.request.url;
+
   // Pass-through for all API, WebSocket, SSE requests
   if (
-    event.request.url.includes('/api/') ||
-    event.request.url.includes('/admin/notifications/stream') ||
+    url.includes('/api/') ||
+    url.includes('/admin/notifications/stream') ||
     event.request.method !== 'GET'
   ) {
     return;
   }
 
-  // Network-first with cache fallback
+  // Assets (JS, CSS, fonts, images): Cache-first with network fallback for ultra-fast instant startup
+  if (url.includes('/assets/') || url.match(/\.(js|css|png|jpg|svg|ico|woff2)$/)) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        }).catch(() => cached);
+      })
+    );
+    return;
+  }
+
+  // HTML / Navigation: Network-first with cache fallback
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

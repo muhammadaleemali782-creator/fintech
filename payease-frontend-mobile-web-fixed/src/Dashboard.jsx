@@ -474,7 +474,10 @@ const tourSteps = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const token = tokenStorage.getToken();
-  const userStored = JSON.parse(localStorage.getItem("user") || "{}");
+  let userStored = {};
+  try {
+    userStored = JSON.parse(localStorage.getItem("user") || "{}") || {};
+  } catch {}
   useEffect(() => { if (!token) window.location.href = "/"; }, [token]);
 
   // Isolate account data: if cached profile belongs to another user, purge immediately
@@ -1688,14 +1691,14 @@ export default function Dashboard() {
   const userUniqueId = userProfile.accountNumber || (userProfile._id ? `EDUCA-${String(userProfile._id).slice(-8).toUpperCase()}` : (userStored._id || userStored.id ? `EDUCA-${String(userStored._id || userStored.id).slice(-8).toUpperCase()}` : "EDUCA-MEMBER"));
 
   const isAgent = Boolean(
-    userProfile.role === "agent" ||
-    userStored.role === "agent" ||
-    userProfile.agentProfile?.status === "approved"
+    userProfile?.role === "agent" ||
+    userStored?.role === "agent" ||
+    userProfile?.agentProfile?.status === "approved"
   );
 
   const isAdmin = Boolean(
-    userProfile.role === "admin" ||
-    userStored.role === "admin"
+    userProfile?.role === "admin" ||
+    userStored?.role === "admin"
   );
 
   // 5-Day Due Date Alert Calculation: checks active loans for any installment with daysLeft <= 5

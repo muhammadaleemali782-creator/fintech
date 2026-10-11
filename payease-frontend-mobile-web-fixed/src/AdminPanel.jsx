@@ -423,8 +423,11 @@ function formatLiveTimeElapsed(dateStr) {
 
 export default function AdminPanel() {
   const token = tokenStorage.getToken();
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  useEffect(() => { if (!token || user.role !== "admin") window.location.href = "/"; }, []); // eslint-disable-line
+  let user = {};
+  try {
+    user = JSON.parse(localStorage.getItem("user") || "{}") || {};
+  } catch {}
+  useEffect(() => { if (!token || user?.role !== "admin") window.location.href = "/"; }, []); // eslint-disable-line
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const [tab, setTab] = useState("analytics");

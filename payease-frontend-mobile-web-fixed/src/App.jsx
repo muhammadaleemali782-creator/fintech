@@ -3,20 +3,29 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { tokenStorage } from "./utils/tokenStorage";
 
-// Self-healing lazy importer: Retries and refreshes if a chunk is 404 (due to new Vercel deployment)
+// Self-healing lazy importer: Retries up to 3 times before failing
 function lazyWithRetry(componentImport) {
   return lazy(async () => {
-    try {
-      return await componentImport();
-    } catch (error) {
-      const reloadKey = "educa_chunk_retry";
-      const alreadyRetried = sessionStorage.getItem(reloadKey);
-      if (!alreadyRetried) {
-        sessionStorage.setItem(reloadKey, "true");
-        window.location.reload();
-        return;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await componentImport();
+      } catch (error) {
+        if (attempt === 2) {
+          // If 3 attempts failed (e.g. new build deployed), force refresh once
+          if (typeof window !== "undefined") {
+            const reloadKey = "educa_chunk_retry_ts";
+            const lastReload = Number(sessionStorage.getItem(reloadKey) || 0);
+            if (Date.now() - lastReload > 15000) {
+              sessionStorage.setItem(reloadKey, String(Date.now()));
+              window.location.href = window.location.pathname + "?v=" + Date.now();
+              return new Promise(() => {}); // never resolve undefined to prevent React lazy crash
+            }
+          }
+          throw error;
+        }
+        // Wait before retry (300ms, 600ms)
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
       }
-      throw error;
     }
   });
 }
@@ -30,17 +39,19 @@ const AdminPanel = lazyWithRetry(() => import("./AdminPanel"));
 
 // Instant background prefetch for active users (cold-start acceleration)
 if (typeof window !== "undefined") {
-  const hasToken = tokenStorage.getToken();
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  if (hasToken) {
-    if (user.role === "admin") {
-      import("./AdminPanel").catch(() => {});
+  try {
+    const hasToken = tokenStorage.getToken();
+    const user = JSON.parse(localStorage.getItem("user") || "{}") || {};
+    if (hasToken) {
+      if (user?.role === "admin") {
+        import("./AdminPanel").catch(() => {});
+      } else {
+        import("./Dashboard").catch(() => {});
+      }
     } else {
-      import("./Dashboard").catch(() => {});
+      import("./Login").catch(() => {});
     }
-  } else {
-    import("./Login").catch(() => {});
-  }
+  } catch {}
 }
 
 // Product & Information Pages
@@ -61,10 +72,13 @@ const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
 
 function PrivateRoute({ children, adminOnly = false }) {
   const token = tokenStorage.getToken();
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  let user = {};
+  try {
+    user = JSON.parse(localStorage.getItem("user") || "{}") || {};
+  } catch {}
 
   if (!token) return <Navigate to="/login" replace />;
-  if (adminOnly && user.role !== "admin") return <Navigate to="/dashboard" replace />;
+  if (adminOnly && user?.role !== "admin") return <Navigate to="/dashboard" replace />;
   return children;
 }
 

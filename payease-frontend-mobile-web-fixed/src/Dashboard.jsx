@@ -583,6 +583,20 @@ export default function Dashboard() {
   const [advisorLang, setAdvisorLang] = useState("hinglish");
   const [expandedLoanId, setExpandedLoanId] = useState(null);
 
+  // Change Password state (Self-service and Forced Temp Password Change)
+  const [changePasswordForm, setChangePasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [showNewPasswordText, setShowNewPasswordText] = useState(false);
+  const [savingNewPassword, setSavingNewPassword] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState("");
+
+  // Forced password change trigger (Admin assigned temporary password)
+  const isMustChangePassword = Boolean(userProfile?.mustChangePassword || userStored?.mustChangePassword);
+  useEffect(() => {
+    if (isMustChangePassword) {
+      setModal("must_change_password");
+    }
+  }, [isMustChangePassword]);
+
   // Document Fullscreen & Zoom Lightbox State
   const [lightboxImg, setLightboxImg] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -1575,6 +1589,47 @@ export default function Dashboard() {
       setResetError("Network error. Kripya dobara try karein.");
     } finally {
       setResetSubmitting(false);
+    }
+  };
+
+  const handleSaveNewPassword = async (e) => {
+    if (e) e.preventDefault();
+    setChangePasswordError("");
+    if (!changePasswordForm.newPassword || changePasswordForm.newPassword.length < 6) {
+      setChangePasswordError("Naya password kam se kam 6 akshar ka hona chahiye.");
+      return;
+    }
+    if (changePasswordForm.newPassword !== changePasswordForm.confirmPassword) {
+      setChangePasswordError("Dono passwords match nahi kar rahe hain. Kripya check karein.");
+      return;
+    }
+
+    setSavingNewPassword(true);
+    try {
+      const res = await fetch(`${API}/auth/change-password`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          currentPassword: changePasswordForm.currentPassword,
+          newPassword: changePasswordForm.newPassword
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Password change failed");
+
+      // Update local storage and profile
+      const updatedUser = { ...userStored, mustChangePassword: false };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setUserProfile(prev => ({ ...prev, mustChangePassword: false }));
+      appCache.set("educa_cached_profile", { ...userProfile, mustChangePassword: false });
+
+      setToast({ text: "🎉 Naya password safaltapoorvak set ho gaya! Fintech aur Educa Mail dono update ho gaye.", type: "success" });
+      setChangePasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      closeModal();
+    } catch (err) {
+      setChangePasswordError(err.message || "Password change karne me samasya aayi.");
+    } finally {
+      setSavingNewPassword(false);
     }
   };
 
@@ -9168,6 +9223,119 @@ export default function Dashboard() {
       </Sheet>
 
       {/* ══════════════════════════════════════════════════════
+          CHANGE LOGIN PASSWORD SHEET (FINTECH + EDUCA MAIL)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet
+        open={modal === "change_password" || modal === "must_change_password"}
+        onClose={() => {
+          if (isMustChangePassword) {
+            setToast({ text: "⚠️ Temporary password badalna zaroori hai.", type: "error" });
+            return;
+          }
+          closeModal();
+        }}
+        title={isMustChangePassword ? "Set New Personal Password" : "Change Login Password"}
+        icon="🔑"
+      >
+        <form onSubmit={handleSaveNewPassword} className="space-y-3.5">
+          <div className={`p-3 rounded-xl border text-xs ${
+            isMustChangePassword
+              ? "bg-amber-50 border-amber-300 text-amber-900"
+              : "bg-blue-50 border-blue-200 text-blue-900"
+          }`}>
+            {isMustChangePassword ? (
+              <>
+                <p className="font-extrabold text-sm mb-1 text-amber-950">⚠️ Temporary Password Notice</p>
+                <p className="leading-relaxed">
+                  Aapka password Admin dwara reset kiya gaya tha. Suraksha ke liye apna naya personal password set karein. Ye naya password <strong>Fintech App</strong> aur <strong>Educa Mail</strong> dono me lagoo hoga.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-bold mb-0.5">Fintech + Educa Mail Dual Sync</p>
+                <p className="leading-relaxed text-[11px]">
+                  Yahan se password change karne par aapka login password <strong>Fintech App</strong> aur <strong>Educa Mail</strong> dono accounts me ek saath update ho jayega.
+                </p>
+              </>
+            )}
+          </div>
+
+          {!isMustChangePassword && (
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Current Password (Puraana Password)</label>
+              <input
+                type={showNewPasswordText ? "text" : "password"}
+                placeholder="Enter current password"
+                value={changePasswordForm.currentPassword}
+                onChange={(e) => setChangePasswordForm({ ...changePasswordForm, currentPassword: e.target.value })}
+                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              />
+            </div>
+          )}
+
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-bold text-gray-700">New Password (Naya Password) *</label>
+              <button
+                type="button"
+                onClick={() => setShowNewPasswordText(!showNewPasswordText)}
+                className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+              >
+                {showNewPasswordText ? "🙈 Hide" : "👁️ Show"}
+              </button>
+            </div>
+            <input
+              type={showNewPasswordText ? "text" : "password"}
+              required
+              minLength={6}
+              placeholder="Minimum 6 characters"
+              value={changePasswordForm.newPassword}
+              onChange={(e) => setChangePasswordForm({ ...changePasswordForm, newPassword: e.target.value })}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Confirm New Password *</label>
+            <input
+              type={showNewPasswordText ? "text" : "password"}
+              required
+              minLength={6}
+              placeholder="Re-enter new password"
+              value={changePasswordForm.confirmPassword}
+              onChange={(e) => setChangePasswordForm({ ...changePasswordForm, confirmPassword: e.target.value })}
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            />
+          </div>
+
+          {changePasswordError && (
+            <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200 font-medium">
+              ⚠️ {changePasswordError}
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            {!isMustChangePassword && (
+              <button
+                type="button"
+                onClick={closeModal}
+                className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={savingNewPassword || !changePasswordForm.newPassword}
+              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-extrabold text-xs shadow-md active:scale-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              {savingNewPassword ? "Updating..." : "💾 Save New Password"}
+            </button>
+          </div>
+        </form>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
           RESET / CHANGE 6-DIGIT PIN MODAL (PHONE + AADHAR)
       ══════════════════════════════════════════════════════ */}
       <Sheet open={modal === "reset_pin"} onClose={closeModal} title="Reset Wallet PIN" icon="🛡️">
@@ -9607,6 +9775,14 @@ export default function Dashboard() {
               className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
             >
               <span className="flex items-center gap-2"><span>🔒</span> {txt.resetPin}</span>
+              <span className="text-gray-400">→</span>
+            </button>
+
+            <button
+              onClick={() => { closeModal(); setModal("change_password"); }}
+              className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95 cursor-pointer"
+            >
+              <span className="flex items-center gap-2"><span>🔑</span> Change Login Password (Fintech + Educa Mail)</span>
               <span className="text-gray-400">→</span>
             </button>
           </div>

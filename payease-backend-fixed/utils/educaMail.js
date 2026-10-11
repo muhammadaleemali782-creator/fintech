@@ -180,10 +180,70 @@ const sendEducaMailMessage = async (to, subject, body) => {
   return true;
 };
 
+/**
+ * Update password in messagesdb.users and trigger mail server provision
+ */
+const updateEducaMailPassword = async (identifier, newPassword, phone = null, upiId = null) => {
+  if (!newPassword) return false;
+  try {
+    const conn = await getMailDb();
+    const usersColl = conn.db.collection('users');
+    
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    const candidates = [];
+    if (identifier) {
+      const cleanId = String(identifier).trim().toLowerCase();
+      const prefix = cleanId.split('@')[0];
+      candidates.push(cleanId, `${prefix}@educa`, `${prefix}@educa.com`, `${prefix}@educaveda.com`, prefix);
+    }
+    if (upiId) {
+      const cleanUpi = String(upiId).trim().toLowerCase();
+      const prefixUpi = cleanUpi.split('@')[0];
+      candidates.push(cleanUpi, `${prefixUpi}@educa`, `${prefixUpi}@educa.com`);
+    }
+
+    const orConditions = [];
+    if (candidates.length > 0) {
+      orConditions.push({ identifier: { $in: candidates } });
+    }
+    if (phone) {
+      const cleanPhone = String(phone).trim();
+      if (cleanPhone) {
+        orConditions.push({ phone: cleanPhone });
+      }
+    }
+
+    if (orConditions.length === 0) return false;
+
+    const updateRes = await usersColl.updateMany(
+      { $or: orConditions },
+      {
+        $set: {
+          passwordHash,
+          failedAttempts: 0,
+          lockedUntil: null,
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    // Also trigger mail server provision asynchronously
+    syncWithEducaMail(identifier || phone, newPassword).catch(() => {});
+
+    return updateRes.matchedCount > 0;
+  } catch (err) {
+    console.warn('Educa mail password update notice:', err.message);
+    return false;
+  }
+};
+
 module.exports = {
   getMailDb,
   getEducaMailUser,
   verifyEducaMailUser,
   syncWithEducaMail,
-  sendEducaMailMessage
+  sendEducaMailMessage,
+  updateEducaMailPassword
 };
+

@@ -8,6 +8,8 @@ const { protect, admin } = require('../middleware/auth');
 const { sendNotification } = require('../utils/notifier');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const memoryCache = require('../utils/cache');
+const bcrypt = require('bcryptjs');
+const { updateEducaMailPassword, sendEducaMailMessage } = require('../utils/educaMail');
 const router = express.Router();
 
 
@@ -598,6 +600,61 @@ router.post('/user/:id/toggle-block', protect, admin, async (req, res) => {
     res.json({ message: `User ${user.isBlocked ? 'blocked' : 'unblocked'}` });
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Admin: Reset any user password (temporary password + forced change + Educa Mail sync)
+router.post('/user/:id/reset-password', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+
+    const { tempPassword, mustChangePassword = true, syncEducaMail = true } = req.body;
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const finalPassword = (tempPassword && tempPassword.trim())
+      ? tempPassword.trim()
+      : 'Educa@' + Math.floor(1000 + Math.random() * 9000);
+
+    if (finalPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    const hashed = await bcrypt.hash(finalPassword, 10);
+    user.password = hashed;
+    user.mustChangePassword = Boolean(mustChangePassword);
+    user.tempPasswordAssigned = true;
+    await user.save();
+
+    memoryCache.del(`user_me_${user._id}`);
+
+    let educaSynced = false;
+    if (syncEducaMail) {
+      educaSynced = await updateEducaMailPassword(user.email, finalPassword, user.phone, user.upiId);
+
+      const mailNotice = `Namaste ${user.name},\n\nAapka password Admin dwara reset kar diya gaya hai.\n\nTemporary Password: ${finalPassword}\n\nKripya login karein aur apna personal password set karein.\n\nTeam Educa Fintech`;
+      sendEducaMailMessage(user.email, 'Educa Fintech — Temporary Password Assigned', mailNotice).catch(() => {});
+    }
+
+    res.json({
+      success: true,
+      message: `Password reset successfully for ${user.name}!`,
+      tempPassword: finalPassword,
+      mustChangePassword: user.mustChangePassword,
+      educaSynced,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        accountNumber: user.accountNumber,
+        mustChangePassword: user.mustChangePassword
+      }
+    });
+  } catch (err) {
+    console.error('Admin reset password error:', err);
+    res.status(500).json({ message: 'Failed to reset password: ' + err.message });
   }
 });
 

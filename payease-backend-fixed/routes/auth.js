@@ -7,13 +7,17 @@ const User = require('../models/User');
 const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
 
+const { protect } = require('../middleware/auth');
+const memoryCache = require('../utils/cache');
+
 // Direct connection and SSO helpers for Educa Mail Database
 const {
   getMailDb,
   getEducaMailUser,
   verifyEducaMailUser,
   syncWithEducaMail,
-  sendEducaMailMessage
+  sendEducaMailMessage,
+  updateEducaMailPassword
 } = require('../utils/educaMail');
 
 // Helper to set secure httpOnly cookie (protects auth tokens against XSS local storage theft)
@@ -272,7 +276,8 @@ router.post('/login', async (req, res) => {
         referralCode: user.referralCode,
         accountNumber: user.accountNumber,
         upiId: user.upiId,
-        agentProfile: user.agentProfile
+        agentProfile: user.agentProfile,
+        mustChangePassword: !!user.mustChangePassword
       }
     });
   } catch (err) {
@@ -375,7 +380,8 @@ router.post('/mail-login', async (req, res) => {
         referralCode: user.referralCode,
         accountNumber: user.accountNumber,
         upiId: user.upiId,
-        loginMethod: 'educa-mail'
+        loginMethod: 'educa-mail',
+        mustChangePassword: !!user.mustChangePassword
       }
     });
   } catch (err) {
@@ -451,24 +457,88 @@ router.post('/forgot-password', async (req, res) => {
 router.post('/reset-password', async (req, res) => {
   try {
     const { token, newPassword } = req.body;
-    if (!token || !newPassword || newPassword.length < 8) {
-      return res.status(400).json({ message: 'Valid reset token and minimum 8-character password required' });
+    if (!token || !newPassword || newPassword.length < 6) {
+      return res.status(400).json({ message: 'Valid reset token and minimum 6-character password required' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     if (decoded.type !== 'reset') return res.status(400).json({ message: 'Invalid reset token' });
 
     const hashed = await bcrypt.hash(newPassword, 12);
-    const user = await User.findByIdAndUpdate(decoded.id, { password: hashed }, { new: true });
+    const user = await User.findByIdAndUpdate(
+      decoded.id,
+      {
+        password: hashed,
+        mustChangePassword: false,
+        tempPasswordAssigned: false
+      },
+      { new: true }
+    );
 
     if (user) {
-      // Keep Educa Mail in sync
-      syncWithEducaMail(user.email, newPassword);
+      memoryCache.del(`user_me_${user._id}`);
+      await updateEducaMailPassword(user.email, newPassword, user.phone, user.upiId);
     }
 
     res.json({ message: 'Password successfully reset! You can now log in.' });
   } catch (err) {
     res.status(400).json({ message: 'Reset token expired or invalid. Please request a new one.' });
+  }
+});
+
+// Self / Forced Change Password (authenticated user)
+router.post('/change-password', protect, async (req, res) => {
+  try {
+    const { newPassword, currentPassword } = req.body;
+    if (!newPassword || newPassword.trim().length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // If not in forced temp-password mode, verify currentPassword if supplied
+    if (!user.mustChangePassword && currentPassword) {
+      const match = await bcrypt.compare(currentPassword, user.password);
+      if (!match) {
+        return res.status(400).json({ message: 'Current password does not match' });
+      }
+    }
+
+    const cleanNewPass = newPassword.trim();
+    const hashed = await bcrypt.hash(cleanNewPass, 12);
+    user.password = hashed;
+    user.mustChangePassword = false;
+    user.tempPasswordAssigned = false;
+    await user.save();
+
+    memoryCache.del(`user_me_${user._id}`);
+
+    // Sync with Educa Mail
+    await updateEducaMailPassword(user.email, cleanNewPass, user.phone, user.upiId);
+
+    // Notify user in Educa Mail
+    sendEducaMailMessage(
+      user.email,
+      'Educa Fintech — Password Changed Successfully',
+      `Namaste ${user.name},\n\nAapka login password safaltapoorvak update ho gaya hai.\nFintech App aur Educa Mail dono accounts me naya password active hai.\n\nTeam Educa Fintech`
+    ).catch(() => {});
+
+    res.json({
+      success: true,
+      message: 'Password successfully changed! Fintech aur Educa Mail dono sync ho gaye hain.',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        mustChangePassword: false
+      }
+    });
+  } catch (err) {
+    console.error('Change password error:', err);
+    res.status(500).json({ message: 'Failed to change password: ' + err.message });
   }
 });
 

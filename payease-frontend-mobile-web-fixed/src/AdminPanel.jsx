@@ -515,6 +515,13 @@ export default function AdminPanel() {
   const [assignAgentModalUser, setAssignAgentModalUser] = useState(null);
   const [assigningAgent, setAssigningAgent] = useState(false);
   const [selectedAgentForAssign, setSelectedAgentForAssign] = useState("");
+  // Admin User Password Reset Modal State
+  const [resetPasswordModalUser, setResetPasswordModalUser] = useState(null);
+  const [resetPasswordInput, setResetPasswordInput] = useState("");
+  const [resetPasswordMustChange, setResetPasswordMustChange] = useState(true);
+  const [resetPasswordSyncEduca, setResetPasswordSyncEduca] = useState(true);
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [resetPasswordSuccessData, setResetPasswordSuccessData] = useState(null);
   // Dual Universal Filters for Issue Loan Desk
   const [issueHierarchyFilter, setIssueHierarchyFilter] = useState("all");
   const [issueSelectedAgentFilter, setIssueSelectedAgentFilter] = useState("all");
@@ -1641,6 +1648,46 @@ export default function AdminPanel() {
       }
     } catch {
       showToast("Failed to toggle uninstall protection", "error");
+    }
+  };
+
+  const openResetPasswordModal = (targetUser) => {
+    const generated = "Educa@" + Math.floor(1000 + Math.random() * 9000);
+    setResetPasswordModalUser(targetUser);
+    setResetPasswordInput(generated);
+    setResetPasswordMustChange(true);
+    setResetPasswordSyncEduca(true);
+    setResetPasswordSuccessData(null);
+  };
+
+  const handleAdminResetPassword = async () => {
+    if (!resetPasswordModalUser || !resetPasswordInput.trim()) return;
+    setResetPasswordLoading(true);
+    try {
+      const res = await fetch(`${API}/admin/user/${resetPasswordModalUser._id}/reset-password`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          tempPassword: resetPasswordInput.trim(),
+          mustChangePassword: resetPasswordMustChange,
+          syncEducaMail: resetPasswordSyncEduca
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to reset password");
+      setResetPasswordSuccessData({
+        user: resetPasswordModalUser,
+        tempPassword: data.tempPassword || resetPasswordInput.trim(),
+        mustChangePassword: resetPasswordMustChange,
+        educaSynced: data.educaSynced
+      });
+      showToast(`🔑 ${resetPasswordModalUser.name} ka password reset ho gaya!`, "success");
+      apiCache.clear();
+      loadUsers(true);
+    } catch (err) {
+      showToast(`⚠️ ${err.message}`, "error");
+    } finally {
+      setResetPasswordLoading(false);
     }
   };
 
@@ -6998,6 +7045,13 @@ export default function AdminPanel() {
                                 >
                                   {u.isUninstallProtected ? "🔒 Unlock Uninstall" : "🛡️ Block Uninstall"}
                                 </button>
+                                <button
+                                  onClick={() => openResetPasswordModal(u)}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                                  title="Reset user password with temporary credentials and forced change"
+                                >
+                                  🔑 Reset Password
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -7221,6 +7275,12 @@ export default function AdminPanel() {
                             {u.isUninstallProtected ? "🔒 Unlock Uninstall" : "🛡️ Block Uninstall"}
                           </button>
                         </div>
+                        <button
+                          onClick={() => openResetPasswordModal(u)}
+                          className="w-full mt-2 py-2 rounded-xl text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                        >
+                          🔑 Reset User Password
+                        </button>
                       </div>
                     ); })}
                   </div>
@@ -10473,6 +10533,158 @@ export default function AdminPanel() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          ADMIN RESET USER PASSWORD MODAL
+      ══════════════════════════════════════════════════════ */}
+      {resetPasswordModalUser && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔑</span>
+                <div>
+                  <h3 className="font-extrabold text-base text-gray-900 leading-tight">
+                    Reset User Password
+                  </h3>
+                  <p className="text-[11px] text-gray-500 font-medium">
+                    User: <strong className="text-gray-800">{resetPasswordModalUser.name}</strong> ({resetPasswordModalUser.phone || resetPasswordModalUser.email})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setResetPasswordModalUser(null); setResetPasswordSuccessData(null); }}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {resetPasswordSuccessData ? (
+              <div className="space-y-3">
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-950 space-y-2">
+                  <div className="flex items-center gap-2 font-black text-sm text-emerald-800">
+                    <span>✅</span> Password Successfully Reset!
+                  </div>
+                  <p className="text-xs text-emerald-900 leading-relaxed">
+                    Naya temporary password safaltapoorvak assign ho gaya hai.
+                    {resetPasswordSuccessData.educaSynced ? " Educa Mail database (messagesdb.users) bhi update ho gaya hai!" : ""}
+                  </p>
+                  <div className="p-3 bg-white rounded-xl border border-emerald-300 font-mono text-center">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase block">Temporary Password</span>
+                    <span className="text-xl font-black text-emerald-700 tracking-wider">
+                      {resetPasswordSuccessData.tempPassword}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-gray-700">Quick Message to Share:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const msg = `Namaste ${resetPasswordSuccessData.user.name},\n\nAapka Educa Fintech login password reset kar diya gaya hai:\n• Login ID: ${resetPasswordSuccessData.user.phone || resetPasswordSuccessData.user.email}\n• Temp Password: ${resetPasswordSuccessData.tempPassword}\n\nLogin karke apna naya personal password turant set karein.`;
+                        navigator.clipboard?.writeText(msg);
+                        showToast("📋 Message copied to clipboard!", "success");
+                      }}
+                      className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold cursor-pointer"
+                    >
+                      📋 Copy Full Message
+                    </button>
+                  </div>
+                  <pre className="p-2.5 bg-white border border-gray-200 rounded-lg text-[11px] font-mono text-gray-800 whitespace-pre-wrap">
+{`Namaste ${resetPasswordSuccessData.user.name},
+Aapka Educa Fintech login password reset kar diya gaya hai:
+• Login ID: ${resetPasswordSuccessData.user.phone || resetPasswordSuccessData.user.email}
+• Temp Password: ${resetPasswordSuccessData.tempPassword}
+Login karke apna naya personal password turant set karein.`}
+                  </pre>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setResetPasswordModalUser(null); setResetPasswordSuccessData(null); }}
+                  className="w-full py-2.5 bg-gray-900 hover:bg-black text-white rounded-xl font-bold text-xs cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={(e) => { e.preventDefault(); handleAdminResetPassword(); }} className="space-y-4">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 space-y-1">
+                  <p className="font-bold">Fintech + Educa Mail Dual Sync</p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Aap user ko temporary password de sakte hain. User jab login karega to app use apna naya personal password banane ke liye prompt karega.
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block font-bold text-gray-700 text-xs">
+                      Temporary Password *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setResetPasswordInput("Educa@" + Math.floor(1000 + Math.random() * 9000))}
+                      className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+                    >
+                      🎲 Generate Random
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={resetPasswordInput}
+                    onChange={(e) => setResetPasswordInput(e.target.value)}
+                    placeholder="Enter temporary password"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-bold text-gray-900 outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={resetPasswordMustChange}
+                      onChange={(e) => setResetPasswordMustChange(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 cursor-pointer"
+                    />
+                    <span>Force user to change password on next login (Recommended)</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={resetPasswordSyncEduca}
+                      onChange={(e) => setResetPasswordSyncEduca(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 cursor-pointer"
+                    />
+                    <span>Sync Educa Mail database (`messagesdb.users`)</span>
+                  </label>
+                </div>
+
+                <div className="flex gap-2.5 pt-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setResetPasswordModalUser(null)}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetPasswordLoading || !resetPasswordInput.trim()}
+                    className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold shadow-md active:scale-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    {resetPasswordLoading ? "Resetting..." : "🔑 Confirm Reset"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

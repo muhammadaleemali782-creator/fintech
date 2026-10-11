@@ -69,6 +69,8 @@ const userSchema = new mongoose.Schema({
 
   isBlocked: { type: Boolean, default: false },
   isUninstallProtected: { type: Boolean, default: false },
+  mustChangePassword: { type: Boolean, default: false },
+  tempPasswordAssigned: { type: Boolean, default: false },
   walletPin: { type: String, default: null },
   aadharNumber: { type: String, default: null },
   address: { type: String, default: '' },

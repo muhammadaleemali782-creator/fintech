@@ -7,7 +7,7 @@ const { protect } = require('../middleware/auth');
 const { sendNotification } = require('../utils/notifier');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
-const { getEducaMailUser } = require('../utils/educaMail');
+const { getEducaMailUser, updateEducaMailPassword, sendEducaMailMessage } = require('../utils/educaMail');
 const memoryCache = require('../utils/cache');
 const router = express.Router();
 
@@ -1140,6 +1140,59 @@ router.post('/agent/nominate-subagent', protect, async (req, res) => {
   } catch (err) {
     console.error('Nominate subagent error:', err);
     res.status(500).json({ message: 'Sub-Agent nomination request bhejne me samasya aayi.' });
+  }
+});
+
+// User self / forced password change (Fintech + Educa Mail Dual Sync)
+router.post('/change-password', protect, async (req, res) => {
+  try {
+    const { newPassword, currentPassword } = req.body;
+    if (!newPassword || newPassword.trim().length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.mustChangePassword && currentPassword) {
+      const match = await bcrypt.compare(currentPassword, user.password);
+      if (!match) {
+        return res.status(400).json({ message: 'Current password does not match' });
+      }
+    }
+
+    const cleanNewPass = newPassword.trim();
+    const hashed = await bcrypt.hash(cleanNewPass, 12);
+    user.password = hashed;
+    user.mustChangePassword = false;
+    user.tempPasswordAssigned = false;
+    await user.save();
+
+    memoryCache.del(`user_me_${user._id}`);
+
+    await updateEducaMailPassword(user.email, cleanNewPass, user.phone, user.upiId);
+
+    sendEducaMailMessage(
+      user.email,
+      'Educa Fintech — Password Changed Successfully',
+      `Namaste ${user.name},\n\nAapka login password safaltapoorvak update ho gaya hai.\nFintech App aur Educa Mail dono accounts me naya password active hai.\n\nTeam Educa Fintech`
+    ).catch(() => {});
+
+    res.json({
+      success: true,
+      message: 'Password successfully changed! Fintech aur Educa Mail dono sync ho gaye hain.',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        mustChangePassword: false
+      }
+    });
+  } catch (err) {
+    console.error('Change password error:', err);
+    res.status(500).json({ message: 'Failed to change password: ' + err.message });
   }
 });
 

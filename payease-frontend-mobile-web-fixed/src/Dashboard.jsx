@@ -1278,6 +1278,7 @@ export default function Dashboard() {
       setAppLockError("Please enter all 6 digits of your PIN");
       return;
     }
+    if (appLockLoading) return;
     setAppLockLoading(true);
     setAppLockError("");
     try {
@@ -1502,14 +1503,15 @@ export default function Dashboard() {
     });
   };
 
-  const handlePinSubmit = async () => {
-    if (pinInput.length !== 6 || !/^\d{6}$/.test(pinInput)) {
+  const handlePinSubmit = async (overridePin) => {
+    const activePin = typeof overridePin === "string" ? overridePin : pinInput;
+    if (activePin.length !== 6 || !/^\d{6}$/.test(activePin)) {
       setPinError("Kripya 6 number ka numeric PIN enter karein.");
       return;
     }
 
     if (pinSetupMode) {
-      if (pinInput !== confirmPinInput) {
+      if (activePin !== confirmPinInput) {
         setPinError("Dono PIN match nahi kar rahe hain.");
         return;
       }
@@ -1519,7 +1521,7 @@ export default function Dashboard() {
         const res = await fetch(`${API}/user/pin/set`, {
           method: "POST",
           headers,
-          body: JSON.stringify({ pin: pinInput })
+          body: JSON.stringify({ pin: activePin })
         });
         const data = await res.json();
         if (res.ok) {
@@ -1548,13 +1550,14 @@ export default function Dashboard() {
         setPinSubmitting(false);
       }
     } else {
+      if (pinSubmitting) return;
       setPinSubmitting(true);
       setPinError("");
       try {
         const res = await fetch(`${API}/user/pin/verify`, {
           method: "POST",
           headers,
-          body: JSON.stringify({ pin: pinInput })
+          body: JSON.stringify({ pin: activePin })
         });
         const data = await res.json();
         if (res.ok) {
@@ -4645,6 +4648,26 @@ export default function Dashboard() {
             {appLockLoading && (
               <p className="text-xs text-blue-600 font-bold mt-2.5 animate-pulse">Verifying PIN...</p>
             )}
+
+            {/* Explicit Unlock Button with instant tactile feedback */}
+            <button
+              type="button"
+              onClick={() => verifyAppLockPin(appLockPin)}
+              disabled={appLockLoading || appLockPin.length !== 6}
+              className="w-full mt-4 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/25 active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
+            >
+              {appLockLoading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Unlocking App...</span>
+                </>
+              ) : (
+                <>
+                  <span>🔓 Unlock & Open App</span>
+                  <span className="text-xs">→</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -6849,30 +6872,100 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Overdue Penalty Alert */}
-            {activePersonalLoan.penaltyDue > 0 && (
-              <div className="p-3 bg-rose-50 border border-rose-300 rounded-2xl text-xs text-rose-900 space-y-1.5">
-                <div className="flex items-center justify-between font-bold">
-                  <span className="flex items-center gap-1.5 text-rose-700">
-                    <span>⚠️</span> Overdue Penalty Active
-                  </span>
-                  <span className="text-rose-800 text-sm font-black">₹{activePersonalLoan.penaltyDue.toLocaleString("en-IN")}</span>
-                </div>
-                <p className="text-[11px] text-rose-700 leading-relaxed">
-                  Kist time par jama na hone ke karan penalty lagi hai. Niyam anusaar <strong>pehle penalty clear hogi</strong>, phir installment. Har overdue cycle me penalty double hoti jayegi.
-                </p>
+            {/* 10:00 AM Cutoff & Timeline Rule Banner */}
+            <div className="p-3.5 bg-indigo-50/80 border border-indigo-200 rounded-2xl text-xs space-y-1.5">
+              <div className="flex items-center justify-between font-extrabold text-indigo-950">
+                <span className="flex items-center gap-1.5">
+                  <span>⏰</span> Kist Collection Cutoff & Timeline
+                </span>
+                <span className="bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded-full text-[10px] font-black">
+                  10:00 AM Deadline
+                </span>
               </div>
-            )}
+              <p className="text-[11px] text-indigo-900 leading-relaxed">
+                Har kist ki tareekh ko <strong>subah 10:00 AM se pehle</strong> bharni hogi. 10:00 AM nikalne par kist <strong>Overdue</strong> ho jayegi aur <strong>2% penalty</strong> lagne lagegi.
+              </p>
+              <div className="pt-1.5 border-t border-indigo-200/60 flex items-center justify-between text-[10px] font-bold text-indigo-800">
+                <span>🔄 Rollover Niyam:</span>
+                <span>Agar ek kist chhoote to agle cycle me jud jayegi (+2% penalty)</span>
+              </div>
+            </div>
+
+            {/* Paisa Aana & Kistein Jana (Cashflow Schedule) */}
+            <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl text-xs space-y-1.5">
+              <div className="flex items-center justify-between font-extrabold text-emerald-950">
+                <span className="flex items-center gap-1.5">
+                  <span>💰</span> Paisa Aana & Kistein Jana (Timeline)
+                </span>
+                <span className="text-[10px] font-bold text-emerald-700">10-Day Cycle</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[10px] pt-1">
+                <div className="p-2 bg-white/90 rounded-xl border border-emerald-100 space-y-0.5">
+                  <span className="text-emerald-800 font-extrabold uppercase block">📥 Paisa Aana Hai</span>
+                  <p className="text-gray-600">• Disbursal: Approval par Profit Wallet</p>
+                  <p className="text-gray-600">• Monthly Returns: 1st date credit</p>
+                  <p className="text-gray-600">• Daily Yield: Midnight 12:00 AM</p>
+                </div>
+                <div className="p-2 bg-white/90 rounded-xl border border-emerald-100 space-y-0.5">
+                  <span className="text-rose-800 font-extrabold uppercase block">📤 Kistein Kab Jayengi</span>
+                  <p className="text-gray-600">• 1st, 11th, aur 21st tareekh</p>
+                  <p className="text-gray-600">• Subah 10:00 AM se pehle</p>
+                  <p className="text-gray-600">• Miss hone par agli me rollover</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Overdue Penalty & Rollover Alert */}
+            {(() => {
+              const list = (activeLoanDetails?.installments || activePersonalLoan.installmentSchedule || []);
+              const overdueItems = list.filter(x => x.status === "overdue");
+              const overdueCount = overdueItems.length || activePersonalLoan.overdueCount || (activePersonalLoan.penaltyDue > 0 ? 1 : 0);
+              const instAmt = activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount || 0;
+              const penalty = activePersonalLoan.penaltyDue || 0;
+              const missedAmt = overdueItems.length > 0 ? overdueItems.reduce((acc, x) => acc + (x.amount || instAmt), 0) : (overdueCount * instAmt);
+
+              if (penalty <= 0 && overdueCount <= 0) return null;
+
+              return (
+                <div className="p-3.5 bg-rose-50 border-2 border-rose-300 rounded-2xl text-xs space-y-2 text-rose-950">
+                  <div className="flex items-center justify-between font-black">
+                    <span className="flex items-center gap-1.5 text-rose-700">
+                      <span>🚨</span> Overdue & Rollover Notice
+                    </span>
+                    <span className="bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full text-[10px] font-mono font-black">
+                      {overdueCount} Kist Missed
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-rose-800 leading-tight">
+                    Kist subah 10:00 AM se pehle jama nahi hui. Niyam ke mutabiq <strong>chhooti hui kist agli kist me jud jayegi</strong> ya aap agli kist se pehle bhi bhar sakte hain!
+                  </p>
+                  <div className="bg-white/90 p-2.5 rounded-xl border border-rose-200 space-y-1 text-[11px] font-mono">
+                    <div className="flex justify-between text-gray-700">
+                      <span>Chhooti Hui Kist (Missed EMI):</span>
+                      <span className="font-bold text-gray-900">₹{missedAmt.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div className="flex justify-between text-rose-700">
+                      <span>2% Overdue Penalty:</span>
+                      <span className="font-bold text-rose-700">+₹{penalty.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div className="flex justify-between text-indigo-950 font-extrabold pt-1.5 border-t border-rose-100 text-xs">
+                      <span>Abhi Kul Bharna Hoga (EMI + Penalty):</span>
+                      <span className="text-emerald-700 font-black">₹{(missedAmt + penalty).toLocaleString("en-IN")}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Loan Metrics */}
             <div className="border border-gray-100 rounded-2xl p-4 bg-gray-50 space-y-2 text-xs">
               <div className="flex justify-between"><span className="text-gray-500">Tenure:</span><span className="font-bold">{activePersonalLoan.installmentsCount || activePersonalLoan.tenure} Easy Installments</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Repayment Cycle:</span><span className="font-bold">10 Days (1st, 11th, 21st of month)</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Repayment Cycle:</span><span className="font-bold">10 Days (1st, 11th, 21st • 10:00 AM Cutoff)</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Per Installment:</span><span className="font-bold text-emerald-700">₹{activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Total Paid Amount:</span><span className="font-bold text-emerald-600">₹{(activePersonalLoan.paidAmount || 0).toLocaleString("en-IN")}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Remaining Dues Balance:</span><span className="font-bold text-rose-600">₹{(activePersonalLoan.remainingAmount ?? activePersonalLoan.amount).toLocaleString("en-IN")}</span></div>
               {activePersonalLoan.penaltyDue > 0 && (
-                <div className="flex justify-between"><span className="text-rose-600 font-bold">Pending Penalty:</span><span className="font-bold text-rose-700">₹{activePersonalLoan.penaltyDue.toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between"><span className="text-rose-600 font-bold">Pending 2% Penalty:</span><span className="font-bold text-rose-700">₹{activePersonalLoan.penaltyDue.toLocaleString("en-IN")}</span></div>
               )}
             </div>
 
@@ -6883,7 +6976,11 @@ export default function Dashboard() {
               const totalCount = activePersonalLoan.installmentsCount || activePersonalLoan.tenure || list.length || 15;
               const instAmt = activePersonalLoan.installmentAmount || activePersonalLoan.emiAmount || 0;
               const penalty = activePersonalLoan.penaltyDue || 0;
+              const overdueItems = list.filter(x => x.status === "overdue");
+              const overdueCount = overdueItems.length || activePersonalLoan.overdueCount || (penalty > 0 ? 1 : 0);
+              const missedAmt = overdueItems.length > 0 ? overdueItems.reduce((acc, x) => acc + (x.amount || instAmt), 0) : (overdueCount * instAmt);
               const pendingInst = list.find(x => x.status === "overdue") || list.find(x => x.status === "pending") || list[0];
+              const totalPayNow = overdueCount > 0 ? (missedAmt + penalty) : (pendingInst ? pendingInst.amount : instAmt);
               const isPrecloseEligible = paidCount < 9 && totalCount > 15;
               const xPercent = isPrecloseEligible ? Math.max(0, totalCount - 15) : 0;
               const totalPool = (activePersonalLoan.amount * xPercent) / 100;
@@ -6901,12 +6998,12 @@ export default function Dashboard() {
                       setSubmitInstallmentModal({
                         loanId: activePersonalLoan._id,
                         installmentNo: pendingInst ? pendingInst.installmentNo : 1,
-                        amount: totalNextDue
+                        amount: totalPayNow
                       });
                     }}
                     className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition cursor-pointer"
                   >
-                    Pay Next Easy Installment (₹{totalNextDue.toLocaleString("en-IN")}{penalty > 0 ? ` incl. ₹${penalty} penalty` : ""}) →
+                    Pay Next Easy Installment (₹{totalPayNow.toLocaleString("en-IN")}{penalty > 0 ? ` incl. ₹${penalty} penalty` : ""}) →
                   </button>
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 space-y-1">
                     <p>⚡ <strong>15-Installment Early Pre-Closure Rule:</strong> Minimum 15 kiston ka bhugtan karke loan samay se pehle band kiya ja sakta hai.</p>
@@ -6966,7 +7063,7 @@ export default function Dashboard() {
                             <span className="font-mono font-bold text-emerald-700">₹{inst.amount}</span>
                           </div>
                           <p className="text-[11px] text-gray-500">
-                            Due Date: {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "10-day cycle"}
+                            Due Date: {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "10-day cycle"} • <span className="font-semibold text-indigo-700">⏰ Cutoff: 10:00 AM</span>
                           </p>
                           {isPaid && (
                             <p className="text-[10px] text-emerald-700 font-bold">
@@ -6979,6 +7076,11 @@ export default function Dashboard() {
                               ⏳ UTR: {inst.utrNumber} (Awaiting Admin Approval)
                             </p>
                           )}
+                          {isOverdue && (
+                            <p className="text-[10px] text-rose-700 font-bold">
+                              ⚠️ 10:00 AM cutoff missed • +2% penalty • Agli kist se pehle bharein warna agli me judegi
+                            </p>
+                          )}
                         </div>
 
                         <div className="shrink-0 flex flex-col items-end gap-1">
@@ -6987,7 +7089,7 @@ export default function Dashboard() {
                             isSubmitted ? "bg-amber-200 text-amber-900" :
                             isOverdue ? "bg-rose-200 text-rose-900" : "bg-gray-100 text-gray-700"
                           }`}>
-                            {inst.status}
+                            {isOverdue ? "OVERDUE (10 AM)" : inst.status}
                           </span>
 
                           {!isPaid && !isSubmitted && activePersonalLoan.status === "active" && (
@@ -6996,7 +7098,7 @@ export default function Dashboard() {
                               onClick={() => setSubmitInstallmentModal({
                                 loanId: activePersonalLoan._id,
                                 installmentNo: inst.installmentNo,
-                                amount: inst.amount
+                                amount: isOverdue ? (inst.amount + (activePersonalLoan.penaltyDue || 0)) : inst.amount
                               })}
                               className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold shadow-2xs active:scale-95 transition cursor-pointer"
                             >
@@ -9419,7 +9521,14 @@ export default function Dashboard() {
               maxLength={6}
               placeholder="••••••"
               value={pinInput}
-              onChange={e => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={e => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setPinInput(val);
+                setPinError("");
+                if (!pinSetupMode && val.length === 6) {
+                  handlePinSubmit(val);
+                }
+              }}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-center text-2xl tracking-[0.4em] font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
@@ -9433,7 +9542,11 @@ export default function Dashboard() {
                 maxLength={6}
                 placeholder="••••••"
                 value={confirmPinInput}
-                onChange={e => setConfirmPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  setConfirmPinInput(val);
+                  setPinError("");
+                }}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl text-center text-2xl tracking-[0.4em] font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
@@ -9444,11 +9557,11 @@ export default function Dashboard() {
           )}
 
           <button
-            onClick={handlePinSubmit}
+            onClick={() => handlePinSubmit()}
             disabled={pinSubmitting || pinInput.length !== 6 || (pinSetupMode && confirmPinInput.length !== 6)}
             className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md active:scale-95 transition disabled:opacity-50"
           >
-            {pinSubmitting ? "Verifying..." : (pinSetupMode ? "Set 6-Digit PIN & View Balance" : "Unlock & View Balance")}
+            {pinSubmitting ? "Unlocking..." : (pinSetupMode ? "Set 6-Digit PIN & View Balance" : "Unlock & View Balance")}
           </button>
 
           {!pinSetupMode && (

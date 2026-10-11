@@ -14,7 +14,7 @@ const router = express.Router();
 // Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
 const generateLoanAccountNumber = () => generateAccountNumber(Loan);
 
-// Collection dates on 1st, 11th, and 21st of months (10-day cycle)
+// Collection dates on 1st, 11th, and 21st of months (10-day cycle, 10:00 AM cutoff deadline)
 const getCollectionDates = (startDate, count) => {
   const dates = [];
   let current = new Date(startDate);
@@ -22,30 +22,34 @@ const getCollectionDates = (startDate, count) => {
     current.setDate(current.getDate() + 1);
     const d = current.getDate();
     if (d === 1 || d === 11 || d === 21) {
-      dates.push(new Date(current));
+      const due = new Date(current);
+      due.setHours(10, 0, 0, 0); // Strict 10:00 AM Cutoff
+      dates.push(due);
     }
   }
   return dates;
 };
 
-// Daily collection dates for Micro Business Loans
+// Daily collection dates for Micro Business Loans (10:00 AM cutoff deadline)
 const getDailyCollectionDates = (startDate, days) => {
   const dates = [];
   let current = new Date(startDate);
   for (let i = 0; i < days; i++) {
     current.setDate(current.getDate() + 1);
-    dates.push(new Date(current));
+    const due = new Date(current);
+    due.setHours(10, 0, 0, 0); // Strict 10:00 AM Cutoff
+    dates.push(due);
   }
   return dates;
 };
 
 // Sync Overdue Installments & 2% Per Installment Penalty
 // Rules requested by client / admin:
-// 1. Unpaid EMIs roll over to next EMI.
-// 2. Penalty rate: 2% per installment ("Sir penalty lagegi 2% per installment").
-// 3. Admin waiver: Admin can waive / hold penalty ("But ye admin chahe to chor sakta hai").
-// 4. Cumulative on re-application / next cycle: If penalty was waived/stopped earlier on 1st installment and later applied on 2nd cycle (or admin toggles penalty on), previous overdue installments are included ("jaise 1st installment me penalty roka gya aur dusre baar laga to pehle ka bhi jod ke lagega").
-// 5. Payment mandatory with penalty: Payment is always made with active penalty included ("And payment har baar penalty add karke hi hogi").
+// 1. Strict 10:00 AM Deadline: Har kist ki tareekh ko subah 10:00 AM se pehle bharni hogi, warna overdue penalty shuru hogi.
+// 2. Rollover Rule: Agar ek kist chhoote to agle cycle me jud jayegi (ya agle cycle se pehle bhar sakte hain).
+// 3. Penalty rate: 2% per overdue installment ("pehle ka bhi jod ke lagega").
+// 4. Admin waiver: Admin can waive / hold penalty ("But ye admin chahe to chor sakta hai").
+// 5. Total payable on missed: Missed EMI + Current EMI + 2% Active Penalty.
 const syncLoanOverdueAndPenalties = (loan) => {
   if (!loan || loan.status !== 'active') return loan;
 
@@ -55,15 +59,30 @@ const syncLoanOverdueAndPenalties = (loan) => {
     : (loan.emiSchedule || []);
   let overdueCount = 0;
 
-  schedule.forEach(item => {
-    if ((item.status === 'pending' || item.status === 'overdue') && item.dueDate && new Date(item.dueDate) < now) {
-      item.status = 'overdue';
-      overdueCount++;
+  schedule.forEach((item) => {
+    if (item.dueDate) {
+      const due = new Date(item.dueDate);
+      due.setHours(10, 0, 0, 0); // Strict 10:00 AM deadline
+      item.cutoffTime = '10:00 AM';
+
+      if (item.status !== 'paid' && item.status !== 'submitted') {
+        if (now > due) {
+          item.status = 'overdue';
+          overdueCount++;
+          item.overdueNotice = '10:00 AM cutoff nikal chuka hai. 2% penalty lagu hai. Agli kist se pehle bharein warna agle me jud jayega.';
+        } else {
+          item.status = 'pending';
+          item.overdueNotice = null;
+        }
+      }
     }
   });
 
-  loan.penaltyCount = overdueCount;
   const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
+  loan.overdueCount = overdueCount;
+  loan.overdueInstallmentsCount = overdueCount;
+  loan.missedEmiAmount = overdueCount * installmentAmt;
+  loan.cutoffTime = '10:00 AM';
 
   if (overdueCount > 0 && !loan.penaltyWaived) {
     // 2% per overdue installment ("pehle ka bhi jod ke lagega")
@@ -77,6 +96,13 @@ const syncLoanOverdueAndPenalties = (loan) => {
   const unpaidItems = schedule.filter(item => item.status === 'pending' || item.status === 'overdue');
   const totalUnpaidEmi = unpaidItems.length * installmentAmt;
   loan.accumulatedDue = totalUnpaidEmi + (loan.penaltyDue || 0);
+
+  // Rollover notice for next active installment
+  if (overdueCount > 0) {
+    loan.rolloverNotice = `⚠️ ${overdueCount} kist chhooti hui hai (₹${loan.missedEmiAmount}) + 2% penalty (₹${loan.penaltyDue}). Agli kist se pehle bharein ya agli kist ke sath judengi.`;
+  } else {
+    loan.rolloverNotice = null;
+  }
 
   return loan;
 };

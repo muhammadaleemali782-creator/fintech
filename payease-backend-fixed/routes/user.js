@@ -174,7 +174,7 @@ router.post('/pin/verify', protect, async (req, res) => {
       return res.status(400).json({ message: '6-digit numeric PIN required' });
     }
 
-    const user = await User.findById(req.user._id);
+    const user = req.user;
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     if (!user.walletPin) {
@@ -186,7 +186,7 @@ router.post('/pin/verify', protect, async (req, res) => {
       return res.status(400).json({ message: 'Incorrect 6-digit PIN' });
     }
 
-    res.json({ success: true, balance: user.balance });
+    return res.json({ success: true, balance: user.balance });
   } catch (err) {
     res.status(500).json({ message: 'Verification failed' });
   }

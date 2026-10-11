@@ -8444,6 +8444,39 @@ export default function AdminPanel() {
                           <span className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${loanStatusColor[l.status] || "bg-gray-100"}`}>{l.status.toUpperCase()}</span>
                         </div>
 
+                        {/* 10:00 AM Cutoff & Rollover Policy Desk */}
+                        {l.status === "active" && (
+                          <div className="mb-3 p-3 bg-indigo-50/80 border border-indigo-200 rounded-xl text-xs space-y-1.5">
+                            <div className="flex flex-wrap items-center justify-between gap-1 font-extrabold text-indigo-950">
+                              <span className="flex items-center gap-1.5">
+                                <span>⏰</span> Collection Cutoff & Rollover Niyam
+                              </span>
+                              <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+                                Subah 10:00 AM Deadline
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-indigo-900 leading-relaxed">
+                              Har kist subah 10:00 AM se pehle bharni hoti hai. <strong>10:00 AM ke baad 2% penalty</strong> lagti hai. Agar 1 kist chhoot gayi to agle installment me rollover hokar jud jayegi (ya borrower agle cycle se pehle clear kar sakta hai).
+                            </p>
+                            {Boolean(l.penaltyDue > 0 || l.overdueInstallmentsCount > 0 || l.overdueCount > 0) && (
+                              <div className="mt-2 p-2.5 bg-white rounded-lg border border-rose-200 text-[11px] space-y-1 font-mono">
+                                <div className="flex justify-between text-gray-700">
+                                  <span>Chhooti Hui Kist (Missed EMIs):</span>
+                                  <span className="font-bold text-gray-900">₹{(((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)).toLocaleString("en-IN")} ({l.overdueInstallmentsCount || l.overdueCount || 1} Kist)</span>
+                                </div>
+                                <div className="flex justify-between text-rose-700">
+                                  <span>2% Overdue Penalty:</span>
+                                  <span className="font-bold text-rose-700">+₹{Number(l.penaltyDue || 0).toLocaleString("en-IN")}</span>
+                                </div>
+                                <div className="flex justify-between text-indigo-950 font-black pt-1 border-t border-rose-100 text-xs">
+                                  <span>Kul Vasooli (EMI + Penalty Abhi Lena Hai):</span>
+                                  <span className="text-emerald-700 font-black">₹{((((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)) + Number(l.penaltyDue || 0)).toLocaleString("en-IN")}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Overdue Penalty Controller & Banner */}
                         {l.status === "active" && (l.penaltyDue > 0 || l.overdueInstallmentsCount > 0 || l.penaltyWaived) && (
                           <div className={`mb-3 p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
@@ -8457,7 +8490,7 @@ export default function AdminPanel() {
                               <p className="text-[11px] opacity-80 mt-0.5">
                                 {l.penaltyWaived
                                   ? "Admin authority se penalty waive kar rakhi hai. Borrower se penalty nahi li jayegi."
-                                  : `${l.overdueInstallmentsCount || 1} overdue installment par 2% per installment jod kar penalty calculate hui hai.`}
+                                  : `${l.overdueInstallmentsCount || l.overdueCount || 1} overdue installment par 2% per installment jod kar penalty calculate hui hai.`}
                               </p>
                             </div>
                             <button
@@ -8782,8 +8815,13 @@ export default function AdminPanel() {
                                           </div>
                                           <div className="flex justify-between">
                                             <span>Due Date:</span>
-                                            <span>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "N/A"}</span>
+                                            <span>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "N/A"} • <span className="font-semibold text-indigo-700">10:00 AM</span></span>
                                           </div>
+                                          {isOverdue && (
+                                            <div className="text-[10px] text-rose-700 font-bold">
+                                              ⚠️ 10:00 AM cutoff miss hui • Agli kist me rolled over (+2% penalty)
+                                            </div>
+                                          )}
                                           {isPaid && (
                                             <div className="flex justify-between text-emerald-700 font-semibold">
                                               <span>Paid on:</span>

@@ -296,9 +296,7 @@ function scheduleDailyYield() {
     return istMidnight.getTime() - now.getTime() - istOffset; // ms until 00:00 IST
   }
 
-  // Run once on startup to catch up any missed daily yields
-  runYieldForAllUsers().catch(e => console.error('Initial yield run error:', e.message));
-
+  // Scheduled to run precisely at midnight IST (once every 24 hours)
   const delay = Math.max(0, msUntilNextMidnightIST());
   console.log(`⏰ Daily yield scheduled in ${Math.round(delay / 3600000)}h`);
   setTimeout(() => {

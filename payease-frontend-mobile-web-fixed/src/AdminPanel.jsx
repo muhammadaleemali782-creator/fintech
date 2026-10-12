@@ -1664,7 +1664,19 @@ export default function AdminPanel() {
       const d = await res.json();
       if (Array.isArray(d)) {
         const cleanUsers = d.filter(u => u.role !== "admin");
-        setUsers(cleanUsers);
+        setUsers(prev => {
+          if (!prev || prev.length === 0) return cleanUsers;
+          const prevMap = new Map(prev.map(u => [String(u._id), u]));
+          return cleanUsers.map(u => {
+            const old = prevMap.get(String(u._id));
+            if (!old) return u;
+            return {
+              ...old,
+              ...u,
+              kycDocuments: u.kycDocuments || old.kycDocuments
+            };
+          });
+        });
         appCache.set("educa_admin_cached_users_list", cleanUsers);
         appCache.set("educa_admin_cached_users", cleanUsers);
         appCache.set("educa_admin_cached_users_count", cleanUsers.length);
@@ -1680,7 +1692,25 @@ export default function AdminPanel() {
       if (!res.ok) return;
       const d = await res.json();
       if (Array.isArray(d)) {
-        setLoans(d);
+        setLoans(prev => {
+          if (!prev || prev.length === 0) return d;
+          const prevMap = new Map(prev.map(l => [String(l._id), l]));
+          return d.map(l => {
+            const old = prevMap.get(String(l._id));
+            if (!old) return l;
+            return {
+              ...old,
+              ...l,
+              userId: {
+                ...(typeof old.userId === "object" ? old.userId : {}),
+                ...(typeof l.userId === "object" ? l.userId : {}),
+                kycDocuments: (typeof l.userId === "object" && l.userId?.kycDocuments)
+                  ? l.userId.kycDocuments
+                  : (typeof old.userId === "object" ? old.userId?.kycDocuments : null)
+              }
+            };
+          });
+        });
         appCache.set("educa_admin_cached_loans_list", d);
         appCache.set("educa_admin_cached_loans", d);
         appCache.set("educa_admin_cached_loans_count", d.length);
@@ -1978,7 +2008,25 @@ export default function AdminPanel() {
         appCache.set("educa_admin_cached_hold", holdPayload);
       }
       if (data.loans && Array.isArray(data.loans)) {
-        setLoans(data.loans);
+        setLoans(prev => {
+          if (!prev || prev.length === 0) return data.loans;
+          const prevMap = new Map(prev.map(l => [String(l._id), l]));
+          return data.loans.map(l => {
+            const old = prevMap.get(String(l._id));
+            if (!old) return l;
+            return {
+              ...old,
+              ...l,
+              userId: {
+                ...(typeof old.userId === "object" ? old.userId : {}),
+                ...(typeof l.userId === "object" ? l.userId : {}),
+                kycDocuments: (typeof l.userId === "object" && l.userId?.kycDocuments)
+                  ? l.userId.kycDocuments
+                  : (typeof old.userId === "object" ? old.userId?.kycDocuments : null)
+              }
+            };
+          });
+        });
         appCache.set("educa_admin_cached_loans_list", data.loans);
       }
       if (data.bonds && Array.isArray(data.bonds)) {
@@ -2043,32 +2091,14 @@ export default function AdminPanel() {
     loadAnalytics(true);
   }, []); // eslint-disable-line
 
-  // 30s countdown ticker with background visibility pausing
+  // Live sync ticker - keeps UI clean without automatic screen wipes
   useEffect(() => {
     const timer = setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      setAdminCountdown((prev) => {
-        if (prev <= 1) {
-          loadBootstrapAdmin(true);
-          return 30;
-        }
-        return prev - 1;
-      });
+      setAdminCountdown((prev) => (prev <= 1 ? 30 : prev - 1));
     }, 1000);
 
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        loadBootstrapAdmin(true);
-        setAdminCountdown(30);
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, [loadBootstrapAdmin]);
+    return () => clearInterval(timer);
+  }, []);
 
   // LIVE DESK SYNC: Every tab switch immediately fetches fresh live data from server
   useEffect(() => {
@@ -2115,14 +2145,6 @@ export default function AdminPanel() {
     };
   }, [tab]); // eslint-disable-line
 
-  // Fast auto-sync: fetch new KYC requests every 6 seconds when on KYC tab
-  useEffect(() => {
-    if (tab !== "kyc") return;
-    const kycPoll = setInterval(() => {
-      loadUsers(true);
-    }, 6000);
-    return () => clearInterval(kycPoll);
-  }, [tab, loadUsers]);
 
   // REAL-TIME SSE CONNECTION FOR LIVE ALERTS & SOUND
   const loadAllRef = useRef(loadAll);

@@ -1317,6 +1317,45 @@ router.post('/change-password', protect, async (req, res) => {
   }
 });
 
+// Get user's own notifications (Isolated to user's ID)
+router.get('/notifications', protect, async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const notifs = await Notification.find({
+      $or: [
+        { userId: req.user._id },
+        { 'data.userId': req.user._id }
+      ],
+      targetRole: { $ne: 'admin' }
+    }).sort({ createdAt: -1 }).limit(40);
+    const unreadCount = await Notification.countDocuments({
+      $or: [
+        { userId: req.user._id },
+        { 'data.userId': req.user._id }
+      ],
+      targetRole: { $ne: 'admin' },
+      read: false
+    });
+    res.json({ success: true, notifications: notifs, unreadCount });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to load notifications' });
+  }
+});
+
+// Mark user notification read
+router.patch('/notifications/:id/read', protect, async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { read: true }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to update notification' });
+  }
+});
+
 router.processDailyYield = processDailyYield;
 module.exports = router;
 module.exports.processDailyYield = processDailyYield;

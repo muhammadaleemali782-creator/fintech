@@ -1273,11 +1273,18 @@ router.get('/notifications/stream', (req, res) => {
   }
 });
 
-// Get recent notifications
+// Get recent notifications (Admin specific only - never user personal notifications)
 router.get('/notifications', protect, admin, async (req, res) => {
   try {
-    const notifications = await Notification.find().sort({ createdAt: -1 }).limit(50);
-    const unreadCount = await Notification.countDocuments({ read: false });
+    const adminFilter = {
+      $or: [
+        { targetRole: 'admin' },
+        { targetRole: 'all' },
+        { targetRole: { $exists: false }, userId: null }
+      ]
+    };
+    const notifications = await Notification.find(adminFilter).sort({ createdAt: -1 }).limit(50);
+    const unreadCount = await Notification.countDocuments({ ...adminFilter, read: false });
     res.json({ notifications, unreadCount });
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong' });
@@ -1294,10 +1301,17 @@ router.patch('/notifications/:id/read', protect, admin, async (req, res) => {
   }
 });
 
-// Mark all read
+// Mark all read (Admin specific only)
 router.patch('/notifications/read-all', protect, admin, async (req, res) => {
   try {
-    await Notification.updateMany({ read: false }, { read: true });
+    const adminFilter = {
+      $or: [
+        { targetRole: 'admin' },
+        { targetRole: 'all' },
+        { targetRole: { $exists: false }, userId: null }
+      ]
+    };
+    await Notification.updateMany({ ...adminFilter, read: false }, { read: true });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong' });

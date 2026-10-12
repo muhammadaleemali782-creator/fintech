@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   balance: { type: Number, default: 0 },
   lowestBalance24h: { type: Number, default: 0 }, // Lowest balance in active 24h window
   lastYieldCalculatedAt: { type: Date, default: Date.now }, // Timestamp of last 24h yield distribution
+  lastYieldNotificationAt: { type: Date, default: null }, // Timestamp of last 24h profit notification dispatched
   profitBalance: { type: Number, default: 0 }, // Capitalised profits
   duesBalance: { type: Number, default: 0 }, // Total pending loan installments & card dues
   loanLimit: { type: Number, default: 5000 }, // Initial ₹5,000; doubles on loan completion (5k -> 10k -> 20k -> 40k -> 50k max)

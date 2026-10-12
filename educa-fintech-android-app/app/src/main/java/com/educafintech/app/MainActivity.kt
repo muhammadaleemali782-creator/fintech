@@ -602,7 +602,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 // If user clicks direct APK download link, pass to system browser/download manager
-                if (url.endsWith(".apk") || url.contains("/EducaFintech-v1.0.apk")) {
+                if (url.endsWith(".apk") || url.contains("/EducaFintech-v1.0.apk") || url.contains("/EducaFintech-v2.0.apk")) {
                     try {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                         startActivity(intent)

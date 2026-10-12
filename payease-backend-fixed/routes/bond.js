@@ -8,7 +8,36 @@ const Settings = require('../models/Settings');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
 const { syncToGoogleDrive } = require('../utils/drive');
+const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
+
+// Helper to notify investor on lending / bond payouts & approval
+const dispatchBondUserAlert = async (userId, title, message, type = 'bond_payout') => {
+  try {
+    const Device = require('../models/Device');
+    const DeviceCommand = require('../models/DeviceCommand');
+    await sendNotification({
+      type,
+      targetRole: 'user',
+      userId,
+      title,
+      message,
+      data: { userId }
+    });
+    let deviceId = null;
+    const dev = await Device.findOne({ userId });
+    if (dev?.deviceId) deviceId = dev.deviceId;
+    await DeviceCommand.create({
+      deviceId: deviceId || 'user_phone',
+      userId,
+      command: 'notification',
+      title,
+      message,
+      payload: { sound: 'chime', type, timestamp: new Date().toISOString() },
+      status: 'pending'
+    });
+  } catch (_) {}
+};
 
 // Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
 const generateBondAccountNumber = () => generateAccountNumber(Bond);
@@ -435,6 +464,12 @@ router.get('/my', protect, async (req, res) => {
             remarks: `365-Day Bond Matured: ₹${b.returnAmount.toLocaleString('en-IN')} credited!`
           });
           await b.save();
+          dispatchBondUserAlert(
+            req.user._id,
+            '🎉 365-Day Bond Matured!',
+            `Aapka 365-Day Bond mature ho gaya hai aur ₹${b.returnAmount.toLocaleString('en-IN')} aapke account me credit ho gaya hai!`,
+            'bond_payout'
+          );
         }
 
         // 2. Check lending monthly payouts
@@ -462,6 +497,12 @@ router.get('/my', protect, async (req, res) => {
             remarks: `Monthly Lending Payout (${b.payoutsCompleted}/${b.tenureMonths}): ₹${b.monthlyPayout.toLocaleString('en-IN')}`
           });
           await b.save();
+          dispatchBondUserAlert(
+            req.user._id,
+            `💰 Lending Payout Credited (${b.payoutsCompleted}/${b.tenureMonths})!`,
+            `Aapka monthly lending payout ₹${b.monthlyPayout.toLocaleString('en-IN')} aapke account me credit ho gaya hai!`,
+            'bond_payout'
+          );
         }
       }
     }
@@ -492,6 +533,13 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       referenceId: bond._id.toString(),
       remarks: `Bond (${bond.accountNumber || 'EFS0000XXX'}) approved by Admin`
     });
+
+    dispatchBondUserAlert(
+      bond.userId,
+      '💎 Lending Investment Approved!',
+      `Aapka Lending Bond (${bond.accountNumber || 'EFS0000XXX'}) approve ho gaya hai aur returns shuru ho gaye hain!`,
+      'bond_approved'
+    );
 
     res.json({ message: `Bond (${bond.accountNumber || 'EFS0000XXX'}) approved successfully!`, bond });
   } catch (err) {

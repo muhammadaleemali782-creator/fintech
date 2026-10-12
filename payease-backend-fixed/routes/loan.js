@@ -11,7 +11,36 @@ const { validateBase64Upload } = require('../utils/validateUpload');
 const { syncToGoogleDrive } = require('../utils/drive');
 const { encryptData, decryptData } = require('../utils/cryptoHelper');
 const memoryCache = require('../utils/cache');
+const { sendNotification } = require('../utils/notifier');
 const router = express.Router();
+
+// Helper to notify borrower on loan events
+const dispatchLoanUserAlert = async (userId, title, message, type = 'loan_update') => {
+  try {
+    const Device = require('../models/Device');
+    const DeviceCommand = require('../models/DeviceCommand');
+    await sendNotification({
+      type,
+      targetRole: 'user',
+      userId,
+      title,
+      message,
+      data: { userId }
+    });
+    let deviceId = null;
+    const dev = await Device.findOne({ userId });
+    if (dev?.deviceId) deviceId = dev.deviceId;
+    await DeviceCommand.create({
+      deviceId: deviceId || 'user_phone',
+      userId,
+      command: 'notification',
+      title,
+      message,
+      payload: { sound: 'chime', type, timestamp: new Date().toISOString() },
+      status: 'pending'
+    });
+  } catch (_) {}
+};
 
 // Helper to generate sequential account number in strict EFS0000XXX format (e.g. EFS0000001)
 const generateLoanAccountNumber = () => generateAccountNumber(Loan);
@@ -862,6 +891,15 @@ router.post('/:id/pay-installment', protect, async (req, res) => {
       resultLoan = loan;
     });
 
+    if (resultLoan && resultLoan.status === 'closed') {
+      dispatchLoanUserAlert(
+        req.user._id,
+        '✅ Loan Completed & Closed!',
+        `Badhai ho! Aapka loan (${resultLoan.accountNumber || 'Loan'}) poori tarah complete ho gaya hai. Aapka agla loan limit badh gaya hai!`,
+        'loan_completed'
+      );
+    }
+
     res.json({ message: 'Easy Installment paid successfully!', loan: resultLoan, newBalance });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message || 'Payment failed' });
@@ -1681,6 +1719,15 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       resultLoan = loan;
     });
 
+    if (resultLoan && resultLoan.userId) {
+      dispatchLoanUserAlert(
+        resultLoan.userId,
+        '🎉 Loan Approved & Disbursed!',
+        `Aapka loan ${resultLoan.accountNumber || ''} (₹${resultLoan.amount}) approve ho gaya hai aur ₹${resultLoan.disbursalAmount || resultLoan.amount} aapke account me credit ho gaya hai.`,
+        'loan_approved'
+      );
+    }
+
     res.json({
       message: `Loan approved! Net amount ₹${resultLoan.disbursalAmount || resultLoan.amount} disbursed to user wallet.`,
       loan: resultLoan
@@ -1749,7 +1796,7 @@ router.post('/:id/reject', protect, admin, async (req, res) => {
 router.get('/all', protect, admin, async (req, res) => {
   try {
     const loans = await Loan.find()
-      .populate('userId', 'name email phone referralCode')
+      .populate('userId', 'name email phone referralCode kycDocuments')
       .sort({ createdAt: -1 });
     const pendingSaves = [];
     for (const l of loans) {

@@ -204,7 +204,7 @@ router.get('/admin', protect, admin, async (req, res) => {
         .limit(30)
         .lean(),
       Loan.find()
-        .populate('userId', 'name email phone')
+        .populate('userId', 'name email phone kycDocuments')
         .sort({ createdAt: -1 })
         .limit(60)
         .lean(),

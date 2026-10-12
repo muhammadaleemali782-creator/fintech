@@ -2515,7 +2515,7 @@ export default function Dashboard() {
   // Single Combined Bootstrap Call: Fetches all data in 1 fast query
   const loadBootstrap = useCallback(async () => {
     const role = userProfile?.role || userStored?.role || "user";
-    const endpoint = role === "agent" ? `${API}/bootstrap/agent` : `${API}/bootstrap/user`;
+    const endpoint = role === "agent" ? `${API}/bootstrap/agent?_t=${Date.now()}` : `${API}/bootstrap/user?_t=${Date.now()}`;
     try {
       const res = await smartFetch(endpoint, { headers }, { timeoutMs: 60000, retries: 2 });
       if (res.unauthorized) {
@@ -2684,6 +2684,11 @@ export default function Dashboard() {
     document.addEventListener("visibilitychange", handleResume);
     window.addEventListener("focus", handleResume);
 
+    // 1-hour recurring background sync: keeps backend warm & ensures latest fresh data saved locally
+    const hourlySyncTimer = setInterval(() => {
+      silentSyncAll();
+    }, 60 * 60 * 1000);
+
     // Check if new user guided feature tour should run
     const tourDone = localStorage.getItem("educa_tour_completed");
     let tourTimer;
@@ -2692,6 +2697,7 @@ export default function Dashboard() {
     }
     return () => {
       clearInterval(countdownTimer);
+      clearInterval(hourlySyncTimer);
       document.removeEventListener("visibilitychange", handleResume);
       window.removeEventListener("focus", handleResume);
       if (tourTimer) clearTimeout(tourTimer);

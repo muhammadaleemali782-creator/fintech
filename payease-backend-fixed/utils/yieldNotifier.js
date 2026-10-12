@@ -6,7 +6,7 @@ const { processDailyYield } = require('../routes/user');
 
 /**
  * Dispatches 24-hour profit notification to an individual user's phone
- * "Aapka 24 hours me itna paisa bada hai. Aur paisa deposit kariye aur baithe-baithe kamaiye!"
+ * Only dispatches to THAT user's ID/device, and records lastYieldNotificationAt.
  */
 async function sendDailyYieldAlertToUser(user, profitAmount) {
   try {
@@ -14,9 +14,11 @@ async function sendDailyYieldAlertToUser(user, profitAmount) {
     const title = `💰 ₹${formattedProfit} Daily Profit Credited!`;
     const message = `Namaste ${user.name}! Pichle 24 ghante me aapka ₹${formattedProfit} munafa (12% p.a.) credit ho gaya hai. Aur paisa deposit kariye aur baithe-baithe kamaiye! 🚀`;
 
-    // 1. Save in in-app Notification database
+    // 1. Save in in-app Notification database specifically for THIS user (targetRole: 'user')
     await Notification.create({
-      type: 'general',
+      type: 'daily_yield',
+      userId: user._id,
+      targetRole: 'user',
       title,
       message,
       data: {
@@ -28,15 +30,17 @@ async function sendDailyYieldAlertToUser(user, profitAmount) {
       read: false
     });
 
-    // 2. Dispatch to Android App DeviceCommand queue for Heads-Up notification on phone
-    let deviceId = 'all';
+    // 2. Dispatch to Android App DeviceCommand queue for Heads-Up notification on THAT user's phone
+    let deviceId = null;
     try {
-      const dev = await Device.findOne({ userId: user._id });
+      const dev = await Device.findOne({
+        $or: [{ userId: user._id }, { userEmail: user.email }]
+      });
       if (dev?.deviceId) deviceId = dev.deviceId;
     } catch (_) {}
 
     await DeviceCommand.create({
-      deviceId,
+      deviceId: deviceId || 'user_phone',
       userId: user._id,
       command: 'notification',
       title,
@@ -73,6 +77,10 @@ async function sendDailyYieldAlertToUser(user, profitAmount) {
       }).catch(() => {});
     }
 
+    // 4. Record timestamp so repeated notifications are blocked for the next 24 hours
+    user.lastYieldNotificationAt = new Date();
+    await user.save();
+
     return true;
   } catch (err) {
     console.error(`Error sending daily yield alert to user ${user._id}:`, err.message);
@@ -81,16 +89,21 @@ async function sendDailyYieldAlertToUser(user, profitAmount) {
 }
 
 /**
- * Runs 24h yield calculation and dispatches phone notifications to all depositors
+ * Runs 24h yield calculation and dispatches phone notifications ONLY when a 24h cycle has completed
  */
 async function distribute24hYieldAndNotifyAll() {
   console.log('⏰ Starting 24h yield calculation and notification dispatch...');
   const users = await User.find({ balance: { $gt: 0 }, isBlocked: { $ne: true } });
   let processedCount = 0;
   let notificationsSent = 0;
+  const now = new Date();
 
   for (const user of users) {
     try {
+      // Check if 24 hours have actually elapsed since user's last yield notification
+      const lastNotif = user.lastYieldNotificationAt ? new Date(user.lastYieldNotificationAt) : null;
+      const hoursSinceLastNotif = lastNotif ? (now.getTime() - lastNotif.getTime()) / (1000 * 3600) : 999;
+
       const oldProfit = user.profitBalance || 0;
       await processDailyYield(user);
       const updatedUser = await User.findById(user._id);
@@ -98,8 +111,9 @@ async function distribute24hYieldAndNotifyAll() {
       const estimated24h = Number(((user.balance * (user.interestRate || 12) / 100) / 365).toFixed(2));
       const amountToNotify = earned > 0 ? earned : (estimated24h > 0 ? estimated24h : 0);
 
-      if (amountToNotify > 0) {
-        await sendDailyYieldAlertToUser(user, amountToNotify);
+      // ONLY notify when 24 hours have actually completed (at least 23 hours since last notification)
+      if (amountToNotify > 0 && hoursSinceLastNotif >= 23) {
+        await sendDailyYieldAlertToUser(updatedUser || user, amountToNotify);
         notificationsSent++;
       }
       processedCount++;

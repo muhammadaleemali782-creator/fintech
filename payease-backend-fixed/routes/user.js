@@ -9,6 +9,7 @@ const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
 const { getEducaMailUser, updateEducaMailPassword, sendEducaMailMessage } = require('../utils/educaMail');
 const memoryCache = require('../utils/cache');
+const { encryptData, decryptData } = require('../utils/cryptoHelper');
 const router = express.Router();
 
 // Helper to evaluate and credit daily profit on primary Savings Account balance (IST Calendar)
@@ -587,11 +588,11 @@ router.post('/kyc/submit', protect, async (req, res) => {
     user.kycDocuments = {
       docType: 'aadhaar',
       doc1Type: 'aadhaar',
-      doc1Url: file1,
-      doc1BackUrl: doc1BackUrl || '',
+      doc1Url: encryptData(file1),
+      doc1BackUrl: encryptData(doc1BackUrl || ''),
       doc2Type: selectedDoc2,
-      doc2Url: file2,
-      doc2BackUrl: doc2BackUrl || '',
+      doc2Url: encryptData(file2),
+      doc2BackUrl: encryptData(doc2BackUrl || ''),
       aadharNumber: cleanAadhaar,
       aadhaarName: cleanAadhaarName,
       aadharName: cleanAadhaarName,
@@ -601,7 +602,7 @@ router.post('/kyc/submit', protect, async (req, res) => {
       chequeNumber: cleanCheque || user.kycDocuments?.chequeNumber || '',
       address: cleanAadhaarAddress,
       googleDriveLink: '',
-      docUrl: file1, // backwards compatibility
+      docUrl: encryptData(file1), // backwards compatibility
       adminRemarks: '',
       submittedAt: new Date()
     };

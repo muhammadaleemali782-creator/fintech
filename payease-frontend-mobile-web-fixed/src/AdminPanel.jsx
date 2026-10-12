@@ -95,6 +95,90 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 45000, forceRefresh =
   return fetchPromise;
 }
 
+// --- ON-DEMAND KYC DOCUMENT THUMBNAIL COMPONENT ---
+const kycDocMemoryCache = new Map();
+
+function KycDocThumbItem({ userId, docKey, label, initialUrl, hasDoc, onOpenLightbox }) {
+  const [imgUrl, setImgUrl] = useState(() => {
+    if (initialUrl && !initialUrl.startsWith("enc::")) return initialUrl;
+    return kycDocMemoryCache.get(`${userId}_${docKey}`) || "";
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (imgUrl) return;
+    if (!hasDoc && (!initialUrl || !initialUrl.startsWith("enc::"))) {
+      if (!hasDoc && !initialUrl) return;
+    }
+    let isMounted = true;
+    setLoading(true);
+    fetch(`${API}/admin/kyc-doc/${userId}/${docKey}`, {
+      headers: {
+        Authorization: `Bearer ${tokenStorage.getToken() || localStorage.getItem("token") || ""}`
+      }
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (isMounted && d.success && d.url) {
+          kycDocMemoryCache.set(`${userId}_${docKey}`, d.url);
+          setImgUrl(d.url);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [userId, docKey, initialUrl, hasDoc]);
+
+  useEffect(() => {
+    if (initialUrl && !initialUrl.startsWith("enc::") && initialUrl !== imgUrl) {
+      setImgUrl(initialUrl);
+    }
+  }, [initialUrl]);
+
+  if (!imgUrl && !loading && !hasDoc && !initialUrl) {
+    return (
+      <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
+        <span>🆔</span>
+        <span className="text-[9px] text-slate-400 mt-0.5">No {label}</span>
+      </div>
+    );
+  }
+
+  if (loading && !imgUrl) {
+    return (
+      <div className="aspect-[16/10] rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center text-xs text-slate-400 animate-pulse">
+        <span className="w-4 h-4 border-2 border-slate-400 border-t-blue-600 rounded-full animate-spin" />
+        <span className="text-[9px] mt-1 text-slate-500 font-bold">Loading...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        if (imgUrl) onOpenLightbox(imgUrl);
+      }}
+      className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
+    >
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+        <img
+          src={imgUrl}
+          alt={label}
+          className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
+        />
+      </div>
+      <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
+        <span className="text-[10px] font-extrabold text-slate-800 truncate">{label}</span>
+        <span className="text-[9px] text-blue-600 font-bold shrink-0">🔍 Zoom</span>
+      </div>
+    </div>
+  );
+}
+
 // --- CLIENT DEVICE & BROWSER DETECTOR (For Approval Audits) ---
 const getClientDeviceInfo = () => {
   if (typeof window === "undefined" || !navigator) return "Web Console";
@@ -1054,6 +1138,9 @@ export default function AdminPanel() {
   const [adminEvidenceName, setAdminEvidenceName] = useState("");
   const [adminNoteInput, setAdminNoteInput] = useState("");
   const [isApprovingTxn, setIsApprovingTxn] = useState(false);
+  const [rejectTxnModal, setRejectTxnModal] = useState(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState("");
+  const [isRejectingTxn, setIsRejectingTxn] = useState(false);
   const [previewKycUser, setPreviewKycUser] = useState(null);
   const [kycReviewRemarks, setKycReviewRemarks] = useState("");
   const [kycFilter, setKycFilter] = useState("all");
@@ -2121,6 +2208,7 @@ export default function AdminPanel() {
       setAdminPayModal(null);
       setLoanApproveModal(null);
       setApproveTxnModal(null);
+      setRejectTxnModal(null);
       setAssignAgentModalUser(null);
       setPreviewKycUser(null);
       setExpandedLoanId(null);
@@ -2131,7 +2219,7 @@ export default function AdminPanel() {
       window.handleAndroidBackPressed = null;
       window.forceDismissActiveModal = null;
     };
-  }, [adminPayModal, loanApproveModal, approveTxnModal, lightboxImg, assignAgentModalUser, previewKycUser, expandedLoanId, tab]);
+  }, [adminPayModal, loanApproveModal, approveTxnModal, rejectTxnModal, lightboxImg, assignAgentModalUser, previewKycUser, expandedLoanId, tab]);
 
   const handleAdminEvidenceUpload = (file) => {
     if (!file) return;
@@ -2176,9 +2264,12 @@ export default function AdminPanel() {
 
   const submitApproveTxn = async () => {
     if (!approveTxnModal) return;
+    const targetTxn = approveTxnModal;
     setIsApprovingTxn(true);
+    setPending(prev => prev.filter(p => p._id !== targetTxn._id));
+    setApproveTxnModal(null);
     try {
-      const res = await fetch(`${API}/admin/transaction/${approveTxnModal._id}/approve`, {
+      const res = await fetch(`${API}/admin/transaction/${targetTxn._id}/approve`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2192,14 +2283,16 @@ export default function AdminPanel() {
       const data = await res.json();
       showToast(data.message || "Transaction approved!", res.ok ? "success" : "error");
       if (res.ok) {
-        setApproveTxnModal(null);
         apiCache.clear();
         loadPending(true);
         loadHoldData(true);
         loadStats(true);
         if (pendingSubTab === "approved") loadApprovedRequests(true);
+      } else {
+        setPending(prev => [targetTxn, ...prev]);
       }
     } catch {
+      setPending(prev => [targetTxn, ...prev]);
       showToast("Approval failed. Please try again.", "error");
     } finally {
       setIsApprovingTxn(false);
@@ -2216,43 +2309,66 @@ export default function AdminPanel() {
       openApproveTxnModal(found);
       return;
     }
-    if (!window.confirm("Approve this transaction?")) return;
-    const res = await fetch(`${API}/admin/transaction/${idOrTxn}/approve`, {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        approverName: user.name || "Admin",
-        approverDevice: getClientDeviceInfo()
-      })
-    });
-    const data = await res.json();
-    showToast(data.message, res.ok ? "success" : "error");
-    if (res.ok) {
-      apiCache.clear();
-      loadPending(true);
-      loadHoldData(true);
-      loadStats(true);
-      if (pendingSubTab === "approved") loadApprovedRequests(true);
+    openApproveTxnModal({ _id: idOrTxn });
+  };
+
+  const openRejectTxnModal = (targetTxn) => {
+    if (!targetTxn) return;
+    setRejectTxnModal(targetTxn);
+    setRejectReasonInput("Invalid UPI ID / Bank Details");
+  };
+
+  const submitRejectTxn = async () => {
+    if (!rejectTxnModal) return;
+    const targetTxn = rejectTxnModal;
+    const reason = (rejectReasonInput || "").trim();
+    if (!reason) {
+      showToast("Please enter a rejection reason", "error");
+      return;
+    }
+    setIsRejectingTxn(true);
+    setPending(prev => prev.filter(p => p._id !== targetTxn._id));
+    setRejectTxnModal(null);
+
+    try {
+      const res = await fetch(`${API}/admin/transaction/${targetTxn._id}/reject`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          remarks: reason,
+          approverName: user.name || "Admin",
+          approverDevice: getClientDeviceInfo()
+        })
+      });
+      const data = await res.json();
+      showToast(data.message || "Transaction rejected!", res.ok ? "success" : "error");
+      if (res.ok) {
+        apiCache.clear();
+        loadPending(true);
+        loadHoldData(true);
+        loadStats(true);
+      } else {
+        setPending(prev => [targetTxn, ...prev]);
+      }
+    } catch {
+      setPending(prev => [targetTxn, ...prev]);
+      showToast("Rejection failed. Please try again.", "error");
+    } finally {
+      setIsRejectingTxn(false);
     }
   };
 
-  const reject = async (id) => {
-    const remarks = window.prompt("Rejection reason:");
-    if (!remarks) return;
-    const res = await fetch(`${API}/admin/transaction/${id}/reject`, {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        remarks,
-        approverName: user.name || "Admin",
-        approverDevice: getClientDeviceInfo()
-      })
-    });
-    showToast((await res.json()).message, "success");
-    apiCache.clear();
-    loadPending(true);
-    loadHoldData(true);
-    loadStats(true);
+  const reject = (idOrTxn) => {
+    if (typeof idOrTxn === "object" && idOrTxn !== null && idOrTxn._id) {
+      openRejectTxnModal(idOrTxn);
+      return;
+    }
+    const found = pending.find(p => p._id === idOrTxn);
+    if (found) {
+      openRejectTxnModal(found);
+      return;
+    }
+    openRejectTxnModal({ _id: idOrTxn });
   };
 
   const toggleBlock = async (id) => {
@@ -3441,28 +3557,31 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* 4 Primary Action Quick-Access Pills */}
-            <div className="grid grid-cols-4 gap-1.5 pt-1 border-t border-slate-100">
+            {/* Primary Action Quick-Access Desks (Smooth Horizontal Scroll on Mobile) */}
+            <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-100 overflow-x-auto no-scrollbar pb-0.5">
               {[
                 { key: "analytics", label: "Reserves", icon: "📊" },
                 { key: "pending", label: "Pending", icon: "⏳", badge: totalPendingDeskCount },
+                { key: "loans", label: "Loans", icon: "🏛️", badge: activeLoansCount },
+                { key: "issue-loan", label: "⚡ Issue Loan", icon: "➕" },
                 { key: "kyc", label: "KYC", icon: "📄", badge: pendingKycCount },
+                { key: "users", label: "Users", icon: "👥" },
                 { key: "history", label: "History", icon: "📜" },
               ].map(({ key, label, icon, badge }) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => switchTab(key)}
-                  className={`py-2 px-1 rounded-xl text-[11px] font-bold text-center flex flex-col items-center justify-center gap-0.5 transition active:scale-95 cursor-pointer relative ${
+                  className={`py-1.5 px-3 rounded-xl text-xs font-bold text-center flex items-center gap-1.5 transition active:scale-95 cursor-pointer relative shrink-0 ${
                     tab === key
                       ? "bg-blue-600 text-white shadow-xs font-black"
                       : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200/70"
                   }`}
                 >
-                  <span className="text-sm">{icon}</span>
-                  <span className="leading-tight truncate w-full">{label}</span>
+                  <span className="text-xs">{icon}</span>
+                  <span className="leading-tight whitespace-nowrap">{label}</span>
                   {!!badge && (
-                    <span className={`absolute -top-1 -right-1 text-[9px] font-black px-1.5 py-0.2 rounded-full ${
+                    <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${
                       tab === key ? "bg-amber-400 text-slate-950 font-black" : "bg-rose-500 text-white"
                     }`}>
                       {badge}
@@ -4909,6 +5028,30 @@ export default function AdminPanel() {
                     </button>
                   </div>
 
+                  {/* Quick Action: Apply on Behalf / Issue Loan Shortcut */}
+                  <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-xs shrink-0">
+                        ⚡
+                      </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900">
+                          Issue or Backfill Loan (Apply on Behalf)
+                        </h4>
+                        <p className="text-[11px] text-slate-600">
+                          Existing user ya new borrower ke naam par loan issue karein ya purana offline loan record karein.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => switchTab("issue-loan")}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 shadow-xs shrink-0"
+                    >
+                      <span>➕</span> Open Issue Loan Desk →
+                    </button>
+                  </div>
+
                   {pendingLoans.length === 0 ? (
                     <div className="py-12 text-center space-y-2 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
                       <span className="text-4xl block">🎉</span>
@@ -6161,142 +6304,86 @@ export default function AdminPanel() {
                             <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                               KYC Document Images (Tap to Zoom)
                             </span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const firstDoc = u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl || u.kycDocuments?.doc1BackUrl || u.kycDocuments?.doc2Url;
-                                if (firstDoc) {
-                                  setLightboxImg(firstDoc);
-                                  setZoomLevel(1);
-                                  showToast("Opening Lightbox...", "info");
-                                }
-                              }}
-                              className="text-[10px] font-bold text-blue-600 hover:text-blue-800 active:scale-90 transition flex items-center gap-1 cursor-pointer select-none"
-                            >
-                              🔍 Fullscreen Lightbox
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {u.kycDocuments?.googleDriveLink && (
+                                <a
+                                  href={u.kycDocuments.googleDriveLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-300 hover:bg-emerald-100 transition flex items-center gap-1 cursor-pointer select-none"
+                                >
+                                  📁 Drive Link ↗
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const firstDoc = u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl || u.kycDocuments?.doc1BackUrl || u.kycDocuments?.doc2Url;
+                                  if (firstDoc && !firstDoc.startsWith("enc::")) {
+                                    setLightboxImg(firstDoc);
+                                    setZoomLevel(1);
+                                    showToast("Opening Lightbox...", "info");
+                                  } else {
+                                    fetch(`${API}/admin/kyc-doc/${u._id}/doc1`, {
+                                      headers: { Authorization: `Bearer ${tokenStorage.getToken() || localStorage.getItem("token") || ""}` }
+                                    }).then(r => r.json()).then(d => {
+                                      if (d.success && d.url) {
+                                        setLightboxImg(d.url);
+                                        setZoomLevel(1);
+                                      } else {
+                                        showToast("Document preview not available", "error");
+                                      }
+                                    }).catch(() => showToast("Failed to open document", "error"));
+                                  }
+                                }}
+                                className="text-[10px] font-bold text-blue-600 hover:text-blue-800 active:scale-90 transition flex items-center gap-1 cursor-pointer select-none"
+                              >
+                                🔍 Fullscreen Lightbox
+                              </button>
+                            </div>
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                             {/* Doc 1 Front */}
-                            {(u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl) ? (
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLightboxImg(u.kycDocuments.doc1Url || u.kycDocuments.docUrl);
-                                  setZoomLevel(1);
-                                }}
-                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
-                              >
-                                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
-                                  <img
-                                    src={u.kycDocuments.doc1Url || u.kycDocuments.docUrl}
-                                    alt="UID Front"
-                                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
-                                  />
-                                </div>
-                                <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
-                                  <span className="text-[10px] font-extrabold text-slate-800 truncate">UID Front</span>
-                                  <span className="text-[9px] text-blue-600 font-bold shrink-0">🔍 Zoom</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
-                                <span>🆔</span>
-                                <span className="text-[9px] text-slate-400 mt-0.5">No Front</span>
-                              </div>
-                            )}
+                            <KycDocThumbItem
+                              userId={u._id}
+                              docKey="doc1"
+                              label="UID Front"
+                              initialUrl={u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl}
+                              hasDoc={u.hasDoc1 || !!(u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl)}
+                              onOpenLightbox={(img) => { setLightboxImg(img); setZoomLevel(1); }}
+                            />
 
                             {/* Doc 1 Back */}
-                            {u.kycDocuments?.doc1BackUrl ? (
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLightboxImg(u.kycDocuments.doc1BackUrl);
-                                  setZoomLevel(1);
-                                }}
-                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
-                              >
-                                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
-                                  <img
-                                    src={u.kycDocuments.doc1BackUrl}
-                                    alt="UID Back"
-                                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
-                                  />
-                                </div>
-                                <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
-                                  <span className="text-[10px] font-extrabold text-slate-800 truncate">UID Back</span>
-                                  <span className="text-[9px] text-blue-600 font-bold shrink-0">🔍 Zoom</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
-                                <span>🆔</span>
-                                <span className="text-[9px] text-slate-400 mt-0.5">No Back</span>
-                              </div>
-                            )}
+                            <KycDocThumbItem
+                              userId={u._id}
+                              docKey="doc1Back"
+                              label="UID Back"
+                              initialUrl={u.kycDocuments?.doc1BackUrl}
+                              hasDoc={u.hasDoc1Back || !!u.kycDocuments?.doc1BackUrl}
+                              onOpenLightbox={(img) => { setLightboxImg(img); setZoomLevel(1); }}
+                            />
 
                             {/* Doc 2 Front */}
-                            {u.kycDocuments?.doc2Url ? (
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLightboxImg(u.kycDocuments.doc2Url);
-                                  setZoomLevel(1);
-                                }}
-                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
-                              >
-                                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
-                                  <img
-                                    src={u.kycDocuments.doc2Url}
-                                    alt="PAN Front"
-                                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
-                                  />
-                                </div>
-                                <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
-                                  <span className="text-[10px] font-extrabold text-slate-800 truncate">
-                                    {u.kycDocuments?.doc2Type === "cheque" ? "CHQ Front" : "PAN Front"}
-                                  </span>
-                                  <span className="text-[9px] text-blue-600 font-bold shrink-0">🔍 Zoom</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
-                                <span>💳</span>
-                                <span className="text-[9px] text-slate-400 mt-0.5">No Doc 2</span>
-                              </div>
-                            )}
+                            <KycDocThumbItem
+                              userId={u._id}
+                              docKey="doc2"
+                              label={u.kycDocuments?.doc2Type === "cheque" ? "CHQ Front" : "PAN Front"}
+                              initialUrl={u.kycDocuments?.doc2Url}
+                              hasDoc={u.hasDoc2 || !!u.kycDocuments?.doc2Url}
+                              onOpenLightbox={(img) => { setLightboxImg(img); setZoomLevel(1); }}
+                            />
 
                             {/* Doc 2 Back */}
-                            {u.kycDocuments?.doc2BackUrl ? (
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLightboxImg(u.kycDocuments.doc2BackUrl);
-                                  setZoomLevel(1);
-                                }}
-                                className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
-                              >
-                                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
-                                  <img
-                                    src={u.kycDocuments.doc2BackUrl}
-                                    alt="PAN Back"
-                                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
-                                  />
-                                </div>
-                                <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
-                                  <span className="text-[10px] font-extrabold text-slate-800 truncate">
-                                    {u.kycDocuments?.doc2Type === "cheque" ? "CHQ Back" : "PAN Back"}
-                                  </span>
-                                  <span className="text-[9px] text-blue-600 font-bold shrink-0">🔍 Zoom</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
-                                <span>💳</span>
-                                <span className="text-[9px] text-slate-400 mt-0.5">No Back</span>
-                              </div>
-                            )}
+                            <KycDocThumbItem
+                              userId={u._id}
+                              docKey="doc2Back"
+                              label={u.kycDocuments?.doc2Type === "cheque" ? "CHQ Back" : "PAN Back"}
+                              initialUrl={u.kycDocuments?.doc2BackUrl}
+                              hasDoc={u.hasDoc2Back || !!u.kycDocuments?.doc2BackUrl}
+                              onOpenLightbox={(img) => { setLightboxImg(img); setZoomLevel(1); }}
+                            />
                           </div>
                         </div>
 
@@ -8648,7 +8735,27 @@ export default function AdminPanel() {
           {/* LOANS */}
           {tab === "loans" && (
             <div className="bg-white rounded-2xl shadow-sm p-3.5 sm:p-6 border border-gray-100">
-              <h3 className="text-base sm:text-lg font-bold font-display mb-4 sm:mb-5">Loan Applications</h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-5 pb-3 border-b border-gray-100">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
+                    <span>🏛️</span>
+                    <span>Loan Applications & Ledger</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-800">
+                      {loans.length}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Sabhi active, pending aur completed loans ka live record aur kist schedule.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => switchTab("issue-loan")}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
+                >
+                  <span>⚡➕</span> Issue Loan / Apply on Behalf
+                </button>
+              </div>
               {loans.length === 0 ? <p className="text-gray-300 text-center py-10 text-sm">No loans yet</p> : (
                 <div className="space-y-4">
                   {loans.map(l => {
@@ -9280,9 +9387,9 @@ export default function AdminPanel() {
                   <button
                     type="button"
                     onClick={() => switchTab("loans")}
-                    className="self-start sm:self-auto px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    className="self-start sm:self-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer active:scale-95 shadow-2xs"
                   >
-                    <span>📋</span> View All Loans ({loans.length})
+                    <span>← 🏛️</span> Back to Loans Desk ({loans.length})
                   </button>
                 </div>
 
@@ -11802,6 +11909,125 @@ export default function AdminPanel() {
                 className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 {isApprovingTxn ? "Approving..." : "✓ Confirm & Complete Approval"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TRANSACTION REJECTION MODAL */}
+      {rejectTxnModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-black text-sm">
+                  ✕
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-gray-900 leading-tight">
+                    Reject Transaction
+                  </h3>
+                  <p className="text-[11px] text-gray-500 font-medium">
+                    {rejectTxnModal.type === "withdrawal" ? "Withdrawal Request Rejection" : "Deposit Request Rejection"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectTxnModal(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Target User & Amount */}
+            <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-2xl flex items-center justify-between">
+              <div>
+                <p className="font-extrabold text-sm text-slate-900">{rejectTxnModal.userId?.name || "User"}</p>
+                <p className="text-xs text-gray-500">{rejectTxnModal.userId?.phone || rejectTxnModal.userId?.email || ""}</p>
+              </div>
+              <div className="text-right">
+                <span className="font-mono font-black text-base text-rose-900 block">
+                  ₹{Number(rejectTxnModal.amount || 0).toLocaleString("en-IN")}
+                </span>
+                <span className="text-[10px] font-bold uppercase text-rose-600">
+                  {rejectTxnModal.type}
+                </span>
+              </div>
+            </div>
+
+            {/* Preset Reason Chips */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-700 block">
+                Quick Reason Select:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "Invalid UPI ID / Bank Details",
+                  "Payment Not Received in Bank",
+                  "Duplicate Request",
+                  "KYC Incomplete",
+                  "Account Verification Pending",
+                  "User Requested Cancellation",
+                ].map(preset => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setRejectReasonInput(preset)}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                      rejectReasonInput === preset
+                        ? "bg-rose-600 text-white border-rose-600 shadow-2xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Remarks Input */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-700 block">
+                Rejection Remarks (Reason):
+              </label>
+              <textarea
+                rows={3}
+                value={rejectReasonInput}
+                onChange={(e) => setRejectReasonInput(e.target.value)}
+                placeholder="Yahan rejection ka karan likhein..."
+                className="w-full p-2.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setRejectTxnModal(null)}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isRejectingTxn || !rejectReasonInput.trim()}
+                onClick={submitRejectTxn}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                {isRejectingTxn ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    <span>Rejecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>✕</span> Confirm Rejection
+                  </>
+                )}
               </button>
             </div>
           </div>

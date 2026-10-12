@@ -9,6 +9,7 @@ const { isValidAmount } = require('../utils/validateAmount');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
 const { syncToGoogleDrive } = require('../utils/drive');
+const { encryptData, decryptData } = require('../utils/cryptoHelper');
 const memoryCache = require('../utils/cache');
 const router = express.Router();
 
@@ -589,11 +590,11 @@ router.post('/apply', protect, async (req, res) => {
     if (!userDoc.kycDocuments) userDoc.kycDocuments = {};
     userDoc.aadharNumber = aadharNumber;
     userDoc.kycDocuments.aadharNumber = aadharNumber;
-    userDoc.kycDocuments.doc1Url = aadharFront;
-    userDoc.kycDocuments.doc1BackUrl = aadharBack;
+    userDoc.kycDocuments.doc1Url = encryptData(aadharFront);
+    userDoc.kycDocuments.doc1BackUrl = encryptData(aadharBack);
     userDoc.kycDocuments.panNumber = panNumber;
-    userDoc.kycDocuments.doc2Url = panFront;
-    userDoc.kycDocuments.doc2BackUrl = panBack;
+    userDoc.kycDocuments.doc2Url = encryptData(panFront);
+    userDoc.kycDocuments.doc2BackUrl = encryptData(panBack);
     userDoc.kycDocuments.chequeNumber = chequeNum;
     await userDoc.save();
 
@@ -1345,12 +1346,12 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
       kycStatus: 'verified',
       kycVerifiedAt: new Date()
     };
-    if (req.body.documents?.doc1Url) docUpdates['kycDocuments.doc1Url'] = req.body.documents.doc1Url;
-    if (req.body.documents?.doc1BackUrl) docUpdates['kycDocuments.doc1BackUrl'] = req.body.documents.doc1BackUrl;
-    if (req.body.documents?.doc2Url) docUpdates['kycDocuments.doc2Url'] = req.body.documents.doc2Url;
-    if (req.body.documents?.doc2BackUrl) docUpdates['kycDocuments.doc2BackUrl'] = req.body.documents.doc2BackUrl;
-    if (req.body.documents?.chequeUrl) docUpdates['kycDocuments.chequeUrl'] = req.body.documents.chequeUrl;
-    if (req.body.documents?.chequeBackUrl) docUpdates['kycDocuments.chequeBackUrl'] = req.body.documents.chequeBackUrl;
+    if (req.body.documents?.doc1Url) docUpdates['kycDocuments.doc1Url'] = encryptData(req.body.documents.doc1Url);
+    if (req.body.documents?.doc1BackUrl) docUpdates['kycDocuments.doc1BackUrl'] = encryptData(req.body.documents.doc1BackUrl);
+    if (req.body.documents?.doc2Url) docUpdates['kycDocuments.doc2Url'] = encryptData(req.body.documents.doc2Url);
+    if (req.body.documents?.doc2BackUrl) docUpdates['kycDocuments.doc2BackUrl'] = encryptData(req.body.documents.doc2BackUrl);
+    if (req.body.documents?.chequeUrl) docUpdates['kycDocuments.chequeUrl'] = encryptData(req.body.documents.chequeUrl);
+    if (req.body.documents?.chequeBackUrl) docUpdates['kycDocuments.chequeBackUrl'] = encryptData(req.body.documents.chequeBackUrl);
     if (chequeNumber) docUpdates['kycDocuments.chequeNumber'] = String(chequeNumber).trim();
     if (name && String(name).trim() && String(name).trim() !== targetUser.name) {
       docUpdates['name'] = String(name).trim();

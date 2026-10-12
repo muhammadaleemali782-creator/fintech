@@ -11,6 +11,7 @@ const { generateAccountNumber } = require('../utils/accountNumber');
 const memoryCache = require('../utils/cache');
 const bcrypt = require('bcryptjs');
 const { updateEducaMailPassword, sendEducaMailMessage } = require('../utils/educaMail');
+const { decryptData } = require('../utils/cryptoHelper');
 const router = express.Router();
 
 
@@ -1337,8 +1338,9 @@ router.get('/kyc-doc/:userId/:docKey', protect, admin, async (req, res) => {
       chequeUrl: 'chequeUrl'
     };
     const field = keyMap[req.params.docKey] || req.params.docKey;
-    const url = user.kycDocuments[field] || '';
-    res.json({ success: true, url });
+    let url = user.kycDocuments[field] || '';
+    if (url) url = decryptData(url);
+    res.json({ success: true, url, googleDriveLink: user.kycDocuments.googleDriveLink || '' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch KYC document' });
   }
@@ -1349,11 +1351,13 @@ router.get('/txn-proof/:id', protect, admin, async (req, res) => {
   try {
     const txn = await Transaction.findById(req.params.id).select('proofUrl screenshotUrl adminEvidenceUrl paymentDetails');
     if (!txn) return res.status(404).json({ message: 'Transaction not found' });
+    let url = txn.adminEvidenceUrl || txn.proofUrl || txn.screenshotUrl || '';
+    if (url) url = decryptData(url);
     res.json({
       success: true,
-      url: txn.adminEvidenceUrl || txn.proofUrl || txn.screenshotUrl || '',
-      proofUrl: txn.proofUrl || txn.screenshotUrl || '',
-      adminEvidenceUrl: txn.adminEvidenceUrl || '',
+      url,
+      proofUrl: decryptData(txn.proofUrl || txn.screenshotUrl || ''),
+      adminEvidenceUrl: decryptData(txn.adminEvidenceUrl || ''),
       qrCodeUrl: txn.paymentDetails?.qrCodeUrl || ''
     });
   } catch (err) {

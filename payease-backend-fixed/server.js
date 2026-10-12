@@ -304,6 +304,20 @@ const server = app.listen(process.env.PORT, () => {
   console.log(`🚀 Server running on port ${process.env.PORT} [${process.env.NODE_ENV || 'development'}]`);
 });
 
+// ------------------ RENDER KEEP-ALIVE PING (PREVENTS SLEEP) ------------------
+// Render puts free services to sleep after 15 minutes of inactivity.
+// Self-pinging /api/health every 10 minutes keeps the service awake 24/7.
+const PING_BASE_URL = process.env.RENDER_EXTERNAL_URL || 'https://educafintech.onrender.com';
+setInterval(() => {
+  fetch(`${PING_BASE_URL}/api/health`)
+    .then(r => r.json())
+    .catch(err => {
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('💓 Keep-alive ping notice:', err.message);
+      }
+    });
+}, 10 * 60 * 1000); // 10 minutes
+
 // ------------------ GRACEFUL SHUTDOWN ------------------
 // Jab hosting platform deploy/restart karta hai, to ye pehle se chal
 // rahi requests ko poora hone deta hai, phir band hota hai -- taaki

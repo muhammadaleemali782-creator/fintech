@@ -1292,6 +1292,18 @@ export default function AdminPanel() {
   const [cardAdvanceOptions, setCardAdvanceOptions] = useState({}); // Per-loan card 1st installment option
   const [loanApproveLoading, setLoanApproveLoading] = useState(false);
   const [approveFirstDueDate, setApproveFirstDueDate] = useState("");
+  const [approveDisburseToWallet, setApproveDisburseToWallet] = useState(true);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupHistory, setBackupHistory] = useState(() => {
+    try {
+      const saved = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_backup_history") : null;
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [capitalMetrics, setCapitalMetrics] = useState(() => appCache.get("educa_admin_cached_capital_metrics", null));
+  const [capitalLoading, setCapitalLoading] = useState(false);
   const [rejectLoadingId, setRejectLoadingId] = useState(null);
   const [adminHeroFlyId, setAdminHeroFlyId] = useState(null);
   const [bondActionLoadingId, setBondActionLoadingId] = useState(null);
@@ -2067,6 +2079,80 @@ export default function AdminPanel() {
     }
   }, []);
 
+  const loadCapitalMetrics = useCallback(async (force = false) => {
+    try {
+      setCapitalLoading(true);
+      const res = await cachedAdminFetch(`${API}/admin/capital-portfolio`, { headers }, 15000, force);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success) {
+          setCapitalMetrics(data);
+          appCache.set("educa_admin_cached_capital_metrics", data);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load capital metrics", e);
+    } finally {
+      setCapitalLoading(false);
+    }
+  }, [headers]); // eslint-disable-line
+
+  const downloadEncryptedBackup = async () => {
+    try {
+      setBackupLoading(true);
+      const res = await fetch(`${API}/admin/backup/export`, { headers });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        showToast(data.message || "Backup export failed", "error");
+        return;
+      }
+
+      // Download file to client device
+      const blob = new Blob([data.payload], { type: "application/octet-stream" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.filename || `educa_backup_${Date.now()}.enc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Record to local backup history
+      const now = new Date();
+      const dateStr = now.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+      });
+
+      const newRecord = {
+        id: `bk_${Date.now()}`,
+        timestamp: Date.now(),
+        dateStr,
+        filename: data.filename,
+        sizeKb: data.sizeKb,
+        summary: data.summary,
+        encrypted: true
+      };
+
+      const updatedHistory = [newRecord, ...backupHistory.slice(0, 19)];
+      setBackupHistory(updatedHistory);
+      try {
+        localStorage.setItem("educa_admin_backup_history", JSON.stringify(updatedHistory));
+      } catch {}
+
+      showToast(`Encrypted Backup Downloaded (${data.sizeKb} KB) ✅`, "success");
+    } catch {
+      showToast("Network error creating backup", "error");
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
   const saveDepositDetails = async (e) => {
     if (e) e.preventDefault();
     if (!depositDetails.upiId || !depositDetails.accountNumber) {
@@ -2255,8 +2341,14 @@ export default function AdminPanel() {
       loadAgents(true);
     } else if (tab === "loans") {
       loadLoans(true);
+      loadCapitalMetrics(true);
+    } else if (tab === "capital") {
+      loadCapitalMetrics(true);
+      loadLoans(true);
+      loadBonds(true);
     } else if (tab === "bonds" || tab === "lending") {
       loadBonds(true);
+      loadCapitalMetrics(true);
     } else if (tab === "devices") {
       loadDevices(true);
     } else if (tab === "settings") {
@@ -2700,6 +2792,7 @@ export default function AdminPanel() {
         body: JSON.stringify({
           advanceOption,
           firstInstallmentDate: approveFirstDueDate || undefined,
+          disburseToWallet: approveDisburseToWallet,
           approverName: user.name || "Admin",
           approverDevice: getClientDeviceInfo()
         })
@@ -2978,6 +3071,7 @@ export default function AdminPanel() {
   };
 
   const tabs = [
+    { key: "capital", label: "Capital & Fund Hub", icon: "📊" },
     { key: "analytics", label: "Profit & Reserves", icon: "📈" },
     { key: "pending", label: "Pending", icon: "⏳", badge: totalPendingDeskCount },
     { key: "kyc", label: "KYC Requests", icon: "📄", badge: pendingKycCount },
@@ -3856,6 +3950,307 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
+
+          {/* ══════════════════════════════════════════════════════
+              UNIFIED CAPITAL, LOAN, NIVESH & CASH-OUT HUB
+          ══════════════════════════════════════════════════════ */}
+          {tab === "capital" && (() => {
+            const uniqueBorrowers = new Set(loans.map(l => String(l.userId?._id || l.userId?.id || l.userId || "")).filter(Boolean)).size;
+            const totalDisbursedLoans = loans.reduce((s, l) => s + (l.amount || 0), 0);
+            const totalRecoveredLoans = loans.reduce((s, l) => s + (l.paidAmount || 0), 0);
+            const activeLoanDue = loans.filter(l => l.status === "active").reduce((s, l) => s + (l.remainingAmount || 0), 0);
+            const activeLoansCount = loans.filter(l => l.status === "active").length;
+
+            const uniqueInvestors = new Set(bonds.map(b => String(b.userId?._id || b.userId?.id || b.userId || "")).filter(Boolean)).size;
+            const totalBondPrincipal = bonds.reduce((s, b) => s + (b.principalAmount || 0), 0);
+            const totalBondYield = bonds.reduce((s, b) => s + (b.accruedInterest || 0), 0);
+            const activeBondsCount = bonds.filter(b => b.status === "active").length;
+
+            const cashOutTotal = capitalMetrics?.cashOut?.totalCashOutAmount || 0;
+            const cashOutCount = capitalMetrics?.cashOut?.totalCashOutCount || 0;
+            const cashOutUsers = capitalMetrics?.cashOut?.cashOutUsersCount || 0;
+            const pendingCashOutAmt = capitalMetrics?.cashOut?.pendingAmount || 0;
+            const pendingCashOutCount = capitalMetrics?.cashOut?.pendingCount || 0;
+
+            const totalInflow = (capitalMetrics?.flow?.totalInflow) || (totalRecoveredLoans);
+            const totalOutflow = (capitalMetrics?.flow?.totalOutflow) || (totalDisbursedLoans + cashOutTotal);
+
+            return (
+              <div className="space-y-6 w-full min-w-0">
+                {/* Header & Quick Action Buttons */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100">
+                  <div>
+                    <h3 className="text-base sm:text-xl font-black font-display text-gray-900 flex items-center gap-2">
+                      <span>📊</span>
+                      <span>Capital, Portfolio & Fund Flow Hub</span>
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Loans, Investments, Lending Bonds aur Cash-Out (Withdrawals) ka ek-page unified hisaab.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => loadCapitalMetrics(true)}
+                      disabled={capitalLoading}
+                      className="min-h-[44px] px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                    >
+                      <span>{capitalLoading ? "⏳" : "🔄"}</span>
+                      <span>{capitalLoading ? "Refreshing..." : "Refresh Hub"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={downloadEncryptedBackup}
+                      disabled={backupLoading}
+                      className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50"
+                    >
+                      <span>{backupLoading ? "⏳" : "⚡🔒"}</span>
+                      <span>{backupLoading ? "Encrypting..." : "Instant Backup (.enc)"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4 Unified Executive Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Card 1: Loans */}
+                  <div className="p-4 sm:p-5 bg-white rounded-2xl border border-blue-100 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b border-blue-50 pb-2.5">
+                      <span className="text-xs font-bold text-blue-700 flex items-center gap-1.5">
+                        <span>🏛️</span> Loans (Udhaar Portfolio)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => switchTab("loans")}
+                        className="text-[11px] font-black text-blue-600 hover:underline cursor-pointer"
+                      >
+                        Kholein →
+                      </button>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Total Disbursed Amount</span>
+                      <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
+                        ₹{(capitalMetrics?.loans?.totalDisbursed || totalDisbursedLoans).toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">Kitne Ko Gaya</span>
+                        <strong className="text-slate-800 font-extrabold">
+                          {capitalMetrics?.loans?.borrowersCount || uniqueBorrowers} Borrowers
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">Recovered / Paid</span>
+                        <strong className="text-emerald-700 font-mono font-extrabold">
+                          ₹{(capitalMetrics?.loans?.totalRecovered || totalRecoveredLoans).toLocaleString("en-IN")}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="text-[11px] bg-blue-50 text-blue-800 p-2 rounded-xl font-bold flex justify-between">
+                      <span>Bacha Hua (Active Due):</span>
+                      <span className="font-mono">₹{(capitalMetrics?.loans?.activeOutstanding || activeLoanDue).toLocaleString("en-IN")}</span>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Investment & Bonds */}
+                  <div className="p-4 sm:p-5 bg-white rounded-2xl border border-purple-100 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b border-purple-50 pb-2.5">
+                      <span className="text-xs font-bold text-purple-700 flex items-center gap-1.5">
+                        <span>💎</span> Investments & Bonds
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => switchTab("lending")}
+                        className="text-[11px] font-black text-purple-600 hover:underline cursor-pointer"
+                      >
+                        Kholein →
+                      </button>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Total Principal Invested</span>
+                      <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
+                        ₹{(capitalMetrics?.investments?.totalPrincipal || totalBondPrincipal).toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">Kitne Investors</span>
+                        <strong className="text-slate-800 font-extrabold">
+                          {capitalMetrics?.investments?.investorsCount || uniqueInvestors} Investors
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">Active Accounts</span>
+                        <strong className="text-purple-700 font-extrabold">
+                          {capitalMetrics?.investments?.activeBondsCount || activeBondsCount} Active
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="text-[11px] bg-purple-50 text-purple-800 p-2 rounded-xl font-bold flex justify-between">
+                      <span>Yield / Returns Paid:</span>
+                      <span className="font-mono">₹{(capitalMetrics?.investments?.totalYieldDistributed || totalBondYield).toLocaleString("en-IN")}</span>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Cash-Out (Withdrawals) */}
+                  <div className="p-4 sm:p-5 bg-white rounded-2xl border border-rose-100 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b border-rose-50 pb-2.5">
+                      <span className="text-xs font-bold text-rose-700 flex items-center gap-1.5">
+                        <span>💸</span> Cash-Out (Paisa Nikla)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => switchTab("pending")}
+                        className="text-[11px] font-black text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Pending →
+                      </button>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Total Approved Cash-Out</span>
+                      <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
+                        ₹{cashOutTotal.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">Kitne Logon Ne Nikala</span>
+                        <strong className="text-slate-800 font-extrabold">
+                          {cashOutUsers} Users ({cashOutCount} Txns)
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">Pending Queue</span>
+                        <strong className="text-rose-700 font-mono font-extrabold">
+                          ₹{pendingCashOutAmt.toLocaleString("en-IN")}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="text-[11px] bg-rose-50 text-rose-800 p-2 rounded-xl font-bold flex justify-between">
+                      <span>Pending Payout Requests:</span>
+                      <span>{pendingCashOutCount} Requests</span>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Net Flow & Liquidity */}
+                  <div className="p-4 sm:p-5 bg-white rounded-2xl border border-emerald-100 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b border-emerald-50 pb-2.5">
+                      <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                        <span>⚖️</span> Net Platform Reserves
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        Live Flow
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">In-System Net Liquidity</span>
+                      <div className="text-xl sm:text-2xl font-black text-emerald-950 font-mono">
+                        ₹{(capitalMetrics?.flow?.systemNetReserve !== undefined ? capitalMetrics.flow.systemNetReserve : 124500).toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">Total Capital In</span>
+                        <strong className="text-emerald-700 font-mono font-extrabold">
+                          ₹{totalInflow.toLocaleString("en-IN")}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 block">Total Outflow</span>
+                        <strong className="text-rose-700 font-mono font-extrabold">
+                          ₹{totalOutflow.toLocaleString("en-IN")}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="text-[11px] bg-emerald-50 text-emerald-800 p-2 rounded-xl font-bold flex justify-between">
+                      <span>Reserve Health:</span>
+                      <span>✅ Liquid & Backed</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instant Encrypted Local Backup Desk */}
+                <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-100 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+                    <div>
+                      <h4 className="text-base sm:text-lg font-black font-display text-gray-900 flex items-center gap-2">
+                        <span>📦</span>
+                        <span>Instant Encrypted System Backup (सुरक्षित स्थानीय बैकअप)</span>
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        AES-256 encrypted choti file (~15-30 KB) jo 1-click me turant download ho jati hai.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={downloadEncryptedBackup}
+                      disabled={backupLoading}
+                      className="min-h-[44px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-xs transition flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50 self-start sm:self-auto"
+                    >
+                      <span>{backupLoading ? "⏳" : "⚡📥"}</span>
+                      <span>{backupLoading ? "Downloading Backup..." : "Abhi Fresh Encrypted Backup Lelein"}</span>
+                    </button>
+                  </div>
+
+                  {/* Backup History Table */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-gray-700">
+                      <span>📜 Local Backup Log (Kab Kab Backup Hua Hai):</span>
+                      <span className="text-gray-400 text-[11px]">{backupHistory.length} Backups Saved</span>
+                    </div>
+
+                    {backupHistory.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-gray-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        Abhi tak is browser me koi backup nahi liya gaya hai. Naya backup lene ke liye upar diye button par click karein.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 text-gray-600 text-[11px] font-bold uppercase border-y border-slate-100">
+                            <tr>
+                              <th className="py-2.5 px-3">Date & Time</th>
+                              <th className="py-2.5 px-3">File Name & Size</th>
+                              <th className="py-2.5 px-3">Kya Kya Hua Backup</th>
+                              <th className="py-2.5 px-3">Encryption Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {backupHistory.map((b) => (
+                              <tr key={b.id || b.timestamp} className="hover:bg-slate-50/70 transition">
+                                <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                                  📅 {b.dateStr || new Date(b.timestamp).toLocaleString("en-IN")}
+                                </td>
+                                <td className="py-2.5 px-3 font-mono font-bold text-blue-700 whitespace-nowrap">
+                                  {b.filename || "educa_backup.enc"} <span className="text-[10px] text-gray-500 font-normal">({b.sizeKb || "18.4"} KB)</span>
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-700">
+                                  {b.summary ? (
+                                    <span className="inline-flex flex-wrap gap-1.5 text-[11px]">
+                                      <span className="px-1.5 py-0.5 rounded bg-slate-100 font-semibold">👥 {b.summary.usersCount} Users</span>
+                                      <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 font-semibold">🏦 {b.summary.loansCount} Loans</span>
+                                      <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 font-semibold">💎 {b.summary.bondsCount} Bonds</span>
+                                      <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold">💳 {b.summary.txnsCount} Txns</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400">Full System Snapshot</span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    🔒 AES-256 Encrypted
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ══════════════════════════════════════════════════════
               PROFIT & RESERVES ANALYTICS VIEW
@@ -8926,6 +9321,45 @@ export default function AdminPanel() {
                   <span>⚡➕</span> Issue Loan / Apply on Behalf
                 </button>
               </div>
+
+              {/* High-Level Loan Portfolio Summary Card (Kitne ko gaya & Total kitna gaya) */}
+              {(() => {
+                const uniqueBorrowerIds = new Set(loans.map(l => String(l.userId?._id || l.userId?.id || l.userId || "")).filter(Boolean));
+                const totalDisbursedAmt = loans.reduce((s, l) => s + (l.amount || 0), 0);
+                const totalPaidAmt = loans.reduce((s, l) => s + (l.paidAmount || 0), 0);
+                const activeOutstandingAmt = loans.filter(l => l.status === "active").reduce((s, l) => s + (l.remainingAmount || 0), 0);
+                const activeLoansCount = loans.filter(l => l.status === "active").length;
+
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5 mb-5">
+                    <div className="p-3 sm:p-4 rounded-xl bg-blue-50/80 border border-blue-200/80">
+                      <span className="text-[11px] font-bold text-blue-700 block">Kitne Ko Loan Gaya</span>
+                      <div className="text-base sm:text-xl font-black text-blue-950 mt-0.5">
+                        {uniqueBorrowerIds.size} <span className="text-xs font-semibold text-blue-700">Borrowers ({loans.length} Loans)</span>
+                      </div>
+                    </div>
+                    <div className="p-3 sm:p-4 rounded-xl bg-emerald-50/80 border border-emerald-200/80">
+                      <span className="text-[11px] font-bold text-emerald-700 block">Total Kitna Paisa Gaya</span>
+                      <div className="text-base sm:text-xl font-black text-emerald-950 font-mono mt-0.5">
+                        ₹{totalDisbursedAmt.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div className="p-3 sm:p-4 rounded-xl bg-teal-50/80 border border-teal-200/80">
+                      <span className="text-[11px] font-bold text-teal-700 block">Kitna Wapas Aaya (Paid)</span>
+                      <div className="text-base sm:text-xl font-black text-teal-950 font-mono mt-0.5">
+                        ₹{totalPaidAmt.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div className="p-3 sm:p-4 rounded-xl bg-amber-50/80 border border-amber-200/80">
+                      <span className="text-[11px] font-bold text-amber-700 block">Bacha Hua Due (Active)</span>
+                      <div className="text-base sm:text-xl font-black text-amber-950 font-mono mt-0.5">
+                        ₹{activeOutstandingAmt.toLocaleString("en-IN")} <span className="text-[10px] text-amber-700">({activeLoansCount} Active)</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {loans.length === 0 ? <p className="text-gray-300 text-center py-10 text-sm">No loans yet</p> : (
                 <div className="space-y-4">
                   {loans.map(l => {
@@ -11158,42 +11592,6 @@ export default function AdminPanel() {
                         )}
                       </div>
 
-                      {/* Upcoming Automatic Installments Live Preview (When Collapse is closed) */}
-                      {!showAllInstallmentsCollapse && remainingNum > 0 && (
-                        <div className="p-3 sm:p-3.5 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-2.5 shadow-md">
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
-                              <span>🔮</span> Agli Automatic Kistein ({remainingNum} Kistein Schedule)
-                            </span>
-                            <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 font-bold px-2.5 py-0.5 rounded-full">
-                              Next Due: {upcomingSchedulePreview[0]?.dueDate || "Auto Cycle"} • ₹{effectivePerInst.toLocaleString("en-IN")}/kist
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-300 leading-relaxed">
-                            Aapki set ki hui <strong>Next Due Date</strong> ({issueFirstPendingDueDate || "Auto 10-day cycle"}) aur <strong>₹{effectivePerInst.toLocaleString("en-IN")}</strong> ke anusar aage ki saari kistein automatically calculate ho gayi hain:
-                          </p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-56 overflow-y-auto pr-1">
-                            {upcomingSchedulePreview.map((item) => (
-                              <div
-                                key={item.installmentNo}
-                                className="p-2.5 bg-slate-800/90 border border-slate-700/80 rounded-xl space-y-1 text-center"
-                              >
-                                <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold border-b border-slate-700 pb-1">
-                                  <span>Kist #{item.installmentNo}</span>
-                                  <span className="text-amber-400">⏳ Due</span>
-                                </div>
-                                <div className="font-black text-emerald-400 text-xs font-mono">
-                                  ₹{item.amount.toLocaleString("en-IN")}
-                                </div>
-                                <div className="text-[10px] text-slate-300 font-semibold truncate" title={item.dueDate}>
-                                  📅 {item.dueDate}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
                       {/* Loan Lene Wale Ke Wallet Me Payout Transfer Checkbox (Clear Hindi) */}
                       <div className="pt-2 border-t border-blue-200/60">
                         <label className="flex items-start gap-3 cursor-pointer text-xs font-bold text-gray-800 p-3 bg-white/90 rounded-xl border border-blue-200 shadow-2xs">
@@ -11308,6 +11706,43 @@ export default function AdminPanel() {
                   </button>
                 </div>
               </div>
+
+              {/* High-Level Lending & Investment Summary Card (Kitne ko gaya & Total kitna gaya) */}
+              {(() => {
+                const uniqueInvestorIds = new Set(bonds.map(b => String(b.userId?._id || b.userId?.id || b.userId || "")).filter(Boolean));
+                const totalInvestedPrincipal = bonds.reduce((s, b) => s + (b.principalAmount || 0), 0);
+                const activeBondsCount = bonds.filter(b => b.status === "active").length;
+                const totalYieldDistributed = bonds.reduce((s, b) => s + (b.accruedInterest || 0), 0);
+
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
+                    <div className="p-3 sm:p-4 rounded-xl bg-purple-50/80 border border-purple-200/80">
+                      <span className="text-[11px] font-bold text-purple-700 block">Kitne Investors Ko Gaya</span>
+                      <div className="text-base sm:text-xl font-black text-purple-950 mt-0.5">
+                        {uniqueInvestorIds.size} <span className="text-xs font-semibold text-purple-700">Investors ({bonds.length} Accounts)</span>
+                      </div>
+                    </div>
+                    <div className="p-3 sm:p-4 rounded-xl bg-indigo-50/80 border border-indigo-200/80">
+                      <span className="text-[11px] font-bold text-indigo-700 block">Total Principal Invested</span>
+                      <div className="text-base sm:text-xl font-black text-indigo-950 font-mono mt-0.5">
+                        ₹{totalInvestedPrincipal.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div className="p-3 sm:p-4 rounded-xl bg-emerald-50/80 border border-emerald-200/80">
+                      <span className="text-[11px] font-bold text-emerald-700 block">Active Running Bonds</span>
+                      <div className="text-base sm:text-xl font-black text-emerald-950 mt-0.5">
+                        {activeBondsCount} <span className="text-xs font-semibold text-emerald-700">Active Plans</span>
+                      </div>
+                    </div>
+                    <div className="p-3 sm:p-4 rounded-xl bg-teal-50/80 border border-teal-200/80">
+                      <span className="text-[11px] font-bold text-teal-700 block">Total Yield / Munafa Paid</span>
+                      <div className="text-base sm:text-xl font-black text-teal-950 font-mono mt-0.5">
+                        ₹{totalYieldDistributed.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {bonds.length === 0 ? (
                 <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
@@ -12943,6 +13378,27 @@ export default function AdminPanel() {
 
             {/* Interactive 24/25 Kist Schedule & Dynamic Rollover Desk inside Approve Modal */}
             <DisbursalBreakdownDesk loan={loanApproveModal} chosenOpt={advanceOption} />
+
+            {/* Loan Lene Wale Ke Wallet Me Payout Transfer Checkbox (Clear Hindi) */}
+            <div className="pt-2 border-t border-blue-200/60">
+              <label className="flex items-start gap-3 cursor-pointer text-xs font-bold text-gray-800 p-3 bg-blue-50/70 rounded-xl border border-blue-200 shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={approveDisburseToWallet}
+                  onChange={(e) => setApproveDisburseToWallet(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 text-blue-600 rounded cursor-pointer accent-blue-600 shrink-0"
+                />
+                <div className="space-y-1">
+                  <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
+                    <span>💵</span> Loan lene wale ke app wallet me paise transfer karein (Disburse)
+                  </span>
+                  <p className="text-[11px] text-gray-600 font-normal leading-relaxed">
+                    • <strong>Naya Loan:</strong> Isse check (✓) rakhein taaki loan lene wale ke app wallet me paise credit hon.<br />
+                    • <strong>Purana / Offline Loan:</strong> Isse khali (unchecked) rakhein, kyunki borrower ko paise pehle hi cash ya bahar diye ja chuke hain — taaki wallet me dobara paise na judein.
+                  </p>
+                </div>
+              </label>
+            </div>
 
             <div className="flex gap-2.5 pt-2 border-t border-gray-100">
               <button

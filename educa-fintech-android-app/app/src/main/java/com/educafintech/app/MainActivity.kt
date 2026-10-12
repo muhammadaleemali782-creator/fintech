@@ -458,7 +458,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val subtitleView = android.widget.TextView(this).apply {
-                text = "NextGen Financial Hub • v2.0"
+                text = "NextGen Financial Hub"
                 textSize = 12f
                 setTextColor(0xFF64748B.toInt())
                 gravity = android.view.Gravity.CENTER

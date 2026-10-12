@@ -1601,7 +1601,7 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       //               'deduct' (Deduct 1st installment upfront from payout & mark paid)
       //               'waive'  (Waive/free 1st installment & disburse standard payout)
       //               'defer'  (Admin pehli kist baad me lega - Extra Grace Period)
-      const { advanceOption = 'none', firstInstallmentDate } = req.body;
+      const { advanceOption = 'none', firstInstallmentDate, disburseToWallet = true } = req.body;
       const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
       const baseDisbursal = Math.max(0, loan.amount - (loan.processingFee || 0) - (loan.upiCharges || 0));
 
@@ -1685,8 +1685,12 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       }
 
       loan.disbursalAmount = payout;
-      // Loan disbursal money is credited directly to user's profit wallet balance
-      user.profitBalance = Number(((user.profitBalance || 0) + payout).toFixed(2));
+      if (disburseToWallet !== false) {
+        // Loan disbursal money is credited directly to user's profit wallet balance
+        user.profitBalance = Number(((user.profitBalance || 0) + payout).toFixed(2));
+      } else {
+        loan.offlineDisbursed = true;
+      }
       user.loansCount = (user.loansCount || 0) + 1;
       user.duesBalance = (user.duesBalance || 0) + loan.remainingAmount;
 
@@ -1747,11 +1751,13 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
         userId: user._id,
         type: 'loan_disbursal',
         amount: payout,
-        method: 'wallet',
+        method: disburseToWallet !== false ? 'wallet' : 'offline_cash',
         sourceWallet: 'profit',
         status: 'completed',
         referenceId: loan._id.toString(),
-        remarks: `Disbursal for ${loan.accountNumber || 'Loan'} (Net ₹${payout}) credited`
+        remarks: disburseToWallet !== false
+          ? `Disbursal for ${loan.accountNumber || 'Loan'} (Net ₹${payout}) credited`
+          : `Disbursal for ${loan.accountNumber || 'Loan'} (Net ₹${payout}) handled offline/outside app (Wallet credit skipped)`
       }], { session });
 
       resultLoan = loan;

@@ -300,8 +300,8 @@ export default function Login({ isApp = false }) {
                   });
                 } else {
                   const a = document.createElement("a");
-                  a.href = "/EducaFintech-v2.0.apk";
-                  a.download = "EducaFintech-v2.0.apk";
+                  a.href = "/EducaFintech.apk";
+                  a.download = "EducaFintech.apk";
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);

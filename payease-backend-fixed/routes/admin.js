@@ -11,7 +11,7 @@ const { generateAccountNumber } = require('../utils/accountNumber');
 const memoryCache = require('../utils/cache');
 const bcrypt = require('bcryptjs');
 const { updateEducaMailPassword, sendEducaMailMessage } = require('../utils/educaMail');
-const { decryptData } = require('../utils/cryptoHelper');
+const { encryptData, decryptData } = require('../utils/cryptoHelper');
 const router = express.Router();
 
 
@@ -1871,6 +1871,121 @@ router.post('/distribute-yield-notifications', protect, admin, async (req, res) 
   } catch (err) {
     console.error('Trigger yield notifications error:', err);
     res.status(500).json({ message: 'Failed to distribute yield notifications', error: err.message });
+  }
+});
+
+// Instant Lightweight Encrypted System Backup Export
+router.get('/backup/export', protect, admin, async (req, res) => {
+  try {
+    const [users, loans, bonds, txns, settings] = await Promise.all([
+      User.find().select('name email phone role balance profitBalance kycStatus loanLimit createdAt').lean(),
+      Loan.find().select('userId amount status totalPayable paidAmount remainingAmount installmentAmount installmentsCount loanType createdAt').lean(),
+      Bond.find().select('userId principalAmount status interestRate maturityMonths accruedInterest createdAt').lean(),
+      Transaction.find().sort({ createdAt: -1 }).limit(100).select('userId type amount status utrNumber referenceId remarks createdAt').lean(),
+      Settings.find().lean()
+    ]);
+
+    const summary = {
+      timestamp: Date.now(),
+      dateStr: new Date().toISOString(),
+      usersCount: users.length,
+      loansCount: loans.length,
+      bondsCount: bonds.length,
+      txnsCount: txns.length,
+      activeLoansVolume: loans.filter(l => l.status === 'active').reduce((s, l) => s + (l.amount || 0), 0),
+      totalBondPrincipal: bonds.filter(b => b.status === 'active').reduce((s, b) => s + (b.principalAmount || 0), 0)
+    };
+
+    const rawPayload = JSON.stringify({ summary, users, loans, bonds, txns, settings });
+    const encryptedString = encryptData(rawPayload);
+    const sizeKb = +(Buffer.byteLength(encryptedString, 'utf8') / 1024).toFixed(1);
+    const dateFormatted = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+
+    res.json({
+      success: true,
+      filename: `educa_backup_${dateFormatted}_${Date.now().toString().slice(-4)}.enc`,
+      summary,
+      sizeKb,
+      payload: encryptedString
+    });
+  } catch (err) {
+    console.error('Backup export error:', err);
+    res.status(500).json({ success: false, message: 'Failed to create encrypted backup' });
+  }
+});
+
+// Unified Capital Portfolio & Fund Flow Hub Metrics
+router.get('/capital-portfolio', protect, admin, async (req, res) => {
+  try {
+    const [loans, bonds, withdrawalAgg, depositAgg, pendingWithdrawals] = await Promise.all([
+      Loan.find().populate('userId', 'name email phone').sort({ createdAt: -1 }).lean(),
+      Bond.find().populate('userId', 'name email phone').sort({ createdAt: -1 }).lean(),
+      Transaction.aggregate([
+        { $match: { type: 'withdrawal', status: { $in: ['approved', 'completed'] } } },
+        { $group: { _id: null, totalAmount: { $sum: '$amount' }, count: { $sum: 1 }, uniqueUsers: { $addToSet: '$userId' } } }
+      ]),
+      Transaction.aggregate([
+        { $match: { type: 'deposit', status: { $in: ['approved', 'completed'] } } },
+        { $group: { _id: null, totalAmount: { $sum: '$amount' }, count: { $sum: 1 } } }
+      ]),
+      Transaction.find({ type: 'withdrawal', status: 'pending' }).lean()
+    ]);
+
+    // 1. Loans Metrics
+    const uniqueBorrowerIds = new Set(loans.map(l => String(l.userId?._id || l.userId)));
+    const totalLoanDisbursed = loans.reduce((s, l) => s + (l.amount || 0), 0);
+    const totalLoanRecovered = loans.reduce((s, l) => s + (l.paidAmount || 0), 0);
+    const activeLoanDue = loans.filter(l => l.status === 'active').reduce((s, l) => s + (l.remainingAmount || 0), 0);
+    const activeLoans = loans.filter(l => l.status === 'active');
+
+    // 2. Bonds & Investments Metrics
+    const uniqueInvestorIds = new Set(bonds.map(b => String(b.userId?._id || b.userId)));
+    const totalBondPrincipal = bonds.reduce((s, b) => s + (b.principalAmount || 0), 0);
+    const totalBondYield = bonds.reduce((s, b) => s + (b.accruedInterest || 0), 0);
+    const activeBonds = bonds.filter(b => b.status === 'active');
+
+    // 3. Cash-out Metrics
+    const approvedWithdrawalData = withdrawalAgg[0] || { totalAmount: 0, count: 0, uniqueUsers: [] };
+    const pendingWithdrawalAmount = pendingWithdrawals.reduce((s, t) => s + (t.amount || 0), 0);
+
+    // 4. Net Platform Flow
+    const totalDeposited = depositAgg[0]?.totalAmount || 0;
+
+    res.json({
+      success: true,
+      loans: {
+        totalLoans: loans.length,
+        activeLoansCount: activeLoans.length,
+        borrowersCount: uniqueBorrowerIds.size,
+        totalDisbursed: totalLoanDisbursed,
+        totalRecovered: totalLoanRecovered,
+        activeOutstanding: activeLoanDue,
+        items: loans.slice(0, 50)
+      },
+      investments: {
+        totalBonds: bonds.length,
+        activeBondsCount: activeBonds.length,
+        investorsCount: uniqueInvestorIds.size,
+        totalPrincipal: totalBondPrincipal,
+        totalYieldDistributed: totalBondYield,
+        items: bonds.slice(0, 50)
+      },
+      cashOut: {
+        totalCashOutAmount: approvedWithdrawalData.totalAmount,
+        totalCashOutCount: approvedWithdrawalData.count,
+        cashOutUsersCount: (approvedWithdrawalData.uniqueUsers || []).length,
+        pendingAmount: pendingWithdrawalAmount,
+        pendingCount: pendingWithdrawals.length
+      },
+      flow: {
+        totalInflow: totalDeposited + totalLoanRecovered,
+        totalOutflow: totalLoanDisbursed + approvedWithdrawalData.totalAmount,
+        systemNetReserve: (totalDeposited + totalLoanRecovered) - (totalLoanDisbursed + approvedWithdrawalData.totalAmount)
+      }
+    });
+  } catch (err) {
+    console.error('Capital portfolio error:', err);
+    res.status(500).json({ success: false, message: 'Failed to load capital portfolio' });
   }
 });
 

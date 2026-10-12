@@ -10783,31 +10783,72 @@ export default function AdminPanel() {
 
                     {/* Section: Offline / Backfill Loan (Pehle se bhari kistein & Direct Active) */}
                     <div className="p-3.5 bg-blue-50/70 rounded-xl border border-blue-200 space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
                         <span className="text-xs font-black text-blue-900 flex items-center gap-1.5">
                           <span>⚡</span> Offline Record / Pehle Se Bhari Kistein (Backfill)
                         </span>
-                        <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
-                          Admin Direct Control
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => addBackfillInstallment(installmentAmt)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-xs active:scale-95 transition cursor-pointer flex items-center gap-1.5"
+                          >
+                            <span className="text-sm font-black">➕</span> Kist Jodein (+ Add Paid Kist)
+                          </button>
+                          <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                            Admin Direct Control
+                          </span>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                          <label className="text-[11px] font-bold text-gray-700 block mb-1">
-                            Pehle Se Bhari Kistein (Paid Count)
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            max={count}
-                            value={issuePaidInstallmentsCount}
-                            onChange={(e) => updateBackfillCount(e.target.value, installmentAmt)}
-                            placeholder="e.g. 4"
-                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 font-bold"
-                          />
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-bold text-gray-700 block">
+                              Pehle Se Bhari Kistein (Paid Count)
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => addBackfillInstallment(installmentAmt)}
+                              className="text-[10px] text-emerald-700 font-extrabold hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer underline"
+                            >
+                              <span>➕</span> Kist Jodein
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (issuePaidInstallmentsCount > 0) {
+                                  removeBackfillInstallment(issuePaidInstallmentsCount - 1);
+                                }
+                              }}
+                              disabled={issuePaidInstallmentsCount <= 0}
+                              className="w-9 h-9 bg-slate-200 hover:bg-slate-300 disabled:opacity-40 text-slate-800 font-black text-base rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition shrink-0"
+                              title="Ek kist kam karein (-)"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              max={count}
+                              value={issuePaidInstallmentsCount}
+                              onChange={(e) => updateBackfillCount(e.target.value, installmentAmt)}
+                              placeholder="0"
+                              className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 font-black text-center"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => addBackfillInstallment(installmentAmt)}
+                              className="w-9 h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition shrink-0 shadow-2xs"
+                              title="Nayi kist jodein (+)"
+                            >
+                              +
+                            </button>
+                          </div>
                           <span className="text-[10px] text-gray-500 block mt-0.5">
-                            {Number(issuePaidInstallmentsCount) > 0 ? `✓ Kist 1 se ${issuePaidInstallmentsCount} Paid mark hongi` : "0 = Naya fresh loan"}
+                            {Number(issuePaidInstallmentsCount) > 0 ? `✓ Kist 1 se ${issuePaidInstallmentsCount} Paid mark hongi` : "0 = Naya fresh loan (Kist jodne ke liye '+' dabayein)"}
                           </span>
                         </div>
 
@@ -10890,7 +10931,25 @@ export default function AdminPanel() {
                       </div>
 
                       {/* Kist-by-Kist Paid List with + Icon */}
-                      {Number(issuePaidInstallmentsCount) > 0 && (
+                      {Number(issuePaidInstallmentsCount) === 0 ? (
+                        <div className="p-3.5 bg-white/90 rounded-xl border border-dashed border-blue-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                          <div className="space-y-0.5">
+                            <span className="text-xs font-black text-blue-950 flex items-center gap-1.5">
+                              <span>📋</span> Kist-by-Kist Paid Record (0 Bhari Hui)
+                            </span>
+                            <p className="text-[11px] text-gray-500">
+                              Agar borrower pehle se 1 ya zyada kistein bhar chuka hai, toh <strong>+ Kist Jodein</strong> dabakar unki details aur slip darj karein.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => addBackfillInstallment(installmentAmt)}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer transition shrink-0"
+                          >
+                            <span className="text-sm font-black">➕</span> Kist Jodein (+ Add Paid Kist)
+                          </button>
+                        </div>
+                      ) : (
                         <div className="p-3 bg-white/90 rounded-xl border border-blue-200/80 space-y-2.5">
                           <div className="flex items-center justify-between flex-wrap gap-2">
                             <span className="text-xs font-black text-blue-950 flex items-center gap-1.5">
@@ -12400,6 +12459,66 @@ export default function AdminPanel() {
                   onChange={(e) => setAdminPayModal({ ...adminPayModal, utrNumber: e.target.value })}
                   className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium font-mono"
                 />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Payment Slip / Receipt Photo (Optional)
+                </label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold border border-blue-200 cursor-pointer flex items-center gap-1.5 transition active:scale-95">
+                    <span>📷</span> Slip Photo Upload Karein
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          const img = new Image();
+                          img.onload = () => {
+                            const canvas = document.createElement("canvas");
+                            const maxDim = 1200;
+                            let w = img.width, h = img.height;
+                            if (w > maxDim || h > maxDim) {
+                              if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+                              else { w = Math.round((w * maxDim) / h); h = maxDim; }
+                            }
+                            canvas.width = w; canvas.height = h;
+                            const ctx = canvas.getContext("2d");
+                            ctx.drawImage(img, 0, 0, w, h);
+                            const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+                            setAdminPayModal(prev => ({ ...prev, proofUrl: dataUrl }));
+                          };
+                          img.src = ev.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                  </label>
+                  {adminPayModal.proofUrl && (
+                    <div className="flex items-center gap-2 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                      <span className="text-xs text-emerald-700 font-bold">✓ Attached</span>
+                      <button
+                        type="button"
+                        onClick={() => { setLightboxImg(adminPayModal.proofUrl); setZoomLevel(1); }}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>🔍</span> View Slip
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAdminPayModal(prev => ({ ...prev, proofUrl: "" }))}
+                        className="text-xs text-rose-500 hover:text-rose-700 font-black cursor-pointer ml-1"
+                        title="Remove slip"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

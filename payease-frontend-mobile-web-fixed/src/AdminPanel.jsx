@@ -1088,6 +1088,7 @@ export default function AdminPanel() {
     return Array.isArray(old) ? old : [];
   });
   const pendingLoans = useMemo(() => (Array.isArray(loans) ? loans.filter(l => l.status === "pending") : []), [loans]);
+  const activeLoansCount = useMemo(() => (Array.isArray(loans) ? loans.filter(l => l.status === "active").length : 0), [loans]);
   const pendingBonds = useMemo(() => (Array.isArray(bonds) ? bonds.filter(b => b.status === "pending") : []), [bonds]);
   const totalPendingDeskCount = (pending?.length || 0) + pendingLoans.length + pendingBonds.length;
   const [notifications, setNotifications] = useState(() => {

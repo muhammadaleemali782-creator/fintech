@@ -2727,7 +2727,7 @@ export default function AdminPanel() {
       "KYC Status",
       "Submitted Date",
       "Admin Remarks",
-      "Google Drive Folder Link"
+      "Document Folder Link"
     ];
 
     const rows = toExport.map(u => {
@@ -6305,17 +6305,6 @@ export default function AdminPanel() {
                               KYC Document Images (Tap to Zoom)
                             </span>
                             <div className="flex items-center gap-2">
-                              {u.kycDocuments?.googleDriveLink && (
-                                <a
-                                  href={u.kycDocuments.googleDriveLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-300 hover:bg-emerald-100 transition flex items-center gap-1 cursor-pointer select-none"
-                                >
-                                  📁 Drive Link ↗
-                                </a>
-                              )}
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -9846,7 +9835,7 @@ export default function AdminPanel() {
                                         <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
                                           <span>🏦</span> Compulsory Barrier Cheque Details for Loan / Lending
                                         </span>
-                                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">📷 Photos Only (Auto Drive Sync • Any MB Size)</span>
+                                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">📷 Photos Only (Secure Storage • Any MB Size)</span>
                                       </div>
 
                                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -9945,7 +9934,7 @@ export default function AdminPanel() {
                                         </span>
                                       </div>
                                     </div>
-                                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 hidden sm:inline">📷 Photos Only (Auto Drive Sync • Any MB Size)</span>
+                                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 hidden sm:inline">📷 Photos Only (Secure Storage • Any MB Size)</span>
                                   </div>
 
                                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2">
@@ -10328,7 +10317,7 @@ export default function AdminPanel() {
                             <label className="text-[11px] font-bold text-gray-800 block">
                               Upload Full Loan KYC Documents (Aadhaar, PAN & Barrier Cheque)
                             </label>
-                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">📷 Photos Only (Auto Drive Sync • Any MB Size)</span>
+                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">📷 Photos Only (Secure Storage • Any MB Size)</span>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                             {[
@@ -10859,16 +10848,6 @@ export default function AdminPanel() {
                             <span className="flex items-center gap-1.5">
                               <span>📄</span> Compulsory Documents (Aadhaar, PAN & Barrier Cheque)
                             </span>
-                            {docs.driveLink && (
-                              <a
-                                href={docs.driveLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
-                              >
-                                <span>📁</span> Google Drive Folder
-                              </a>
-                            )}
                           </div>
 
                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">

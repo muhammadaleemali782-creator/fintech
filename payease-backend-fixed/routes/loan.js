@@ -44,6 +44,34 @@ const getDailyCollectionDates = (startDate, days) => {
   return dates;
 };
 
+// Helper to shift schedule due dates from a custom start date
+const shiftScheduleFromStartDate = (schedule, startDateStr, isDaily) => {
+  if (!startDateStr || !schedule || schedule.length === 0) return;
+  const start = new Date(startDateStr);
+  if (isNaN(start.getTime())) return;
+  start.setHours(10, 0, 0, 0);
+
+  let cur = new Date(start);
+  schedule.forEach((item, idx) => {
+    if (idx === 0) {
+      item.dueDate = new Date(cur);
+    } else if (isDaily) {
+      cur.setDate(cur.getDate() + 1);
+      const d = new Date(cur);
+      d.setHours(10, 0, 0, 0);
+      item.dueDate = d;
+    } else {
+      cur.setDate(cur.getDate() + 1);
+      while (!(cur.getDate() === 1 || cur.getDate() === 11 || cur.getDate() === 21)) {
+        cur.setDate(cur.getDate() + 1);
+      }
+      const d = new Date(cur);
+      d.setHours(10, 0, 0, 0);
+      item.dueDate = d;
+    }
+  });
+};
+
 // Sync Overdue Installments & 2% Per Installment Penalty
 // Rules requested by client / admin:
 // 1. Strict 10:00 AM Deadline: Har kist ki tareekh ko subah 10:00 AM se pehle bharni hogi, warna overdue penalty shuru hogi.
@@ -106,6 +134,97 @@ const syncLoanOverdueAndPenalties = (loan) => {
   }
 
   return loan;
+};
+
+/**
+ * Auto-deduct due or overdue Easy Installments from Primary Wallet (user.balance)
+ * If user has active loan, upcoming/due installment (dueDate <= now),
+ * and primary wallet balance >= totalRequired, it auto-deducts and records evidence.
+ */
+const autoDeductDueLoanEmis = async (userId) => {
+  if (!userId) return false;
+  try {
+    const user = await User.findById(userId);
+    if (!user || (user.balance || 0) <= 0) return false;
+
+    const activeLoans = await Loan.find({ userId: user._id, status: 'active' });
+    if (!activeLoans || activeLoans.length === 0) return false;
+
+    const now = new Date();
+    let anyDeducted = false;
+
+    for (const loan of activeLoans) {
+      syncLoanOverdueAndPenalties(loan);
+      const schedule = loan.installmentSchedule && loan.installmentSchedule.length > 0
+        ? loan.installmentSchedule
+        : (loan.emiSchedule || []);
+
+      const dueInstallments = schedule.filter(x => (
+        x.status === 'overdue' || (x.status === 'pending' && x.dueDate && new Date(x.dueDate) <= now)
+      ));
+
+      const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
+
+      for (const item of dueInstallments) {
+        const penaltyAmt = (loan.penaltyDue || 0);
+        const totalRequired = installmentAmt + penaltyAmt;
+
+        if (user.balance >= totalRequired) {
+          user.balance = Number((user.balance - totalRequired).toFixed(2));
+          user.duesBalance = Math.max(0, Number(((user.duesBalance || 0) - totalRequired).toFixed(2)));
+
+          if (penaltyAmt > 0) {
+            loan.penaltyPaid = (loan.penaltyPaid || 0) + penaltyAmt;
+            loan.penaltyDue = 0;
+            loan.penaltyCount = 0;
+          }
+
+          item.status = 'paid';
+          item.paidOn = new Date();
+          item.paymentMethod = 'primary_wallet';
+          item.adminEvidenceNote = 'Auto-debited from Primary Wallet balance on due date';
+
+          loan.paidAmount = (loan.paidAmount || 0) + installmentAmt;
+          loan.remainingAmount = Math.max(0, (loan.remainingAmount || loan.totalPayable) - installmentAmt);
+
+          if (loan.paidAmount >= loan.totalPayable || loan.remainingAmount === 0) {
+            loan.status = 'closed';
+            const newLimit = Math.min((user.loanLimit || 10000) * 2, 50000);
+            user.loanLimit = newLimit;
+          }
+
+          syncLoanOverdueAndPenalties(loan);
+          await loan.save();
+
+          await Transaction.create({
+            userId: user._id,
+            type: 'loan_installment',
+            amount: totalRequired,
+            method: 'wallet',
+            sourceWallet: 'main',
+            status: 'completed',
+            referenceId: loan._id.toString(),
+            remarks: `Auto-debited Easy Installment #${item.installmentNo} for ${loan.accountNumber || 'Loan'} from Primary Wallet`,
+            adminEvidenceNote: 'Auto-debited from Primary Wallet balance on due date'
+          });
+
+          anyDeducted = true;
+        } else {
+          break;
+        }
+      }
+    }
+
+    if (anyDeducted) {
+      await user.save();
+      memoryCache.del(`user_me_${user._id}`);
+      memoryCache.delPrefix('user_me_' + user._id);
+    }
+    return anyDeducted;
+  } catch (err) {
+    console.error('autoDeductDueLoanEmis error:', err);
+    return false;
+  }
 };
 
 // 1. Personal Loan Quote (10-day cycle, custom rate supported or default 1.34% per installment, min 15 installments)
@@ -1093,44 +1212,115 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
     }
 
     const numAmount = Number(amount);
-    if (!numAmount || numAmount < 5000 || numAmount > 50000) {
-      return res.status(400).json({ message: 'Loan amount ₹5,000 to ₹50,000 ke beech hona chahiye.' });
+    if (!numAmount || numAmount < 1000 || numAmount > 100000) {
+      return res.status(400).json({ message: 'Loan amount ₹1,000 se ₹1,00,000 ke beech hona chahiye.' });
     }
 
-    const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 24);
+    const {
+      paidInstallmentsCount = 0,
+      firstPendingDueDate,
+      directActive,
+      disburseToWallet,
+      customInstallmentAmount,
+      customTotalPayable
+    } = req.body;
+
+    const count = Math.min(Math.max(Number(installmentsCount) || 15, 1), 120);
     const quote = calculatePersonalLoanQuote(numAmount, count, interestRateOption);
+    const instAmt = customInstallmentAmount ? Number(customInstallmentAmount) : quote.installmentAmount;
+    const totPayable = customTotalPayable ? Number(customTotalPayable) : (quote.totalPayable || (instAmt * count));
+    const paidCount = Math.max(0, Math.min(Number(paidInstallmentsCount) || 0, count));
+    const remainingCount = count - paidCount;
+
+    // Start date for pending installments
+    const isDaily = (loanType === 'micro_business' || req.body.collectionFrequency === 'daily');
+    let pendingStart = firstPendingDueDate ? new Date(firstPendingDueDate) : new Date();
+    if (isNaN(pendingStart.getTime())) pendingStart = new Date();
+    pendingStart.setHours(10, 0, 0, 0);
+
+    const remainingDates = [];
+    if (remainingCount > 0) {
+      if (isDaily) {
+        for (let i = 0; i < remainingCount; i++) {
+          const d = new Date(pendingStart);
+          d.setDate(d.getDate() + i);
+          d.setHours(10, 0, 0, 0);
+          remainingDates.push(d);
+        }
+      } else {
+        let cur = new Date(pendingStart);
+        remainingDates.push(new Date(cur));
+        for (let i = 1; i < remainingCount; i++) {
+          cur.setDate(cur.getDate() + 1);
+          while (!(cur.getDate() === 1 || cur.getDate() === 11 || cur.getDate() === 21)) {
+            cur.setDate(cur.getDate() + 1);
+          }
+          const d = new Date(cur);
+          d.setHours(10, 0, 0, 0);
+          remainingDates.push(d);
+        }
+      }
+    }
+
+    const schedule = [];
+    // 1. Add already paid installments
+    for (let i = 1; i <= paidCount; i++) {
+      schedule.push({
+        installmentNo: i,
+        month: i,
+        dueDate: new Date(Date.now() - (paidCount - i + 1) * (isDaily ? 1 : 10) * 86400000),
+        amount: instAmt,
+        status: 'paid',
+        paidOn: new Date(),
+        adminEvidenceNote: 'Pre-existing offline installment marked as Paid by Admin'
+      });
+    }
+
+    // 2. Add remaining pending installments
+    for (let i = 0; i < remainingCount; i++) {
+      schedule.push({
+        installmentNo: paidCount + i + 1,
+        month: paidCount + i + 1,
+        dueDate: remainingDates[i],
+        amount: instAmt,
+        status: 'pending'
+      });
+    }
+
+    const totalPaidAmount = Number((paidCount * instAmt).toFixed(2));
+    const remainingAmount = Math.max(0, Number((totPayable - totalPaidAmount).toFixed(2)));
+    const isDirectActive = directActive !== undefined ? Boolean(directActive) : (paidCount > 0);
+    const shouldDisburse = disburseToWallet !== undefined ? Boolean(disburseToWallet) : (paidCount === 0);
+    const disbursalPayout = quote.disbursalAmount || Math.max(0, numAmount - (quote.processingFee || 0) - (quote.upiCharges || 0));
+
     const accountNumber = await generateLoanAccountNumber();
-    const collectionDates = getCollectionDates(new Date(), count);
-    const schedule = collectionDates.map((dueDate, idx) => ({
-      installmentNo: idx + 1,
-      month: idx + 1,
-      dueDate,
-      amount: quote.installmentAmount,
-      status: 'pending'
-    }));
 
     const createdLoan = await Loan.create({
       userId: targetUser._id,
       accountNumber,
       loanType: loanType || 'personal',
-      collectionFrequency: '10_days',
+      collectionFrequency: isDaily ? 'daily' : '10_days',
       amount: quote.amount,
       interestRate: quote.interestRatePerInstallment,
       interestRatePerInstallment: quote.interestRatePerInstallment,
-      cycleDays: 10,
+      cycleDays: isDaily ? 1 : 10,
       installmentsCount: count,
       tenure: count,
-      installmentAmount: quote.installmentAmount,
-      emiAmount: quote.installmentAmount,
+      installmentAmount: instAmt,
+      emiAmount: instAmt,
       processingFee: quote.processingFee,
       upiCharges: quote.upiCharges,
       advanceDeduction: 0,
-      disbursalAmount: quote.disbursalAmount,
-      totalPayable: quote.totalPayable,
-      remainingAmount: quote.totalPayable,
+      disbursalAmount: disbursalPayout,
+      totalPayable: totPayable,
+      paidAmount: totalPaidAmount,
+      remainingAmount: isDirectActive ? remainingAmount : totPayable,
       hasChequeFacility: Boolean(hasChequeFacility),
       chequeNumber: chequeNumber ? String(chequeNumber).trim() : '',
-      status: 'pending', // Pending for review and approval
+      status: isDirectActive ? 'active' : 'pending',
+      approvedAt: isDirectActive ? new Date() : undefined,
+      approverName: isDirectActive ? (req.user.name || 'Admin') : undefined,
+      approverDevice: '💻 Admin Console',
       purpose: purpose || 'Applied on behalf by Admin',
       installmentSchedule: schedule,
       emiSchedule: schedule,
@@ -1146,12 +1336,15 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
         chequeNumber: chequeNumber ? String(chequeNumber).trim() : (targetUser.kycDocuments?.chequeNumber || ''),
         chequeUrl: req.body.documents?.chequeUrl || targetUser.kycDocuments?.chequeUrl || '',
         chequeBackUrl: req.body.documents?.chequeBackUrl || targetUser.kycDocuments?.chequeBackUrl || '',
-        adminNotes: adminNote || `Loan applied by Admin on behalf of borrower (${borrowerType === 'new' ? 'New User' : 'Existing Customer'})`
+        adminNotes: adminNote || `Loan applied by Admin on behalf of borrower (${borrowerType === 'new' ? 'New User' : 'Existing Customer'}${paidCount > 0 ? `, ${paidCount} kist already paid` : ''})`
       }
     });
 
-    // Sync newly uploaded documents and cheque to targetUser's KYC profile
-    const docUpdates = {};
+    // Sync newly uploaded documents and auto-verify KYC
+    const docUpdates = {
+      kycStatus: 'verified',
+      kycVerifiedAt: new Date()
+    };
     if (req.body.documents?.doc1Url) docUpdates['kycDocuments.doc1Url'] = req.body.documents.doc1Url;
     if (req.body.documents?.doc1BackUrl) docUpdates['kycDocuments.doc1BackUrl'] = req.body.documents.doc1BackUrl;
     if (req.body.documents?.doc2Url) docUpdates['kycDocuments.doc2Url'] = req.body.documents.doc2Url;
@@ -1171,15 +1364,36 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
     if (aadharNumber) { docUpdates['aadharNumber'] = String(aadharNumber).trim(); docUpdates['kycDocuments.aadharNumber'] = String(aadharNumber).trim(); }
     if (panNumber) { docUpdates['panNumber'] = String(panNumber).trim().toUpperCase(); docUpdates['kycDocuments.panNumber'] = String(panNumber).trim().toUpperCase(); }
     if (address) { docUpdates['address'] = String(address).trim(); docUpdates['kycDocuments.address'] = String(address).trim(); }
-    if (Object.keys(docUpdates).length > 0) {
-      await User.findByIdAndUpdate(targetUser._id, { $set: docUpdates });
+
+    if (isDirectActive) {
+      docUpdates['$inc'] = {
+        loansCount: 1,
+        duesBalance: remainingAmount
+      };
+      if (shouldDisburse) {
+        docUpdates['$inc'].profitBalance = disbursalPayout;
+        await Transaction.create([{
+          userId: targetUser._id,
+          type: 'loan_disbursal',
+          amount: disbursalPayout,
+          method: 'wallet',
+          sourceWallet: 'profit',
+          status: 'completed',
+          referenceId: createdLoan._id.toString(),
+          remarks: `Disbursal for ${createdLoan.accountNumber} (Net ₹${disbursalPayout}) credited to Profit Wallet`
+        }]);
+      }
     }
+
+    await User.findByIdAndUpdate(targetUser._id, docUpdates);
 
     // Notify admins via SSE
     if (req.app.locals.sseClients) {
       const payload = JSON.stringify({
-        type: 'loan_apply',
-        message: `New Loan Application pending review for ${targetUser.name} (₹${quote.amount})`,
+        type: isDirectActive ? 'loan_approved' : 'loan_apply',
+        message: isDirectActive
+          ? `Loan ${createdLoan.accountNumber} for ${targetUser.name} activated directly by Admin!`
+          : `New Loan Application pending review for ${targetUser.name} (₹${quote.amount})`,
         timestamp: new Date().toISOString()
       });
       req.app.locals.sseClients.forEach(c => {
@@ -1230,9 +1444,13 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
       console.warn('Drive sync initiation failed:', driveErr.message);
     }
 
+    const message = isDirectActive
+      ? `Loan ${createdLoan.accountNumber} successfully activated! ${paidCount > 0 ? `${paidCount} kist already paid recorded. Next due date: ${new Date(remainingDates[0] || Date.now()).toLocaleDateString('en-IN')}.` : shouldDisburse ? 'Net amount disbursed to user wallet.' : 'Active in borrower dashboard.'}`
+      : `Loan application for ${targetUser.name} created successfully! Ab aap ise review karke approve kar sakte hain.`;
+
     res.json({
       success: true,
-      message: `Loan application for ${targetUser.name} created successfully! Ab aap ise review karke approve kar sakte hain.`,
+      message,
       loan: createdLoan,
       user: {
         id: targetUser._id,
@@ -1306,7 +1524,7 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       //               'deduct' (Deduct 1st installment upfront from payout & mark paid)
       //               'waive'  (Waive/free 1st installment & disburse standard payout)
       //               'defer'  (Admin pehli kist baad me lega - Extra Grace Period)
-      const { advanceOption = 'none' } = req.body;
+      const { advanceOption = 'none', firstInstallmentDate } = req.body;
       const installmentAmt = loan.installmentAmount || loan.emiAmount || 0;
       const baseDisbursal = Math.max(0, loan.amount - (loan.processingFee || 0) - (loan.upiCharges || 0));
 
@@ -1382,8 +1600,15 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
         loan.remainingAmount = loan.totalPayable;
       }
 
+      // If Admin specified a custom first installment start date, shift schedule
+      if (firstInstallmentDate) {
+        const isDaily = loan.collectionFrequency === 'daily';
+        shiftScheduleFromStartDate(loan.installmentSchedule, firstInstallmentDate, isDaily);
+        shiftScheduleFromStartDate(loan.emiSchedule, firstInstallmentDate, isDaily);
+      }
+
       loan.disbursalAmount = payout;
-      // Loan disbursal money is credited directly to Profit Wallet as requested
+      // Loan disbursal money is credited directly to user's profit wallet balance
       user.profitBalance = Number(((user.profitBalance || 0) + payout).toFixed(2));
       user.loansCount = (user.loansCount || 0) + 1;
       user.duesBalance = (user.duesBalance || 0) + loan.remainingAmount;
@@ -1445,7 +1670,7 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
         userId: user._id,
         type: 'loan_disbursal',
         amount: payout,
-        method: 'profit_wallet',
+        method: 'wallet',
         sourceWallet: 'profit',
         status: 'completed',
         referenceId: loan._id.toString(),
@@ -1469,6 +1694,7 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
 // My loans
 router.get('/my', protect, async (req, res) => {
   try {
+    await autoDeductDueLoanEmis(req.user._id);
     const loans = await Loan.find({ userId: req.user._id }).sort({ createdAt: -1 });
     for (const l of loans) {
       if (!l.accountNumber || !l.accountNumber.startsWith('EFS0000')) {
@@ -1754,6 +1980,7 @@ router.post('/admin/:loanId/installment/:installmentNo/admin-pay', protect, admi
 // Get detailed active loan with 5-day upcoming due calculation & installment history
 router.get('/active-details', protect, async (req, res) => {
   try {
+    await autoDeductDueLoanEmis(req.user._id);
     const loan = await Loan.findOne({ userId: req.user._id, status: 'active' }).sort({ createdAt: -1 });
     if (!loan) return res.json({ hasActiveLoan: false, duesBalance: req.user.duesBalance || 0 });
 
@@ -1789,4 +2016,6 @@ router.get('/active-details', protect, async (req, res) => {
   }
 });
 
+router.autoDeductDueLoanEmis = autoDeductDueLoanEmis;
 module.exports = router;
+module.exports.autoDeductDueLoanEmis = autoDeductDueLoanEmis;

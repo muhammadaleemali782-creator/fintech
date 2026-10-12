@@ -90,6 +90,11 @@ async function processDailyYield(user) {
 
 router.get('/me', protect, async (req, res) => {
   try {
+    try {
+      const { autoDeductDueLoanEmis } = require('./loan');
+      await autoDeductDueLoanEmis(req.user._id);
+    } catch (_) {}
+
     const cacheKey = `user_me_${req.user._id}`;
     const cached = memoryCache.get(cacheKey);
     if (cached) {
@@ -682,34 +687,55 @@ router.post('/transfer-profit-to-wallet', protect, async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const profit = Number((user.profitBalance || 0).toFixed(2));
-    if (profit <= 0) {
+    memoryCache.del(`user_me_${user._id}`);
+    memoryCache.delPrefix('user_me_' + user._id);
+
+    const currentProfit = Number((user.profitBalance || 0).toFixed(2));
+    if (currentProfit <= 0) {
       return res.status(400).json({ message: 'Transfer karne ke liye koi profit balance uplabdh nahi hai (₹0).' });
     }
 
-    user.balance = Number((user.balance + profit).toFixed(2));
-    user.profitBalance = 0;
+    let transferAmount = req.body && req.body.amount ? Number(req.body.amount) : currentProfit;
+    if (isNaN(transferAmount) || transferAmount <= 0 || transferAmount > currentProfit) {
+      transferAmount = currentProfit;
+    }
+    transferAmount = Number(transferAmount.toFixed(2));
+
+    user.balance = Number(((user.balance || 0) + transferAmount).toFixed(2));
+    user.profitBalance = Math.max(0, Number(((user.profitBalance || 0) - transferAmount).toFixed(2)));
     user.lastYieldCalculatedAt = new Date();
     if (user.wallets?.savings) {
-      user.wallets.savings.balance = Number(((user.wallets.savings.balance || 0) + profit).toFixed(2));
+      user.wallets.savings.balance = Number(((user.wallets.savings.balance || 0) + transferAmount).toFixed(2));
     }
     await user.save();
+
+    memoryCache.del(`user_me_${user._id}`);
+    memoryCache.delPrefix('user_me_' + user._id);
 
     const txn = await Transaction.create({
       userId: user._id,
       type: 'profit_transfer',
-      amount: profit,
+      amount: transferAmount,
       method: 'wallet',
+      sourceWallet: 'profit',
       status: 'completed',
-      remarks: 'Profit transferred to Primary Wallet'
+      remarks: `₹${transferAmount.toLocaleString('en-IN')} Profit transferred to Primary Wallet`
     });
+
+    // Check if user has due/overdue loan installments that can now be auto-paid with the new primary balance!
+    try {
+      const { autoDeductDueLoanEmis } = require('./loan');
+      await autoDeductDueLoanEmis(user._id);
+    } catch (_) {}
+
+    const freshUser = await User.findById(user._id);
 
     res.json({
       success: true,
-      message: `₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })} Primary Wallet me safaltapoorvak transfer ho gaya!`,
-      transferredAmount: profit,
-      newBalance: user.balance,
-      newProfitBalance: 0,
+      message: `₹${transferAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} Primary Wallet me safaltapoorvak transfer ho gaya!`,
+      transferredAmount: transferAmount,
+      newBalance: freshUser ? freshUser.balance : user.balance,
+      newProfitBalance: freshUser ? freshUser.profitBalance : user.profitBalance,
       txn
     });
   } catch (err) {

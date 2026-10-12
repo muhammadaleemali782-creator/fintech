@@ -76,10 +76,12 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
 // Real-time ticking profit balance display component (High-FPS, strictly monotonic when capital > 0)
 function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false, className = "" }) {
   const cap = Math.max(Number(activeCapital || 0), 0);
-  if (isAdmin || cap <= 0) {
-    const rolled = typeof localStorage !== "undefined" ? parseCachedNumber(localStorage.getItem("educa_cached_profit_rolled"), 0) : 0;
-    const num = isAdmin ? 0 : (parseCachedNumber(baseProfit) || rolled);
-    const formatted = num > 0 ? num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
+  const parsedBase = parseCachedNumber(baseProfit, 0);
+  if (isAdmin || parsedBase <= 0) {
+    return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹0.00</span>;
+  }
+  if (cap <= 0) {
+    const formatted = parsedBase > 0 ? parsedBase.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
     return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
   }
 
@@ -99,11 +101,10 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
 
   const startOfToday = new Date().setHours(0, 0, 0, 0);
   const msElapsedToday = Math.max(0, liveMs - startOfToday);
-  const liveTodayEarned = msElapsedToday * perMsYield;
+  const liveTodayEarned = parsedBase <= 0 ? 0 : (msElapsedToday * perMsYield);
 
-  const serverBase = parseCachedNumber(baseProfit);
   // Total profit = database base balance + today's real-time accrued yield
-  const totalProfit = serverBase + liveTodayEarned;
+  const totalProfit = parsedBase <= 0 ? 0 : (parsedBase + liveTodayEarned);
 
   // Persist rolled profit every 3s and on phone cut/lock/background
   useEffect(() => {
@@ -447,10 +448,12 @@ export default function Dashboard() {
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
-  const pickPositiveNumber = (...candidates) => {
+  const pickCandidateNumber = (...candidates) => {
     for (const c of candidates) {
-      const n = parseCachedNumber(c, null);
-      if (n !== null && isFinite(n) && n > 0) return n;
+      if (c !== null && c !== undefined && c !== "") {
+        const n = parseCachedNumber(c, null);
+        if (n !== null && isFinite(n)) return n;
+      }
     }
     return 0;
   };
@@ -460,7 +463,7 @@ export default function Dashboard() {
     const globalCached = appCache.get("educa_cached_balance", null);
     const profBal = cachedProf?.balance;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_balance") : null;
-    return pickPositiveNumber(userScoped, globalCached, profBal, rawLocal, userStored?.balance);
+    return pickCandidateNumber(userScoped, globalCached, profBal, rawLocal, userStored?.balance);
   });
   const [cachedProfitBalance, setCachedProfitBalance] = useState(() => {
     if (userRole === "admin") return 0;
@@ -468,8 +471,7 @@ export default function Dashboard() {
     const globalCached = appCache.get("educa_cached_profit_balance", null);
     const profPb = cachedProf?.profitBalance;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_balance") : null;
-    const rolledLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_rolled") : null;
-    return pickPositiveNumber(userScoped, globalCached, profPb, rawLocal, rolledLocal, userStored?.profitBalance);
+    return pickCandidateNumber(userScoped, globalCached, profPb, rawLocal, userStored?.profitBalance);
   });
   const [loadingDashboard, setLoadingDashboard] = useState(!appCache.has("educa_cached_profile"));
   const [txns, setTxns] = useState(() => {
@@ -2231,11 +2233,17 @@ export default function Dashboard() {
           try { localStorage.setItem("educa_cached_balance", String(data.balance)); } catch {}
         }
         if (data.profitBalance !== undefined) {
-          const pb = parseCachedNumber(data.profitBalance);
+          const pb = parseCachedNumber(data.profitBalance, 0);
           setCachedProfitBalance(pb);
           appCache.set("educa_cached_profit_balance", pb);
           CacheManager.set(CacheManager.createKey(role, uId, "profit_balance"), pb);
-          try { localStorage.setItem("educa_cached_profit_balance", String(pb)); } catch {}
+          try {
+            localStorage.setItem("educa_cached_profit_balance", String(pb));
+            if (pb <= 0) {
+              localStorage.removeItem("educa_cached_profit_rolled");
+              localStorage.removeItem("educa_cached_today_accrued");
+            }
+          } catch {}
         }
 
         // Native Android App: Register device silently in background without intrusive prompts
@@ -2703,13 +2711,17 @@ export default function Dashboard() {
   useEffect(() => {
     const saveSnapshot = () => {
       try {
-        if (balance > 0) {
+        if (balance !== undefined && balance !== null && !isNaN(balance)) {
           localStorage.setItem("educa_cached_balance", String(balance));
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "balance"), balance);
         }
-        if (cachedProfitBalance > 0) {
+        if (cachedProfitBalance !== undefined && cachedProfitBalance !== null && !isNaN(cachedProfitBalance)) {
           localStorage.setItem("educa_cached_profit_balance", String(cachedProfitBalance));
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profit_balance"), cachedProfitBalance);
+          if (cachedProfitBalance <= 0) {
+            localStorage.removeItem("educa_cached_profit_rolled");
+            localStorage.removeItem("educa_cached_today_accrued");
+          }
         }
         if (userProfile && (userProfile._id || userProfile.id)) {
           localStorage.setItem("educa_cached_profile", JSON.stringify(userProfile));
@@ -2751,23 +2763,30 @@ export default function Dashboard() {
       try {
         localStorage.removeItem("educa_cached_profit_balance");
         localStorage.removeItem("educa_last_profit_tick");
+        localStorage.removeItem("educa_cached_profit_rolled");
+        localStorage.removeItem("educa_cached_today_accrued");
         appCache.set("educa_cached_profit_balance", 0);
       } catch {}
       return;
     }
     if (userProfile?.profitBalance !== undefined) {
-      const serverVal = parseCachedNumber(userProfile.profitBalance);
-      if (serverVal > 0) {
-        setCachedProfitBalance(serverVal);
-        try {
-          localStorage.setItem("educa_cached_profit_balance", String(serverVal));
-          appCache.set("educa_cached_profit_balance", serverVal);
-        } catch {}
-      }
+      const serverVal = parseCachedNumber(userProfile.profitBalance, 0);
+      setCachedProfitBalance(serverVal);
+      try {
+        localStorage.setItem("educa_cached_profit_balance", String(serverVal));
+        if (serverVal <= 0) {
+          localStorage.removeItem("educa_cached_profit_rolled");
+          localStorage.removeItem("educa_cached_today_accrued");
+        }
+        appCache.set("educa_cached_profit_balance", serverVal);
+        if (currentUserId) {
+          CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profit_balance"), serverVal);
+        }
+      } catch {}
     }
-  }, [userProfile?.profitBalance, isAdmin]);
+  }, [userProfile?.profitBalance, isAdmin, currentUserId, userRole]);
 
-  const baseProfit = isAdmin ? 0 : parseCachedNumber(userProfile?.profitBalance !== undefined ? userProfile.profitBalance : cachedProfitBalance);
+  const baseProfit = isAdmin ? 0 : parseCachedNumber(userProfile?.profitBalance !== undefined ? userProfile.profitBalance : cachedProfitBalance, 0);
   const dailyYieldEst = !isAdmin && activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
   const perSecondYield = dailyYieldEst / 86400;
 
@@ -2870,19 +2889,41 @@ export default function Dashboard() {
       const data = await res.json();
       if (res.ok) {
         showToast(data.message || "Profit Main Wallet me transfer ho gaya!", "success");
-        setUserAnchorTime(Date.now());
-        setLiveMs(Date.now());
-        setCachedProfitBalance(0);
-        localStorage.removeItem("educa_cached_profit_balance");
-        localStorage.removeItem("educa_last_profit_tick");
-        appCache.set("educa_cached_profit_balance", 0);
+        const nextProfit = data.newProfitBalance !== undefined ? Number(data.newProfitBalance) : 0;
+        const nextBal = data.newBalance !== undefined ? Number(data.newBalance) : ((Number(userProfile.balance || balance || 0)) + currentProfit);
+
+        setCachedProfitBalance(nextProfit);
+        setBalance(nextBal);
+
+        try {
+          localStorage.setItem("educa_cached_profit_balance", String(nextProfit));
+          localStorage.setItem("educa_cached_balance", String(nextBal));
+          localStorage.removeItem("educa_cached_profit_rolled");
+          localStorage.removeItem("educa_cached_today_accrued");
+          localStorage.removeItem("educa_last_profit_tick");
+          appCache.set("educa_cached_profit_balance", nextProfit);
+          appCache.set("educa_cached_balance", nextBal);
+
+          const curUser = JSON.parse(localStorage.getItem("user") || "{}");
+          localStorage.setItem("user", JSON.stringify({ ...curUser, balance: nextBal, profitBalance: nextProfit }));
+
+          const curProf = JSON.parse(localStorage.getItem("educa_cached_profile") || "{}");
+          localStorage.setItem("educa_cached_profile", JSON.stringify({ ...curProf, balance: nextBal, profitBalance: nextProfit }));
+
+          if (currentUserId) {
+            CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profit_balance"), nextProfit);
+            CacheManager.set(CacheManager.createKey(userRole, currentUserId, "balance"), nextBal);
+            CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profile"), { ...curProf, balance: nextBal, profitBalance: nextProfit });
+          }
+        } catch {}
+
         setUserProfile(prev => ({
           ...prev,
-          balance: data.newBalance !== undefined ? data.newBalance : (prev.balance + currentProfit),
-          profitBalance: 0
+          balance: nextBal,
+          profitBalance: nextProfit
         }));
-        if (data.newBalance !== undefined) setBalance(data.newBalance);
-        loadDashboard();
+
+        loadDashboard(true);
       } else {
         showToast(data.message || "Profit transfer fail hua", "error");
       }

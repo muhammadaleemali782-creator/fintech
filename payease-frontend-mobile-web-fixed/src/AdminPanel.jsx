@@ -1186,12 +1186,17 @@ export default function AdminPanel() {
   const [advanceOption, setAdvanceOption] = useState("none"); // "none" | "deduct" | "waive"
   const [cardAdvanceOptions, setCardAdvanceOptions] = useState({}); // Per-loan card 1st installment option
   const [loanApproveLoading, setLoanApproveLoading] = useState(false);
+  const [approveFirstDueDate, setApproveFirstDueDate] = useState("");
   const [rejectLoadingId, setRejectLoadingId] = useState(null);
   const [adminHeroFlyId, setAdminHeroFlyId] = useState(null);
   const [bondActionLoadingId, setBondActionLoadingId] = useState(null);
   const [installmentActionLoadingId, setInstallmentActionLoadingId] = useState(null);
 
   // Issue Loan Desk Form State
+  const [issuePaidInstallmentsCount, setIssuePaidInstallmentsCount] = useState(0);
+  const [issueFirstPendingDueDate, setIssueFirstPendingDueDate] = useState("");
+  const [issueDisburseToWallet, setIssueDisburseToWallet] = useState(false);
+  const [issueCustomInstallmentAmount, setIssueCustomInstallmentAmount] = useState("");
   const [issueBorrowerType, setIssueBorrowerType] = useState("existing"); // "existing" | "new"
   const [issueSelectedUser, setIssueSelectedUser] = useState(null);
   const [issueUserSearch, setIssueUserSearch] = useState("");
@@ -1856,7 +1861,18 @@ export default function AdminPanel() {
       if (!data || !data.success) return;
 
       if (data.users && Array.isArray(data.users)) {
-        setUsers(data.users);
+        setUsers(prev => {
+          if (!prev || prev.length === 0) return data.users;
+          const prevMap = new Map(prev.map(u => [String(u._id), u]));
+          return data.users.map(u => {
+            const old = prevMap.get(String(u._id));
+            return {
+              ...old,
+              ...u,
+              kycDocuments: u.kycDocuments || old?.kycDocuments
+            };
+          });
+        });
         appCache.set("educa_admin_cached_users_list", data.users);
       }
       if (data.pendingTxns && Array.isArray(data.pendingTxns)) {
@@ -2395,6 +2411,7 @@ export default function AdminPanel() {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           advanceOption,
+          firstInstallmentDate: approveFirstDueDate || undefined,
           approverName: user.name || "Admin",
           approverDevice: getClientDeviceInfo()
         })
@@ -2403,6 +2420,7 @@ export default function AdminPanel() {
       showToast(data.message, res.ok ? "success" : "error");
       if (res.ok) {
         setLoanApproveModal(null);
+        setApproveFirstDueDate("");
         apiCache.clear();
         loadLoans(true);
         loadStats(true);
@@ -2916,7 +2934,12 @@ export default function AdminPanel() {
         chequeNumber: issueChequeNumber ? String(issueChequeNumber).trim() : "",
         purpose: issuePurpose || (issueLoanType === "student" ? "Student Loan" : issueLoanType === "micro" ? "Micro Enterprise Loan" : "Personal Loan"),
         documents: issueDocuments,
-        adminNote: `Applied by Admin on behalf of ${issueBorrowerType === "new" ? issueNewUser.name : issueSelectedUser?.name} (${actualLoanType})`
+        adminNote: `Applied by Admin on behalf of ${issueBorrowerType === "new" ? issueNewUser.name : issueSelectedUser?.name} (${actualLoanType})`,
+        paidInstallmentsCount: Number(issuePaidInstallmentsCount) || 0,
+        firstPendingDueDate: issueFirstPendingDueDate || undefined,
+        disburseToWallet: issueDisburseToWallet,
+        directActive: Number(issuePaidInstallmentsCount) > 0 ? true : undefined,
+        customInstallmentAmount: issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) : undefined
       };
 
       const res = await fetch(`${API}/loan/admin/create-on-behalf`, {
@@ -2934,6 +2957,10 @@ export default function AdminPanel() {
         setIssueSelectedUser(null);
         setIssueNewUser({ name: "", phone: "", email: "", address: "", aadharNumber: "", panNumber: "", referredByAgentId: "", referralCode: "" });
         setIssueDocuments({ doc1Url: "", doc1BackUrl: "", doc2Url: "", doc2BackUrl: "", chequeUrl: "", chequeBackUrl: "" });
+        setIssuePaidInstallmentsCount(0);
+        setIssueFirstPendingDueDate("");
+        setIssueCustomInstallmentAmount("");
+        setIssueDisburseToWallet(false);
         // Switch to loans tab so admin can review and approve it
         switchTab("loans");
       } else {
@@ -4263,7 +4290,7 @@ export default function AdminPanel() {
                               <span className="text-slate-400 block text-[10px]">Cumulative Yield</span>
                               <span className="font-mono font-bold text-blue-700">
                                 {isToday ? (
-                                  <LiveAdminProfitTicker baseProfit={totalProfitBase} deposits={totalDepositsDisplay} />
+                                  <LiveAdminProfitTicker baseProfit={rowCumulative} deposits={totalDepositsDisplay} />
                                 ) : (
                                   `₹${rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                 )}
@@ -4370,7 +4397,7 @@ export default function AdminPanel() {
                                 <td className="py-3 px-3 align-middle">
                                   <div className="font-mono font-black text-blue-700 text-xs">
                                     {isToday ? (
-                                      <LiveAdminProfitTicker baseProfit={totalProfitBase} deposits={totalDepositsDisplay} />
+                                      <LiveAdminProfitTicker baseProfit={rowCumulative} deposits={totalDepositsDisplay} />
                                     ) : (
                                       `₹${rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                     )}
@@ -10478,6 +10505,87 @@ export default function AdminPanel() {
                         className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900"
                       />
                     </div>
+
+                    {/* Section: Offline / Backfill Loan (Pehle se bhari kistein & Direct Active) */}
+                    <div className="p-3.5 bg-blue-50/70 rounded-xl border border-blue-200 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-blue-900 flex items-center gap-1.5">
+                          <span>⚡</span> Offline Record / Pehle Se Bhari Kistein (Backfill)
+                        </span>
+                        <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                          Admin Direct Control
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                            Pehle Se Bhari Kistein (Paid Count)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max={count}
+                            value={issuePaidInstallmentsCount}
+                            onChange={(e) => {
+                              const val = Math.max(0, parseInt(e.target.value) || 0);
+                              setIssuePaidInstallmentsCount(val);
+                            }}
+                            placeholder="e.g. 4"
+                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 font-bold"
+                          />
+                          <span className="text-[10px] text-gray-500 block mt-0.5">
+                            {Number(issuePaidInstallmentsCount) > 0 ? `✓ Kist 1 se ${issuePaidInstallmentsCount} Paid mark hongi` : "0 = Naya fresh loan"}
+                          </span>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                            Agli Kist Ki Due Date (Next Due)
+                          </label>
+                          <input
+                            type="date"
+                            value={issueFirstPendingDueDate}
+                            onChange={(e) => setIssueFirstPendingDueDate(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 font-semibold"
+                          />
+                          <span className="text-[10px] text-gray-500 block mt-0.5">
+                            Kist #{Number(issuePaidInstallmentsCount) + 1} kab due hogi
+                          </span>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                            Custom Per Kist Amount (Optional)
+                          </label>
+                          <input
+                            type="number"
+                            value={issueCustomInstallmentAmount}
+                            onChange={(e) => setIssueCustomInstallmentAmount(e.target.value)}
+                            placeholder={`Auto: ₹${installmentAmt}`}
+                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 font-bold"
+                          />
+                          <span className="text-[10px] text-gray-500 block mt-0.5">
+                            Khali rakhein toh auto ₹{installmentAmt}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-blue-200/60 flex items-center gap-2">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-800">
+                          <input
+                            type="checkbox"
+                            checked={issueDisburseToWallet}
+                            onChange={(e) => setIssueDisburseToWallet(e.target.checked)}
+                            className="w-4 h-4 text-blue-600 rounded cursor-pointer accent-blue-600"
+                          />
+                          <span>Borrower ke Profit Wallet me Payout Credit Karein</span>
+                        </label>
+                        <span className="text-[10px] text-gray-500">
+                          (Purane offline loan ke liye unchecked rakhein)
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Step 3: Real-Time Calculated Quote Summary Box */}
@@ -10501,16 +10609,16 @@ export default function AdminPanel() {
                       </div>
                       <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
                         <span className="text-slate-500 block text-[10px] font-bold">Per Installment (Kist)</span>
-                        <span className="text-base font-black text-emerald-600 font-mono">₹{installmentAmt.toLocaleString("en-IN")}</span>
+                        <span className="text-base font-black text-emerald-600 font-mono">₹{(issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) : installmentAmt).toLocaleString("en-IN")}</span>
                         <span className="text-[9px] text-slate-400 block">Har 10 din par</span>
                       </div>
                       <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
                         <span className="text-slate-500 block text-[10px] font-bold">Total Payable ({count} Kist)</span>
-                        <span className="text-base font-black text-amber-700 font-mono">₹{totalPayable.toLocaleString("en-IN")}</span>
+                        <span className="text-base font-black text-amber-700 font-mono">₹{(issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) * count : totalPayable).toLocaleString("en-IN")}</span>
                         <span className="text-[9px] text-slate-400 block">Interest: ₹{totalInterest.toLocaleString("en-IN")}</span>
                       </div>
                       <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
-                        <span className="text-slate-500 block text-[10px] font-bold">Net Disbursal to Wallet</span>
+                        <span className="text-slate-500 block text-[10px] font-bold">Net Disbursal to Profit Wallet</span>
                         <span className="text-base font-black text-blue-600 font-mono">₹{netDisbursal.toLocaleString("en-IN")}</span>
                         <span className="text-[9px] text-slate-400 block">After 5% fee + 1% UPI</span>
                       </div>
@@ -10518,15 +10626,30 @@ export default function AdminPanel() {
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-200">
                       <p className="text-[11px] text-slate-600 leading-relaxed max-w-xl">
-                        💡 <strong>Note:</strong> Yeh loan submit hone ke baad direct disburse nahi hoga. Request <strong>Pending Loan Applications</strong> queue me jayegi jahan aap borrower ke documents aur details verify karke <strong>Approve</strong> karenge.
+                        {Number(issuePaidInstallmentsCount) > 0 ? (
+                          <span>⚡ <strong>Backfill Mode:</strong> Aapne <strong>{issuePaidInstallmentsCount} kistein</strong> pehle se bhari hui set ki hain. Yeh loan submit hote hi seedha <strong>ACTIVE</strong> ho jayega aur borrower ki KYC auto-approve ho jayegi!</span>
+                        ) : (
+                          <span>💡 <strong>Note:</strong> Yeh loan submit hone ke baad direct disburse nahi hoga. Request <strong>Pending Loan Applications</strong> queue me jayegi jahan aap borrower ke documents aur details verify karke <strong>Approve</strong> karenge.</span>
+                        )}
                       </p>
 
                       <button
                         type="submit"
                         disabled={issueSubmitting || (issueBorrowerType === "existing" && !issueSelectedUser)}
-                        className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                        className={`px-6 py-3 font-black text-xs sm:text-sm rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50 text-white ${
+                          Number(issuePaidInstallmentsCount) > 0 ? "bg-emerald-600 hover:bg-emerald-500" : "bg-blue-600 hover:bg-blue-500"
+                        }`}
                       >
-                        <span>{issueSubmitting ? "Submitting Request..." : "🚀 Submit Loan Request for Admin Review"}</span>
+                        {issueSubmitting ? (
+                          <>
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Processing...</span>
+                          </>
+                        ) : Number(issuePaidInstallmentsCount) > 0 ? (
+                          <span>⚡ Create Active Backfilled Loan</span>
+                        ) : (
+                          <span>🚀 Submit Loan Request for Admin Review</span>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -12000,6 +12123,22 @@ export default function AdminPanel() {
                   </div>
                 </label>
               </div>
+            </div>
+
+            {/* Custom First EMI Start Date Input */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <label className="block text-xs font-bold text-gray-800 mb-1">
+                📅 Pehli Kist Ki Date Set Karein (Optional First Due Date):
+              </label>
+              <input
+                type="date"
+                value={approveFirstDueDate}
+                onChange={(e) => setApproveFirstDueDate(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+              />
+              <p className="text-[10px] text-gray-500 mt-1">
+                Agar blank chhodenge toh default rule ke hisab se schedule set hoga.
+              </p>
             </div>
 
             {/* Interactive 24/25 Kist Schedule & Dynamic Rollover Desk inside Approve Modal */}

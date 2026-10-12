@@ -222,6 +222,15 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
       resultTxn = txn;
     });
 
+    if (resultTxn && resultTxn.type === 'deposit') {
+      memoryCache.del(`user_me_${resultTxn.userId}`);
+      memoryCache.delPrefix('user_me_' + resultTxn.userId);
+      try {
+        const { autoDeductDueLoanEmis } = require('./loan');
+        await autoDeductDueLoanEmis(resultTxn.userId);
+      } catch (_) {}
+    }
+
     // Background Google Drive sync for Admin Payout Evidence Screenshot
     if (resultTxn && resultTxn.adminEvidenceUrl && resultTxn.adminEvidenceUrl.startsWith('data:')) {
       try {

@@ -38,8 +38,15 @@ router.get('/user', protect, async (req, res) => {
   try {
     const userId = req.user._id;
 
+    // Auto-deduct due EMIs from primary wallet if balance is available
+    try {
+      const { autoDeductDueLoanEmis } = require('./loan');
+      await autoDeductDueLoanEmis(userId);
+    } catch {}
+
     // Process daily yield in memory before querying
-    let user = req.user;
+    let user = await User.findById(userId);
+    if (!user) user = req.user;
     try {
       user = await processDailyYield(user);
     } catch {}
@@ -183,9 +190,8 @@ router.get('/admin', protect, admin, async (req, res) => {
       depositDetailsRes
     ] = await Promise.allSettled([
       User.find({ role: { $ne: 'admin' } })
-        .select('name email phone balance profitBalance lowestBalance24h role kycStatus isBlocked cardTier uninstallProtection loanLimit referredBy createdAt')
+        .select('-password')
         .sort({ createdAt: -1 })
-        .limit(60)
         .lean(),
       Transaction.find({ status: 'pending' })
         .populate('userId', 'name email phone accountNumber upiId')

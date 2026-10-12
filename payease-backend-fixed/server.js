@@ -311,18 +311,22 @@ const server = app.listen(process.env.PORT, () => {
   console.log(`🚀 Server running on port ${process.env.PORT} [${process.env.NODE_ENV || 'development'}]`);
 });
 
-// ------------------ RENDER KEEP-ALIVE PING (PREVENTS SLEEP) ------------------
-// Render puts free services to sleep after 15 minutes of inactivity.
-// Self-pinging /api/health every 10 minutes keeps the service awake 24/7.
+// ------------------ RENDER KEEP-ALIVE PING (10:00 AM - 10:00 PM IST ONLY) ------------------
+// Free-tier quota protection: Only keep alive between 10:00 AM and 10:00 PM IST.
+// Raat bhar (10:00 PM se 10:00 AM IST) ping band rahega taaki Render monthly hours na khtm hon.
 const PING_BASE_URL = process.env.RENDER_EXTERNAL_URL || 'https://educafintech.onrender.com';
 setInterval(() => {
-  fetch(`${PING_BASE_URL}/api/health`)
-    .then(r => r.json())
-    .catch(err => {
-      if (process.env.NODE_ENV === 'production') {
-        console.warn('💓 Keep-alive ping notice:', err.message);
-      }
-    });
+  const now = new Date();
+  const istHours = new Date(now.getTime() + (5.5 * 60 * 60 * 1000)).getUTCHours();
+  if (istHours >= 10 && istHours < 22) {
+    fetch(`${PING_BASE_URL}/api/health`)
+      .then(r => r.json())
+      .catch(err => {
+        if (process.env.NODE_ENV === 'production') {
+          console.warn('💓 Keep-alive ping notice:', err.message);
+        }
+      });
+  }
 }, 10 * 60 * 1000); // 10 minutes
 
 // ------------------ GRACEFUL SHUTDOWN ------------------

@@ -23,15 +23,27 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 3000, forceRefresh = 
   const persistentKey = `educa_admin_fetch_${cacheKey}`;
   const now = Date.now();
 
-  // 1. In-memory check: return cached if within ttlMs and not forcing refresh
-  if (!forceRefresh && apiCache.has(cacheKey)) {
-    const cached = apiCache.get(cacheKey);
-    if (now - cached.timestamp < ttlMs) {
+  // 1. In-memory or persisted cache check: return cached if within ttlMs and not forcing refresh
+  if (!forceRefresh) {
+    if (apiCache.has(cacheKey)) {
+      const cached = apiCache.get(cacheKey);
+      if (now - cached.timestamp < ttlMs) {
+        return {
+          ok: true,
+          status: 200,
+          fromCache: true,
+          json: async () => cached.data
+        };
+      }
+    }
+    const meta = appCache.getWithMeta(persistentKey, null);
+    if (meta && meta.data && (now - (meta.lastUpdated || 0) < ttlMs)) {
+      apiCache.set(cacheKey, { timestamp: meta.lastUpdated, data: meta.data });
       return {
         ok: true,
         status: 200,
         fromCache: true,
-        json: async () => cached.data
+        json: async () => meta.data
       };
     }
   }
@@ -1293,6 +1305,7 @@ export default function AdminPanel() {
   const [issueBackfillEvidenceUrl, setIssueBackfillEvidenceUrl] = useState("");
   const [issueBackfillEvidenceName, setIssueBackfillEvidenceName] = useState("");
   const [issueBackfillInstallments, setIssueBackfillInstallments] = useState([]);
+  const [showAllInstallmentsCollapse, setShowAllInstallmentsCollapse] = useState(false);
 
   const getNextCycleDate = (base = new Date()) => {
     const d = new Date(base);
@@ -10847,34 +10860,16 @@ export default function AdminPanel() {
                         <span className="text-xs font-black text-blue-900 flex items-center gap-1.5">
                           <span>⚡</span> Offline Record / Pehle Se Bhari Kistein (Backfill)
                         </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => addBackfillInstallment(installmentAmt)}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-xs active:scale-95 transition cursor-pointer flex items-center gap-1.5"
-                          >
-                            <span className="text-sm font-black">➕</span> Kist Jodein (+ Add Paid Kist)
-                          </button>
-                          <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
-                            Admin Direct Control
-                          </span>
-                        </div>
+                        <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                          Admin Direct Control
+                        </span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="text-[11px] font-bold text-gray-700 block">
-                              Pehle Se Bhari Kistein (Paid Count)
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => addBackfillInstallment(installmentAmt)}
-                              className="text-[10px] text-emerald-700 font-extrabold hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer underline"
-                            >
-                              <span>➕</span> Kist Jodein
-                            </button>
-                          </div>
+                          <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                            Pehle Se Bhari Kistein (Paid Count)
+                          </label>
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
@@ -10908,7 +10903,7 @@ export default function AdminPanel() {
                             </button>
                           </div>
                           <span className="text-[10px] text-gray-500 block mt-0.5">
-                            {Number(issuePaidInstallmentsCount) > 0 ? `✓ Kist 1 se ${issuePaidInstallmentsCount} Paid mark hongi` : "0 = Naya fresh loan (Kist jodne ke liye '+' dabayein)"}
+                            {Number(issuePaidInstallmentsCount) > 0 ? `✓ Kist 1 se ${issuePaidInstallmentsCount} Paid mark hongi` : "0 = Naya fresh loan (Bhari hui kist jodne ke liye '+' dabayein)"}
                           </span>
                         </div>
 
@@ -10990,139 +10985,181 @@ export default function AdminPanel() {
                         </div>
                       </div>
 
-                      {/* Kist-by-Kist Paid List with + Icon */}
-                      {Number(issuePaidInstallmentsCount) === 0 ? (
-                        <div className="p-3.5 bg-white/90 rounded-xl border border-dashed border-blue-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-                          <div className="space-y-0.5">
-                            <span className="text-xs font-black text-blue-950 flex items-center gap-1.5">
-                              <span>📋</span> Kist-by-Kist Paid Record (0 Bhari Hui)
+                      {/* Collapsible All-Kist Breakdown with Direct Admin Paid Buttons */}
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowAllInstallmentsCollapse(prev => !prev)}
+                          className="w-full p-3 bg-white hover:bg-slate-50 rounded-xl border border-blue-200 flex items-center justify-between transition cursor-pointer text-xs font-bold text-blue-950 shadow-2xs"
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span>📋</span>
+                            <span>Saari Kistein Schedule & Admin Paid Control ({count} Total Kist)</span>
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${paidNum > 0 ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                              {paidNum} Paid / {count - paidNum} Pending
                             </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-blue-600 text-xs font-bold">
+                            <span>{showAllInstallmentsCollapse ? "Chhupayein (Collapse) ▲" : "Dikhayein (Expand) ▼"}</span>
+                          </div>
+                        </button>
+
+                        {showAllInstallmentsCollapse && (
+                          <div className="p-3 bg-white/95 rounded-xl border border-blue-200/80 space-y-2.5 animate-in fade-in duration-150">
                             <p className="text-[11px] text-gray-500">
-                              Agar borrower pehle se 1 ya zyada kistein bhar chuka hai, toh <strong>+ Kist Jodein</strong> dabakar unki details aur slip darj karein.
+                              Aap yaha se kisi bhi kist par <strong>Admin: Mark as Paid ✅</strong> dabakar use bhari hui mark kar sakte hain:
                             </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => addBackfillInstallment(installmentAmt)}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer transition shrink-0"
-                          >
-                            <span className="text-sm font-black">➕</span> Kist Jodein (+ Add Paid Kist)
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-white/90 rounded-xl border border-blue-200/80 space-y-2.5">
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <span className="text-xs font-black text-blue-950 flex items-center gap-1.5">
-                              <span>📋</span> Kist-by-Kist Paid Details ({issueBackfillInstallments.length} Kistein)
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => addBackfillInstallment(installmentAmt)}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
-                            >
-                              <span>➕</span> Kist Jodein (Add Kist)
-                            </button>
-                          </div>
-                          <p className="text-[11px] text-gray-500">
-                            Aap har ek bhari hui kist ka alag amount, payment date, mode (Cash/UPI), aur slip UTR darj kar sakte hain. Dono user aur admin ko show hoga:
-                          </p>
-                          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                            {issueBackfillInstallments.map((item, idx) => (
-                              <div key={idx} className="p-2.5 bg-blue-50/40 border border-blue-100 rounded-xl space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-extrabold text-xs text-blue-900">
-                                    Kist #{item.installmentNo}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeBackfillInstallment(idx)}
-                                    className="text-rose-500 hover:text-rose-700 text-xs font-black px-1.5 py-0.5 rounded cursor-pointer"
-                                    title="Hataayein"
+                            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                              {Array.from({ length: count }, (_, idx) => {
+                                const kistNo = idx + 1;
+                                const isPaid = kistNo <= paidNum;
+                                const paidItem = isPaid ? (issueBackfillInstallments[idx] || {
+                                  installmentNo: kistNo,
+                                  amount: issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) : installmentAmt,
+                                  paidOn: new Date().toISOString().split("T")[0],
+                                  paymentMethod: "cash",
+                                  utrNumber: "",
+                                  evidenceUrl: issueBackfillEvidenceUrl || "",
+                                  note: "Offline paid"
+                                }) : null;
+                                const pendingPreviewItem = !isPaid ? upcomingSchedulePreview[kistNo - paidNum - 1] : null;
+
+                                return (
+                                  <div
+                                    key={kistNo}
+                                    className={`p-2.5 rounded-xl border transition ${
+                                      isPaid
+                                        ? "bg-emerald-50/70 border-emerald-200 space-y-2"
+                                        : "bg-slate-50/80 border-slate-200 flex items-center justify-between gap-2"
+                                    }`}
                                   >
-                                    ✕ Hataayein
-                                  </button>
-                                </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                                  <div>
-                                    <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Amount (₹)</label>
-                                    <input
-                                      type="number"
-                                      value={item.amount}
-                                      onChange={(e) => updateBackfillInstallmentField(idx, "amount", Number(e.target.value) || 0)}
-                                      className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Payment Date</label>
-                                    <input
-                                      type="date"
-                                      value={item.paidOn || ""}
-                                      onChange={(e) => updateBackfillInstallmentField(idx, "paidOn", e.target.value)}
-                                      className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 font-semibold"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Payment Mode</label>
-                                    <select
-                                      value={item.paymentMethod || "cash"}
-                                      onChange={(e) => updateBackfillInstallmentField(idx, "paymentMethod", e.target.value)}
-                                      className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 font-semibold"
-                                    >
-                                      <option value="cash">💵 Cash at Office</option>
-                                      <option value="upi">📱 UPI / QR</option>
-                                      <option value="bank_transfer">🏦 Bank Transfer</option>
-                                      <option value="cheque">🧾 Cheque</option>
-                                      <option value="offline">⚡ Offline Recorded</option>
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="text-[10px] font-bold text-gray-600 block mb-0.5">UTR / Slip Ref</label>
-                                    <input
-                                      type="text"
-                                      value={item.utrNumber || ""}
-                                      onChange={(e) => updateBackfillInstallmentField(idx, "utrNumber", e.target.value)}
-                                      placeholder="e.g. 439012384910"
-                                      className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-blue-100/60 text-xs">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <label className="px-2 py-1 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-[11px] font-bold text-blue-700 cursor-pointer flex items-center gap-1 shadow-2xs">
-                                      <span>📷</span> Kist Receipt
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => handleBackfillEvidenceUpload(e.target.files?.[0], idx)}
-                                      />
-                                    </label>
-                                    {item.evidenceUrl && (
-                                      <button
-                                        type="button"
-                                        onClick={() => { setLightboxImg(item.evidenceUrl); setZoomLevel(1); }}
-                                        className="text-[10px] text-emerald-700 font-bold underline flex items-center gap-0.5 cursor-pointer"
-                                      >
-                                        <span>✓</span> View Receipt (Zoom 🔍)
-                                      </button>
+                                    <div className="flex items-center justify-between w-full">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`text-xs font-black ${isPaid ? "text-emerald-950" : "text-slate-800"}`}>
+                          Kist #{kistNo}
+                        </span>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                          isPaid
+                                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                            : "bg-amber-100 text-amber-800 border border-amber-200"
+                                        }`}>
+                                          {isPaid ? "✅ Bhari Hui (Paid)" : "⏳ Pending (Due)"}
+                                        </span>
+                                        {!isPaid && (
+                                          <span className="text-[11px] text-slate-500 hidden sm:inline">
+                                            Due: {pendingPreviewItem?.dueDate || "Auto"} • ₹{effectivePerInst.toLocaleString("en-IN")}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <div>
+                                        {isPaid ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => updateBackfillCount(kistNo - 1, installmentAmt)}
+                                            className="text-[11px] text-rose-600 hover:text-rose-800 font-bold underline cursor-pointer"
+                                          >
+                                            ↩️ Mark as Pending
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => updateBackfillCount(kistNo, installmentAmt)}
+                                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer transition shrink-0"
+                                          >
+                                            <span>⚡</span> Admin: Mark as Paid ✅
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {isPaid && paidItem && (
+                                      <>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                          <div>
+                                            <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Amount (₹)</label>
+                                            <input
+                                              type="number"
+                                              value={paidItem.amount}
+                                              onChange={(e) => updateBackfillInstallmentField(idx, "amount", Number(e.target.value) || 0)}
+                                              className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Payment Date</label>
+                                            <input
+                                              type="date"
+                                              value={paidItem.paidOn || ""}
+                                              onChange={(e) => updateBackfillInstallmentField(idx, "paidOn", e.target.value)}
+                                              className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 font-semibold"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Payment Mode</label>
+                                            <select
+                                              value={paidItem.paymentMethod || "cash"}
+                                              onChange={(e) => updateBackfillInstallmentField(idx, "paymentMethod", e.target.value)}
+                                              className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 font-semibold"
+                                            >
+                                              <option value="cash">💵 Cash at Office</option>
+                                              <option value="upi">📱 UPI / QR</option>
+                                              <option value="bank_transfer">🏦 Bank Transfer</option>
+                                              <option value="cheque">🧾 Cheque</option>
+                                              <option value="offline">⚡ Offline Recorded</option>
+                                            </select>
+                                          </div>
+                                          <div>
+                                            <label className="text-[10px] font-bold text-gray-600 block mb-0.5">UTR / Slip Ref</label>
+                                            <input
+                                              type="text"
+                                              value={paidItem.utrNumber || ""}
+                                              onChange={(e) => updateBackfillInstallmentField(idx, "utrNumber", e.target.value)}
+                                              placeholder="e.g. 439012384910"
+                                              className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 font-mono"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-emerald-200/60 text-xs">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <label className="px-2 py-1 bg-white hover:bg-emerald-50 border border-emerald-300 rounded-lg text-[11px] font-bold text-emerald-800 cursor-pointer flex items-center gap-1 shadow-2xs">
+                                              <span>📷</span> Kist Slip Photo
+                                              <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => handleBackfillEvidenceUpload(e.target.files?.[0], idx)}
+                                              />
+                                            </label>
+                                            {paidItem.evidenceUrl && (
+                                              <button
+                                                type="button"
+                                                onClick={() => { setLightboxImg(paidItem.evidenceUrl); setZoomLevel(1); }}
+                                                className="text-[10px] text-emerald-700 font-bold underline flex items-center gap-0.5 cursor-pointer"
+                                              >
+                                                <span>✓</span> View Receipt (Zoom 🔍)
+                                              </button>
+                                            )}
+                                          </div>
+                                          <input
+                                            type="text"
+                                            value={paidItem.note || ""}
+                                            onChange={(e) => updateBackfillInstallmentField(idx, "note", e.target.value)}
+                                            placeholder="Kist remark / note (optional)"
+                                            className="flex-1 px-2 py-1 bg-white border border-gray-200 rounded-lg text-[11px] text-gray-700"
+                                          />
+                                        </div>
+                                      </>
                                     )}
                                   </div>
-                                  <input
-                                    type="text"
-                                    value={item.note || ""}
-                                    onChange={(e) => updateBackfillInstallmentField(idx, "note", e.target.value)}
-                                    placeholder="Kist remark / note (optional)"
-                                    className="flex-1 px-2 py-1 bg-white border border-gray-200 rounded-lg text-[11px] text-gray-700"
-                                  />
-                                </div>
-                              </div>
-                            ))}
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
 
-                      {/* Upcoming Automatic Installments Live Preview */}
-                      {remainingNum > 0 && (
+                      {/* Upcoming Automatic Installments Live Preview (When Collapse is closed) */}
+                      {!showAllInstallmentsCollapse && remainingNum > 0 && (
                         <div className="p-3 sm:p-3.5 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-2.5 shadow-md">
                           <div className="flex items-center justify-between flex-wrap gap-2">
                             <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
@@ -11133,7 +11170,7 @@ export default function AdminPanel() {
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-300 leading-relaxed">
-                            Aapki set ki hui <strong>Next Due Date</strong> ({issueFirstPendingDueDate || "Auto 10-day cycle"}) aur <strong>₹{effectivePerInst.toLocaleString("en-IN")}</strong> ke anusar aage ki saari kistein automatically generate ho gayi hain:
+                            Aapki set ki hui <strong>Next Due Date</strong> ({issueFirstPendingDueDate || "Auto 10-day cycle"}) aur <strong>₹{effectivePerInst.toLocaleString("en-IN")}</strong> ke anusar aage ki saari kistein automatically calculate ho gayi hain:
                           </p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-56 overflow-y-auto pr-1">
                             {upcomingSchedulePreview.map((item) => (
@@ -11157,19 +11194,25 @@ export default function AdminPanel() {
                         </div>
                       )}
 
-                      <div className="pt-2 border-t border-blue-200/60 flex items-center gap-2">
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-800">
+                      {/* Loan Lene Wale Ke Wallet Me Payout Transfer Checkbox (Clear Hindi) */}
+                      <div className="pt-2 border-t border-blue-200/60">
+                        <label className="flex items-start gap-3 cursor-pointer text-xs font-bold text-gray-800 p-3 bg-white/90 rounded-xl border border-blue-200 shadow-2xs">
                           <input
                             type="checkbox"
                             checked={issueDisburseToWallet}
                             onChange={(e) => setIssueDisburseToWallet(e.target.checked)}
-                            className="w-4 h-4 text-blue-600 rounded cursor-pointer accent-blue-600"
+                            className="w-4 h-4 mt-0.5 text-blue-600 rounded cursor-pointer accent-blue-600 shrink-0"
                           />
-                          <span>Borrower ke Account me Payout Credit Karein</span>
+                          <div className="space-y-1">
+                            <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
+                              <span>💵</span> Loan lene wale ke app wallet me paise transfer karein (Disburse)
+                            </span>
+                            <p className="text-[11px] text-gray-600 font-normal leading-relaxed">
+                              • <strong>Naya Loan:</strong> Isse check (✓) rakhein taaki loan lene wale ke app wallet me paise credit hon.<br />
+                              • <strong>Purana / Offline Loan:</strong> Isse khali (unchecked) rakhein, kyunki borrower ko paise pehle hi cash ya bahar diye ja chuke hain — taaki wallet me dobara paise na judein.
+                            </p>
+                          </div>
                         </label>
-                        <span className="text-[10px] text-gray-500">
-                          (Purane offline loan ke liye unchecked rakhein)
-                        </span>
                       </div>
                     </div>
                   </div>

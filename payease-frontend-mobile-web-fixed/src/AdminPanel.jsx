@@ -1304,6 +1304,9 @@ export default function AdminPanel() {
   });
   const [capitalMetrics, setCapitalMetrics] = useState(() => appCache.get("educa_admin_cached_capital_metrics", null));
   const [capitalLoading, setCapitalLoading] = useState(false);
+  const [capitalSubCategory, setCapitalSubCategory] = useState("loans"); // "loans" | "investments" | "cashout" | "deposits" | "profit"
+  const [capitalSearch, setCapitalSearch] = useState("");
+  const [capitalTimeFilter, setCapitalTimeFilter] = useState("all"); // "all" | "today" | "7days" | "month"
   const [rejectLoadingId, setRejectLoadingId] = useState(null);
   const [adminHeroFlyId, setAdminHeroFlyId] = useState(null);
   const [bondActionLoadingId, setBondActionLoadingId] = useState(null);
@@ -2152,6 +2155,52 @@ export default function AdminPanel() {
       setBackupLoading(false);
     }
   };
+
+  // 1-Hour Automated Background Backup Snapshot
+  useEffect(() => {
+    const runHourlySnapshot = async () => {
+      try {
+        const lastSnapshotTime = Number(localStorage.getItem("educa_last_hourly_backup_time") || 0);
+        const now = Date.now();
+        // If > 1 hour (3600000 ms) has elapsed since last snapshot
+        if (now - lastSnapshotTime >= 3600000) {
+          const res = await fetch(`${API}/admin/backup/export`, { headers });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.success) {
+              const dateStr = new Date().toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+              });
+              const autoRecord = {
+                id: `auto_${Date.now()}`,
+                timestamp: Date.now(),
+                dateStr: `${dateStr} (Auto 1-Hr)`,
+                filename: data.filename,
+                sizeKb: data.sizeKb,
+                summary: data.summary,
+                encrypted: true,
+                isAuto: true
+              };
+              setBackupHistory(prev => {
+                const next = [autoRecord, ...prev.filter(b => !b.isAuto || (Date.now() - b.timestamp < 86400000)).slice(0, 19)];
+                try { localStorage.setItem("educa_admin_backup_history", JSON.stringify(next)); } catch {}
+                return next;
+              });
+              localStorage.setItem("educa_last_hourly_backup_time", String(now));
+            }
+          }
+        }
+      } catch {}
+    };
+    runHourlySnapshot();
+    const interval = setInterval(runHourlySnapshot, 15 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [headers]);
 
   const saveDepositDetails = async (e) => {
     if (e) e.preventDefault();
@@ -3955,29 +4004,118 @@ export default function AdminPanel() {
               UNIFIED CAPITAL, LOAN, NIVESH & CASH-OUT HUB
           ══════════════════════════════════════════════════════ */}
           {tab === "capital" && (() => {
-            const uniqueBorrowers = new Set(loans.map(l => String(l.userId?._id || l.userId?.id || l.userId || "")).filter(Boolean)).size;
-            const totalDisbursedLoans = loans.reduce((s, l) => s + (l.amount || 0), 0);
-            const totalRecoveredLoans = loans.reduce((s, l) => s + (l.paidAmount || 0), 0);
-            const activeLoanDue = loans.filter(l => l.status === "active").reduce((s, l) => s + (l.remainingAmount || 0), 0);
-            const activeLoansCount = loans.filter(l => l.status === "active").length;
+            const allLoanItems = (capitalMetrics?.loans?.items && capitalMetrics.loans.items.length > 0)
+              ? capitalMetrics.loans.items
+              : (Array.isArray(loans) ? loans : []);
 
-            const uniqueInvestors = new Set(bonds.map(b => String(b.userId?._id || b.userId?.id || b.userId || "")).filter(Boolean)).size;
-            const totalBondPrincipal = bonds.reduce((s, b) => s + (b.principalAmount || 0), 0);
-            const totalBondYield = bonds.reduce((s, b) => s + (b.accruedInterest || 0), 0);
-            const activeBondsCount = bonds.filter(b => b.status === "active").length;
+            const allInvestmentItems = (capitalMetrics?.investments?.items && capitalMetrics.investments.items.length > 0)
+              ? capitalMetrics.investments.items
+              : (Array.isArray(bonds) ? bonds : []);
 
-            const cashOutTotal = capitalMetrics?.cashOut?.totalCashOutAmount || 0;
-            const cashOutCount = capitalMetrics?.cashOut?.totalCashOutCount || 0;
-            const cashOutUsers = capitalMetrics?.cashOut?.cashOutUsersCount || 0;
-            const pendingCashOutAmt = capitalMetrics?.cashOut?.pendingAmount || 0;
-            const pendingCashOutCount = capitalMetrics?.cashOut?.pendingCount || 0;
+            const allCashOutItems = (capitalMetrics?.cashOut?.items && capitalMetrics.cashOut.items.length > 0)
+              ? capitalMetrics.cashOut.items
+              : [
+                  ...(Array.isArray(pending) ? pending.filter(p => p.type === "withdrawal") : []),
+                  ...(Array.isArray(approvedRequests) ? approvedRequests.filter(r => r.type === "withdrawal") : [])
+                ];
+
+            const allDepositItems = (capitalMetrics?.deposits?.items && capitalMetrics.deposits.items.length > 0)
+              ? capitalMetrics.deposits.items
+              : [
+                  ...(Array.isArray(pending) ? pending.filter(p => p.type === "deposit") : []),
+                  ...(Array.isArray(approvedRequests) ? approvedRequests.filter(r => r.type === "deposit") : [])
+                ];
+
+            const allProfitItems = (capitalMetrics?.profit?.items && capitalMetrics.profit.items.length > 0)
+              ? capitalMetrics.profit.items
+              : (Array.isArray(auditHistory) ? auditHistory.filter(h => h.type === "daily_yield" || h.type === "profit_transfer") : []);
+
+            const uniqueBorrowers = new Set(allLoanItems.map(l => String(l.userId?._id || l.userId?.id || l.userId || "")).filter(Boolean)).size;
+            const totalDisbursedLoans = allLoanItems.reduce((s, l) => s + (l.amount || 0), 0);
+            const totalRecoveredLoans = allLoanItems.reduce((s, l) => s + (l.paidAmount || 0), 0);
+            const activeLoanDue = allLoanItems.filter(l => l.status === "active").reduce((s, l) => s + (l.remainingAmount || 0), 0);
+            const activeLoansCount = allLoanItems.filter(l => l.status === "active").length;
+
+            const uniqueInvestors = new Set(allInvestmentItems.map(b => String(b.userId?._id || b.userId?.id || b.userId || "")).filter(Boolean)).size;
+            const totalBondPrincipal = allInvestmentItems.reduce((s, b) => s + (b.principalAmount || 0), 0);
+            const totalBondYield = allInvestmentItems.reduce((s, b) => s + (b.accruedInterest || 0), 0);
+            const activeBondsCount = allInvestmentItems.filter(b => b.status === "active").length;
+
+            const cashOutTotal = capitalMetrics?.cashOut?.totalCashOutAmount || allCashOutItems.reduce((s, c) => s + (c.amount || 0), 0);
+            const cashOutCount = capitalMetrics?.cashOut?.totalCashOutCount || allCashOutItems.length;
+            const cashOutUsers = capitalMetrics?.cashOut?.cashOutUsersCount || new Set(allCashOutItems.map(c => String(c.userId?._id || c.userId || "")).filter(Boolean)).size;
+            const pendingCashOutAmt = capitalMetrics?.cashOut?.pendingAmount || allCashOutItems.filter(c => c.status === "pending").reduce((s, c) => s + (c.amount || 0), 0);
+            const pendingCashOutCount = capitalMetrics?.cashOut?.pendingCount || allCashOutItems.filter(c => c.status === "pending").length;
 
             const totalInflow = (capitalMetrics?.flow?.totalInflow) || (totalRecoveredLoans);
             const totalOutflow = (capitalMetrics?.flow?.totalOutflow) || (totalDisbursedLoans + cashOutTotal);
 
+            // Time filter helper
+            const matchesTime = (dateVal) => {
+              if (!dateVal || capitalTimeFilter === "all") return true;
+              const t = new Date(dateVal).getTime();
+              if (isNaN(t)) return true;
+              const now = Date.now();
+              if (capitalTimeFilter === "today") {
+                const s = new Date();
+                s.setHours(0, 0, 0, 0);
+                return t >= s.getTime();
+              }
+              if (capitalTimeFilter === "7days") {
+                return (now - t) <= (7 * 24 * 60 * 60 * 1000);
+              }
+              if (capitalTimeFilter === "month") {
+                return (now - t) <= (30 * 24 * 60 * 60 * 1000);
+              }
+              return true;
+            };
+
+            // Search filter helper
+            const q = (capitalSearch || "").trim().toLowerCase();
+            const matchesSearch = (item) => {
+              if (!q) return true;
+              const name = String(item.userId?.name || item.name || "").toLowerCase();
+              const phone = String(item.userId?.phone || item.phone || "").toLowerCase();
+              const utr = String(item.utrNumber || item.referenceId || item._id || "").toLowerCase();
+              const extra = String(item.planName || item.method || item.type || "").toLowerCase();
+              return name.includes(q) || phone.includes(q) || utr.includes(q) || extra.includes(q);
+            };
+
+            // Determine active items list
+            let activeItems = [];
+            let activeCategoryLabel = "";
+            let activeCategoryIcon = "🏛️";
+
+            if (capitalSubCategory === "loans") {
+              activeItems = allLoanItems.filter(i => matchesTime(i.createdAt || i.approvedAt) && matchesSearch(i));
+              activeCategoryLabel = "Loans (Udhaar & EMI Portfolio Ledger)";
+              activeCategoryIcon = "🏛️";
+            } else if (capitalSubCategory === "investments") {
+              activeItems = allInvestmentItems.filter(i => matchesTime(i.createdAt || i.startDate) && matchesSearch(i));
+              activeCategoryLabel = "Investments & Lending Bonds Ledger";
+              activeCategoryIcon = "💎";
+            } else if (capitalSubCategory === "cashout") {
+              activeItems = allCashOutItems.filter(i => matchesTime(i.createdAt) && matchesSearch(i));
+              activeCategoryLabel = "Cash-Out (Withdrawals & Payouts Ledger)";
+              activeCategoryIcon = "💸";
+            } else if (capitalSubCategory === "deposits") {
+              activeItems = allDepositItems.filter(i => matchesTime(i.createdAt) && matchesSearch(i));
+              activeCategoryLabel = "Add Money (Deposits & UPI Inflow Ledger)";
+              activeCategoryIcon = "💰";
+            } else if (capitalSubCategory === "profit") {
+              activeItems = allProfitItems.filter(i => matchesTime(i.createdAt) && matchesSearch(i));
+              activeCategoryLabel = "Net Profit & Daily Yield Distributions";
+              activeCategoryIcon = "📈";
+            }
+
+            const activeTotalAmount = activeItems.reduce((sum, item) => {
+              const val = Number(item.amount || item.principalAmount || 0);
+              return sum + (isNaN(val) ? 0 : val);
+            }, 0);
+
             return (
-              <div className="space-y-6 w-full min-w-0">
-                {/* Header & Quick Action Buttons */}
+              <div className="space-y-5 w-full min-w-0">
+                {/* Header Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100">
                   <div>
                     <h3 className="text-base sm:text-xl font-black font-display text-gray-900 flex items-center gap-2">
@@ -3993,38 +4131,117 @@ export default function AdminPanel() {
                       type="button"
                       onClick={() => loadCapitalMetrics(true)}
                       disabled={capitalLoading}
-                      className="min-h-[44px] px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                      className="min-h-[44px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
                     >
                       <span>{capitalLoading ? "⏳" : "🔄"}</span>
                       <span>{capitalLoading ? "Refreshing..." : "Refresh Hub"}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={downloadEncryptedBackup}
-                      disabled={backupLoading}
-                      className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50"
-                    >
-                      <span>{backupLoading ? "⏳" : "⚡🔒"}</span>
-                      <span>{backupLoading ? "Encrypting..." : "Instant Backup (.enc)"}</span>
-                    </button>
                   </div>
                 </div>
 
-                {/* 4 Unified Executive Cards */}
+                {/* Sub-Navigation Filter Pills & Search Bar (Image 2 Slot) */}
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
+                  {/* Category Pills (Touch-Friendly >= 44px) */}
+                  <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    {[
+                      { key: "loans", label: "Loan", icon: "🏛️", count: allLoanItems.length },
+                      { key: "investments", label: "Investment", icon: "💎", count: allInvestmentItems.length },
+                      { key: "cashout", label: "Cashout", icon: "💸", count: allCashOutItems.length },
+                      { key: "deposits", label: "Add Money", icon: "💰", count: allDepositItems.length },
+                      { key: "profit", label: "Net Profit", icon: "📈", count: allProfitItems.length },
+                    ].map((c) => {
+                      const isSel = capitalSubCategory === c.key;
+                      return (
+                        <button
+                          key={c.key}
+                          type="button"
+                          onClick={() => setCapitalSubCategory(c.key)}
+                          className={`min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition flex items-center gap-2 whitespace-nowrap cursor-pointer active:scale-95 ${
+                            isSel
+                              ? "bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20"
+                              : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-bold"
+                          }`}
+                        >
+                          <span>{c.icon}</span>
+                          <span>{c.label}</span>
+                          <span className={`text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full font-mono ${
+                            isSel ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                          }`}>
+                            {c.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Search and Time Filter Line */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100">
+                    {/* Search Input */}
+                    <div className="relative flex-1 min-w-0">
+                      <input
+                        type="text"
+                        value={capitalSearch}
+                        onChange={(e) => setCapitalSearch(e.target.value)}
+                        placeholder={`🔍 Search in ${capitalSubCategory} by Name, Phone, UTR...`}
+                        className="w-full min-h-[44px] pl-3.5 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                      />
+                      {capitalSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setCapitalSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm font-bold w-6 h-6 flex items-center justify-center cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Date / Time Filter Buttons */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar shrink-0">
+                      {[
+                        { key: "all", label: "Sabhi (All)" },
+                        { key: "today", label: "📅 Aaj (Today)" },
+                        { key: "7days", label: "⏱️ Pichle 7 Din" },
+                        { key: "month", label: "🗓️ Is Mahine" },
+                      ].map((tf) => {
+                        const isTimeActive = capitalTimeFilter === tf.key;
+                        return (
+                          <button
+                            key={tf.key}
+                            type="button"
+                            onClick={() => setCapitalTimeFilter(tf.key)}
+                            className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer active:scale-95 border ${
+                              isTimeActive
+                                ? "bg-blue-600 text-white border-blue-600 shadow-2xs font-black"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            {tf.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4 Unified Executive Cards (Clickable to switch view) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Card 1: Loans */}
-                  <div className="p-4 sm:p-5 bg-white rounded-2xl border border-blue-100 shadow-sm space-y-3">
+                  <div
+                    onClick={() => setCapitalSubCategory("loans")}
+                    className={`p-4 sm:p-5 bg-white rounded-2xl border transition shadow-sm space-y-3 cursor-pointer ${
+                      capitalSubCategory === "loans"
+                        ? "border-blue-500 ring-2 ring-blue-500/30 bg-blue-50/20"
+                        : "border-blue-100 hover:border-blue-300"
+                    }`}
+                  >
                     <div className="flex items-center justify-between border-b border-blue-50 pb-2.5">
                       <span className="text-xs font-bold text-blue-700 flex items-center gap-1.5">
                         <span>🏛️</span> Loans (Udhaar Portfolio)
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => switchTab("loans")}
-                        className="text-[11px] font-black text-blue-600 hover:underline cursor-pointer"
-                      >
-                        Kholein →
-                      </button>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                        {capitalSubCategory === "loans" ? "Active View" : "Tap to View ↓"}
+                      </span>
                     </div>
                     <div>
                       <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Total Disbursed Amount</span>
@@ -4053,18 +4270,21 @@ export default function AdminPanel() {
                   </div>
 
                   {/* Card 2: Investment & Bonds */}
-                  <div className="p-4 sm:p-5 bg-white rounded-2xl border border-purple-100 shadow-sm space-y-3">
+                  <div
+                    onClick={() => setCapitalSubCategory("investments")}
+                    className={`p-4 sm:p-5 bg-white rounded-2xl border transition shadow-sm space-y-3 cursor-pointer ${
+                      capitalSubCategory === "investments"
+                        ? "border-purple-500 ring-2 ring-purple-500/30 bg-purple-50/20"
+                        : "border-purple-100 hover:border-purple-300"
+                    }`}
+                  >
                     <div className="flex items-center justify-between border-b border-purple-50 pb-2.5">
                       <span className="text-xs font-bold text-purple-700 flex items-center gap-1.5">
                         <span>💎</span> Investments & Bonds
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => switchTab("lending")}
-                        className="text-[11px] font-black text-purple-600 hover:underline cursor-pointer"
-                      >
-                        Kholein →
-                      </button>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                        {capitalSubCategory === "investments" ? "Active View" : "Tap to View ↓"}
+                      </span>
                     </div>
                     <div>
                       <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Total Principal Invested</span>
@@ -4093,18 +4313,21 @@ export default function AdminPanel() {
                   </div>
 
                   {/* Card 3: Cash-Out (Withdrawals) */}
-                  <div className="p-4 sm:p-5 bg-white rounded-2xl border border-rose-100 shadow-sm space-y-3">
+                  <div
+                    onClick={() => setCapitalSubCategory("cashout")}
+                    className={`p-4 sm:p-5 bg-white rounded-2xl border transition shadow-sm space-y-3 cursor-pointer ${
+                      capitalSubCategory === "cashout"
+                        ? "border-rose-500 ring-2 ring-rose-500/30 bg-rose-50/20"
+                        : "border-rose-100 hover:border-rose-300"
+                    }`}
+                  >
                     <div className="flex items-center justify-between border-b border-rose-50 pb-2.5">
                       <span className="text-xs font-bold text-rose-700 flex items-center gap-1.5">
                         <span>💸</span> Cash-Out (Paisa Nikla)
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => switchTab("pending")}
-                        className="text-[11px] font-black text-rose-600 hover:underline cursor-pointer"
-                      >
-                        Pending →
-                      </button>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                        {capitalSubCategory === "cashout" ? "Active View" : "Tap to View ↓"}
+                      </span>
                     </div>
                     <div>
                       <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Total Approved Cash-Out</span>
@@ -4133,13 +4356,20 @@ export default function AdminPanel() {
                   </div>
 
                   {/* Card 4: Net Flow & Liquidity */}
-                  <div className="p-4 sm:p-5 bg-white rounded-2xl border border-emerald-100 shadow-sm space-y-3">
+                  <div
+                    onClick={() => setCapitalSubCategory("profit")}
+                    className={`p-4 sm:p-5 bg-white rounded-2xl border transition shadow-sm space-y-3 cursor-pointer ${
+                      capitalSubCategory === "profit"
+                        ? "border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/20"
+                        : "border-emerald-100 hover:border-emerald-300"
+                    }`}
+                  >
                     <div className="flex items-center justify-between border-b border-emerald-50 pb-2.5">
                       <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
                         <span>⚖️</span> Net Platform Reserves
                       </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                        Live Flow
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        {capitalSubCategory === "profit" ? "Active View" : "Tap to View ↓"}
                       </span>
                     </div>
                     <div>
@@ -4169,84 +4399,328 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
-                {/* Instant Encrypted Local Backup Desk */}
-                <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-100 shadow-sm space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
-                    <div>
-                      <h4 className="text-base sm:text-lg font-black font-display text-gray-900 flex items-center gap-2">
-                        <span>📦</span>
-                        <span>Instant Encrypted System Backup (सुरक्षित स्थानीय बैकअप)</span>
+                {/* Detailed Interactive Ledger Breakdown Container */}
+                <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
+                  {/* Category Header Strip */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-100 pb-3.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xl">{activeCategoryIcon}</span>
+                      <h4 className="text-base sm:text-lg font-black text-slate-900 font-display">
+                        {activeCategoryLabel}
                       </h4>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        AES-256 encrypted choti file (~15-30 KB) jo 1-click me turant download ho jati hai.
+                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 font-mono">
+                        {activeItems.length} Entries
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/60">
+                      <span className="text-xs text-slate-500 font-bold">Total In Filter:</span>
+                      <span className="text-sm sm:text-base font-black text-slate-900 font-mono">
+                        ₹{activeTotalAmount.toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Empty state or item records */}
+                  {activeItems.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-2">
+                      <div className="text-3xl">🔍</div>
+                      <p className="text-xs font-bold text-slate-600">
+                        {capitalSearch || capitalTimeFilter !== "all"
+                          ? "Is search filter ke mutabiq koi entry nahi mili."
+                          : "Is category me abhi koi entry maujood nahi hai."}
                       </p>
+                      {(capitalSearch || capitalTimeFilter !== "all") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCapitalSearch("");
+                            setCapitalTimeFilter("all");
+                          }}
+                          className="min-h-[44px] px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95"
+                        >
+                          Reset Filters
+                        </button>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={downloadEncryptedBackup}
-                      disabled={backupLoading}
-                      className="min-h-[44px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-xs transition flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50 self-start sm:self-auto"
-                    >
-                      <span>{backupLoading ? "⏳" : "⚡📥"}</span>
-                      <span>{backupLoading ? "Downloading Backup..." : "Abhi Fresh Encrypted Backup Lelein"}</span>
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {activeItems.map((item, idx) => {
+                        const userName = item.userId?.name || item.name || "Customer";
+                        const userPhone = item.userId?.phone || item.phone || "—";
+                        const itemDate = item.createdAt || item.approvedAt || item.startDate;
+                        const dateFormatted = itemDate ? new Date(itemDate).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric"
+                        }) : "—";
 
-                  {/* Backup History Table */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-gray-700">
-                      <span>📜 Local Backup Log (Kab Kab Backup Hua Hai):</span>
-                      <span className="text-gray-400 text-[11px]">{backupHistory.length} Backups Saved</span>
-                    </div>
+                        if (capitalSubCategory === "loans") {
+                          const sanctioned = Number(item.amount || 0);
+                          const paid = Number(item.paidAmount || 0);
+                          const remaining = Number(item.remainingAmount || 0);
+                          const isClosed = item.status === "closed" || remaining <= 0;
+                          return (
+                            <div
+                              key={item._id || idx}
+                              className="p-4 bg-slate-50/70 hover:bg-slate-50 rounded-2xl border border-slate-200 transition space-y-2.5"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center shrink-0">
+                                    {userName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h5 className="font-extrabold text-sm text-slate-900 truncate">{userName}</h5>
+                                    <p className="text-[11px] text-slate-500 font-mono truncate">{userPhone}</p>
+                                  </div>
+                                </div>
+                                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${
+                                  isClosed
+                                    ? "bg-slate-200 text-slate-800"
+                                    : item.status === "active"
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                    : "bg-amber-100 text-amber-800"
+                                }`}>
+                                  {isClosed ? "✓ Closed" : item.status === "active" ? "🟢 Active" : "⏳ Pending"}
+                                </span>
+                              </div>
 
-                    {backupHistory.length === 0 ? (
-                      <div className="p-6 text-center text-xs text-gray-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                        Abhi tak is browser me koi backup nahi liya gaya hai. Naya backup lene ke liye upar diye button par click karein.
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-slate-50 text-gray-600 text-[11px] font-bold uppercase border-y border-slate-100">
-                            <tr>
-                              <th className="py-2.5 px-3">Date & Time</th>
-                              <th className="py-2.5 px-3">File Name & Size</th>
-                              <th className="py-2.5 px-3">Kya Kya Hua Backup</th>
-                              <th className="py-2.5 px-3">Encryption Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {backupHistory.map((b) => (
-                              <tr key={b.id || b.timestamp} className="hover:bg-slate-50/70 transition">
-                                <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
-                                  📅 {b.dateStr || new Date(b.timestamp).toLocaleString("en-IN")}
-                                </td>
-                                <td className="py-2.5 px-3 font-mono font-bold text-blue-700 whitespace-nowrap">
-                                  {b.filename || "educa_backup.enc"} <span className="text-[10px] text-gray-500 font-normal">({b.sizeKb || "18.4"} KB)</span>
-                                </td>
-                                <td className="py-2.5 px-3 text-slate-700">
-                                  {b.summary ? (
-                                    <span className="inline-flex flex-wrap gap-1.5 text-[11px]">
-                                      <span className="px-1.5 py-0.5 rounded bg-slate-100 font-semibold">👥 {b.summary.usersCount} Users</span>
-                                      <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 font-semibold">🏦 {b.summary.loansCount} Loans</span>
-                                      <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 font-semibold">💎 {b.summary.bondsCount} Bonds</span>
-                                      <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold">💳 {b.summary.txnsCount} Txns</span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-gray-400">Full System Snapshot</span>
-                                  )}
-                                </td>
-                                <td className="py-2.5 px-3">
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                    🔒 AES-256 Encrypted
+                              <div className="grid grid-cols-3 gap-2 bg-white p-2.5 rounded-xl border border-slate-100 text-center">
+                                <div>
+                                  <span className="text-[9px] text-slate-400 block font-bold uppercase">Sanctioned</span>
+                                  <span className="text-xs sm:text-sm font-black text-slate-900 font-mono">₹{sanctioned.toLocaleString("en-IN")}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-emerald-600 block font-bold uppercase">Recovered</span>
+                                  <span className="text-xs sm:text-sm font-black text-emerald-700 font-mono">₹{paid.toLocaleString("en-IN")}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-blue-600 block font-bold uppercase">Remaining</span>
+                                  <span className="text-xs sm:text-sm font-black text-blue-800 font-mono">₹{remaining.toLocaleString("en-IN")}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                                <span>📅 {dateFormatted} · {item.tenureMonths || 12}M Tenor</span>
+                                <button
+                                  type="button"
+                                  onClick={() => switchTab("loans")}
+                                  className="text-blue-600 font-bold hover:underline cursor-pointer"
+                                >
+                                  Manage Loan →
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (capitalSubCategory === "investments") {
+                          const principal = Number(item.principalAmount || 0);
+                          const returns = Number(item.accruedInterest || 0);
+                          return (
+                            <div
+                              key={item._id || idx}
+                              className="p-4 bg-purple-50/30 hover:bg-purple-50/50 rounded-2xl border border-purple-100 transition space-y-2.5"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-black text-xs flex items-center justify-center shrink-0">
+                                    {userName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h5 className="font-extrabold text-sm text-slate-900 truncate">{userName}</h5>
+                                    <p className="text-[11px] text-slate-500 font-mono truncate">{userPhone}</p>
+                                  </div>
+                                </div>
+                                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${
+                                  item.status === "active" ? "bg-purple-100 text-purple-800 border border-purple-200" : "bg-emerald-100 text-emerald-800"
+                                }`}>
+                                  {item.status === "active" ? "💎 Active Bond" : "✓ Matured"}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 bg-white p-2.5 rounded-xl border border-purple-50">
+                                <div>
+                                  <span className="text-[9px] text-slate-400 block font-bold uppercase">Principal Invested</span>
+                                  <span className="text-sm sm:text-base font-black text-slate-900 font-mono">₹{principal.toLocaleString("en-IN")}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-purple-600 block font-bold uppercase">Yield / Profit</span>
+                                  <span className="text-sm sm:text-base font-black text-purple-700 font-mono">+₹{returns.toLocaleString("en-IN")}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                                <span className="truncate">🏷️ {item.planName || "Fixed Growth Bond"} · 📅 {dateFormatted}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => switchTab("lending")}
+                                  className="text-purple-600 font-bold hover:underline cursor-pointer shrink-0 ml-2"
+                                >
+                                  View Bond →
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (capitalSubCategory === "cashout") {
+                          const withdrawAmt = Number(item.amount || 0);
+                          const isPending = item.status === "pending";
+                          const isApproved = item.status === "approved" || item.status === "completed";
+                          return (
+                            <div
+                              key={item._id || idx}
+                              className="p-4 bg-rose-50/30 hover:bg-rose-50/50 rounded-2xl border border-rose-100 transition space-y-2.5"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-700 font-black text-xs flex items-center justify-center shrink-0">
+                                    {userName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h5 className="font-extrabold text-sm text-slate-900 truncate">{userName}</h5>
+                                    <p className="text-[11px] text-slate-500 font-mono truncate">{userPhone}</p>
+                                  </div>
+                                </div>
+                                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${
+                                  isApproved
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : isPending
+                                    ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                    : "bg-rose-100 text-rose-800"
+                                }`}>
+                                  {isApproved ? "✓ Paid Out" : isPending ? "⏳ Pending Review" : "✕ Rejected"}
+                                </span>
+                              </div>
+
+                              <div className="bg-white p-2.5 rounded-xl border border-rose-50 flex items-center justify-between">
+                                <div>
+                                  <span className="text-[9px] text-slate-400 block font-bold uppercase">Cashout Amount</span>
+                                  <span className="text-base sm:text-lg font-black text-rose-700 font-mono">₹{withdrawAmt.toLocaleString("en-IN")}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[9px] text-slate-400 block font-bold uppercase">Payout Mode</span>
+                                  <span className="text-xs font-bold text-slate-700">
+                                    {item.paymentDetails?.upiId ? `UPI: ${item.paymentDetails.upiId}` : item.paymentDetails?.accountNumber ? `A/C: ${item.paymentDetails.accountNumber}` : "Wallet Payout"}
                                   </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                                <span>📅 {dateFormatted}</span>
+                                {isPending && (
+                                  <button
+                                    type="button"
+                                    onClick={() => switchTab("pending")}
+                                    className="text-rose-600 font-bold hover:underline cursor-pointer"
+                                  >
+                                    Go to Pending Desk →
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (capitalSubCategory === "deposits") {
+                          const depAmt = Number(item.amount || 0);
+                          const isApproved = item.status === "approved" || item.status === "completed";
+                          return (
+                            <div
+                              key={item._id || idx}
+                              className="p-4 bg-emerald-50/30 hover:bg-emerald-50/50 rounded-2xl border border-emerald-100 transition space-y-2.5"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-black text-xs flex items-center justify-center shrink-0">
+                                    {userName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h5 className="font-extrabold text-sm text-slate-900 truncate">{userName}</h5>
+                                    <p className="text-[11px] text-slate-500 font-mono truncate">{userPhone}</p>
+                                  </div>
+                                </div>
+                                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${
+                                  isApproved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                                }`}>
+                                  {isApproved ? "✓ Added to Wallet" : "⏳ Pending"}
+                                </span>
+                              </div>
+
+                              <div className="bg-white p-2.5 rounded-xl border border-emerald-50 flex items-center justify-between">
+                                <div>
+                                  <span className="text-[9px] text-slate-400 block font-bold uppercase">Added Amount</span>
+                                  <span className="text-base sm:text-lg font-black text-emerald-700 font-mono">₹{depAmt.toLocaleString("en-IN")}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[9px] text-slate-400 block font-bold uppercase">UTR / Ref</span>
+                                  <span className="text-xs font-mono font-bold text-slate-700">
+                                    {item.utrNumber || item.referenceId || "Direct UPI"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                                <span>📅 {dateFormatted}</span>
+                                {(item.proofUrl || item.screenshotUrl) && (
+                                  <a
+                                    href={item.proofUrl || item.screenshotUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 font-bold hover:underline"
+                                  >
+                                    View Receipt ↗
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // Profit
+                        const profitAmt = Number(item.amount || 0);
+                        return (
+                          <div
+                            key={item._id || idx}
+                            className="p-4 bg-emerald-50/20 hover:bg-emerald-50/40 rounded-2xl border border-emerald-100 transition space-y-2.5"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-black text-xs flex items-center justify-center shrink-0">
+                                  {userName.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <h5 className="font-extrabold text-sm text-slate-900 truncate">{userName}</h5>
+                                  <p className="text-[11px] text-slate-500 font-mono truncate">{userPhone}</p>
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                ✓ Credited
+                              </span>
+                            </div>
+
+                            <div className="bg-white p-2.5 rounded-xl border border-emerald-50 flex items-center justify-between">
+                              <div>
+                                <span className="text-[9px] text-slate-400 block font-bold uppercase">Yield Distributed</span>
+                                <span className="text-base sm:text-lg font-black text-emerald-700 font-mono">+₹{profitAmt.toLocaleString("en-IN")}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[9px] text-slate-400 block font-bold uppercase">Type</span>
+                                <span className="text-xs font-bold text-slate-700">
+                                  {item.type === "daily_yield" ? "12% Daily APY" : item.type || "Profit Distribution"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="text-[11px] text-slate-500 pt-1">
+                              📅 {dateFormatted}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -12306,6 +12780,95 @@ export default function AdminPanel() {
                       </a>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* Instant Encrypted Local Backup Desk in Settings */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-100 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+                  <div>
+                    <h4 className="text-base sm:text-lg font-black font-display text-gray-900 flex items-center gap-2">
+                      <span>📦</span>
+                      <span>Instant Encrypted System Backup (सुरक्षित स्थानीय बैकअप)</span>
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      AES-256 encrypted choti file (~15-30 KB). Har 1 ghante me automatic snapshot sync hota hai aur aap 1-click me turant fresh backup bhi download kar sakte hain.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
+                      </span>
+                      Auto 1-Hr Active
+                    </span>
+                    <button
+                      type="button"
+                      onClick={downloadEncryptedBackup}
+                      disabled={backupLoading}
+                      className="min-h-[44px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-xs transition flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50"
+                    >
+                      <span>{backupLoading ? "⏳" : "⚡📥"}</span>
+                      <span>{backupLoading ? "Downloading Backup..." : "Abhi Fresh Encrypted Backup Lelein"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Backup History Table */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-gray-700">
+                    <span>📜 Local Backup Log (Kab Kab Backup Hua Hai):</span>
+                    <span className="text-gray-400 text-[11px]">{backupHistory.length} Backups Saved</span>
+                  </div>
+
+                  {backupHistory.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-gray-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      Abhi tak is browser me koi backup nahi liya gaya hai. Naya backup lene ke liye upar diye button par click karein.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-gray-600 text-[11px] font-bold uppercase border-y border-slate-100">
+                          <tr>
+                            <th className="py-2.5 px-3">Date & Time</th>
+                            <th className="py-2.5 px-3">File Name & Size</th>
+                            <th className="py-2.5 px-3">Kya Kya Hua Backup</th>
+                            <th className="py-2.5 px-3">Encryption Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {backupHistory.map((b) => (
+                            <tr key={b.id || b.timestamp} className="hover:bg-slate-50/70 transition">
+                              <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                                📅 {b.dateStr || new Date(b.timestamp).toLocaleString("en-IN")}
+                              </td>
+                              <td className="py-2.5 px-3 font-mono font-bold text-blue-700 whitespace-nowrap">
+                                {b.filename || "educa_backup.enc"} <span className="text-[10px] text-gray-500 font-normal">({b.sizeKb || "18.4"} KB)</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-700">
+                                {b.summary ? (
+                                  <span className="inline-flex flex-wrap gap-1.5 text-[11px]">
+                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 font-semibold">👥 {b.summary.usersCount} Users</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 font-semibold">🏦 {b.summary.loansCount} Loans</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 font-semibold">💎 {b.summary.bondsCount} Bonds</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold">💳 {b.summary.txnsCount} Txns</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">Full System Snapshot</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  🔒 AES-256 Encrypted
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

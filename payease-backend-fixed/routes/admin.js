@@ -1917,7 +1917,7 @@ router.get('/backup/export', protect, admin, async (req, res) => {
 // Unified Capital Portfolio & Fund Flow Hub Metrics
 router.get('/capital-portfolio', protect, admin, async (req, res) => {
   try {
-    const [loans, bonds, withdrawalAgg, depositAgg, pendingWithdrawals] = await Promise.all([
+    const [loans, bonds, withdrawalAgg, depositAgg, pendingWithdrawals, withdrawalList, depositList, profitList] = await Promise.all([
       Loan.find().populate('userId', 'name email phone').sort({ createdAt: -1 }).lean(),
       Bond.find().populate('userId', 'name email phone').sort({ createdAt: -1 }).lean(),
       Transaction.aggregate([
@@ -1928,7 +1928,10 @@ router.get('/capital-portfolio', protect, admin, async (req, res) => {
         { $match: { type: 'deposit', status: { $in: ['approved', 'completed'] } } },
         { $group: { _id: null, totalAmount: { $sum: '$amount' }, count: { $sum: 1 } } }
       ]),
-      Transaction.find({ type: 'withdrawal', status: 'pending' }).lean()
+      Transaction.find({ type: 'withdrawal', status: 'pending' }).lean(),
+      Transaction.find({ type: 'withdrawal' }).populate('userId', 'name email phone').sort({ createdAt: -1 }).limit(100).lean(),
+      Transaction.find({ type: 'deposit' }).populate('userId', 'name email phone').sort({ createdAt: -1 }).limit(100).lean(),
+      Transaction.find({ type: { $in: ['daily_yield', 'profit_transfer', 'referral_bonus'] } }).populate('userId', 'name email phone').sort({ createdAt: -1 }).limit(100).lean()
     ]);
 
     // 1. Loans Metrics
@@ -1948,8 +1951,9 @@ router.get('/capital-portfolio', protect, admin, async (req, res) => {
     const approvedWithdrawalData = withdrawalAgg[0] || { totalAmount: 0, count: 0, uniqueUsers: [] };
     const pendingWithdrawalAmount = pendingWithdrawals.reduce((s, t) => s + (t.amount || 0), 0);
 
-    // 4. Net Platform Flow
+    // 4. Net Platform Flow & Deposits
     const totalDeposited = depositAgg[0]?.totalAmount || 0;
+    const totalProfitYield = profitList.reduce((s, p) => s + (p.amount || 0), 0);
 
     res.json({
       success: true,
@@ -1960,7 +1964,7 @@ router.get('/capital-portfolio', protect, admin, async (req, res) => {
         totalDisbursed: totalLoanDisbursed,
         totalRecovered: totalLoanRecovered,
         activeOutstanding: activeLoanDue,
-        items: loans.slice(0, 50)
+        items: loans.slice(0, 100)
       },
       investments: {
         totalBonds: bonds.length,
@@ -1968,14 +1972,25 @@ router.get('/capital-portfolio', protect, admin, async (req, res) => {
         investorsCount: uniqueInvestorIds.size,
         totalPrincipal: totalBondPrincipal,
         totalYieldDistributed: totalBondYield,
-        items: bonds.slice(0, 50)
+        items: bonds.slice(0, 100)
       },
       cashOut: {
         totalCashOutAmount: approvedWithdrawalData.totalAmount,
         totalCashOutCount: approvedWithdrawalData.count,
         cashOutUsersCount: (approvedWithdrawalData.uniqueUsers || []).length,
         pendingAmount: pendingWithdrawalAmount,
-        pendingCount: pendingWithdrawals.length
+        pendingCount: pendingWithdrawals.length,
+        items: withdrawalList
+      },
+      deposits: {
+        totalDeposited,
+        count: depositAgg[0]?.count || 0,
+        items: depositList
+      },
+      profit: {
+        totalYieldDistributed: totalProfitYield,
+        count: profitList.length,
+        items: profitList
       },
       flow: {
         totalInflow: totalDeposited + totalLoanRecovered,

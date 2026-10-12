@@ -43,11 +43,7 @@ export default function LiveRefreshBadge({
         </span>
       ) : (
         <span className="flex items-center gap-1 font-extrabold whitespace-nowrap">
-          <span className="text-emerald-700">Live</span>
-          <span className="text-emerald-400 font-normal">·</span>
-          <span className="font-mono text-emerald-900 font-black">
-            <span className="hidden sm:inline">next </span>{Math.max(0, secondsToNext)}s
-          </span>
+          <span className="text-emerald-700">Live Sync</span>
         </span>
       )}
 

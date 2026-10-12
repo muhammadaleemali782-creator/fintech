@@ -2476,6 +2476,7 @@ export default function AdminPanel() {
   };
 
   const approveKyc = async (userId, remarks = "") => {
+    setUsers(prev => prev.map(u => u._id === userId ? { ...u, kycStatus: "verified", kycDocuments: { ...(u.kycDocuments || {}), adminRemarks: remarks } } : u));
     try {
       const res = await fetch(`${API}/admin/kyc/${userId}/approve`, {
         method: "POST",
@@ -2491,13 +2492,17 @@ export default function AdminPanel() {
       if (res.ok) {
         apiCache.clear();
         loadUsers(true);
+      } else {
+        loadUsers(true);
       }
     } catch {
       showToast("Failed to approve KYC", "error");
+      loadUsers(true);
     }
   };
 
   const rejectKyc = async (userId, remarks = "") => {
+    setUsers(prev => prev.map(u => u._id === userId ? { ...u, kycStatus: "rejected", kycDocuments: { ...(u.kycDocuments || {}), adminRemarks: remarks } } : u));
     try {
       const res = await fetch(`${API}/admin/kyc/${userId}/reject`, {
         method: "POST",
@@ -2513,17 +2518,22 @@ export default function AdminPanel() {
       if (res.ok) {
         apiCache.clear();
         loadUsers(true);
+      } else {
+        loadUsers(true);
       }
     } catch {
       showToast("Failed to reject KYC", "error");
+      loadUsers(true);
     }
   };
 
   const submitApproveLoan = async () => {
     if (!loanApproveModal) return;
+    const loanToApprove = loanApproveModal;
     setLoanApproveLoading(true);
+    setLoans(prev => prev.map(l => l._id === loanToApprove._id ? { ...l, status: "active" } : l));
     try {
-      const res = await fetch(`${API}/loan/${loanApproveModal._id}/approve`, {
+      const res = await fetch(`${API}/loan/${loanToApprove._id}/approve`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2541,16 +2551,19 @@ export default function AdminPanel() {
         apiCache.clear();
         loadLoans(true);
         loadStats(true);
+      } else {
+        loadLoans(true);
       }
     } catch {
       showToast("Network error approving loan", "error");
+      loadLoans(true);
     } finally {
       setLoanApproveLoading(false);
     }
   };
 
   const rejectLoan = async (id) => {
-    if (!window.confirm("Reject this loan?")) return;
+    setLoans(prev => prev.map(l => l._id === id ? { ...l, status: "rejected" } : l));
     setRejectLoadingId(id);
     try {
       const res = await fetch(`${API}/loan/${id}/reject`, { method: "POST", headers });
@@ -2559,16 +2572,19 @@ export default function AdminPanel() {
       if (res.ok) {
         apiCache.clear();
         loadLoans(true);
+      } else {
+        loadLoans(true);
       }
     } catch {
       showToast("Network error rejecting loan", "error");
+      loadLoans(true);
     } finally {
       setRejectLoadingId(null);
     }
   };
 
   const approveBond = async (bondId) => {
-    if (!window.confirm("Approve this bond / lending account?")) return;
+    setBonds(prev => prev.map(b => b._id === bondId ? { ...b, status: "active" } : b));
     setBondActionLoadingId(bondId);
     try {
       const res = await fetch(`${API}/bond/${bondId}/approve`, { method: "POST", headers });
@@ -2577,16 +2593,19 @@ export default function AdminPanel() {
       if (res.ok) {
         apiCache.clear();
         loadBonds(true);
+      } else {
+        loadBonds(true);
       }
     } catch {
       showToast("Network error approving bond", "error");
+      loadBonds(true);
     } finally {
       setBondActionLoadingId(null);
     }
   };
 
   const rejectBond = async (bondId) => {
-    if (!window.confirm("Reject this bond request? Principal amount will be refunded to user wallet.")) return;
+    setBonds(prev => prev.map(b => b._id === bondId ? { ...b, status: "rejected" } : b));
     setBondActionLoadingId(bondId);
     try {
       const res = await fetch(`${API}/bond/${bondId}/reject`, { method: "POST", headers });
@@ -2595,9 +2614,12 @@ export default function AdminPanel() {
       if (res.ok) {
         apiCache.clear();
         loadBonds(true);
+      } else {
+        loadBonds(true);
       }
     } catch {
       showToast("Network error rejecting bond", "error");
+      loadBonds(true);
     } finally {
       setBondActionLoadingId(null);
     }
@@ -10676,7 +10698,7 @@ export default function AdminPanel() {
                             onChange={(e) => setIssueDisburseToWallet(e.target.checked)}
                             className="w-4 h-4 text-blue-600 rounded cursor-pointer accent-blue-600"
                           />
-                          <span>Borrower ke Profit Wallet me Payout Credit Karein</span>
+                          <span>Borrower ke Account me Payout Credit Karein</span>
                         </label>
                         <span className="text-[10px] text-gray-500">
                           (Purane offline loan ke liye unchecked rakhein)
@@ -10715,7 +10737,7 @@ export default function AdminPanel() {
                         <span className="text-[9px] text-slate-400 block">Interest: ₹{totalInterest.toLocaleString("en-IN")}</span>
                       </div>
                       <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
-                        <span className="text-slate-500 block text-[10px] font-bold">Net Disbursal to Profit Wallet</span>
+                        <span className="text-slate-500 block text-[10px] font-bold">Net Disbursal Amount</span>
                         <span className="text-base font-black text-blue-600 font-mono">₹{netDisbursal.toLocaleString("en-IN")}</span>
                         <span className="text-[9px] text-slate-400 block">After 5% fee + 1% UPI</span>
                       </div>

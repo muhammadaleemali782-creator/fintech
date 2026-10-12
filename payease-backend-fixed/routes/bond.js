@@ -432,7 +432,7 @@ router.get('/my', protect, async (req, res) => {
             method: 'wallet',
             status: 'completed',
             referenceId: b._id.toString(),
-            remarks: `365-Day Bond Matured: ₹${b.returnAmount.toLocaleString('en-IN')} credited to Profit Wallet!`
+            remarks: `365-Day Bond Matured: ₹${b.returnAmount.toLocaleString('en-IN')} credited!`
           });
           await b.save();
         }

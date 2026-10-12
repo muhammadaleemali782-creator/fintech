@@ -879,13 +879,13 @@ function ServicesSection({ onLogin, isHindi }) {
       badgeColor: "bg-emerald-100 text-emerald-800 border border-emerald-300",
       title: "365-Day Fixed Bond (18% Profit)",
       desc: isHindi
-        ? "1 लाख प्रति यूनिट 365 दिनों के लिए लॉक करें और मैच्योरिटी पर निश्चित 18% लाभ (₹1,18,000) प्रॉफिट वॉलेट में प्राप्त करें।"
-        : "Lock ₹1,00,000 (1 Lakh) per unit for 365 days and receive guaranteed 18% annual profit directly in your Profit Wallet upon maturity.",
+        ? "1 लाख प्रति यूनिट 365 दिनों के लिए लॉक करें और मैच्योरिटी पर निश्चित 18% लाभ (₹1,18,000) प्राप्त करें।"
+        : "Lock ₹1,00,000 (1 Lakh) per unit for 365 days and receive guaranteed 18% annual profit directly upon maturity.",
       points: [
         "Guaranteed 18% annual maturity payout",
         "Multi-unit support: ₹1L, ₹2L, ₹3L or more",
         "100% backed by fintech liquid capital reserves",
-        "Auto-credited to Profit Wallet on day 365",
+        "Auto-credited on day 365",
       ],
       btnText: isHindi ? "18% बॉन्ड देखें →" : "Explore 18% Bonds →",
     },

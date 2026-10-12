@@ -1381,7 +1381,7 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
           sourceWallet: 'profit',
           status: 'completed',
           referenceId: createdLoan._id.toString(),
-          remarks: `Disbursal for ${createdLoan.accountNumber} (Net ₹${disbursalPayout}) credited to Profit Wallet`
+          remarks: `Disbursal for ${createdLoan.accountNumber} (Net ₹${disbursalPayout}) credited`
         }]);
       }
     }
@@ -1675,7 +1675,7 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
         sourceWallet: 'profit',
         status: 'completed',
         referenceId: loan._id.toString(),
-        remarks: `Disbursal for ${loan.accountNumber || 'Loan'} (Net ₹${payout}) credited to Profit Wallet`
+        remarks: `Disbursal for ${loan.accountNumber || 'Loan'} (Net ₹${payout}) credited`
       }], { session });
 
       resultLoan = loan;

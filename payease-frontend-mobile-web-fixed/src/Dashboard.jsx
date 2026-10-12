@@ -6654,7 +6654,7 @@ export default function Dashboard() {
               </p>
               <div className="p-2 rounded-xl bg-white/80 border border-indigo-100 text-[10px] text-indigo-900 space-y-1">
                 <p>✅ <strong>Manual Transfer:</strong> Jaise hi aap 'Main Wallet me Bhejein' dabayenge, pura profit Main Wallet me jud jayega, Profit Wallet wapas ₹0 ho jayega, aur agle second se badhe hue naye total balance par profit calculate hoga.</p>
-                <p>🤝 <strong>Lending & Loan Returns:</strong> Aapka Lending Bond ka payout aur Loan disbursal ka paisa bhi seedha isi Profit Wallet me aayega.</p>
+                <p>🤝 <strong>Returns:</strong> Aapka munafa aur interest returns yahan transparently accrue hota hai.</p>
               </div>
             </div>
           </details>
@@ -7036,7 +7036,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-2 text-[10px] pt-1">
                 <div className="p-2 bg-white/90 rounded-xl border border-emerald-100 space-y-0.5">
                   <span className="text-emerald-800 font-extrabold uppercase block">📥 Paisa Aana Hai</span>
-                  <p className="text-gray-600">• Disbursal: Approval par Profit Wallet</p>
+                  <p className="text-gray-600">• Disbursal: Approval par direct credit</p>
                   <p className="text-gray-600">• Monthly Returns: 1st date credit</p>
                   <p className="text-gray-600">• Daily Yield: Midnight 12:00 AM</p>
                 </div>
@@ -8037,7 +8037,7 @@ export default function Dashboard() {
                       <div className="flex justify-between text-[11px] text-gray-600 pt-1 border-t border-emerald-100">
                         <span>Maturity Date: {new Date(b.maturityDate).toLocaleDateString("en-IN")}</span>
                         <span className="capitalize font-black text-emerald-800">
-                          {b.status === "matured" ? "✓ Credited to Profit Wallet" : "⏳ 365 Days Locked"}
+                          {b.status === "matured" ? "✓ Credited to Account" : "⏳ 365 Days Locked"}
                         </span>
                       </div>
                     </div>

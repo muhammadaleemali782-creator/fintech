@@ -75,7 +75,10 @@ const loanSchema = new mongoose.Schema({
     businessName: String,
     studentProofUrl: String,
     studentProofBackUrl: String,
-    googleDriveLink: String
+    googleDriveLink: String,
+    offlineEvidenceUrl: String,
+    offlineEvidenceNote: String,
+    adminNotes: String
   },
   status: { 
     type: String, 

@@ -7206,10 +7206,26 @@ export default function Dashboard() {
                             Due Date: {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "10-day cycle"} • <span className="font-semibold text-indigo-700">⏰ Cutoff: 10:00 AM</span>
                           </p>
                           {isPaid && (
-                            <p className="text-[10px] text-emerald-700 font-bold">
-                              ✓ Paid on {inst.paidOn ? new Date(inst.paidOn).toLocaleDateString("en-IN") : "Recorded"}
-                              {inst.adminEvidenceNote ? ` (${inst.adminEvidenceNote})` : ""}
-                            </p>
+                            <div className="space-y-0.5">
+                              <p className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 flex-wrap">
+                                <span>✓ Paid on {inst.paidOn ? new Date(inst.paidOn).toLocaleDateString("en-IN") : "Recorded"}</span>
+                                {inst.paymentMethod && (
+                                  <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded text-[9px] uppercase font-bold">
+                                    {inst.paymentMethod}
+                                  </span>
+                                )}
+                                {inst.adminEvidenceNote ? <span className="opacity-80">({inst.adminEvidenceNote})</span> : ""}
+                              </p>
+                              {inst.proofUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
+                                  className="text-[10px] text-emerald-800 hover:text-emerald-900 font-extrabold underline flex items-center gap-1 cursor-pointer"
+                                >
+                                  <span>🧾</span> Payment Slip / Receipt 🔍
+                                </button>
+                              )}
+                            </div>
                           )}
                           {isSubmitted && (
                             <p className="text-[10px] text-amber-700 font-bold">
@@ -9075,6 +9091,15 @@ export default function Dashboard() {
                           <p className="text-[11px] text-gray-500">
                             {isDaily ? `${totalCount} Days @ ${l.interestRate}%` : isStudent ? `${totalCount} Easy Installments @ 8% p.a.` : `${totalCount} Easy Installments @ 1.34%/kist`}
                           </p>
+                          {l.documents?.offlineEvidenceUrl && (
+                            <button
+                              type="button"
+                              onClick={() => { setLightboxImg(l.documents.offlineEvidenceUrl); setZoomLevel(1); }}
+                              className="mt-1 px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95 cursor-pointer shadow-2xs hover:bg-emerald-100 transition"
+                            >
+                              <span>🧾</span> Offline Payment Voucher / Slip 🔍
+                            </button>
+                          )}
                         </div>
                         <StatusBadge status={l.status} />
                       </div>
@@ -9177,6 +9202,27 @@ export default function Dashboard() {
                                       <p className="text-[10px] text-gray-500">
                                         Due: {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "Scheduled"}
                                       </p>
+                                      {isPaid && (
+                                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                          <span className="text-[10px] text-emerald-700 font-bold">
+                                            ✓ Paid on {inst.paidOn ? new Date(inst.paidOn).toLocaleDateString("en-IN") : "Verified"}
+                                          </span>
+                                          {inst.paymentMethod && (
+                                            <span className="text-[9px] font-bold px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded uppercase">
+                                              {inst.paymentMethod}
+                                            </span>
+                                          )}
+                                          {inst.proofUrl && (
+                                            <button
+                                              type="button"
+                                              onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
+                                              className="text-[10px] text-emerald-800 hover:text-emerald-950 underline font-extrabold flex items-center gap-0.5 cursor-pointer"
+                                            >
+                                              <span>🧾</span> Slip 🔍
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${

@@ -12,7 +12,7 @@ import LiveRefreshBadge from "./components/LiveRefreshBadge";
 const apiCache = new Map();
 const inFlightRequests = new Map();
 
-async function cachedAdminFetch(url, options = {}, ttlMs = 45000, forceRefresh = false) {
+async function cachedAdminFetch(url, options = {}, ttlMs = 3000, forceRefresh = false) {
   const method = (options.method || "GET").toUpperCase();
   if (method !== "GET") {
     apiCache.clear();
@@ -1290,6 +1290,112 @@ export default function AdminPanel() {
   const [issueFirstPendingDueDate, setIssueFirstPendingDueDate] = useState("");
   const [issueDisburseToWallet, setIssueDisburseToWallet] = useState(false);
   const [issueCustomInstallmentAmount, setIssueCustomInstallmentAmount] = useState("");
+  const [issueBackfillEvidenceUrl, setIssueBackfillEvidenceUrl] = useState("");
+  const [issueBackfillEvidenceName, setIssueBackfillEvidenceName] = useState("");
+  const [issueBackfillInstallments, setIssueBackfillInstallments] = useState([]);
+
+  const updateBackfillCount = (newCount, defaultAmt = 0) => {
+    const val = Math.max(0, parseInt(newCount) || 0);
+    setIssuePaidInstallmentsCount(val);
+    setIssueBackfillInstallments(prev => {
+      const arr = [...prev];
+      if (arr.length < val) {
+        for (let i = arr.length; i < val; i++) {
+          arr.push({
+            installmentNo: i + 1,
+            amount: issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) : defaultAmt,
+            paidOn: new Date().toISOString().split("T")[0],
+            paymentMethod: "cash",
+            utrNumber: "",
+            evidenceUrl: issueBackfillEvidenceUrl || "",
+            note: "Offline paid"
+          });
+        }
+      } else if (arr.length > val) {
+        return arr.slice(0, val);
+      }
+      return arr;
+    });
+  };
+
+  const addBackfillInstallment = (defaultAmt = 0) => {
+    setIssueBackfillInstallments(prev => {
+      const nextNo = prev.length + 1;
+      setIssuePaidInstallmentsCount(nextNo);
+      return [
+        ...prev,
+        {
+          installmentNo: nextNo,
+          amount: issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) : defaultAmt,
+          paidOn: new Date().toISOString().split("T")[0],
+          paymentMethod: "cash",
+          utrNumber: "",
+          evidenceUrl: issueBackfillEvidenceUrl || "",
+          note: "Offline paid"
+        }
+      ];
+    });
+  };
+
+  const removeBackfillInstallment = (index) => {
+    setIssueBackfillInstallments(prev => {
+      const nextList = prev.filter((_, i) => i !== index).map((item, i) => ({
+        ...item,
+        installmentNo: i + 1
+      }));
+      setIssuePaidInstallmentsCount(nextList.length);
+      return nextList;
+    });
+  };
+
+  const updateBackfillInstallmentField = (index, field, value) => {
+    setIssueBackfillInstallments(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  };
+
+  const handleBackfillEvidenceUpload = (file, index = null) => {
+    if (!file) return;
+    if (file.type && !file.type.startsWith("image/")) {
+      showToast("Kripya photo / image file upload karein", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 1200;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        if (index !== null) {
+          updateBackfillInstallmentField(index, "evidenceUrl", dataUrl);
+        } else {
+          setIssueBackfillEvidenceUrl(dataUrl);
+          setIssueBackfillEvidenceName(file.name);
+        }
+      };
+      img.onerror = () => {
+        if (index !== null) {
+          updateBackfillInstallmentField(index, "evidenceUrl", event.target.result);
+        } else {
+          setIssueBackfillEvidenceUrl(event.target.result);
+          setIssueBackfillEvidenceName(file.name);
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
   const [issueBorrowerType, setIssueBorrowerType] = useState("existing"); // "existing" | "new"
   const [issueSelectedUser, setIssueSelectedUser] = useState(null);
   const [issueUserSearch, setIssueUserSearch] = useState("");
@@ -1529,7 +1635,7 @@ export default function AdminPanel() {
 
   const loadPending = useCallback(async (force = false) => {
     try {
-      const res = await cachedAdminFetch(`${API}/admin/transactions/pending`, { headers }, 30000, force);
+      const res = await cachedAdminFetch(`${API}/admin/transactions/pending`, { headers }, 2000, force);
       if (res.status === 429) {
         setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
         return;
@@ -1549,7 +1655,7 @@ export default function AdminPanel() {
   const loadHoldData = useCallback(async (force = false) => {
     setLoadingHold(true);
     try {
-      const res = await cachedAdminFetch(`${API}/admin/transactions/hold`, { headers }, 30000, force);
+      const res = await cachedAdminFetch(`${API}/admin/transactions/hold`, { headers }, 2000, force);
       if (res.status === 429) {
         setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
         return;
@@ -1687,7 +1793,7 @@ export default function AdminPanel() {
 
   const loadLoans = useCallback(async (force = false) => {
     try {
-      const res = await cachedAdminFetch(`${API}/loan/all`, { headers }, 45000, force);
+      const res = await cachedAdminFetch(`${API}/loan/all`, { headers }, 2000, force);
       if (res.status === 429) return;
       if (!res.ok) return;
       const d = await res.json();
@@ -1720,7 +1826,7 @@ export default function AdminPanel() {
 
   const loadBonds = useCallback(async (force = false) => {
     try {
-      const res = await cachedAdminFetch(`${API}/admin/bonds`, { headers }, 45000, force);
+      const res = await cachedAdminFetch(`${API}/admin/bonds`, { headers }, 2000, force);
       if (res.status === 429) return;
       if (!res.ok) return;
       const d = await res.json();
@@ -1978,7 +2084,7 @@ export default function AdminPanel() {
   const loadBootstrapAdmin = useCallback(async (force = false) => {
     try {
       setIsRefreshing(true);
-      const res = await cachedAdminFetch(`${API}/bootstrap/admin`, { headers }, 30000, force);
+      const res = await cachedAdminFetch(`${API}/bootstrap/admin`, { headers }, 2000, force);
       if (!res.ok) return;
       const data = await res.json();
       if (!data || !data.success) return;
@@ -2978,7 +3084,7 @@ export default function AdminPanel() {
         search: historySearch
       });
       // Background revalidation: fetch fresh data from server (15s TTL so admin updates show up immediately)
-      const res = await cachedAdminFetch(`${API}/admin/audit-history?${query}`, { headers }, 15000, force);
+      const res = await cachedAdminFetch(`${API}/admin/audit-history?${query}`, { headers }, 3000, force);
       const data = await res.json();
       if (data && Array.isArray(data.history)) {
         if (data.history.length > 0) {
@@ -3105,7 +3211,9 @@ export default function AdminPanel() {
         firstPendingDueDate: issueFirstPendingDueDate || undefined,
         disburseToWallet: issueDisburseToWallet,
         directActive: Number(issuePaidInstallmentsCount) > 0 ? true : undefined,
-        customInstallmentAmount: issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) : undefined
+        customInstallmentAmount: issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) : undefined,
+        backfillEvidenceUrl: issueBackfillEvidenceUrl || undefined,
+        paidInstallmentsList: (Number(issuePaidInstallmentsCount) > 0 && issueBackfillInstallments.length > 0) ? issueBackfillInstallments : undefined
       };
 
       const res = await fetch(`${API}/loan/admin/create-on-behalf`, {
@@ -3124,6 +3232,9 @@ export default function AdminPanel() {
         setIssueNewUser({ name: "", phone: "", email: "", address: "", aadharNumber: "", panNumber: "", referredByAgentId: "", referralCode: "" });
         setIssueDocuments({ doc1Url: "", doc1BackUrl: "", doc2Url: "", doc2BackUrl: "", chequeUrl: "", chequeBackUrl: "" });
         setIssuePaidInstallmentsCount(0);
+        setIssueBackfillEvidenceUrl("");
+        setIssueBackfillEvidenceName("");
+        setIssueBackfillInstallments([]);
         setIssueFirstPendingDueDate("");
         setIssueCustomInstallmentAmount("");
         setIssueDisburseToWallet(false);
@@ -8942,8 +9053,9 @@ export default function AdminPanel() {
                           const chequeBack = docs.chequeBackUrl || docs.bearerChequeBackUrl;
                           const studentFront = docs.studentProofUrl;
                           const studentBack = docs.studentProofBackUrl;
+                          const offlineProof = docs.offlineEvidenceUrl || l.documents?.offlineEvidenceUrl;
 
-                          const hasAny = Boolean(aadharFront || aadharBack || panFront || panBack || chequeFront || chequeBack || studentFront || studentBack);
+                          const hasAny = Boolean(aadharFront || aadharBack || panFront || panBack || chequeFront || chequeBack || studentFront || studentBack || offlineProof);
                           if (!hasAny) return null;
 
                           return (
@@ -8959,6 +9071,15 @@ export default function AdminPanel() {
                                 )}
                               </div>
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                                {offlineProof && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setLightboxImg(offlineProof); setZoomLevel(1); }}
+                                    className="flex items-center justify-center gap-1 px-2 py-2 bg-emerald-50 border border-emerald-300 rounded-lg text-[11px] font-bold text-emerald-900 hover:bg-emerald-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                                  >
+                                    <span>🧾</span> Offline Slip 🔍
+                                  </button>
+                                )}
                                 {aadharFront && (
                                   <button
                                     type="button"
@@ -9238,9 +9359,16 @@ export default function AdminPanel() {
                                             </div>
                                           )}
                                           {isPaid && (
-                                            <div className="flex justify-between text-emerald-700 font-semibold">
-                                              <span>Paid on:</span>
-                                              <span>{inst.paidOn ? new Date(inst.paidOn).toLocaleDateString("en-IN") : "Verified"}</span>
+                                            <div className="space-y-0.5">
+                                              <div className="flex justify-between text-emerald-700 font-semibold">
+                                                <span>Paid on:</span>
+                                                <span>{inst.paidOn ? new Date(inst.paidOn).toLocaleDateString("en-IN") : "Verified"}</span>
+                                              </div>
+                                              {inst.paymentMethod && (
+                                                <div className="text-[10px] text-emerald-800 font-bold uppercase">
+                                                  Mode: {inst.paymentMethod}
+                                                </div>
+                                              )}
                                             </div>
                                           )}
                                           {inst.utrNumber && (
@@ -9257,6 +9385,15 @@ export default function AdminPanel() {
 
                                         {/* Actions */}
                                         <div className="flex flex-col gap-1.5 pt-1 border-t border-gray-200/50">
+                                          {isPaid && inst.proofUrl && (
+                                            <button
+                                              type="button"
+                                              onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
+                                              className="w-full py-1 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold border border-emerald-300 flex items-center justify-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
+                                            >
+                                              <span>🧾</span> View Payment Slip / Receipt 🔍
+                                            </button>
+                                          )}
                                           {isSubmitted && (
                                             <>
                                               {inst.proofUrl && (
@@ -10665,10 +10802,7 @@ export default function AdminPanel() {
                             min="0"
                             max={count}
                             value={issuePaidInstallmentsCount}
-                            onChange={(e) => {
-                              const val = Math.max(0, parseInt(e.target.value) || 0);
-                              setIssuePaidInstallmentsCount(val);
-                            }}
+                            onChange={(e) => updateBackfillCount(e.target.value, installmentAmt)}
                             placeholder="e.g. 4"
                             className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 font-bold"
                           />
@@ -10708,6 +10842,165 @@ export default function AdminPanel() {
                           </span>
                         </div>
                       </div>
+
+                      {/* Main Offline Payment Proof / Evidence Slip Upload */}
+                      <div className="p-3 bg-white/80 rounded-xl border border-blue-200/70 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-blue-950 flex items-center gap-1.5">
+                            <span>🧾</span> Offline Payment Evidence / Slip (Photo / Receipt)
+                          </label>
+                          {issueBackfillEvidenceUrl && (
+                            <button
+                              type="button"
+                              onClick={() => { setIssueBackfillEvidenceUrl(""); setIssueBackfillEvidenceName(""); }}
+                              className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer"
+                            >
+                              ✕ Remove Evidence
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <label className="px-3 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition shrink-0 active:scale-95 shadow-2xs">
+                            <span>📷</span> Attach Evidence / Receipt
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleBackfillEvidenceUpload(e.target.files?.[0])}
+                            />
+                          </label>
+                          {issueBackfillEvidenceUrl ? (
+                            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl flex-1 truncate">
+                              <span className="text-emerald-700 text-xs font-bold">✓ Attached:</span>
+                              <span className="text-[11px] text-emerald-900 font-mono truncate flex-1">{issueBackfillEvidenceName || "Receipt Photo"}</span>
+                              <button
+                                type="button"
+                                onClick={() => { setLightboxImg(issueBackfillEvidenceUrl); setZoomLevel(1); }}
+                                className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 transition cursor-pointer shrink-0"
+                              >
+                                View 🔍
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-gray-500">
+                              (Bank passbook / cash voucher / UPI payment screenshot attach karein)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Kist-by-Kist Paid List with + Icon */}
+                      {Number(issuePaidInstallmentsCount) > 0 && (
+                        <div className="p-3 bg-white/90 rounded-xl border border-blue-200/80 space-y-2.5">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="text-xs font-black text-blue-950 flex items-center gap-1.5">
+                              <span>📋</span> Kist-by-Kist Paid Details ({issueBackfillInstallments.length} Kistein)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => addBackfillInstallment(installmentAmt)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
+                            >
+                              <span>➕</span> Kist Jodein (Add Kist)
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-gray-500">
+                            Aap har ek bhari hui kist ka alag amount, payment date, mode (Cash/UPI), aur slip UTR darj kar sakte hain. Dono user aur admin ko show hoga:
+                          </p>
+                          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                            {issueBackfillInstallments.map((item, idx) => (
+                              <div key={idx} className="p-2.5 bg-blue-50/40 border border-blue-100 rounded-xl space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-extrabold text-xs text-blue-900">
+                                    Kist #{item.installmentNo}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeBackfillInstallment(idx)}
+                                    className="text-rose-500 hover:text-rose-700 text-xs font-black px-1.5 py-0.5 rounded cursor-pointer"
+                                    title="Hataayein"
+                                  >
+                                    ✕ Hataayein
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                  <div>
+                                    <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Amount (₹)</label>
+                                    <input
+                                      type="number"
+                                      value={item.amount}
+                                      onChange={(e) => updateBackfillInstallmentField(idx, "amount", Number(e.target.value) || 0)}
+                                      className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-900"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Payment Date</label>
+                                    <input
+                                      type="date"
+                                      value={item.paidOn || ""}
+                                      onChange={(e) => updateBackfillInstallmentField(idx, "paidOn", e.target.value)}
+                                      className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 font-semibold"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] font-bold text-gray-600 block mb-0.5">Payment Mode</label>
+                                    <select
+                                      value={item.paymentMethod || "cash"}
+                                      onChange={(e) => updateBackfillInstallmentField(idx, "paymentMethod", e.target.value)}
+                                      className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 font-semibold"
+                                    >
+                                      <option value="cash">💵 Cash at Office</option>
+                                      <option value="upi">📱 UPI / QR</option>
+                                      <option value="bank_transfer">🏦 Bank Transfer</option>
+                                      <option value="cheque">🧾 Cheque</option>
+                                      <option value="offline">⚡ Offline Recorded</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] font-bold text-gray-600 block mb-0.5">UTR / Slip Ref</label>
+                                    <input
+                                      type="text"
+                                      value={item.utrNumber || ""}
+                                      onChange={(e) => updateBackfillInstallmentField(idx, "utrNumber", e.target.value)}
+                                      placeholder="e.g. 439012384910"
+                                      className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-blue-100/60 text-xs">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <label className="px-2 py-1 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-[11px] font-bold text-blue-700 cursor-pointer flex items-center gap-1 shadow-2xs">
+                                      <span>📷</span> Kist Receipt
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => handleBackfillEvidenceUpload(e.target.files?.[0], idx)}
+                                      />
+                                    </label>
+                                    {item.evidenceUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { setLightboxImg(item.evidenceUrl); setZoomLevel(1); }}
+                                        className="text-[10px] text-emerald-700 font-bold underline flex items-center gap-0.5 cursor-pointer"
+                                      >
+                                        <span>✓</span> View Receipt (Zoom 🔍)
+                                      </button>
+                                    )}
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={item.note || ""}
+                                    onChange={(e) => updateBackfillInstallmentField(idx, "note", e.target.value)}
+                                    placeholder="Kist remark / note (optional)"
+                                    className="flex-1 px-2 py-1 bg-white border border-gray-200 rounded-lg text-[11px] text-gray-700"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="pt-2 border-t border-blue-200/60 flex items-center gap-2">
                         <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-800">

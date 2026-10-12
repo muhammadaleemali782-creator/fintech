@@ -1261,7 +1261,9 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
       directActive,
       disburseToWallet,
       customInstallmentAmount,
-      customTotalPayable
+      customTotalPayable,
+      backfillEvidenceUrl,
+      paidInstallmentsList
     } = req.body;
 
     const count = Math.min(Math.max(Number(installmentsCount) || 15, 1), 120);
@@ -1302,17 +1304,43 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
     }
 
     const schedule = [];
-    // 1. Add already paid installments
-    for (let i = 1; i <= paidCount; i++) {
-      schedule.push({
-        installmentNo: i,
-        month: i,
-        dueDate: new Date(Date.now() - (paidCount - i + 1) * (isDaily ? 1 : 10) * 86400000),
-        amount: instAmt,
-        status: 'paid',
-        paidOn: new Date(),
-        adminEvidenceNote: 'Pre-existing offline installment marked as Paid by Admin'
+    let customPaidTotal = 0;
+    // 1. Add already paid installments (from list or loop)
+    if (Array.isArray(paidInstallmentsList) && paidInstallmentsList.length > 0) {
+      paidInstallmentsList.slice(0, paidCount).forEach((p, idx) => {
+        const kistNo = p.installmentNo || (idx + 1);
+        const kistAmt = p.amount ? Number(p.amount) : instAmt;
+        customPaidTotal += kistAmt;
+        schedule.push({
+          installmentNo: kistNo,
+          month: kistNo,
+          dueDate: p.paidOn ? new Date(p.paidOn) : new Date(Date.now() - (paidCount - idx) * (isDaily ? 1 : 10) * 86400000),
+          amount: kistAmt,
+          status: 'paid',
+          paidOn: p.paidOn ? new Date(p.paidOn) : new Date(),
+          paymentMethod: p.paymentMethod || 'cash',
+          utrNumber: p.utrNumber ? String(p.utrNumber).trim() : '',
+          proofUrl: p.evidenceUrl || p.proofUrl || backfillEvidenceUrl || '',
+          approvedBy: req.user.name || 'Admin',
+          adminEvidenceNote: p.note || p.adminEvidenceNote || 'Offline installment verified by Admin'
+        });
       });
+    } else {
+      for (let i = 1; i <= paidCount; i++) {
+        customPaidTotal += instAmt;
+        schedule.push({
+          installmentNo: i,
+          month: i,
+          dueDate: new Date(Date.now() - (paidCount - i + 1) * (isDaily ? 1 : 10) * 86400000),
+          amount: instAmt,
+          status: 'paid',
+          paidOn: new Date(),
+          paymentMethod: 'cash',
+          proofUrl: backfillEvidenceUrl || '',
+          approvedBy: req.user.name || 'Admin',
+          adminEvidenceNote: 'Pre-existing offline installment marked as Paid by Admin'
+        });
+      }
     }
 
     // 2. Add remaining pending installments
@@ -1326,7 +1354,7 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
       });
     }
 
-    const totalPaidAmount = Number((paidCount * instAmt).toFixed(2));
+    const totalPaidAmount = Number((customPaidTotal || (paidCount * instAmt)).toFixed(2));
     const remainingAmount = Math.max(0, Number((totPayable - totalPaidAmount).toFixed(2)));
     const isDirectActive = directActive !== undefined ? Boolean(directActive) : (paidCount > 0);
     const shouldDisburse = disburseToWallet !== undefined ? Boolean(disburseToWallet) : (paidCount === 0);
@@ -1375,6 +1403,8 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
         chequeNumber: chequeNumber ? String(chequeNumber).trim() : (targetUser.kycDocuments?.chequeNumber || ''),
         chequeUrl: req.body.documents?.chequeUrl || targetUser.kycDocuments?.chequeUrl || '',
         chequeBackUrl: req.body.documents?.chequeBackUrl || targetUser.kycDocuments?.chequeBackUrl || '',
+        offlineEvidenceUrl: req.body.backfillEvidenceUrl || '',
+        offlineEvidenceNote: req.body.adminNote || '',
         adminNotes: adminNote || `Loan applied by Admin on behalf of borrower (${borrowerType === 'new' ? 'New User' : 'Existing Customer'}${paidCount > 0 ? `, ${paidCount} kist already paid` : ''})`
       }
     });
@@ -1811,7 +1841,23 @@ router.get('/all', protect, admin, async (req, res) => {
         }
       }
     }
-    res.json(loans);
+    const cleanLoans = loans.map(l => {
+      const obj = l.toObject ? l.toObject() : { ...l };
+      if (obj.userId && obj.userId.kycDocuments) {
+        obj.userId.kycDocuments = {
+          ...obj.userId.kycDocuments,
+          doc1Url: decryptData(obj.userId.kycDocuments.doc1Url || obj.userId.kycDocuments.docUrl || ''),
+          doc1BackUrl: decryptData(obj.userId.kycDocuments.doc1BackUrl || ''),
+          doc2Url: decryptData(obj.userId.kycDocuments.doc2Url || ''),
+          doc2BackUrl: decryptData(obj.userId.kycDocuments.doc2BackUrl || ''),
+          chequeUrl: decryptData(obj.userId.kycDocuments.chequeUrl || ''),
+          chequeBackUrl: decryptData(obj.userId.kycDocuments.chequeBackUrl || ''),
+          docUrl: decryptData(obj.userId.kycDocuments.docUrl || '')
+        };
+      }
+      return obj;
+    });
+    res.json(cleanLoans);
     if (pendingSaves.length > 0) {
       Promise.all(pendingSaves).catch(err => console.warn('Background loan sync save error:', err.message));
     }

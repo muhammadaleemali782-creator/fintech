@@ -315,14 +315,35 @@ router.post('/transaction/:id/reject', protect, admin, async (req, res) => {
   }
 });
 
-// All users
+// All users (With in-memory decrypted KYC documents for 0ms instant display)
 router.get('/users', protect, admin, async (req, res) => {
   try {
     const users = await User.find()
       .select('-password')
       .populate('referredBy', 'name email phone referralCode agentProfile')
-      .sort({ createdAt: -1 });
-    res.json(users);
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const cleanUsers = users.map(u => {
+      if (u.kycDocuments) {
+        return {
+          ...u,
+          kycDocuments: {
+            ...u.kycDocuments,
+            doc1Url: decryptData(u.kycDocuments.doc1Url || u.kycDocuments.docUrl || ''),
+            doc1BackUrl: decryptData(u.kycDocuments.doc1BackUrl || ''),
+            doc2Url: decryptData(u.kycDocuments.doc2Url || ''),
+            doc2BackUrl: decryptData(u.kycDocuments.doc2BackUrl || ''),
+            chequeUrl: decryptData(u.kycDocuments.chequeUrl || ''),
+            chequeBackUrl: decryptData(u.kycDocuments.chequeBackUrl || ''),
+            docUrl: decryptData(u.kycDocuments.docUrl || '')
+          }
+        };
+      }
+      return u;
+    });
+
+    res.json(cleanUsers);
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
   }

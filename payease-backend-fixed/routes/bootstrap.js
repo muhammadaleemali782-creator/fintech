@@ -8,6 +8,7 @@ const Settings = require('../models/Settings');
 const Device = require('../models/Device');
 const memoryCache = require('../utils/cache');
 const { processDailyYield } = require('./user');
+const { decryptData } = require('../utils/cryptoHelper');
 
 const router = express.Router();
 
@@ -245,6 +246,47 @@ router.get('/admin', protect, admin, async (req, res) => {
       settingsRes.value.forEach(s => settingsMap[s.key] = s.value);
     }
 
+    const cleanUsers = users.map(u => {
+      if (u.kycDocuments) {
+        return {
+          ...u,
+          kycDocuments: {
+            ...u.kycDocuments,
+            doc1Url: decryptData(u.kycDocuments.doc1Url || u.kycDocuments.docUrl || ''),
+            doc1BackUrl: decryptData(u.kycDocuments.doc1BackUrl || ''),
+            doc2Url: decryptData(u.kycDocuments.doc2Url || ''),
+            doc2BackUrl: decryptData(u.kycDocuments.doc2BackUrl || ''),
+            chequeUrl: decryptData(u.kycDocuments.chequeUrl || ''),
+            chequeBackUrl: decryptData(u.kycDocuments.chequeBackUrl || ''),
+            docUrl: decryptData(u.kycDocuments.docUrl || '')
+          }
+        };
+      }
+      return u;
+    });
+
+    const cleanLoans = loans.map(l => {
+      if (l.userId && l.userId.kycDocuments) {
+        return {
+          ...l,
+          userId: {
+            ...l.userId,
+            kycDocuments: {
+              ...l.userId.kycDocuments,
+              doc1Url: decryptData(l.userId.kycDocuments.doc1Url || l.userId.kycDocuments.docUrl || ''),
+              doc1BackUrl: decryptData(l.userId.kycDocuments.doc1BackUrl || ''),
+              doc2Url: decryptData(l.userId.kycDocuments.doc2Url || ''),
+              doc2BackUrl: decryptData(l.userId.kycDocuments.doc2BackUrl || ''),
+              chequeUrl: decryptData(l.userId.kycDocuments.chequeUrl || ''),
+              chequeBackUrl: decryptData(l.userId.kycDocuments.chequeBackUrl || ''),
+              docUrl: decryptData(l.userId.kycDocuments.docUrl || '')
+            }
+          }
+        };
+      }
+      return l;
+    });
+
     const payload = {
       analytics: {
         totalUsers,
@@ -253,12 +295,12 @@ router.get('/admin', protect, admin, async (req, res) => {
         totalProfitCredited: totalUserProfits,
         pendingTxns: pendingTxns.length,
         activeLoans: activeLoansCount,
-        recentUsers: users.slice(0, 10)
+        recentUsers: cleanUsers.slice(0, 10)
       },
-      users,
+      users: cleanUsers,
       pendingTxns,
       holdTxns: holdTxnsRes.status === 'fulfilled' ? holdTxnsRes.value : [],
-      loans,
+      loans: cleanLoans,
       bonds,
       agentApplications: agentsRes.status === 'fulfilled' ? agentsRes.value : [],
       devices: devicesRes.status === 'fulfilled' ? devicesRes.value : [],

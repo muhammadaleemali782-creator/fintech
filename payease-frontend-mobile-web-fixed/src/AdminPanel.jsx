@@ -46,7 +46,12 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 45000, forceRefresh =
     const controller = new AbortController();
     const timeoutTimer = setTimeout(() => controller.abort(), 45000);
     try {
-      const res = await fetch(url, { ...options, signal: controller.signal });
+      const requestHeaders = {
+        ...(options.headers || {}),
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache"
+      };
+      const res = await fetch(url, { ...options, headers: requestHeaders, signal: controller.signal });
       clearTimeout(timeoutTimer);
       if (res.ok) {
         try {
@@ -2032,9 +2037,9 @@ export default function AdminPanel() {
     loadAnalytics(true);
   }, [loadBootstrapAdmin, loadAnalytics]);
 
-  // PRIORITY LOADING: Cached render first + single bootstrap fetch + background interval
+  // PRIORITY LOADING: Instant cached render + immediate live background fetch + auto-sync
   useEffect(() => {
-    loadBootstrapAdmin(false);
+    loadBootstrapAdmin(true);
     loadAnalytics(true);
   }, []); // eslint-disable-line
 
@@ -2065,7 +2070,7 @@ export default function AdminPanel() {
     };
   }, [loadBootstrapAdmin]);
 
-  // LAZY LOADING: Sections fetch when admin navigates to that tab
+  // LIVE DESK SYNC: Every tab switch immediately fetches fresh live data from server
   useEffect(() => {
     let analyticsInterval = null;
     if (tab === "analytics") {
@@ -2081,28 +2086,28 @@ export default function AdminPanel() {
       loadLoans(true);
       loadBonds(true);
       loadHoldData(true);
-      loadDepositDetails();
+      loadDepositDetails(true);
     } else if (tab === "agents") {
-      loadAgents();
+      loadAgents(true);
     } else if (tab === "loans") {
-      loadLoans();
+      loadLoans(true);
     } else if (tab === "bonds" || tab === "lending") {
-      loadBonds();
+      loadBonds(true);
     } else if (tab === "devices") {
-      loadDevices();
+      loadDevices(true);
     } else if (tab === "settings") {
-      loadSettings();
-      loadDepositDetails();
+      loadSettings(true);
+      loadDepositDetails(true);
     } else if (tab === "issue-loan") {
-      loadLoans();
-      loadAgents();
-      loadUsers();
+      loadLoans(true);
+      loadAgents(true);
+      loadUsers(true);
     } else if (tab === "kyc" || tab === "users") {
       loadUsers(true);
     } else if (tab === "alerts") {
-      loadNotifications();
+      loadNotifications(true);
     } else if (tab === "history") {
-      loadAuditHistory();
+      loadAuditHistory(true);
     }
 
     return () => {
@@ -3580,17 +3585,9 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* Primary Action Quick-Access Desks (Smooth Horizontal Scroll on Mobile) */}
+            {/* Primary Action Quick-Access Desks (Smooth Horizontal Scroll on Mobile - ALL 12 Desks Permanent) */}
             <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-100 overflow-x-auto no-scrollbar pb-0.5">
-              {[
-                { key: "analytics", label: "Reserves", icon: "📊" },
-                { key: "pending", label: "Pending", icon: "⏳", badge: totalPendingDeskCount },
-                { key: "loans", label: "Loans", icon: "🏛️", badge: activeLoansCount },
-                { key: "issue-loan", label: "⚡ Issue Loan", icon: "➕" },
-                { key: "kyc", label: "KYC", icon: "📄", badge: pendingKycCount },
-                { key: "users", label: "Users", icon: "👥" },
-                { key: "history", label: "History", icon: "📜" },
-              ].map(({ key, label, icon, badge }) => (
+              {tabs.map(({ key, label, icon, badge }) => (
                 <button
                   key={key}
                   type="button"

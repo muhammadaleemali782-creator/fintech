@@ -388,8 +388,14 @@ export async function smartFetch(url, options = {}, config = {}) {
       const timer = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
+        const reqHeaders = {
+          ...(options.headers || {}),
+          "Cache-Control": "no-cache",
+          "Pragma": "no-cache"
+        };
         const res = await fetch(url, {
           ...options,
+          headers: reqHeaders,
           signal: controller.signal
         });
         clearTimeout(timer);

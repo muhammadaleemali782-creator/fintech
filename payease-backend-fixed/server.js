@@ -219,6 +219,15 @@ app.get(['/health', '/api/health'], (req, res) => {
 // Disable Express ETag so client fetch() always receives complete 200 OK JSON bodies
 app.set('etag', false);
 
+// ------------------ FRESH LIVE DATA (PREVENTS STALE BROWSER CACHE) ------------------
+// Mobile browsers and PWAs must never serve stale HTTP responses for API queries
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 // ------------------ ROUTES ------------------
 app.use('/api/bootstrap', require('./routes/bootstrap'));
 app.use('/api/auth', require('./routes/auth'));

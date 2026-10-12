@@ -1294,9 +1294,21 @@ export default function AdminPanel() {
   const [issueBackfillEvidenceName, setIssueBackfillEvidenceName] = useState("");
   const [issueBackfillInstallments, setIssueBackfillInstallments] = useState([]);
 
+  const getNextCycleDate = (base = new Date()) => {
+    const d = new Date(base);
+    d.setDate(d.getDate() + 1);
+    while (!(d.getDate() === 1 || d.getDate() === 11 || d.getDate() === 21)) {
+      d.setDate(d.getDate() + 1);
+    }
+    return d.toISOString().split("T")[0];
+  };
+
   const updateBackfillCount = (newCount, defaultAmt = 0) => {
     const val = Math.max(0, parseInt(newCount) || 0);
     setIssuePaidInstallmentsCount(val);
+    if (val > 0 && !issueFirstPendingDueDate) {
+      setIssueFirstPendingDueDate(getNextCycleDate());
+    }
     setIssueBackfillInstallments(prev => {
       const arr = [...prev];
       if (arr.length < val) {
@@ -1319,6 +1331,9 @@ export default function AdminPanel() {
   };
 
   const addBackfillInstallment = (defaultAmt = 0) => {
+    if (!issueFirstPendingDueDate) {
+      setIssueFirstPendingDueDate(getNextCycleDate());
+    }
     setIssueBackfillInstallments(prev => {
       const nextNo = prev.length + 1;
       setIssuePaidInstallmentsCount(nextNo);
@@ -9480,6 +9495,51 @@ export default function AdminPanel() {
             const upiCharges = Math.round((amt * 1) / 100);
             const netDisbursal = Math.max(0, amt - (procFee + upiCharges));
 
+            const paidNum = Math.max(0, Math.min(Number(issuePaidInstallmentsCount) || 0, count));
+            const remainingNum = Math.max(0, count - paidNum);
+            const effectivePerInst = issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) : installmentAmt;
+
+            // Generate real-time upcoming automatic schedule preview
+            const upcomingSchedulePreview = [];
+            if (remainingNum > 0) {
+              let start = issueFirstPendingDueDate ? new Date(issueFirstPendingDueDate) : new Date();
+              if (isNaN(start.getTime())) start = new Date();
+              start.setHours(10, 0, 0, 0);
+
+              const isDaily = (issueLoanType === "micro_business");
+              const startDay = start.getDate();
+              const followStandardCycle = (startDay === 1 || startDay === 11 || startDay === 21);
+              let cur = new Date(start);
+
+              for (let i = 0; i < remainingNum; i++) {
+                const kistNo = paidNum + i + 1;
+                if (i > 0) {
+                  if (isDaily) {
+                    cur.setDate(cur.getDate() + 1);
+                  } else if (followStandardCycle) {
+                    cur.setDate(cur.getDate() + 1);
+                    while (!(cur.getDate() === 1 || cur.getDate() === 11 || cur.getDate() === 21)) {
+                      cur.setDate(cur.getDate() + 1);
+                    }
+                  } else {
+                    cur.setDate(cur.getDate() + 10);
+                  }
+                }
+                const d = new Date(cur);
+                upcomingSchedulePreview.push({
+                  installmentNo: kistNo,
+                  dueDate: d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+                  dueDateRaw: d.toISOString().split("T")[0],
+                  amount: effectivePerInst,
+                  status: "pending"
+                });
+              }
+            }
+
+            const livePaidSum = issueBackfillInstallments.slice(0, paidNum).reduce((acc, curr) => acc + (Number(curr.amount) || installmentAmt), 0);
+            const liveRemainingSum = remainingNum * effectivePerInst;
+            const liveTotalPayable = livePaidSum + liveRemainingSum;
+
             const filteredSearchUsers = users.filter(u => {
               const lineage = getUserLineage(u, users, agents);
 
@@ -10815,7 +10875,7 @@ export default function AdminPanel() {
                               <span>➕</span> Kist Jodein
                             </button>
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => {
@@ -10824,7 +10884,7 @@ export default function AdminPanel() {
                                 }
                               }}
                               disabled={issuePaidInstallmentsCount <= 0}
-                              className="w-9 h-9 bg-slate-200 hover:bg-slate-300 disabled:opacity-40 text-slate-800 font-black text-base rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition shrink-0"
+                              className="w-11 h-11 sm:w-9 sm:h-9 bg-slate-200 hover:bg-slate-300 disabled:opacity-40 text-slate-800 font-black text-lg sm:text-base rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition shrink-0 touch-manipulation"
                               title="Ek kist kam karein (-)"
                             >
                               −
@@ -10836,12 +10896,12 @@ export default function AdminPanel() {
                               value={issuePaidInstallmentsCount}
                               onChange={(e) => updateBackfillCount(e.target.value, installmentAmt)}
                               placeholder="0"
-                              className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 font-black text-center"
+                              className="flex-1 h-11 sm:h-9 px-3 bg-white border border-gray-300 rounded-xl text-sm sm:text-xs text-gray-900 font-black text-center"
                             />
                             <button
                               type="button"
                               onClick={() => addBackfillInstallment(installmentAmt)}
-                              className="w-9 h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition shrink-0 shadow-2xs"
+                              className="w-11 h-11 sm:w-9 sm:h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg sm:text-base rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition shrink-0 shadow-2xs touch-manipulation"
                               title="Nayi kist jodein (+)"
                             >
                               +
@@ -10860,7 +10920,7 @@ export default function AdminPanel() {
                             type="date"
                             value={issueFirstPendingDueDate}
                             onChange={(e) => setIssueFirstPendingDueDate(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 font-semibold"
+                            className="w-full h-11 sm:h-9 px-3 bg-white border border-gray-300 rounded-xl text-sm sm:text-xs text-gray-900 font-semibold"
                           />
                           <span className="text-[10px] text-gray-500 block mt-0.5">
                             Kist #{Number(issuePaidInstallmentsCount) + 1} kab due hogi
@@ -10876,7 +10936,7 @@ export default function AdminPanel() {
                             value={issueCustomInstallmentAmount}
                             onChange={(e) => setIssueCustomInstallmentAmount(e.target.value)}
                             placeholder={`Auto: ₹${installmentAmt}`}
-                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs text-gray-900 font-bold"
+                            className="w-full h-11 sm:h-9 px-3 bg-white border border-gray-300 rounded-xl text-sm sm:text-xs text-gray-900 font-bold"
                           />
                           <span className="text-[10px] text-gray-500 block mt-0.5">
                             Khali rakhein toh auto ₹{installmentAmt}
@@ -11061,6 +11121,42 @@ export default function AdminPanel() {
                         </div>
                       )}
 
+                      {/* Upcoming Automatic Installments Live Preview */}
+                      {remainingNum > 0 && (
+                        <div className="p-3 sm:p-3.5 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-2.5 shadow-md">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                              <span>🔮</span> Agli Automatic Kistein ({remainingNum} Kistein Schedule)
+                            </span>
+                            <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 font-bold px-2.5 py-0.5 rounded-full">
+                              Next Due: {upcomingSchedulePreview[0]?.dueDate || "Auto Cycle"} • ₹{effectivePerInst.toLocaleString("en-IN")}/kist
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-300 leading-relaxed">
+                            Aapki set ki hui <strong>Next Due Date</strong> ({issueFirstPendingDueDate || "Auto 10-day cycle"}) aur <strong>₹{effectivePerInst.toLocaleString("en-IN")}</strong> ke anusar aage ki saari kistein automatically generate ho gayi hain:
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-56 overflow-y-auto pr-1">
+                            {upcomingSchedulePreview.map((item) => (
+                              <div
+                                key={item.installmentNo}
+                                className="p-2.5 bg-slate-800/90 border border-slate-700/80 rounded-xl space-y-1 text-center"
+                              >
+                                <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold border-b border-slate-700 pb-1">
+                                  <span>Kist #{item.installmentNo}</span>
+                                  <span className="text-amber-400">⏳ Due</span>
+                                </div>
+                                <div className="font-black text-emerald-400 text-xs font-mono">
+                                  ₹{item.amount.toLocaleString("en-IN")}
+                                </div>
+                                <div className="text-[10px] text-slate-300 font-semibold truncate" title={item.dueDate}>
+                                  📅 {item.dueDate}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="pt-2 border-t border-blue-200/60 flex items-center gap-2">
                         <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-800">
                           <input
@@ -11080,7 +11176,7 @@ export default function AdminPanel() {
 
                   {/* Step 3: Real-Time Calculated Quote Summary Box */}
                   <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200/90 text-slate-900 rounded-2xl space-y-4 shadow-2xs">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
                       <div>
                         <span className="text-[10px] font-black tracking-wider uppercase text-blue-700 block">
                           Real-Time Quote Breakdown
@@ -11099,13 +11195,15 @@ export default function AdminPanel() {
                       </div>
                       <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
                         <span className="text-slate-500 block text-[10px] font-bold">Per Installment (Kist)</span>
-                        <span className="text-base font-black text-emerald-600 font-mono">₹{(issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) : installmentAmt).toLocaleString("en-IN")}</span>
+                        <span className="text-base font-black text-emerald-600 font-mono">₹{effectivePerInst.toLocaleString("en-IN")}</span>
                         <span className="text-[9px] text-slate-400 block">Har 10 din par</span>
                       </div>
                       <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
                         <span className="text-slate-500 block text-[10px] font-bold">Total Payable ({count} Kist)</span>
-                        <span className="text-base font-black text-amber-700 font-mono">₹{(issueCustomInstallmentAmount ? Number(issueCustomInstallmentAmount) * count : totalPayable).toLocaleString("en-IN")}</span>
-                        <span className="text-[9px] text-slate-400 block">Interest: ₹{totalInterest.toLocaleString("en-IN")}</span>
+                        <span className="text-base font-black text-amber-700 font-mono">₹{liveTotalPayable.toLocaleString("en-IN")}</span>
+                        <span className="text-[9px] text-slate-400 block">
+                          {paidNum > 0 ? `Paid: ₹${livePaidSum.toLocaleString("en-IN")} • Due: ₹${liveRemainingSum.toLocaleString("en-IN")}` : `Interest: ₹${totalInterest.toLocaleString("en-IN")}`}
+                        </span>
                       </div>
                       <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
                         <span className="text-slate-500 block text-[10px] font-bold">Net Disbursal Amount</span>

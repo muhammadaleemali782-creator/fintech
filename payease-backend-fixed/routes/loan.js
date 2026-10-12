@@ -1289,12 +1289,18 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
           remainingDates.push(d);
         }
       } else {
+        const startDay = pendingStart.getDate();
+        const followStandardCycle = (startDay === 1 || startDay === 11 || startDay === 21);
         let cur = new Date(pendingStart);
         remainingDates.push(new Date(cur));
         for (let i = 1; i < remainingCount; i++) {
-          cur.setDate(cur.getDate() + 1);
-          while (!(cur.getDate() === 1 || cur.getDate() === 11 || cur.getDate() === 21)) {
+          if (followStandardCycle) {
             cur.setDate(cur.getDate() + 1);
+            while (!(cur.getDate() === 1 || cur.getDate() === 11 || cur.getDate() === 21)) {
+              cur.setDate(cur.getDate() + 1);
+            }
+          } else {
+            cur.setDate(cur.getDate() + 10);
           }
           const d = new Date(cur);
           d.setHours(10, 0, 0, 0);
@@ -1355,7 +1361,9 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
     }
 
     const totalPaidAmount = Number((customPaidTotal || (paidCount * instAmt)).toFixed(2));
-    const remainingAmount = Math.max(0, Number((totPayable - totalPaidAmount).toFixed(2)));
+    const totalRemainingAmount = Number((remainingCount * instAmt).toFixed(2));
+    const finalTotalPayable = customTotalPayable ? Number(customTotalPayable) : Number((totalPaidAmount + totalRemainingAmount).toFixed(2));
+    const remainingAmount = Math.max(0, Number((finalTotalPayable - totalPaidAmount).toFixed(2)));
     const isDirectActive = directActive !== undefined ? Boolean(directActive) : (paidCount > 0);
     const shouldDisburse = disburseToWallet !== undefined ? Boolean(disburseToWallet) : (paidCount === 0);
     const disbursalPayout = quote.disbursalAmount || Math.max(0, numAmount - (quote.processingFee || 0) - (quote.upiCharges || 0));
@@ -1379,9 +1387,9 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
       upiCharges: quote.upiCharges,
       advanceDeduction: 0,
       disbursalAmount: disbursalPayout,
-      totalPayable: totPayable,
+      totalPayable: finalTotalPayable,
       paidAmount: totalPaidAmount,
-      remainingAmount: isDirectActive ? remainingAmount : totPayable,
+      remainingAmount: isDirectActive ? remainingAmount : finalTotalPayable,
       hasChequeFacility: Boolean(hasChequeFacility),
       chequeNumber: chequeNumber ? String(chequeNumber).trim() : '',
       status: isDirectActive ? 'active' : 'pending',

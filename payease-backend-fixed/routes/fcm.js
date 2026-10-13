@@ -16,7 +16,7 @@ router.post('/register-token', async (req, res) => {
 
     let updatedUser = null;
 
-    // If request contains authorization header (Bearer token)
+    // Verify user authorization if associating with a user account
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       try {
         const jwt = require('jsonwebtoken');
@@ -25,24 +25,18 @@ router.post('/register-token', async (req, res) => {
           updatedUser = await User.findByIdAndUpdate(decoded.id, { fcmToken: targetToken }, { new: true });
         }
       } catch (e) {
-        // Auth token optional for initial FCM registration
+        return res.status(401).json({ message: 'Invalid or expired auth token' });
       }
+    } else if (userId) {
+      return res.status(401).json({ message: 'Authentication required to register user push token' });
     }
 
-    const mongoose = require('mongoose');
-    if (!updatedUser && userId && mongoose.isValidObjectId(userId)) {
-      updatedUser = await User.findByIdAndUpdate(userId, { fcmToken: targetToken }, { new: true });
-    }
-
-    // Save to Device record as well
+    // Save to Device record with strict credential verification
     const Device = require('../models/Device');
     let updatedDevice = null;
-    if (deviceId) {
-      updatedDevice = await Device.findOneAndUpdate({ deviceId }, { fcmToken: targetToken }, { new: true });
-    }
     const devTokenHeader = req.headers['x-device-token'];
-    if (!updatedDevice && devTokenHeader) {
-      updatedDevice = await Device.findOneAndUpdate({ deviceToken: devTokenHeader }, { fcmToken: targetToken }, { new: true });
+    if (deviceId && devTokenHeader) {
+      updatedDevice = await Device.findOneAndUpdate({ deviceId, deviceToken: devTokenHeader }, { fcmToken: targetToken }, { new: true });
     }
 
     return res.json({

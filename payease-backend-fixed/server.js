@@ -197,15 +197,38 @@ const forgotPasswordLimiter = rateLimit({
 });
 app.use('/api/auth/forgot-password', forgotPasswordLimiter);
 
-// PIN Verification Limiter: Protects 6-digit wallet PIN against brute-forcing
+// Password Reset Limiter: Anti-brute-force on token verification
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many password reset attempts. Please try again after 15 minutes.' }
+});
+app.use('/api/auth/reset-password', resetPasswordLimiter);
+
+// PIN Verification & Reset Limiter: Protects wallet PIN against brute-forcing
 const pinLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Too many incorrect PIN attempts. Locked for 15 minutes.' }
+  message: { message: 'Too many PIN attempts. Locked for 15 minutes.' }
 });
 app.use('/api/user/pin/verify', pinLimiter);
+app.use('/api/user/pin/reset', pinLimiter);
+app.use('/api/user/pin/set', pinLimiter);
+
+// Sensitive Account Mutation Limiter
+const sensitiveAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many password change attempts. Please wait 15 minutes.' }
+});
+app.use('/api/auth/change-password', sensitiveAuthLimiter);
+app.use('/api/user/change-password', sensitiveAuthLimiter);
 
 // Financial Transaction Limiter: Protects money transfers & withdrawals from spam/race conditions
 const txLimiter = rateLimit({

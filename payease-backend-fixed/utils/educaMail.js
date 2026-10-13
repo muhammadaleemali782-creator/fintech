@@ -79,7 +79,11 @@ const verifyEducaMailUser = async (identifier, password) => {
  */
 const syncWithEducaMail = async (identifier, password) => {
   const mailUrl = process.env.MAIL_SERVER_URL || 'https://messages-backend-e6pe.onrender.com';
-  const mailKey = process.env.MAIL_API_KEY || 'educa_mail_master_key_secure';
+  const mailKey = process.env.MAIL_API_KEY;
+  if (!mailKey) {
+    console.warn('MAIL_API_KEY is not set in environment. Skipping remote mail server sync.');
+    return;
+  }
 
   try {
     const parsed = new URL(mailUrl);
@@ -166,15 +170,16 @@ const sendEducaMailMessage = async (to, subject, body) => {
 
   // 2. HTTP POST to Render mail server (Provisioning API)
   const mailUrl = process.env.MAIL_SERVER_URL || 'https://messages-backend-e6pe.onrender.com';
-  const mailKey = process.env.MAIL_API_KEY || 'educa_mail_master_key_secure';
-  const headers = { 'Content-Type': 'application/json', 'X-API-Key': mailKey };
-
-  for (const target of recipientList) {
-    fetch(`${mailUrl}/provision/message`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ to: target, subject, body })
-    }).catch(() => {});
+  const mailKey = process.env.MAIL_API_KEY;
+  if (mailKey) {
+    const headers = { 'Content-Type': 'application/json', 'X-API-Key': mailKey };
+    for (const target of recipientList) {
+      fetch(`${mailUrl}/provision/message`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ to: target, subject, body })
+      }).catch(() => {});
+    }
   }
 
   return true;

@@ -1275,7 +1275,10 @@ router.post('/change-password', protect, async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    if (!user.mustChangePassword && currentPassword) {
+    if (!user.mustChangePassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Current password is required' });
+      }
       const match = await bcrypt.compare(currentPassword, user.password);
       if (!match) {
         return res.status(400).json({ message: 'Current password does not match' });

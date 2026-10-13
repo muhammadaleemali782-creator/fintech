@@ -4,6 +4,8 @@
  * background kills, and phone restarts until user explicitly logs out.
  */
 
+import { API } from "../config";
+
 let inMemoryToken = null;
 
 export const tokenStorage = {
@@ -52,6 +54,7 @@ export const tokenStorage = {
     try {
       localStorage.removeItem("token");
       sessionStorage.removeItem("token");
+      fetch(`${API}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     } catch (e) {}
   },
 

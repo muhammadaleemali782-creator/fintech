@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
 const ALGORITHM = 'aes-256-cbc';
-const SECRET = process.env.JWT_SECRET || 'payease-secret-encryption-key-32-chars-min';
+const SECRET = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET || 'payease-secret-encryption-key-32-chars-min';
 // Derive a 32-byte key using sha256
 const KEY = crypto.createHash('sha256').update(String(SECRET)).digest();
 

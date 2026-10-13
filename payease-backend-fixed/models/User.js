@@ -76,6 +76,8 @@ const userSchema = new mongoose.Schema({
   isUninstallProtected: { type: Boolean, default: false },
   mustChangePassword: { type: Boolean, default: false },
   tempPasswordAssigned: { type: Boolean, default: false },
+  passwordResetNonce: { type: String, default: null },
+  passwordResetExpires: { type: Date, default: null },
   walletPin: { type: String, default: null },
   aadharNumber: { type: String, default: null },
   address: { type: String, default: '' },

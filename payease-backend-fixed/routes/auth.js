@@ -64,17 +64,8 @@ router.post('/register', (req, res, next) => {
       $or: [{ email: cleanEmail }, { phone: phone.trim() }]
     });
     if (exists) {
-      let suggestion = '';
-      if (exists.email && exists.email.toLowerCase() === email.toLowerCase()) {
-        const base = email.split('@')[0].replace(/[^a-z0-9]/g, '');
-        const domain = email.split('@')[1] || 'educa.com';
-        suggestion = `${base}${Math.floor(100 + Math.random() * 900)}@${domain}`;
-      }
       return res.status(400).json({
-        message: suggestion
-          ? `Aap already register kar chuke ho / request bhej chuke ho. Agar naya account banana hai to ye unique email try karein: ${suggestion}`
-          : 'Aap already register kar chuke ho / request bhej chuke ho. Kripya login karein.',
-        suggestedEmail: suggestion || undefined
+        message: 'Aap already register kar chuke ho ya account pehle se exist karta hai. Kripya login karein.'
       });
     }
 
@@ -420,9 +411,15 @@ router.post('/forgot-password', async (req, res) => {
       return res.json({ message: 'Password reset link aapke Educa Mail par bhej di gayi hai.' });
     }
 
-    // Generate 1-hour reset token
+    // Generate single-use nonce & 1-hour reset token
+    const crypto = require('crypto');
+    const resetNonce = crypto.randomBytes(16).toString('hex');
+    user.passwordResetNonce = resetNonce;
+    user.passwordResetExpires = new Date(Date.now() + 3600000);
+    await user.save();
+
     const resetToken = jwt.sign(
-      { id: user._id, type: 'reset' },
+      { id: user._id, type: 'reset', nonce: resetNonce },
       process.env.JWT_SECRET,
       { expiresIn: '1h', algorithm: 'HS256' }
     );
@@ -453,7 +450,7 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-// Reset Password
+// Reset Password (Single-use token enforcement)
 router.post('/reset-password', async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -462,23 +459,29 @@ router.post('/reset-password', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
-    if (decoded.type !== 'reset') return res.status(400).json({ message: 'Invalid reset token' });
+    if (decoded.type !== 'reset' || !decoded.nonce) return res.status(400).json({ message: 'Invalid reset token' });
+
+    const user = await User.findById(decoded.id);
+    if (
+      !user ||
+      !user.passwordResetNonce ||
+      user.passwordResetNonce !== decoded.nonce ||
+      !user.passwordResetExpires ||
+      new Date() > user.passwordResetExpires
+    ) {
+      return res.status(400).json({ message: 'Reset token expired or already used. Please request a new one.' });
+    }
 
     const hashed = await bcrypt.hash(newPassword, 12);
-    const user = await User.findByIdAndUpdate(
-      decoded.id,
-      {
-        password: hashed,
-        mustChangePassword: false,
-        tempPasswordAssigned: false
-      },
-      { new: true }
-    );
+    user.password = hashed;
+    user.mustChangePassword = false;
+    user.tempPasswordAssigned = false;
+    user.passwordResetNonce = null;
+    user.passwordResetExpires = null;
+    await user.save();
 
-    if (user) {
-      memoryCache.del(`user_me_${user._id}`);
-      await updateEducaMailPassword(user.email, newPassword, user.phone, user.upiId);
-    }
+    memoryCache.del(`user_me_${user._id}`);
+    await updateEducaMailPassword(user.email, newPassword, user.phone, user.upiId);
 
     res.json({ message: 'Password successfully reset! You can now log in.' });
   } catch (err) {
@@ -497,8 +500,11 @@ router.post('/change-password', protect, async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // If not in forced temp-password mode, verify currentPassword if supplied
-    if (!user.mustChangePassword && currentPassword) {
+    // If not in forced temp-password mode, verify currentPassword is required and valid
+    if (!user.mustChangePassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Current password is required' });
+      }
       const match = await bcrypt.compare(currentPassword, user.password);
       if (!match) {
         return res.status(400).json({ message: 'Current password does not match' });
@@ -540,6 +546,16 @@ router.post('/change-password', protect, async (req, res) => {
     console.error('Change password error:', err);
     res.status(500).json({ message: 'Failed to change password: ' + err.message });
   }
+});
+
+// Logout: Invalidate httpOnly auth cookie
+router.post('/logout', (req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  });
+  res.json({ success: true, message: 'Logged out successfully' });
 });
 
 module.exports = router;

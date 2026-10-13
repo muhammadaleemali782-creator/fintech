@@ -191,7 +191,7 @@ router.get('/admin', protect, admin, async (req, res) => {
       depositDetailsRes
     ] = await Promise.allSettled([
       User.find({ role: { $ne: 'admin' } })
-        .select('-password')
+        .select('-password -walletPin')
         .sort({ createdAt: -1 })
         .lean(),
       Transaction.find({ status: 'pending' })

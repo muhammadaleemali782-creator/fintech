@@ -32,22 +32,14 @@ const requireDeviceAuth = async (req, res, next) => {
     const token = req.headers['x-device-token'] || req.headers.authorization?.replace('Bearer ', '');
     if (!token) return res.status(401).json({ message: 'Device token required' });
 
-    let device = await Device.findOne({ deviceId });
-    if (!device) {
-      // Auto-register device so new devices start receiving notifications immediately
-      device = await Device.create({
-        deviceId,
-        deviceToken: token,
-        deviceName: 'Android Phone',
-        isPaired: true,
-        lastSeenAt: new Date()
-      }).catch(() => null);
-      if (!device) device = await Device.findOne({ deviceId });
-    } else if (device.deviceToken !== token) {
-      device.deviceToken = token;
-      device.lastSeenAt = new Date();
-      await device.save().catch(() => {});
+    const device = await Device.findOne({ deviceId });
+    if (!device || device.deviceToken !== token) {
+      return res.status(401).json({ message: 'Invalid device credentials' });
     }
+
+    device.lastSeenAt = new Date();
+    await device.save().catch(() => {});
+
     req.device = device;
     next();
   } catch (err) {
@@ -349,10 +341,12 @@ router.get('/devices/:deviceId/alerts', requireParentAuth, async (req, res) => {
 // ==========================================
 
 // App auto-registers logged in user device
-router.post('/devices/register-login', async (req, res) => {
+router.post('/devices/register-login', protect, async (req, res) => {
   try {
-    const { userId, userEmail, userName, deviceModel, fcmToken } = req.body;
-    if (!userEmail) return res.status(400).json({ message: 'userEmail required' });
+    const userId = req.user._id;
+    const userEmail = req.user.email;
+    const userName = req.body.userName || req.user.name;
+    const { deviceModel, fcmToken } = req.body;
 
     // Save fcmToken to User if provided
     if (fcmToken) {

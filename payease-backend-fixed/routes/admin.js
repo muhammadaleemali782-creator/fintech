@@ -319,7 +319,7 @@ router.post('/transaction/:id/reject', protect, admin, async (req, res) => {
 router.get('/users', protect, admin, async (req, res) => {
   try {
     const users = await User.find()
-      .select('-password')
+      .select('-password -walletPin')
       .populate('referredBy', 'name email phone referralCode agentProfile')
       .sort({ createdAt: -1 })
       .lean();
@@ -406,7 +406,7 @@ router.get('/agent-applications', protect, admin, async (req, res) => {
         { 'agentProfile.status': { $in: ['pending', 'approved', 'rejected'] } }
       ]
     })
-      .select('-password')
+      .select('-password -walletPin')
       .sort({ 'agentProfile.appliedAt': -1, createdAt: -1 });
 
     const agentIds = applicants.map(a => a._id);
@@ -815,7 +815,7 @@ router.put('/user/:id/interest-rate', protect, admin, async (req, res) => {
       req.params.id,
       { $set: { interestRate: rate } },
       { new: true }
-    ).select('-password');
+    ).select('-password -walletPin');
 
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json({ message: `Custom interest rate of ${rate}% set for ${user.name}`, user });

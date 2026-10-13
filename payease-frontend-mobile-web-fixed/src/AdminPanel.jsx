@@ -575,55 +575,6 @@ const DEFAULT_ANALYTICS = {
 
 const DEFAULT_AUDIT_HISTORY = [];
 
-const INITIAL_FRESH_LOANS = [
-  {
-    _id: "6acb3d532dd11d2f8acd05d5",
-    amount: 15000,
-    totalPayable: 18600,
-    paidAmount: 0,
-    remainingAmount: 18600,
-    loanType: "personal",
-    status: "active",
-    accountNumber: "EFS0000844",
-    purpose: "Personal Loan",
-    createdAt: "2026-10-11T12:00:00.000Z",
-    approvedAt: "2026-10-12T13:08:32.348Z",
-    approverName: "Admin",
-    installmentsCount: 24,
-    installmentAmount: 775,
-    userId: {
-      _id: "6acb3d532dd11d2f8acd05d5",
-      name: "Rishabh gupta",
-      phone: "9876543210",
-      email: "rishabh@gmail.com",
-      balance: 0
-    }
-  },
-  {
-    _id: "6acbc790c9b2f4c1659eb844",
-    amount: 15000,
-    totalPayable: 19824,
-    paidAmount: 0,
-    remainingAmount: 19824,
-    loanType: "personal",
-    status: "active",
-    accountNumber: "EFS0000845",
-    purpose: "Personal Loan",
-    createdAt: "2026-10-11T17:29:52.742Z",
-    approvedAt: "2026-10-12T13:08:32.348Z",
-    approverName: "Admin",
-    installmentsCount: 24,
-    installmentAmount: 826,
-    userId: {
-      _id: "6acbc790c9b2f4c1659eb844",
-      name: "BHOM SINGH",
-      phone: "9876543211",
-      email: "bhomsingh@gmail.com",
-      balance: 0
-    }
-  }
-];
-
 function formatLiveTimeElapsed(dateStr) {
   if (!dateStr) return "Just now";
   const time = new Date(dateStr).getTime();
@@ -1162,7 +1113,7 @@ export default function AdminPanel() {
     if (Array.isArray(v) && v.length > 0) return v;
     const old = appCache.get("educa_admin_cached_loans", null);
     if (Array.isArray(old) && old.length > 0) return old;
-    return INITIAL_FRESH_LOANS;
+    return [];
   });
   const [bonds, setBonds] = useState(() => {
     const v = appCache.get("educa_admin_cached_bonds_list", null);
@@ -3644,7 +3595,7 @@ export default function AdminPanel() {
   ];
 
   return (
-    <div className="bg-slate-50 min-h-screen overflow-x-hidden flex flex-col lg:flex-row">
+    <div className="bg-slate-50 min-h-screen flex flex-col lg:flex-row">
       {/* FULLSCREEN LIGHTBOX WITH INTERACTIVE ZOOM & PAN */}
       {lightboxImg && (
         <div
@@ -3749,8 +3700,8 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* DESKTOP SIDEBAR (COLLAPSIBLE & FULL-HEIGHT) */}
-      <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? "w-20" : "w-64"} shrink-0 bg-slate-900 border-r border-slate-800 text-slate-100 lg:sticky lg:top-0 lg:h-screen transition-all duration-200 z-30 select-none shadow-xl`}>
+      {/* DESKTOP SIDEBAR (FIXED FULL-HEIGHT NEVER SCROLLS OFF SCREEN) */}
+      <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? "w-20" : "w-64"} shrink-0 bg-slate-900 border-r border-slate-800 text-slate-100 lg:fixed lg:inset-y-0 lg:left-0 lg:h-screen transition-all duration-200 z-30 select-none shadow-xl`}>
         {/* Header with Title & Collapse Toggle */}
         <div className={`shrink-0 flex items-center ${isSidebarCollapsed ? "flex-col justify-center p-3 gap-2" : "justify-between px-4 py-4"} border-b border-slate-800`}>
           {!isSidebarCollapsed ? (
@@ -3844,7 +3795,7 @@ export default function AdminPanel() {
         </div>
       </aside>
 
-      <div className="flex-1 min-w-0 max-w-full min-h-screen">
+      <div className={`flex-1 min-w-0 max-w-full min-h-screen ${isSidebarCollapsed ? "lg:pl-20" : "lg:pl-64"} transition-all duration-200`}>
         {/* MOBILE / TABLET TOP NAV (SLIM WHITE EXECUTIVE BAR) */}
         <nav className="lg:hidden bg-white border-b border-slate-200/90 shadow-2xs sticky top-0 z-40 safe-top">
           <div className="px-3 sm:px-5 py-2 flex justify-between items-center">
@@ -5012,15 +4963,6 @@ export default function AdminPanel() {
               {/* Quick Actions Bar */}
               <div className="flex items-center justify-end gap-2 flex-wrap">
                 <button
-                  onClick={sendAdminTestPushNotification}
-                  disabled={sendingTestPush}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="Send instant push notification test to all connected phones"
-                >
-                  <span>🔔</span>
-                  <span>{sendingTestPush ? "Sending..." : "Test Phone Alert"}</span>
-                </button>
-                <button
                   onClick={() => {
                     loadAnalytics(true);
                     loadStats(true);
@@ -5030,13 +4972,6 @@ export default function AdminPanel() {
                 >
                   <span>{loadingAnalytics ? "⏳" : "🔄"}</span>
                   <span>{loadingAnalytics ? "Refreshing..." : "Refresh Data"}</span>
-                </button>
-                <button
-                  onClick={() => switchTab("settings")}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span>⚙️</span>
-                  <span>Deposit & UPI Config</span>
                 </button>
               </div>
 
@@ -12871,6 +12806,26 @@ export default function AdminPanel() {
           {/* SETTINGS */}
           {tab === "settings" && (
             <div className="space-y-6">
+              {/* Top Quick Actions Bar: Test Phone Alert */}
+              <div className="flex items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex-wrap">
+                <div>
+                  <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
+                    <span>📱</span> Real-Time App Phone Alert Test
+                  </h3>
+                  <p className="text-xs text-gray-500">Connected users aur devices ko instant test push notification bhejein</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={sendAdminTestPushNotification}
+                  disabled={sendingTestPush}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Send instant push notification test to all connected phones"
+                >
+                  <span>🔔</span>
+                  <span>{sendingTestPush ? "Sending Alert..." : "Test Phone Alert"}</span>
+                </button>
+              </div>
+
               {/* ADMIN DEPOSIT & UPI CREDENTIALS CONFIGURATION */}
               <div className="bg-white rounded-3xl shadow-sm p-6 sm:p-7 border border-gray-100">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-2 mb-5">

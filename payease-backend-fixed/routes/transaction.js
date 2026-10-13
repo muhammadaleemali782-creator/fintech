@@ -235,9 +235,9 @@ router.post('/deposit', protect, async (req, res) => {
   try {
     const { amount, method, utrNumber, proofUrl, screenshotUrl } = req.body;
 
-    const numAmount = Number(amount);
-    if (!amount || isNaN(numAmount) || numAmount < 1)
-      return res.status(400).json({ message: 'Amount kam se kam ₹1 hona chahiye (Koi maximum limit nahi hai - Infinite Range)' });
+    const numAmount = Number(Number(amount).toFixed(2));
+    if (!amount || !isValidAmount(numAmount, 1, 1000000000))
+      return res.status(400).json({ message: 'Amount kam se kam ₹1 hona chahiye (Valid number daalein)' });
 
     if (!['upi', 'bank'].includes(method))
       return res.status(400).json({ message: 'Method must be upi or bank' });
@@ -325,9 +325,9 @@ router.post('/withdraw', protect, async (req, res) => {
     });
   }
 
-  const numAmount = Number(amount);
-  if (!amount || isNaN(numAmount) || numAmount < 1)
-    return res.status(400).json({ message: 'Withdrawal amount must be at least ₹1' });
+  const numAmount = Number(Number(amount).toFixed(2));
+  if (!amount || !isValidAmount(numAmount, 1, 1000000000))
+    return res.status(400).json({ message: 'Withdrawal amount must be a valid number of at least ₹1' });
 
   if (!['upi', 'bank'].includes(method))
     return res.status(400).json({ message: 'Method must be upi or bank' });

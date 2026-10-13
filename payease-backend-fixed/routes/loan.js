@@ -261,8 +261,8 @@ const autoDeductDueLoanEmis = async (userId) => {
 
 // 1. Personal Loan Quote (10-day cycle, custom rate supported or default 1.34% per installment, min 15 installments)
 const calculatePersonalLoanQuote = (amount, installmentsCount = 15, customRate = null) => {
-  const amt = Math.min(Math.max(Number(amount) || 5000, 5000), 50000);
-  const count = Math.min(Math.max(Number(installmentsCount) || 15, 15), 24);
+  const amt = Math.min(Math.max(Number(amount) || 5000, 1000), 100000);
+  const count = Math.min(Math.max(Number(installmentsCount) || 15, 1), 60);
   
   // Rate: If admin specified any custom rate (e.g. 0%, 0.8%, 1.0%, 1.34%, 2.0%), respect it directly!
   let ratePerInstallment = 1.34;
@@ -1192,6 +1192,40 @@ router.post('/:id/pay-emi', protect, async (req, res) => {
   return router.handle(req, res);
 });
 
+// Quick Borrower Search for Staff / Admin Desks
+router.get('/admin/search-borrowers', protect, requirePermission('loan.create_on_behalf'), async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (!q || q.length < 2) {
+      return res.json([]);
+    }
+    const cleanDigits = q.replace(/\D/g, '');
+    const conditions = [
+      { name: { $regex: q, $options: 'i' } },
+      { email: { $regex: q, $options: 'i' } },
+      { accountNumber: { $regex: q, $options: 'i' } }
+    ];
+    if (cleanDigits.length >= 3) {
+      conditions.push({ phone: { $regex: cleanDigits } });
+    }
+    if (mongoose.Types.ObjectId.isValid(q)) {
+      conditions.push({ _id: q });
+    }
+
+    const users = await User.find({
+      role: { $ne: 'admin' },
+      $or: conditions
+    })
+      .select('_id name phone email accountNumber kycStatus duesBalance balance')
+      .limit(10)
+      .lean();
+
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: 'Search failed: ' + err.message });
+  }
+});
+
 // Admin/Staff creates a loan application on behalf of an existing user or newly created user
 router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_on_behalf'), async (req, res) => {
   try {
@@ -1271,12 +1305,29 @@ router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_o
         }
       }
     } else {
-      if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-        return res.status(400).json({ message: 'Please select a valid user' });
+      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        targetUser = await User.findById(userId);
       }
-      targetUser = await User.findById(userId);
       if (!targetUser) {
-        return res.status(404).json({ message: 'Selected user not found' });
+        const queryTerm = String(userId || phone || email || req.body.accountNumber || req.body.userQuery || req.body.identifier || '').trim();
+        const cleanPhone = queryTerm.replace(/\D/g, '');
+        if (queryTerm) {
+          const searchConds = [
+            { email: queryTerm.toLowerCase() },
+            { accountNumber: queryTerm }
+          ];
+          if (cleanPhone.length >= 10) {
+            searchConds.push({ phone: cleanPhone });
+            searchConds.push({ phone: cleanPhone.slice(-10) });
+          }
+          if (mongoose.Types.ObjectId.isValid(queryTerm)) {
+            searchConds.push({ _id: queryTerm });
+          }
+          targetUser = await User.findOne({ $or: searchConds });
+        }
+      }
+      if (!targetUser) {
+        return res.status(404).json({ message: 'Borrower / User nahi mila. Kripya valid User ID, Phone, Email, ya Account Number enter karein.' });
       }
     }
 

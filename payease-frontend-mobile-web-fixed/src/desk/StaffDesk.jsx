@@ -70,6 +70,30 @@ export default function StaffDesk() {
   const [actionLoading, setActionLoading] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState(null);
 
+  // Issue Loan Modal States
+  const [showIssueLoanModal, setShowIssueLoanModal] = useState(false);
+  const [issueBorrowerType, setIssueBorrowerType] = useState("existing"); // "existing" | "new"
+  const [issueUserQuery, setIssueUserQuery] = useState("");
+  const [issueSearchingUser, setIssueSearchingUser] = useState(false);
+  const [issueSearchResults, setIssueSearchResults] = useState([]);
+  const [issueSelectedUser, setIssueSelectedUser] = useState(null);
+  const [issueNewUser, setIssueNewUser] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    aadharNumber: "",
+    panNumber: "",
+    address: ""
+  });
+  const [issueLoanAmount, setIssueLoanAmount] = useState(15000);
+  const [issueInstallmentsCount, setIssueInstallmentsCount] = useState(15);
+  const [issueFrequency, setIssueFrequency] = useState("10_days"); // "10_days" | "daily"
+  const [issueDirectActive, setIssueDirectActive] = useState(true);
+  const [issueDisburseToWallet, setIssueDisburseToWallet] = useState(true);
+  const [issuePurpose, setIssuePurpose] = useState("Personal Loan");
+  const [issueAdminNote, setIssueAdminNote] = useState("");
+  const [issueSubmitting, setIssueSubmitting] = useState(false);
+
   const showToast = useCallback((msg, isErr = false) => {
     if (isErr) {
       setErrorMsg(msg);
@@ -255,6 +279,143 @@ export default function StaffDesk() {
       showToast(err.message, true);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Live Loan Quote Calculation
+  const issueLoanQuote = useMemo(() => {
+    const amt = Number(issueLoanAmount) || 15000;
+    const count = Number(issueInstallmentsCount) || 15;
+    const rate = 1.34;
+    const principalPerInst = amt / count;
+    const interestPerInst = (amt * rate) / 100;
+    const installmentAmount = Math.round(principalPerInst + interestPerInst);
+    const totalPayable = installmentAmount * count;
+    const totalInterest = totalPayable - amt;
+    const processingFee = Math.round((amt * 5) / 100);
+    const upiCharges = Math.round((amt * 1) / 100);
+    const netDisbursal = Math.max(0, amt - (processingFee + upiCharges));
+    return {
+      amt,
+      count,
+      rate,
+      installmentAmount,
+      totalPayable,
+      totalInterest,
+      processingFee,
+      upiCharges,
+      netDisbursal
+    };
+  }, [issueLoanAmount, issueInstallmentsCount]);
+
+  // Quick Borrower Search by Phone, Email, Account No, or ID
+  const handleSearchBorrower = async (queryOverride) => {
+    const q = (queryOverride !== undefined ? queryOverride : issueUserQuery).trim();
+    if (!q || q.length < 2) {
+      showToast("Search ke liye kam se kam 2 characters ya 10-digit number enter karein.", true);
+      return;
+    }
+    setIssueSearchingUser(true);
+    try {
+      const res = await fetch(`${API}/loan/admin/search-borrowers?q=${encodeURIComponent(q)}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to search borrower");
+      setIssueSearchResults(Array.isArray(data) ? data : []);
+      if (Array.isArray(data) && data.length === 1) {
+        setIssueSelectedUser(data[0]);
+      } else if (Array.isArray(data) && data.length === 0) {
+        showToast("Koi borrower nahi mila. Phone number ya ID dobara check karein.", true);
+      }
+    } catch (err) {
+      showToast(err.message || "Borrower search error", true);
+    } finally {
+      setIssueSearchingUser(false);
+    }
+  };
+
+  // Issue Loan On Behalf Submission
+  const handleIssueLoanSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (issueBorrowerType === "existing") {
+      if (!issueSelectedUser && !issueUserQuery.trim()) {
+        showToast("Kripya borrower select karein ya Phone / ID enter karein.", true);
+        return;
+      }
+    } else {
+      if (!issueNewUser.name.trim() || !issueNewUser.phone.trim()) {
+        showToast("Naye customer ka Naam aur 10-digit Mobile number zaroori hai.", true);
+        return;
+      }
+      const clean = issueNewUser.phone.replace(/\D/g, "");
+      if (clean.length < 10) {
+        showToast("Valid 10-digit Mobile number enter karein.", true);
+        return;
+      }
+    }
+
+    const amt = Number(issueLoanAmount);
+    if (!amt || amt < 1000 || amt > 100000) {
+      showToast("Loan amount ₹1,000 se ₹1,00,000 ke beech hona chahiye.", true);
+      return;
+    }
+
+    setIssueSubmitting(true);
+    try {
+      const payload = {
+        borrowerType: issueBorrowerType,
+        userId: issueBorrowerType === "existing" ? (issueSelectedUser?._id || issueUserQuery.trim()) : undefined,
+        userQuery: issueBorrowerType === "existing" ? (issueSelectedUser?.phone || issueUserQuery.trim()) : undefined,
+        name: issueBorrowerType === "new" ? issueNewUser.name.trim() : (issueSelectedUser?.name || ""),
+        phone: issueBorrowerType === "new" ? issueNewUser.phone.trim() : (issueSelectedUser?.phone || issueUserQuery.trim()),
+        email: issueBorrowerType === "new" ? issueNewUser.email.trim() : (issueSelectedUser?.email || ""),
+        aadharNumber: issueBorrowerType === "new" ? issueNewUser.aadharNumber.trim() : undefined,
+        panNumber: issueBorrowerType === "new" ? issueNewUser.panNumber.trim() : undefined,
+        address: issueBorrowerType === "new" ? issueNewUser.address.trim() : undefined,
+        amount: amt,
+        installmentsCount: Number(issueInstallmentsCount) || 15,
+        collectionFrequency: issueFrequency,
+        loanType: issueFrequency === "daily" ? "micro_business" : "personal",
+        purpose: issuePurpose || "Personal Loan",
+        directActive: issueDirectActive,
+        disburseToWallet: issueDisburseToWallet,
+        adminNote: issueAdminNote || `Loan issued from Staff Desk by ${user?.name || "Staff"}`
+      };
+
+      const res = await fetch(`${API}/loan/admin/create-on-behalf`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Loan issue nahi ho paya");
+
+      showToast(
+        data.message ||
+        `₹${amt.toLocaleString("en-IN")} ka loan safaltapoorvak ${issueDirectActive ? "disburse & active" : "submit"} ho gaya!`
+      );
+
+      // Reset & close
+      setShowIssueLoanModal(false);
+      setIssueSelectedUser(null);
+      setIssueUserQuery("");
+      setIssueSearchResults([]);
+      setIssueNewUser({ name: "", phone: "", email: "", aadharNumber: "", panNumber: "", address: "" });
+      setIssueAdminNote("");
+
+      // Refresh desks
+      setActiveTab("loan");
+      fetchQueues(true);
+    } catch (err) {
+      showToast(err.message, true);
+    } finally {
+      setIssueSubmitting(false);
     }
   };
 
@@ -450,7 +611,7 @@ export default function StaffDesk() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <label className="text-xs text-slate-400 font-semibold hidden sm:inline">Status:</label>
             <select
               value={statusFilter}
@@ -462,6 +623,17 @@ export default function StaffDesk() {
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
+
+            {(activeTab === "loan" || isAdmin || hasPermission("loan.create_on_behalf")) && (
+              <button
+                type="button"
+                onClick={() => setShowIssueLoanModal(true)}
+                className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black rounded-xl shadow-lg shadow-blue-600/30 flex items-center gap-1.5 transition active:scale-95 cursor-pointer shrink-0"
+              >
+                <span>➕</span>
+                <span>Issue Loan (Naya Loan Karein)</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -478,6 +650,16 @@ export default function StaffDesk() {
             <p className="text-xs text-slate-500 max-w-sm">
               There are currently no items matching your filter criteria in the {DEPT_CONFIG[activeTab]?.label} desk.
             </p>
+            {(activeTab === "loan" || isAdmin || hasPermission("loan.create_on_behalf")) && (
+              <button
+                type="button"
+                onClick={() => setShowIssueLoanModal(true)}
+                className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>➕</span>
+                <span>Kisi Ka Naya Loan Issue Karein</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -751,9 +933,430 @@ export default function StaffDesk() {
         </div>
       )}
 
+      {/* ══════════════════════════════════════════════════════
+          ISSUE LOAN MODAL (APPLY & DISBURSE ON DESK)
+      ══════════════════════════════════════════════════════ */}
+      {showIssueLoanModal && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/85 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          style={{ isolation: "isolate" }}
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl flex flex-col gap-5 my-auto max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-xl">
+                  ➕🏦
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    Issue Loan (Naya Loan Karein)
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    ID / Phone se customer choose karein ya naya account banakar loan dein
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowIssueLoanModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Step 1: Mode Switcher (Existing vs New) */}
+            <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80">
+              <button
+                type="button"
+                onClick={() => {
+                  setIssueBorrowerType("existing");
+                  setIssueSearchResults([]);
+                }}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  issueBorrowerType === "existing"
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-black"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <span>👤</span>
+                <span>Existing / ID Daalo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIssueBorrowerType("new");
+                  setIssueSelectedUser(null);
+                  setIssueSearchResults([]);
+                }}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  issueBorrowerType === "new"
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-black"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <span>✨</span>
+                <span>Naya Customer (New)</span>
+              </button>
+            </div>
+
+            {/* Step 1: Borrower Data Input */}
+            {issueBorrowerType === "existing" ? (
+              <div className="space-y-3 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                <label className="text-xs font-bold text-slate-300 block">
+                  Customer ID, Phone, Email, ya Account Number <span className="text-rose-400">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+                    <input
+                      type="text"
+                      value={issueUserQuery}
+                      onChange={(e) => {
+                        setIssueUserQuery(e.target.value);
+                        if (issueSelectedUser) setIssueSelectedUser(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSearchBorrower();
+                        }
+                      }}
+                      placeholder="e.g. 9876543210 ya EDU12345 ya User ID"
+                      className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={issueSearchingUser || !issueUserQuery.trim()}
+                    onClick={() => handleSearchBorrower()}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 rounded-xl text-xs font-extrabold border border-slate-700 transition disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                  >
+                    {issueSearchingUser && (
+                      <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                    )}
+                    <span>{issueSearchingUser ? "Searching..." : "Verify / Find"}</span>
+                  </button>
+                </div>
+
+                {/* Multiple search results picker */}
+                {issueSearchResults.length > 0 && !issueSelectedUser && (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[11px] font-bold text-slate-400">Match found ({issueSearchResults.length}) — Click karein:</p>
+                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                      {issueSearchResults.map((u) => (
+                        <div
+                          key={u._id}
+                          onClick={() => {
+                            setIssueSelectedUser(u);
+                            setIssueUserQuery(u.phone || u.name);
+                          }}
+                          className="p-2.5 bg-slate-900 hover:bg-slate-800/90 border border-slate-700/60 rounded-xl flex items-center justify-between cursor-pointer transition text-xs"
+                        >
+                          <div>
+                            <div className="font-bold text-slate-100 flex items-center gap-1.5">
+                              <span>{u.name}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">({u.phone})</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              A/C: <span className="font-mono text-slate-300">{u.accountNumber || "N/A"}</span> • Bal: ₹{(u.balance || 0).toLocaleString("en-IN")}
+                            </div>
+                          </div>
+                          <span className="px-2 py-1 bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-[10px] font-black">
+                            Select ↵
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Selected User Confirmation Card */}
+                {issueSelectedUser && (
+                  <div className="p-3 bg-emerald-950/30 border border-emerald-500/40 rounded-xl flex items-start justify-between gap-3 text-xs">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-emerald-400 font-black">✅ Borrower Selected:</span>
+                        <span className="font-black text-white">{issueSelectedUser.name}</span>
+                        <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 text-[10px] rounded-md uppercase font-black">
+                          {issueSelectedUser.kycStatus === "verified" ? "KYC Verified" : "KYC " + (issueSelectedUser.kycStatus || "pending")}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-300 font-mono">
+                        📱 {issueSelectedUser.phone} | 🏦 A/C: {issueSelectedUser.accountNumber || "N/A"}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Wallet Bal: <strong className="text-slate-200">₹{(issueSelectedUser.balance || 0).toLocaleString("en-IN")}</strong> • Active Dues: <strong className="text-amber-300">₹{(issueSelectedUser.duesBalance || 0).toLocaleString("en-IN")}</strong>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIssueSelectedUser(null);
+                        setIssueSearchResults([]);
+                      }}
+                      className="text-[11px] text-slate-400 hover:text-rose-400 font-bold underline shrink-0 cursor-pointer"
+                    >
+                      Change
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    Customer Full Name <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={issueNewUser.name}
+                    onChange={(e) => setIssueNewUser({ ...issueNewUser, name: e.target.value })}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    Mobile Number (10 digits) <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={issueNewUser.phone}
+                    onChange={(e) => setIssueNewUser({ ...issueNewUser, phone: e.target.value.replace(/\D/g, "") })}
+                    placeholder="e.g. 9876543210"
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    Aadhaar Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    value={issueNewUser.aadharNumber}
+                    onChange={(e) => setIssueNewUser({ ...issueNewUser, aadharNumber: e.target.value.replace(/\D/g, "") })}
+                    placeholder="12 digit Aadhaar"
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    PAN Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={10}
+                    value={issueNewUser.panNumber}
+                    onChange={(e) => setIssueNewUser({ ...issueNewUser, panNumber: e.target.value.toUpperCase() })}
+                    placeholder="ABCDE1234F"
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white uppercase placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Loan Amount & Presets */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-300">
+                  Loan Amount (Rashi) <span className="text-rose-400">*</span>
+                </label>
+                <span className="text-sm font-black text-emerald-400">
+                  ₹{Number(issueLoanAmount || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+
+              {/* Quick Preset Chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {[5000, 10000, 15000, 20000, 25000, 50000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setIssueLoanAmount(amt)}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      Number(issueLoanAmount) === amt
+                        ? "bg-emerald-600 text-white shadow-xs font-black"
+                        : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                    }`}
+                  >
+                    ₹{amt.toLocaleString("en-IN")}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom amount input */}
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs">₹</span>
+                <input
+                  type="number"
+                  min={1000}
+                  max={100000}
+                  step={500}
+                  value={issueLoanAmount}
+                  onChange={(e) => setIssueLoanAmount(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-4 py-2 text-xs sm:text-sm text-white font-bold focus:outline-none focus:border-emerald-500"
+                  placeholder="Custom amount (₹1,000 - ₹1,00,000)"
+                />
+              </div>
+            </div>
+
+            {/* Step 3: Tenure & Frequency */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Tenure (Kist Count)
+                </label>
+                <div className="flex gap-2">
+                  {[15, 30].map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => setIssueInstallmentsCount(count)}
+                      className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        Number(issueInstallmentsCount) === count
+                          ? "bg-blue-600/30 text-blue-300 border-blue-500/50 font-black"
+                          : "bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200"
+                      }`}
+                    >
+                      {count} Installments
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Collection Frequency
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIssueFrequency("10_days")}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                      issueFrequency === "10_days"
+                        ? "bg-blue-600/30 text-blue-300 border-blue-500/50 font-black"
+                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    Har 10 Din (1, 11, 21)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIssueFrequency("daily")}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                      issueFrequency === "daily"
+                        ? "bg-blue-600/30 text-blue-300 border-blue-500/50 font-black"
+                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    Daily (Rozana)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 4: Real-time Quote Card */}
+            <div className="p-3.5 bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-800/80">
+                <span className="text-slate-400 font-semibold">Repayment EMI (Kist):</span>
+                <span className="text-sm font-black text-amber-400">
+                  ₹{issueLoanQuote.installmentAmount.toLocaleString("en-IN")} <span className="text-[10px] text-slate-400 font-normal">/ installment</span>
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
+                <div>
+                  <span className="text-slate-500 block">Total Repayable:</span>
+                  <span className="font-bold text-slate-200">₹{issueLoanQuote.totalPayable.toLocaleString("en-IN")}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Deductions (6%):</span>
+                  <span className="font-bold text-rose-400">-₹{(issueLoanQuote.processingFee + issueLoanQuote.upiCharges).toLocaleString("en-IN")}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Net In-Hand Disbursal:</span>
+                  <span className="font-black text-emerald-400">₹{issueLoanQuote.netDisbursal.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 5: Toggles & Staff Note */}
+            <div className="space-y-2.5 pt-1">
+              <label className="flex items-center gap-2.5 cursor-pointer bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/60">
+                <input
+                  type="checkbox"
+                  checked={issueDirectActive}
+                  onChange={(e) => setIssueDirectActive(e.target.checked)}
+                  className="w-4 h-4 rounded text-blue-600 accent-blue-600 bg-slate-900 border-slate-700"
+                />
+                <div className="text-xs">
+                  <span className="font-black text-slate-200 block">Direct Active (Turant Active Karein)</span>
+                  <span className="text-[11px] text-slate-500">Loan turant active hoga aur repayment schedule start ho jayegi</span>
+                </div>
+              </label>
+
+              {issueDirectActive && (
+                <label className="flex items-center gap-2.5 cursor-pointer bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/60">
+                  <input
+                    type="checkbox"
+                    checked={issueDisburseToWallet}
+                    onChange={(e) => setIssueDisburseToWallet(e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-600 accent-emerald-600 bg-slate-900 border-slate-700"
+                  />
+                  <div className="text-xs">
+                    <span className="font-black text-slate-200 block">Disburse to Wallet (Wallet me paise daalein)</span>
+                    <span className="text-[11px] text-slate-500">Net ₹{issueLoanQuote.netDisbursal.toLocaleString("en-IN")} user ke profit balance me credit hoga</span>
+                  </div>
+                </label>
+              )}
+
+              <div>
+                <input
+                  type="text"
+                  value={issueAdminNote}
+                  onChange={(e) => setIssueAdminNote(e.target.value)}
+                  placeholder="Optional Note / Remarks (e.g. Verified by Desk Staff)"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                disabled={issueSubmitting}
+                onClick={() => setShowIssueLoanModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={issueSubmitting || (issueBorrowerType === "existing" && !issueSelectedUser && !issueUserQuery.trim())}
+                onClick={handleIssueLoanSubmit}
+                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black rounded-xl text-xs shadow-lg shadow-blue-600/30 transition flex items-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {issueSubmitting && (
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                )}
+                <span>
+                  {issueSubmitting
+                    ? "Issuing Loan..."
+                    : `🚀 Grant & Disburse Loan (₹${issueLoanQuote.amt.toLocaleString("en-IN")})`}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Action Execution Sheet / Modal (Approve or Reject) */}
       {actionModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/85 flex items-center justify-center p-4" style={{ isolation: "isolate" }}>
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <h3 className="text-base font-black text-white flex items-center gap-2">

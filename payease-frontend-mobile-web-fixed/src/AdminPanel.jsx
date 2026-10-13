@@ -1132,7 +1132,7 @@ export default function AdminPanel() {
   const [resetPasswordSuccessData, setResetPasswordSuccessData] = useState(null);
   // Admin User Desk Role Assignment Modal State
   const [assignStaffModalUser, setAssignStaffModalUser] = useState(null);
-  const [assignStaffPreset, setAssignStaffPreset] = useState("loan_desk");
+  const [assignStaffDepts, setAssignStaffDepts] = useState(["loan"]);
   const [assignStaffLoading, setAssignStaffLoading] = useState(false);
   // Dual Universal Filters for Issue Loan Desk
   const [issueHierarchyFilter, setIssueHierarchyFilter] = useState("all");
@@ -2940,35 +2940,34 @@ export default function AdminPanel() {
   const openAssignStaffModal = (targetUser) => {
     setAssignStaffModalUser(targetUser);
     const depts = targetUser?.staffProfile?.departments || [];
-    if (targetUser?.role !== "staff") {
-      setAssignStaffPreset("loan_desk");
-    } else if (depts.includes("loan") && depts.length === 1) {
-      setAssignStaffPreset("loan_desk");
-    } else if (depts.includes("kyc") && depts.length === 1) {
-      setAssignStaffPreset("kyc_desk");
-    } else if (depts.includes("deposit") && depts.length === 1) {
-      setAssignStaffPreset("deposit_desk");
-    } else if (depts.includes("withdrawal") && depts.length === 1) {
-      setAssignStaffPreset("withdrawal_desk");
-    } else if (depts.includes("deposit") && depts.includes("withdrawal") && depts.length === 2) {
-      setAssignStaffPreset("finance_desk");
-    } else if (depts.length > 2) {
-      setAssignStaffPreset("full_desk");
-    } else {
-      setAssignStaffPreset("loan_desk");
-    }
+    setAssignStaffDepts(depts.length > 0 ? [...depts] : ["loan"]);
+  };
+
+  const toggleAssignStaffDept = (deptId) => {
+    setAssignStaffDepts(prev =>
+      prev.includes(deptId) ? prev.filter(d => d !== deptId) : [...prev, deptId]
+    );
   };
 
   const handleAssignStaffRole = async () => {
     if (!assignStaffModalUser) return;
     setAssignStaffLoading(true);
     try {
-      const selectedPreset = DESK_ROLE_PRESETS.find(p => p.key === assignStaffPreset) || DESK_ROLE_PRESETS[0];
+      const isStaff = assignStaffDepts.length > 0;
+      const deptPerms = {
+        loan: ["loan.view", "loan.approve", "loan.reject", "loan.disburse"],
+        kyc: ["kyc.view", "kyc.approve", "kyc.reject"],
+        deposit: ["deposit.view", "deposit.approve", "deposit.reject"],
+        withdrawal: ["withdrawal.view", "withdrawal.approve", "withdrawal.reject"],
+        lending: ["lending.view", "lending.approve", "lending.reject"],
+        bond: ["bond.view", "bond.approve", "bond.reject"]
+      };
+      const permissions = assignStaffDepts.flatMap(d => deptPerms[d] || []);
       const payload = {
-        role: selectedPreset.role,
-        departments: selectedPreset.departments,
-        permissions: selectedPreset.permissions,
-        isActive: selectedPreset.role === "staff"
+        role: isStaff ? "staff" : "user",
+        departments: assignStaffDepts,
+        permissions,
+        isActive: isStaff
       };
       const res = await fetch(`${API}/admin/user/${assignStaffModalUser._id}/assign-role`, {
         method: "POST",
@@ -2977,7 +2976,8 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to assign desk role");
-      showToast(`👔 ${assignStaffModalUser.name} ka desk role update ho gaya: ${selectedPreset.label}!`, "success");
+      const summary = isStaff ? assignStaffDepts.join(" + ") : "Normal Customer";
+      showToast(`👔 ${assignStaffModalUser.name} ka desk role update ho gaya: ${summary}!`, "success");
       apiCache.clear();
       loadUsers(true);
       setAssignStaffModalUser(null);
@@ -14706,7 +14706,7 @@ Login karke apna naya personal password turant set karein.`}
 
       {/* ASSIGN STAFF DESK ROLE MODAL */}
       {assignStaffModalUser && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4" style={{ isolation: "isolate" }}>
           <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-gray-100 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start border-b border-gray-100 pb-3">
               <div>
@@ -14731,63 +14731,101 @@ Login karke apna naya personal password turant set karein.`}
             </div>
 
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl text-xs text-purple-950 space-y-1">
-              <p className="font-bold">🎯 &ldquo;Tum Yeh Wale Ho&rdquo; Desk Role Assignment</p>
+              <p className="font-bold">🎯 &ldquo;Tum Yeh Wale Ho&rdquo; Multi-Role Assignment</p>
               <p className="text-[11px] text-purple-900 leading-relaxed">
-                Yahan se aap kisi bhi user ko specific department de sakte hain (Loan, KYC, Deposit, ya Withdrawal). Staff user login karte hi seedhe apne assigned desk par enter karega aur doosre departments access nahi kar sakega.
+                Aap ek user ko multiple desks bhi de sakte hain (jaise Loan + KYC). Staff user login karte hi apne sabhi assigned desks par access kar sakega.
               </p>
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-gray-700">
-                Select Department / Desk Preset:
-              </label>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <label className="block text-xs font-bold text-gray-700">
+                  Select Desks / Roles (Multiple Allowed):
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setAssignStaffDepts(["loan", "kyc", "deposit", "withdrawal", "lending", "bond"])}
+                    className="px-2 py-0.5 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded text-[10px] font-bold cursor-pointer"
+                  >
+                    🌟 All Desks
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssignStaffDepts(["loan", "kyc"])}
+                    className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-[10px] font-bold cursor-pointer"
+                  >
+                    📄 Loan + 🪪 KYC
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssignStaffDepts(["deposit", "withdrawal"])}
+                    className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[10px] font-bold cursor-pointer"
+                  >
+                    🤝 Cashier
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssignStaffDepts([])}
+                    className="px-2 py-0.5 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded text-[10px] font-bold cursor-pointer"
+                  >
+                    🚫 Remove Role (Customer)
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-                {DESK_ROLE_PRESETS.map((preset) => {
-                  const isSelected = assignStaffPreset === preset.key;
+                {[
+                  { id: "loan", label: "📄 Loan Desk (Tum Loan wale ho)", sub: "Loans review, approve/reject & disbursal" },
+                  { id: "kyc", label: "🪪 KYC Desk (Tum KYC wale ho)", sub: "Aadhaar & PAN verification & approval" },
+                  { id: "deposit", label: "💰 Deposit Desk (Tum Deposit wale ho)", sub: "Bank UTR transfers verify & credit" },
+                  { id: "withdrawal", label: "💸 Withdrawal Desk (Tum Withdrawal wale ho)", sub: "Customer payouts & bank cash-outs" },
+                  { id: "lending", label: "🤝 P2P Lending Desk", sub: "P2P borrower & lender requests" },
+                  { id: "bond", label: "📈 Bonds & FD Desk", sub: "Fixed yield bonds & applications" }
+                ].map((item) => {
+                  const isChecked = assignStaffDepts.includes(item.id);
                   return (
                     <div
-                      key={preset.key}
-                      onClick={() => setAssignStaffPreset(preset.key)}
-                      className={`p-3 rounded-2xl border cursor-pointer transition flex items-start gap-3 ${
-                        isSelected
-                          ? "bg-purple-50/80 border-purple-500 ring-2 ring-purple-400/50 shadow-xs"
+                      key={item.id}
+                      onClick={() => toggleAssignStaffDept(item.id)}
+                      className={`p-3 rounded-2xl border cursor-pointer select-none transition flex items-start gap-3 ${
+                        isChecked
+                          ? "bg-purple-50/90 border-purple-500 ring-2 ring-purple-400/50 shadow-xs"
                           : "bg-white border-gray-200 hover:border-purple-300 hover:bg-gray-50/60"
                       }`}
                     >
                       <input
-                        type="radio"
-                        name="deskPreset"
-                        checked={isSelected}
-                        onChange={() => setAssignStaffPreset(preset.key)}
-                        className="mt-1 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleAssignStaffDept(item.id)}
+                        className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-black text-gray-900">{preset.label}</p>
-                          {preset.role === "staff" ? (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
-                              STAFF
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
-                              CUSTOMER
-                            </span>
-                          )}
+                          <p className="text-xs font-black text-gray-900">{item.label}</p>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            isChecked ? "bg-purple-100 text-purple-800 font-black" : "bg-gray-100 text-gray-500"
+                          }`}>
+                            {isChecked ? "SELECTED" : "OFF"}
+                          </span>
                         </div>
-                        <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{preset.sub}</p>
-                        {preset.departments.length > 0 && (
-                          <div className="mt-1.5 flex flex-wrap gap-1">
-                            {preset.departments.map(d => (
-                              <span key={d} className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-white border border-gray-200 text-gray-700 uppercase">
-                                {d}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{item.sub}</p>
                       </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Summary */}
+              <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between text-xs">
+                <span className="text-gray-500 font-semibold">
+                  Selected Desks ({assignStaffDepts.length}):
+                </span>
+                <span className="font-bold text-purple-800 truncate max-w-[280px]">
+                  {assignStaffDepts.length === 0
+                    ? "Normal Customer (Staff Role Removed)"
+                    : assignStaffDepts.join(" + ").toUpperCase()}
+                </span>
               </div>
             </div>
 
@@ -14805,7 +14843,11 @@ Login karke apna naya personal password turant set karein.`}
                 disabled={assignStaffLoading}
                 className="flex-1 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-extrabold shadow-md active:scale-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
               >
-                {assignStaffLoading ? "Updating..." : "✅ Confirm Desk Assignment"}
+                {assignStaffLoading
+                  ? "Updating..."
+                  : assignStaffDepts.length === 0
+                  ? "🚫 Make Normal Customer"
+                  : "✅ Confirm Desk Assignment"}
               </button>
             </div>
           </div>

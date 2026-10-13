@@ -3,58 +3,21 @@ import { API } from "../config";
 import { tokenStorage } from "../utils/tokenStorage";
 
 const ALL_DEPARTMENTS = [
-  { id: "deposit", label: "Deposits", icon: "💰" },
-  { id: "withdrawal", label: "Withdrawals", icon: "💸" },
-  { id: "loan", label: "Loans", icon: "📄" },
-  { id: "kyc", label: "KYC Verification", icon: "🪪" },
-  { id: "lending", label: "P2P Lending", icon: "🤝" },
-  { id: "bond", label: "Bonds & FD", icon: "📈" }
+  { id: "loan", label: "📄 Loan Desk (Tum Loan wale ho)", sub: "Loans review, approve/reject & disbursal", icon: "📄" },
+  { id: "kyc", label: "🪪 KYC Desk (Tum KYC wale ho)", sub: "Aadhaar & PAN verification & approval", icon: "🪪" },
+  { id: "deposit", label: "💰 Deposit Desk (Tum Deposit wale ho)", sub: "Bank UTR transfers verify & credit", icon: "💰" },
+  { id: "withdrawal", label: "💸 Withdrawal Desk (Tum Withdrawal wale ho)", sub: "Customer payouts & bank cash-outs", icon: "💸" },
+  { id: "lending", label: "🤝 P2P Lending Desk", sub: "P2P borrower & lender transactions", icon: "🤝" },
+  { id: "bond", label: "📈 Bonds & FD Desk", sub: "Fixed yield bonds & debentures", icon: "📈" }
 ];
 
-const PRESETS = {
-  loan_desk: {
-    label: "📄 Loan Desk (Tum Loan wale ho)",
-    sub: "Loans review, approve/reject & penalty waiver",
-    departments: ["loan"],
-    permissions: ["loan.view", "loan.process", "loan.disburse", "loan.waive_penalty", "loan.create_on_behalf"]
-  },
-  kyc_desk: {
-    label: "🪪 KYC Desk (Tum KYC wale ho)",
-    sub: "Aadhaar & PAN card verification & approval",
-    departments: ["kyc"],
-    permissions: ["kyc.view", "kyc.process", "kyc.view_documents"]
-  },
-  deposit_desk: {
-    label: "💰 Deposit Desk (Tum Deposit wale ho)",
-    sub: "Bank UTR transfers verify & credit to balance",
-    departments: ["deposit"],
-    permissions: ["deposit.view", "deposit.process", "deposit.view_proof"]
-  },
-  withdrawal_desk: {
-    label: "💸 Withdrawal Desk (Tum Withdrawal wale ho)",
-    sub: "Customer payouts & bank cash-outs approve",
-    departments: ["withdrawal"],
-    permissions: ["withdrawal.view", "withdrawal.process"]
-  },
-  finance_desk: {
-    label: "🤝 Finance Desk (Deposit + Withdrawal)",
-    sub: "Deposits aur withdrawals dono process karega",
-    departments: ["deposit", "withdrawal"],
-    permissions: ["deposit.view", "deposit.process", "deposit.view_proof", "withdrawal.view", "withdrawal.process"]
-  },
-  full_desk: {
-    label: "🌟 Full Desk (All Departments)",
-    sub: "Sabhi desks (Loan, KYC, Deposit, Withdrawal, Bonds)",
-    departments: ["loan", "kyc", "deposit", "withdrawal", "lending", "bond"],
-    permissions: [
-      "loan.view", "loan.process", "loan.disburse", "loan.waive_penalty", "loan.create_on_behalf",
-      "kyc.view", "kyc.process", "kyc.view_documents",
-      "deposit.view", "deposit.process", "deposit.view_proof",
-      "withdrawal.view", "withdrawal.process",
-      "lending.view", "lending.process",
-      "bond.view", "bond.process"
-    ]
-  }
+const DEPT_PERMISSIONS = {
+  loan: ["loan.view", "loan.process", "loan.disburse", "loan.waive_penalty", "loan.create_on_behalf"],
+  kyc: ["kyc.view", "kyc.process", "kyc.view_documents"],
+  deposit: ["deposit.view", "deposit.process", "deposit.view_proof"],
+  withdrawal: ["withdrawal.view", "withdrawal.process"],
+  lending: ["lending.view", "lending.process"],
+  bond: ["bond.view", "bond.process"]
 };
 
 const ALL_PERMISSIONS_LIST = [
@@ -92,9 +55,8 @@ export default function StaffManager() {
     email: "",
     phone: "",
     password: "",
-    preset: "loan_desk",
     departments: ["loan"],
-    permissions: PRESETS.loan_desk.permissions,
+    permissions: DEPT_PERMISSIONS.loan,
     maxApprovalAmount: 50000
   });
   const [createdCredentials, setCreatedCredentials] = useState(null);
@@ -133,43 +95,24 @@ export default function StaffManager() {
     fetchStaff();
   }, [fetchStaff]);
 
-  // Handle Preset Selection in Create Form
-  const handlePresetSelect = (presetKey) => {
-    if (presetKey === "custom") {
-      setCreateForm(prev => ({ ...prev, preset: "custom" }));
-      return;
-    }
-    const preset = PRESETS[presetKey];
-    if (preset) {
-      setCreateForm(prev => ({
-        ...prev,
-        preset: presetKey,
-        departments: preset.departments,
-        permissions: preset.permissions
-      }));
-    }
-  };
-
-  // Toggle Department Checkbox in Create Form
+  // Toggle Department Checkbox in Create Form (Multi-role selection)
   const toggleCreateDept = (deptId) => {
     setCreateForm(prev => {
       const exists = prev.departments.includes(deptId);
-      const newDepts = exists ? prev.departments.filter(d => d !== deptId) : [...prev.departments, deptId];
-      // Keep permissions consistent
-      const newPerms = exists
-        ? prev.permissions.filter(p => !ALL_PERMISSIONS_LIST.find(x => x.key === p && x.dept === deptId))
-        : [...prev.permissions, ...ALL_PERMISSIONS_LIST.filter(x => x.dept === deptId).map(x => x.key)];
-      return { ...prev, preset: "custom", departments: newDepts, permissions: newPerms };
+      const nextDepts = exists ? prev.departments.filter(d => d !== deptId) : [...prev.departments, deptId];
+      const nextPerms = nextDepts.flatMap(d => DEPT_PERMISSIONS[d] || []);
+      return { ...prev, departments: nextDepts, permissions: nextPerms };
     });
   };
 
-  // Toggle Granular Permission in Create Form
-  const toggleCreatePerm = (permKey) => {
-    setCreateForm(prev => {
-      const exists = prev.permissions.includes(permKey);
-      const newPerms = exists ? prev.permissions.filter(p => p !== permKey) : [...prev.permissions, permKey];
-      return { ...prev, preset: "custom", permissions: newPerms };
-    });
+  // Quick Multi-Role Shortcut
+  const applyDeptsShortcut = (depts) => {
+    const nextPerms = depts.flatMap(d => DEPT_PERMISSIONS[d] || []);
+    setCreateForm(prev => ({
+      ...prev,
+      departments: depts,
+      permissions: nextPerms
+    }));
   };
 
   // Create Staff Member
@@ -177,6 +120,10 @@ export default function StaffManager() {
     e.preventDefault();
     if (!createForm.name.trim() || !createForm.email.trim()) {
       showToast("Name and email are required", true);
+      return;
+    }
+    if (!createForm.departments || createForm.departments.length === 0) {
+      showToast("Kam se kam ek department / desk select karein", true);
       return;
     }
     try {
@@ -199,11 +146,15 @@ export default function StaffManager() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to create staff member");
 
+      const deptsDisplay = (createForm.departments || [])
+        .map(d => ALL_DEPARTMENTS.find(x => x.id === d)?.label.replace(/\s*\(.*\)/, "") || d)
+        .join(" + ");
+
       setCreatedCredentials({
         name: data.staff?.name,
         email: data.staff?.email,
         phone: data.staff?.phone,
-        deskLabel: PRESETS[createForm.preset]?.label || (createForm.departments || []).join(", ") || "Staff Officer",
+        deskLabel: deptsDisplay || "Staff Desk",
         tempPassword: data.temporaryPassword || createForm.password || "(as provided)"
       });
 
@@ -515,10 +466,10 @@ export default function StaffManager() {
 
       {/* Modal: Create Staff Member */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/90 flex items-center justify-center p-4" style={{ isolation: "isolate" }}>
           <form
             onSubmit={handleCreateStaff}
-            className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl flex flex-col gap-4 text-xs"
+            className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 text-xs"
           >
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <h3 className="text-base font-black text-white">Create New Staff Account</h3>
@@ -580,54 +531,96 @@ export default function StaffManager() {
               </div>
             </div>
 
-            {/* Department Preset Selector */}
-            <div className="pt-2 border-t border-slate-800">
-              <label className="text-slate-300 font-bold block mb-1.5">Role / Department Preset</label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {Object.keys(PRESETS).map((pKey) => {
-                  const p = PRESETS[pKey];
-                  const isSelected = createForm.preset === pKey;
+            {/* Multi-Role Department Selector */}
+            <div className="pt-2 border-t border-slate-800 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <label className="text-slate-200 font-black text-xs block">
+                    Role / Department Selection (Multiple Allowed)
+                  </label>
+                  <p className="text-[11px] text-slate-400">
+                    Aap ek se zyada roles check kar sakte hain (e.g. Loan + KYC, ya All Desks):
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => applyDeptsShortcut(["loan", "kyc", "deposit", "withdrawal", "lending", "bond"])}
+                    className="px-2 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/40 rounded-lg text-[10px] font-bold"
+                  >
+                    🌟 All Desks
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyDeptsShortcut(["loan", "kyc"])}
+                    className="px-2 py-1 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 rounded-lg text-[10px] font-bold"
+                  >
+                    📄 Loan + 🪪 KYC
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyDeptsShortcut(["deposit", "withdrawal"])}
+                    className="px-2 py-1 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/40 rounded-lg text-[10px] font-bold"
+                  >
+                    🤝 Cashier
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyDeptsShortcut([])}
+                    className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-[10px] font-bold"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid of multi-selectable desk cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {ALL_DEPARTMENTS.map((dept) => {
+                  const isChecked = createForm.departments.includes(dept.id);
                   return (
-                    <button
-                      key={pKey}
-                      type="button"
-                      onClick={() => handlePresetSelect(pKey)}
-                      className={`p-2.5 rounded-xl text-left border transition ${
-                        isSelected
-                          ? "bg-blue-600/30 text-white border-blue-500 shadow-sm ring-1 ring-blue-500"
-                          : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
+                    <div
+                      key={dept.id}
+                      onClick={() => toggleCreateDept(dept.id)}
+                      className={`p-3 rounded-2xl border cursor-pointer select-none transition flex items-start gap-2.5 ${
+                        isChecked
+                          ? "bg-blue-950/70 border-blue-500 ring-1 ring-blue-500 text-white shadow-sm"
+                          : "bg-slate-950/80 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
                       }`}
                     >
-                      <div className="font-bold text-xs text-white">{p.label}</div>
-                      {p.sub && <div className="text-[10px] text-slate-400 font-normal mt-0.5">{p.sub}</div>}
-                    </button>
+                      <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                        isChecked ? "bg-blue-600 border-blue-400 text-white font-black" : "border-slate-700 bg-slate-900"
+                      }`}>
+                        {isChecked && <span className="text-[10px]">✓</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className={`text-xs font-black truncate ${isChecked ? "text-white" : "text-slate-300"}`}>
+                            {dept.label}
+                          </p>
+                          <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase shrink-0 ${
+                            isChecked ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-500"
+                          }`}>
+                            {isChecked ? "Active" : "Off"}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{dept.sub}</p>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-            </div>
 
-            {/* Departments Checkboxes */}
-            <div>
-              <label className="text-slate-300 font-bold block mb-1">Allowed Departments</label>
-              <div className="flex flex-wrap gap-2">
-                {ALL_DEPARTMENTS.map(d => {
-                  const checked = createForm.departments.includes(d.id);
-                  return (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => toggleCreateDept(d.id)}
-                      className={`px-3 py-1.5 rounded-xl font-bold border transition flex items-center gap-1.5 ${
-                        checked
-                          ? "bg-blue-600 text-white border-blue-500"
-                          : "bg-slate-950 text-slate-400 border-slate-800"
-                      }`}
-                    >
-                      <span>{d.icon}</span>
-                      <span>{d.label}</span>
-                    </button>
-                  );
-                })}
+              {/* Selected Desk Summary */}
+              <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
+                <span className="text-slate-400 font-semibold">
+                  Selected Desks ({createForm.departments.length}):
+                </span>
+                <span className="font-bold text-blue-400 truncate max-w-[280px]">
+                  {createForm.departments.length === 0
+                    ? "Koi desk select nahi hai"
+                    : createForm.departments.map(d => ALL_DEPARTMENTS.find(x => x.id === d)?.label.replace(/\s*\(.*\)/, "") || d).join(" + ")}
+                </span>
               </div>
             </div>
 
@@ -666,11 +659,11 @@ export default function StaffManager() {
 
       {/* Modal: Edit Permissions */}
       {editingStaff && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl flex flex-col gap-4 text-xs">
+        <div className="fixed inset-0 z-50 bg-slate-950/90 flex items-center justify-center p-4" style={{ isolation: "isolate" }}>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl flex flex-col gap-4 text-xs">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div>
-                <h3 className="text-base font-black text-white">Edit Permissions: {editingStaff.name}</h3>
+                <h3 className="text-base font-black text-white">Edit Desks: {editingStaff.name}</h3>
                 <span className="text-slate-400">{editingStaff.email}</span>
               </div>
               <button
@@ -682,29 +675,64 @@ export default function StaffManager() {
             </div>
 
             {/* Department Selection */}
-            <div>
-              <label className="text-slate-300 font-bold block mb-1.5">Assigned Desks</label>
-              <div className="flex flex-wrap gap-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <label className="text-slate-200 font-black text-xs block">Assigned Desks (Multi-Select Allowed)</label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allDepts = ["loan", "kyc", "deposit", "withdrawal", "lending", "bond"];
+                      setEditForm(prev => ({
+                        ...prev,
+                        departments: allDepts,
+                        permissions: allDepts.flatMap(d => DEPT_PERMISSIONS[d] || [])
+                      }));
+                    }}
+                    className="px-2 py-0.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded text-[10px] font-bold"
+                  >
+                    All Desks
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditForm(prev => ({ ...prev, departments: [], permissions: [] }));
+                    }}
+                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded text-[10px] font-bold"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {ALL_DEPARTMENTS.map(d => {
                   const checked = editForm.departments.includes(d.id);
                   return (
-                    <button
+                    <div
                       key={d.id}
-                      type="button"
                       onClick={() => {
                         const exists = editForm.departments.includes(d.id);
                         const newDepts = exists ? editForm.departments.filter(x => x !== d.id) : [...editForm.departments, d.id];
-                        setEditForm(prev => ({ ...prev, departments: newDepts }));
+                        const newPerms = newDepts.flatMap(x => DEPT_PERMISSIONS[x] || []);
+                        setEditForm(prev => ({ ...prev, departments: newDepts, permissions: newPerms }));
                       }}
-                      className={`px-3 py-1.5 rounded-xl font-bold border transition flex items-center gap-1.5 ${
+                      className={`p-2.5 rounded-2xl border cursor-pointer select-none transition flex items-center justify-between gap-2 ${
                         checked
-                          ? "bg-blue-600 text-white border-blue-500"
-                          : "bg-slate-950 text-slate-400 border-slate-800"
+                          ? "bg-blue-950/70 border-blue-500 text-white font-bold"
+                          : "bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200"
                       }`}
                     >
-                      <span>{d.icon}</span>
-                      <span>{d.label}</span>
-                    </button>
+                      <div className="flex items-center gap-2">
+                        <span>{d.icon}</span>
+                        <span className="text-xs truncate">{d.label.replace(/\s*\(.*\)/, "")}</span>
+                      </div>
+                      <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                        checked ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-500"
+                      }`}>
+                        {checked ? "Active" : "Off"}
+                      </span>
+                    </div>
                   );
                 })}
               </div>

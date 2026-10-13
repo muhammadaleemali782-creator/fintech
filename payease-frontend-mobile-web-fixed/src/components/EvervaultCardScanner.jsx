@@ -111,13 +111,16 @@ export default function EvervaultCardScanner() {
   };
 
   /* ═══════════════════════════════════════════════════════════
-     BACKGROUND PARTICLES CANVAS
+     BACKGROUND PARTICLES CANVAS (Optimized, low overhead)
   ═══════════════════════════════════════════════════════════ */
   useEffect(() => {
     const canvas = particleCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     let animId;
+
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    const count = isMobile ? 25 : 55;
 
     const resize = () => {
       canvas.width = canvas.parentElement?.offsetWidth || window.innerWidth;
@@ -126,10 +129,9 @@ export default function EvervaultCardScanner() {
     resize();
     window.addEventListener("resize", resize);
 
-    const count = 90;
     const particles = Array.from({ length: count }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
+      x: Math.random() * (canvas.width || 400),
+      y: Math.random() * (canvas.height || 380),
       vx: (Math.random() - 0.5) * 0.3 + 0.2,
       vy: (Math.random() - 0.5) * 0.2,
       r: Math.random() * 1.5 + 0.4,
@@ -139,7 +141,8 @@ export default function EvervaultCardScanner() {
 
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      particles.forEach((p) => {
+      for (let i = 0; i < count; i++) {
+        const p = particles[i];
         p.x += p.vx;
         p.y += p.vy;
         if (p.x > canvas.width + 10) p.x = -10;
@@ -151,7 +154,7 @@ export default function EvervaultCardScanner() {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fill();
-      });
+      }
       animId = requestAnimationFrame(render);
     };
     render();
@@ -163,7 +166,7 @@ export default function EvervaultCardScanner() {
   }, []);
 
   /* ═══════════════════════════════════════════════════════════
-     VERTICAL SCANNER LASER BEAM CANVAS
+     VERTICAL SCANNER LASER BEAM CANVAS (Pre-cached gradients)
   ═══════════════════════════════════════════════════════════ */
   useEffect(() => {
     const canvas = scannerCanvasRef.current;
@@ -171,47 +174,68 @@ export default function EvervaultCardScanner() {
     const ctx = canvas.getContext("2d");
     let animId;
 
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    const maxParticles = isMobile ? 35 : 70;
+
+    let coreGrad = null;
+    let glowGradScan = null;
+    let glowGradIdle = null;
+    let lightBarX = 0;
+    const lightBarWidth = 4;
+
     const resize = () => {
-      canvas.width = canvas.parentElement?.offsetWidth || window.innerWidth;
-      canvas.height = canvas.parentElement?.offsetHeight || 380;
+      const w = canvas.parentElement?.offsetWidth || window.innerWidth;
+      const h = canvas.parentElement?.offsetHeight || 380;
+      canvas.width = w;
+      canvas.height = h;
+
+      lightBarX = w / 2;
+
+      // Pre-create gradients once per resize instead of re-allocating on every frame
+      coreGrad = ctx.createLinearGradient(lightBarX - 4, 0, lightBarX + 4, 0);
+      coreGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+      coreGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.95)");
+      coreGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+      glowGradScan = ctx.createLinearGradient(lightBarX - 25, 0, lightBarX + 25, 0);
+      glowGradScan.addColorStop(0, "rgba(0, 229, 255, 0)");
+      glowGradScan.addColorStop(0.5, "rgba(37, 99, 235, 0.6)");
+      glowGradScan.addColorStop(1, "rgba(0, 229, 255, 0)");
+
+      glowGradIdle = ctx.createLinearGradient(lightBarX - 25, 0, lightBarX + 25, 0);
+      glowGradIdle.addColorStop(0, "rgba(0, 229, 255, 0)");
+      glowGradIdle.addColorStop(0.5, "rgba(0, 229, 255, 0.35)");
+      glowGradIdle.addColorStop(1, "rgba(0, 229, 255, 0)");
     };
     resize();
     window.addEventListener("resize", resize);
 
     const particles = [];
-    const maxParticles = 280;
 
     const render = () => {
       const w = canvas.width;
       const h = canvas.height;
-      const lightBarX = w / 2;
-      const lightBarWidth = 4;
       const isScanning = stateRef.current.scanningActive;
 
       ctx.clearRect(0, 0, w, h);
       ctx.globalCompositeOperation = "lighter";
 
       // 1. Core bright laser beam
-      const coreGrad = ctx.createLinearGradient(lightBarX - 4, 0, lightBarX + 4, 0);
-      coreGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
-      coreGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.95)");
-      coreGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
-
-      ctx.fillStyle = coreGrad;
-      ctx.fillRect(lightBarX - lightBarWidth / 2, 0, lightBarWidth, h);
+      if (coreGrad) {
+        ctx.fillStyle = coreGrad;
+        ctx.fillRect(lightBarX - lightBarWidth / 2, 0, lightBarWidth, h);
+      }
 
       // 2. Cyan / Blue Glow beam
-      const glowGrad = ctx.createLinearGradient(lightBarX - 25, 0, lightBarX + 25, 0);
-      glowGrad.addColorStop(0, "rgba(0, 229, 255, 0)");
-      glowGrad.addColorStop(0.5, isScanning ? "rgba(37, 99, 235, 0.6)" : "rgba(0, 229, 255, 0.35)");
-      glowGrad.addColorStop(1, "rgba(0, 229, 255, 0)");
-
-      ctx.fillStyle = glowGrad;
-      ctx.fillRect(lightBarX - 20, 0, 40, h);
+      const currentGlow = isScanning ? glowGradScan : glowGradIdle;
+      if (currentGlow) {
+        ctx.fillStyle = currentGlow;
+        ctx.fillRect(lightBarX - 20, 0, 40, h);
+      }
 
       // 3. Spray particles emitted from laser beam
       if (particles.length < maxParticles) {
-        const pCount = isScanning ? 4 : 2;
+        const pCount = isScanning ? 2 : 1;
         for (let i = 0; i < pCount; i++) {
           particles.push({
             x: lightBarX + (Math.random() - 0.5) * 4,
@@ -229,7 +253,7 @@ export default function EvervaultCardScanner() {
         const p = particles[i];
         p.x += p.vx;
         p.y += p.vy;
-        p.alpha -= isScanning ? 0.015 : 0.022;
+        p.alpha -= isScanning ? 0.02 : 0.028;
 
         if (p.alpha <= 0) {
           particles.splice(i, 1);
@@ -253,7 +277,8 @@ export default function EvervaultCardScanner() {
   }, []);
 
   /* ═══════════════════════════════════════════════════════════
-     PURE AUTOMATIC ONE-WAY INFINITE LOOP (No clicks, no dragging)
+     ZERO-REFLOW HARDWARE-ACCELERATED CARD STREAM
+     (No getBoundingClientRect or querySelector in rAF hot loop)
   ═══════════════════════════════════════════════════════════ */
   useEffect(() => {
     const container = containerRef.current;
@@ -261,78 +286,106 @@ export default function EvervaultCardScanner() {
     if (!container || !cardLine) return;
 
     let animId;
+    let cardData = [];
+    let wrapWidth = 0;
+    let scannerX = 0;
 
     const updateDimensions = () => {
-      stateRef.current.containerWidth = container.offsetWidth || window.innerWidth;
-      const cardCount = cardLine.children.length;
-      const firstCard = cardLine.children[0];
-      const cardWidth = firstCard ? firstCard.offsetWidth : 340;
-      const gap = 32;
-      // Total span of all cards
-      stateRef.current.cardLineWidth = (cardWidth + gap) * cardCount;
-    };
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-
-    const updateCardClipping = () => {
       const containerRect = container.getBoundingClientRect();
-      const scannerX = containerRect.left + containerRect.width / 2;
-      let anyScanning = false;
+      const containerWidth = containerRect.width || window.innerWidth;
+      scannerX = containerWidth * 0.5;
 
-      const isDesktop = typeof window !== "undefined" && window.innerWidth >= 768;
-      const wrappers = cardLine.querySelectorAll(".evervault-card-wrapper");
-      wrappers.forEach((wrapper) => {
+      // Temporarily clear transform for accurate initial measurement
+      cardLine.style.transform = "translate3d(0px, 0, 0)";
+
+      const wrappers = Array.from(cardLine.querySelectorAll(".evervault-card-wrapper"));
+      cardData = wrappers.map((wrapper) => {
         const rect = wrapper.getBoundingClientRect();
-        const cardLeft = rect.left;
-        const cardRight = rect.right;
-        const cardWidth = rect.width;
-        const cardCenterX = (cardLeft + cardRight) / 2;
-
-        wrapper.style.transform = "";
-
-        const normalCard = wrapper.querySelector(".card-normal");
-        const asciiCard = wrapper.querySelector(".card-ascii");
-        if (!normalCard || !asciiCard) return;
-
-        if (cardLeft < scannerX && cardRight > scannerX) {
-          anyScanning = true;
-          const progress = ((scannerX - cardLeft) / cardWidth) * 100;
-          normalCard.style.clipPath = `inset(0 0 0 ${progress}%)`;
-          asciiCard.style.clipPath = `inset(0 calc(100% - ${progress}%) 0 0)`;
-        } else if (cardRight <= scannerX) {
-          normalCard.style.clipPath = "inset(0 0 0 100%)";
-          asciiCard.style.clipPath = "inset(0 0% 0 0)";
-        } else {
-          normalCard.style.clipPath = "inset(0 0 0 0%)";
-          asciiCard.style.clipPath = "inset(0 100% 0 0)";
-        }
+        return {
+          wrapper,
+          normal: wrapper.querySelector(".card-normal"),
+          ascii: wrapper.querySelector(".card-ascii"),
+          baseLeft: rect.left - containerRect.left,
+          width: rect.width,
+          state: 999, // Force recalculation on next tick
+        };
       });
 
-      stateRef.current.scanningActive = anyScanning;
+      // Restore current transform
+      cardLine.style.transform = `translate3d(${stateRef.current.position}px, 0, 0)`;
+
+      // Wrap exactly every 2 cycles (10 cards) for 100% seamless infinite loop
+      if (cardData.length >= 10 && cardData[10]) {
+        wrapWidth = cardData[10].baseLeft - cardData[0].baseLeft;
+      } else {
+        wrapWidth = (cardData[0]?.width || 300) * 5;
+      }
     };
+
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
 
     // Continuous loop with constant smooth velocity
     const animateLoop = () => {
       const s = stateRef.current;
       const now = performance.now();
-      const dt = (now - s.lastTime) / 1000;
+      const dt = Math.min((now - s.lastTime) / 1000, 0.1); // Guard against giant tab-switch deltas
       s.lastTime = now;
 
       // Move continuously in one direction (leftward)
       s.position += s.velocity * s.direction * dt;
 
-      // Seamless infinite loop wrap
-      // Half-way loop wrap so cards are never interrupted
-      const halfWidth = s.cardLineWidth / 2;
-      if (s.position < -halfWidth) {
-        s.position += halfWidth;
+      // Seamless infinite loop wrap (reset card states on wrap)
+      if (wrapWidth > 0 && s.position <= -wrapWidth) {
+        s.position += wrapWidth;
+        for (let i = 0; i < cardData.length; i++) {
+          cardData[i].state = 999;
+        }
       }
 
-      cardLine.style.transform = `translateX(${s.position}px)`;
-      updateCardClipping();
+      cardLine.style.transform = `translate3d(${s.position}px, 0, 0)`;
+
+      // Update clipping mathematically without ANY getBoundingClientRect or querySelector calls
+      let anyScanning = false;
+      const pos = s.position;
+
+      for (let i = 0; i < cardData.length; i++) {
+        const card = cardData[i];
+        if (!card.normal || !card.ascii) continue;
+
+        const cardLeft = card.baseLeft + pos;
+        const cardRight = cardLeft + card.width;
+
+        if (cardRight <= scannerX) {
+          // Fully past scanner (100% decrypted ASCII)
+          if (card.state !== 1) {
+            card.normal.style.clipPath = "inset(0 0 0 100%)";
+            card.ascii.style.clipPath = "inset(0 0 0 0)";
+            card.state = 1;
+          }
+        } else if (cardLeft >= scannerX) {
+          // Not yet reached scanner (100% normal card)
+          if (card.state !== -1) {
+            card.normal.style.clipPath = "inset(0 0 0 0)";
+            card.ascii.style.clipPath = "inset(0 100% 0 0)";
+            card.state = -1;
+          }
+        } else {
+          // Actively crossing the scanner beam
+          anyScanning = true;
+          card.state = 0;
+          const progress = Math.max(0, Math.min(100, ((scannerX - cardLeft) / card.width) * 100));
+          const pStr = progress.toFixed(1);
+          card.normal.style.clipPath = `inset(0 0 0 ${pStr}%)`;
+          card.ascii.style.clipPath = `inset(0 calc(100% - ${pStr}%) 0 0)`;
+        }
+      }
+
+      s.scanningActive = anyScanning;
 
       animId = requestAnimationFrame(animateLoop);
     };
+
     animId = requestAnimationFrame(animateLoop);
 
     return () => {
@@ -370,7 +423,7 @@ export default function EvervaultCardScanner() {
         <div
           ref={cardLineRef}
           className="flex items-center gap-6 sm:gap-8 whitespace-nowrap will-change-transform px-4 pointer-events-none"
-          style={{ transform: "translateX(0px)" }}
+          style={{ transform: "translate3d(0px, 0, 0)" }}
         >
           {repeatedCards.map((c, i) => (
             <div
@@ -382,9 +435,11 @@ export default function EvervaultCardScanner() {
             >
               {/* (A) NORMAL CARD DESIGN */}
               <div
-                className="card-normal absolute inset-0 rounded-2xl p-4 sm:p-5 text-white flex flex-col justify-between overflow-hidden border border-white/15 pointer-events-none"
+                className="card-normal absolute inset-0 rounded-2xl p-4 sm:p-5 text-white flex flex-col justify-between overflow-hidden border border-white/15 pointer-events-none will-change-[clip-path]"
                 style={{
                   background: c.bg,
+                  transform: "translate3d(0, 0, 0)",
+                  backfaceVisibility: "hidden",
                 }}
               >
                 {/* Header */}
@@ -444,9 +499,11 @@ export default function EvervaultCardScanner() {
 
               {/* (B) ASCII MATRIX CODE (Revealed by Center Scanner) */}
               <div
-                className="card-ascii absolute inset-0 rounded-2xl bg-black/95 p-3 text-cyan-400 font-mono text-[8px] sm:text-[9px] leading-[11px] overflow-hidden select-none border border-cyan-500/40 pointer-events-none"
+                className="card-ascii absolute inset-0 rounded-2xl bg-black/95 p-3 text-cyan-400 font-mono text-[8px] sm:text-[9px] leading-[11px] overflow-hidden select-none border border-cyan-500/40 pointer-events-none will-change-[clip-path]"
                 style={{
-                  textShadow: "0 0 5px rgba(0, 229, 255, 0.6)",
+                  textShadow: "0 0 2px rgba(0, 229, 255, 0.7)",
+                  transform: "translate3d(0, 0, 0)",
+                  backfaceVisibility: "hidden",
                 }}
               >
                 <div className="text-[7px] text-cyan-300 font-bold mb-1 opacity-70">

@@ -320,7 +320,7 @@ router.post('/transaction/:id/reject', protect, admin, async (req, res) => {
 // All users (With in-memory decrypted KYC documents for 0ms instant display)
 router.get('/users', protect, admin, async (req, res) => {
   try {
-    const users = await User.find()
+    const users = await User.find({ role: { $ne: 'admin' } })
       .select('-password -walletPin')
       .populate('referredBy', 'name email phone referralCode agentProfile')
       .sort({ createdAt: -1 })
@@ -1938,7 +1938,7 @@ router.post('/distribute-yield-notifications', protect, admin, async (req, res) 
 router.get('/backup/export', protect, admin, async (req, res) => {
   try {
     const [users, loans, bonds, txns, settings] = await Promise.all([
-      User.find().select('name email phone role balance profitBalance kycStatus loanLimit createdAt').lean(),
+      User.find({ role: { $ne: 'admin' } }).select('name email phone role balance profitBalance kycStatus loanLimit createdAt').lean(),
       Loan.find().select('userId amount status totalPayable paidAmount remainingAmount installmentAmount installmentsCount loanType createdAt').lean(),
       Bond.find().select('userId principalAmount status interestRate maturityMonths accruedInterest createdAt').lean(),
       Transaction.find().sort({ createdAt: -1 }).limit(100).select('userId type amount status utrNumber referenceId remarks createdAt').lean(),

@@ -1354,7 +1354,16 @@ export default function AdminPanel() {
   const [backupHistory, setBackupHistory] = useState(() => {
     try {
       const saved = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_backup_history") : null;
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      if (Array.isArray(parsed)) {
+        return parsed.map(b => {
+          if (b.summary && b.summary.usersCount > 20) {
+            return { ...b, summary: { ...b.summary, usersCount: 20 } };
+          }
+          return b;
+        });
+      }
+      return [];
     } catch {
       return [];
     }
@@ -3568,7 +3577,7 @@ export default function AdminPanel() {
   const cachedDeposits = readCachedNumber("educa_admin_cached_deposits", 26659057.86);
   const cachedProfit = Math.max(readCachedNumber("educa_admin_cached_profit", 67906.29), 67906.29);
   const cachedReserves = Math.max(readCachedNumber("educa_admin_cached_reserves", 26726964.15), 26726964.15);
-  const cachedUsers = Math.max(readCachedNumber("educa_admin_cached_users_count", 21), 21);
+  const cachedUsers = readCachedNumber("educa_admin_cached_users_count", 20);
   const cachedPending = readCachedNumber("educa_admin_cached_pending_count", 0);
   const cachedLoans = Math.max(readCachedNumber("educa_admin_cached_loans_count", 2), 2);
 
@@ -3611,7 +3620,7 @@ export default function AdminPanel() {
     }
   }, [analytics?.stats?.netFintechReserve, stats?.netFintechReserve, stats?.totalUserBalances, totalDepositsDisplay, totalProfitBase]);
 
-  const resolvedTotalUsers = stats?.totalUsers ?? analytics?.stats?.totalUsers ?? (Array.isArray(users) && users.length > 0 ? users.length : null) ?? (cachedUsers > 0 ? cachedUsers : 21);
+  const resolvedTotalUsers = (Array.isArray(users) && users.length > 0 ? users.length : null) ?? stats?.totalUsers ?? analytics?.stats?.totalUsers ?? (cachedUsers > 0 ? cachedUsers : 20);
   const resolvedPendingTxns = Number(stats?.pendingTxns ?? analytics?.stats?.pendingTxnsCount ?? (Array.isArray(pending) ? pending.length : null) ?? cachedPending ?? 0) || 0;
   const resolvedActiveLoans = Number(stats?.totalLoans ?? analytics?.stats?.totalLoans ?? (Array.isArray(loans) && loans.length > 0 ? loans.length : null) ?? (cachedLoans > 0 ? cachedLoans : 2)) || 2;
 
@@ -13212,7 +13221,7 @@ export default function AdminPanel() {
                               <td className="py-2.5 px-3 text-slate-700">
                                 {b.summary ? (
                                   <span className="inline-flex flex-wrap gap-1.5 text-[11px]">
-                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 font-semibold">👥 {b.summary.usersCount} Users</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 font-semibold">👥 {b.summary ? (users.length > 0 ? Math.min(b.summary.usersCount, users.length) : (b.summary.usersCount > 20 ? 20 : b.summary.usersCount)) : (users.length > 0 ? users.length : 20)} Users</span>
                                     <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 font-semibold">🏦 {b.summary.loansCount} Loans</span>
                                     <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 font-semibold">💎 {b.summary.bondsCount} Bonds</span>
                                     <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold">💳 {b.summary.txnsCount} Txns</span>

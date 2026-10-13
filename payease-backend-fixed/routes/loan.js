@@ -1485,6 +1485,7 @@ router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_o
         applicantPhone: targetUser.phone,
         aadharNumber: targetUser.aadharNumber || aadharNumber,
         panNumber: targetUser.panNumber || panNumber,
+        photoUrl: req.body.documents?.photoUrl || req.body.photoUrl || '',
         doc1Url: req.body.documents?.doc1Url || targetUser.kycDocuments?.doc1Url || targetUser.kycDocuments?.docUrl || '',
         doc1BackUrl: req.body.documents?.doc1BackUrl || targetUser.kycDocuments?.doc1BackUrl || '',
         doc2Url: req.body.documents?.doc2Url || targetUser.kycDocuments?.doc2Url || '',
@@ -1492,7 +1493,7 @@ router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_o
         chequeNumber: chequeNumber ? String(chequeNumber).trim() : (targetUser.kycDocuments?.chequeNumber || ''),
         chequeUrl: req.body.documents?.chequeUrl || targetUser.kycDocuments?.chequeUrl || '',
         chequeBackUrl: req.body.documents?.chequeBackUrl || targetUser.kycDocuments?.chequeBackUrl || '',
-        offlineEvidenceUrl: req.body.backfillEvidenceUrl || '',
+        offlineEvidenceUrl: req.body.documents?.photoUrl || req.body.backfillEvidenceUrl || '',
         offlineEvidenceNote: req.body.adminNote || '',
         adminNotes: adminNote || `Loan applied by Admin on behalf of borrower (${borrowerType === 'new' ? 'New User' : 'Existing Customer'}${paidCount > 0 ? `, ${paidCount} kist already paid` : ''})`
       }
@@ -1503,6 +1504,10 @@ router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_o
       kycStatus: 'verified',
       kycVerifiedAt: new Date()
     };
+    if (req.body.documents?.photoUrl || req.body.photoUrl) {
+      docUpdates['avatar'] = req.body.documents?.photoUrl || req.body.photoUrl;
+      docUpdates['photoUrl'] = req.body.documents?.photoUrl || req.body.photoUrl;
+    }
     if (req.body.documents?.doc1Url) docUpdates['kycDocuments.doc1Url'] = encryptData(req.body.documents.doc1Url);
     if (req.body.documents?.doc1BackUrl) docUpdates['kycDocuments.doc1BackUrl'] = encryptData(req.body.documents.doc1BackUrl);
     if (req.body.documents?.doc2Url) docUpdates['kycDocuments.doc2Url'] = encryptData(req.body.documents.doc2Url);
@@ -1605,6 +1610,8 @@ router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_o
     const message = isDirectActive
       ? `Loan ${createdLoan.accountNumber} successfully activated! ${paidCount > 0 ? `${paidCount} kist already paid recorded. Next due date: ${new Date(remainingDates[0] || Date.now()).toLocaleDateString('en-IN')}.` : shouldDisburse ? 'Net amount disbursed to user wallet.' : 'Active in borrower dashboard.'}`
       : `Loan application for ${targetUser.name} created successfully! Ab aap ise review karke approve kar sakte hain.`;
+
+    memoryCache.delPrefix('desk_queues');
 
     res.json({
       success: true,

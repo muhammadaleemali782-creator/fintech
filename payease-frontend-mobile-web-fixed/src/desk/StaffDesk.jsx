@@ -44,17 +44,31 @@ export default function StaffDesk() {
     }
   }, [availableTabs, activeTab]);
 
-  // Data states
-  const [queues, setQueues] = useState({
-    deposit: [],
-    withdrawal: [],
-    loan: [],
-    kyc: [],
-    lending: [],
-    bond: []
-  });
-  const [counts, setCounts] = useState({});
-  const [loading, setLoading] = useState(true);
+  // Cache-First Instant State (0ms Load)
+  const initialQueues = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("educa_staff_desk_queues");
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return { deposit: [], withdrawal: [], loan: [], kyc: [], lending: [], bond: [] };
+  }, []);
+
+  const initialCounts = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("educa_staff_desk_counts");
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return {};
+  }, []);
+
+  const hasCachedData = useMemo(() => {
+    return Object.values(initialQueues).some(arr => Array.isArray(arr) && arr.length > 0);
+  }, [initialQueues]);
+
+  const [queues, setQueues] = useState(initialQueues);
+  const [counts, setCounts] = useState(initialCounts);
+  const [loading, setLoading] = useState(!hasCachedData);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successToast, setSuccessToast] = useState("");
 
@@ -94,6 +108,47 @@ export default function StaffDesk() {
   const [issueAdminNote, setIssueAdminNote] = useState("");
   const [issueSubmitting, setIssueSubmitting] = useState(false);
 
+  // Photo & Document uploads for Issue Loan
+  const [issueDocuments, setIssueDocuments] = useState({
+    photoUrl: "", // Customer Photo / Selfie
+    doc1Url: "", // Aadhaar Front
+    doc1BackUrl: "", // Aadhaar Back
+    doc2Url: "", // PAN Card / Cheque / Doc 2
+    chequeUrl: "" // Cheque photo
+  });
+
+  // Fast canvas image compression (<80KB per photo)
+  const handlePhotoUpload = (key, file) => {
+    if (!file) return;
+    if (file.type && !file.type.startsWith("image/")) {
+      showToast("Kripya image / photo file upload karein", true);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 1200;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL("image/jpeg", 0.82);
+        setIssueDocuments(prev => ({ ...prev, [key]: compressed }));
+      };
+      img.onerror = () => {
+        setIssueDocuments(prev => ({ ...prev, [key]: e.target.result }));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const showToast = useCallback((msg, isErr = false) => {
     if (isErr) {
       setErrorMsg(msg);
@@ -104,14 +159,14 @@ export default function StaffDesk() {
     }
   }, []);
 
-  // Fetch queues
+  // Fetch queues (Stale-While-Revalidate with localStorage persistence)
   const fetchQueues = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+    if (!silent && !hasCachedData) setLoading(true);
+    setIsSyncing(true);
     try {
       const res = await fetch(`${API}/admin/desk/queues`, {
         headers: {
-          Authorization: `Bearer ${token}`,
-          "Cache-Control": "no-cache"
+          Authorization: `Bearer ${token}`
         }
       });
       if (res.status === 401 || res.status === 403) {
@@ -125,15 +180,20 @@ export default function StaffDesk() {
       if (data.success && data.queues) {
         setQueues(data.queues);
         setCounts(data.counts || {});
+        try {
+          localStorage.setItem("educa_staff_desk_queues", JSON.stringify(data.queues));
+          localStorage.setItem("educa_staff_desk_counts", JSON.stringify(data.counts || {}));
+        } catch (_) {}
       } else {
-        setErrorMsg(data.message || "Failed to load desk queues");
+        if (!silent) setErrorMsg(data.message || "Failed to load desk queues");
       }
     } catch (err) {
       if (!silent) setErrorMsg("Connection error: " + err.message);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
+      setIsSyncing(false);
     }
-  }, [token, navigate, showToast]);
+  }, [token, navigate, showToast, hasCachedData]);
 
   useEffect(() => {
     fetchQueues();
@@ -382,6 +442,8 @@ export default function StaffDesk() {
         purpose: issuePurpose || "Personal Loan",
         directActive: issueDirectActive,
         disburseToWallet: issueDisburseToWallet,
+        documents: issueDocuments,
+        photoUrl: issueDocuments.photoUrl,
         adminNote: issueAdminNote || `Loan issued from Staff Desk by ${user?.name || "Staff"}`
       };
 
@@ -407,6 +469,7 @@ export default function StaffDesk() {
       setIssueUserQuery("");
       setIssueSearchResults([]);
       setIssueNewUser({ name: "", phone: "", email: "", aadharNumber: "", panNumber: "", address: "" });
+      setIssueDocuments({ photoUrl: "", doc1Url: "", doc1BackUrl: "", doc2Url: "", chequeUrl: "" });
       setIssueAdminNote("");
 
       // Refresh desks
@@ -500,13 +563,25 @@ export default function StaffDesk() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
+          {isSyncing ? (
+            <span className="px-2.5 py-1 bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-bold rounded-lg flex items-center gap-1.5 animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping"></span>
+              <span>Syncing...</span>
+            </span>
+          ) : (
+            <span className="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold rounded-lg items-center gap-1.5 hidden sm:flex">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>Live Synced</span>
+            </span>
+          )}
+
           <button
             onClick={() => fetchQueues(false)}
-            disabled={loading}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-medium rounded-lg border border-slate-700 transition flex items-center gap-1.5"
+            disabled={isSyncing}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-medium rounded-lg border border-slate-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             title="Reload queue data"
           >
-            <span className={loading ? "animate-spin" : ""}>🔄</span>
+            <span className={isSyncing ? "animate-spin" : ""}>🔄</span>
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
@@ -669,6 +744,8 @@ export default function StaffDesk() {
               const isOverLimit = maxApprovalAmount > 0 && amount > maxApprovalAmount;
               const isSelfAction = String(item.userId?._id || item.userId || "") === String(user?._id || user?.id || "");
               const canProcess = hasPermission(DEPT_CONFIG[activeTab]?.processPerm) && !isSelfAction && (!claimInfo.isClaimed || claimInfo.isClaimedByMe);
+              const customerPhoto = item.documents?.photoUrl || item.userId?.avatar || item.userId?.photoUrl || item.documents?.doc1Url;
+              const hasDocs = !!(item.documents?.photoUrl || item.documents?.doc1Url || item.documents?.doc1BackUrl || item.documents?.doc2Url || item.documents?.chequeUrl || item.screenshotUrl || item.proofUrl || item.kycDocuments?.doc1Url);
 
               return (
                 <div
@@ -683,7 +760,7 @@ export default function StaffDesk() {
                 >
                   {/* Top Bar: Status & Amount */}
                   <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-start justify-between gap-2 mb-3">
                       <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-lg uppercase tracking-wider border ${
                         item.status === "approved" || item.status === "completed" || item.status === "active"
                           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
@@ -703,13 +780,40 @@ export default function StaffDesk() {
                       )}
                     </div>
 
-                    {/* User Identity */}
-                    <h4 className="text-sm font-bold text-slate-100 truncate">
-                      {item.userId?.name || item.userName || "Customer"}
-                    </h4>
-                    <p className="text-xs text-slate-400 truncate">
-                      {item.userId?.email || item.userEmail || item.userId?.phone || item.userPhone || "—"}
-                    </p>
+                    {/* User Identity & Photo */}
+                    <div className="flex items-center gap-3">
+                      {customerPhoto ? (
+                        <img
+                          src={customerPhoto}
+                          alt="Customer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEnlargedImage(customerPhoto);
+                          }}
+                          className="w-10 h-10 rounded-2xl object-cover border border-slate-700 bg-slate-950 cursor-pointer hover:scale-105 transition shrink-0"
+                          title="Click to enlarge photo"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 font-black flex items-center justify-center text-sm shrink-0">
+                          {(item.userId?.name || item.userName || "C")[0].toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-sm font-bold text-slate-100 truncate">
+                            {item.userId?.name || item.userName || "Customer"}
+                          </h4>
+                          {hasDocs && (
+                            <span className="text-[11px] text-blue-400 font-bold" title="Photos/Documents attached">
+                              📷
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 truncate">
+                          {item.userId?.phone || item.userPhone || item.userId?.email || item.userEmail || "—"}
+                        </p>
+                      </div>
+                    </div>
 
                     {/* Metadata details */}
                     <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex flex-col gap-1 text-[11px] text-slate-400">
@@ -827,7 +931,7 @@ export default function StaffDesk() {
 
       {/* Item Detail Drawer / Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/85 flex items-center justify-center p-4" style={{ isolation: "isolate" }}>
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl flex flex-col gap-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
@@ -836,7 +940,7 @@ export default function StaffDesk() {
               </div>
               <button
                 onClick={() => setSelectedItem(null)}
-                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold"
+                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -892,19 +996,41 @@ export default function StaffDesk() {
                 </div>
               )}
 
-              {/* Proof / Screenshot Evidence */}
-              {(selectedItem.screenshotUrl || selectedItem.proofUrl || selectedItem.documents?.chequeUrl) && (
-                <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800/80">
-                  <h5 className="font-bold text-slate-300 mb-2">Attached Proof / Receipt</h5>
-                  <img
-                    src={selectedItem.screenshotUrl || selectedItem.proofUrl || selectedItem.documents?.chequeUrl}
-                    alt="Transaction Evidence"
-                    onClick={() => setEnlargedImage(selectedItem.screenshotUrl || selectedItem.proofUrl || selectedItem.documents?.chequeUrl)}
-                    className="max-h-48 w-full object-contain rounded-xl border border-slate-800 cursor-pointer hover:opacity-90 transition bg-black"
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1 text-center">Click image to enlarge</p>
-                </div>
-              )}
+              {/* Attached Photos & Verification Documents Gallery */}
+              {(() => {
+                const photos = [
+                  { label: "Customer Photo / Selfie", url: selectedItem.documents?.photoUrl || selectedItem.userId?.avatar || selectedItem.userId?.photoUrl },
+                  { label: "Aadhaar / ID Front", url: selectedItem.documents?.doc1Url },
+                  { label: "Aadhaar / ID Back", url: selectedItem.documents?.doc1BackUrl },
+                  { label: "PAN Card / Doc 2", url: selectedItem.documents?.doc2Url || selectedItem.documents?.doc2BackUrl },
+                  { label: "Bank Cheque / Proof", url: selectedItem.documents?.chequeUrl || selectedItem.documents?.chequeBackUrl },
+                  { label: "Payment Proof / Receipt", url: selectedItem.screenshotUrl || selectedItem.proofUrl || selectedItem.documents?.offlineEvidenceUrl }
+                ].filter(p => Boolean(p.url));
+
+                if (photos.length === 0) return null;
+
+                return (
+                  <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800/80 space-y-2">
+                    <h5 className="font-bold text-slate-300 flex items-center justify-between">
+                      <span>Attached Photos & Documents ({photos.length})</span>
+                      <span className="text-[10px] text-slate-500 font-normal">Click to enlarge</span>
+                    </h5>
+                    <div className="grid grid-cols-2 gap-2">
+                      {photos.map((p, idx) => (
+                        <div key={idx} className="bg-slate-900 p-2 rounded-xl border border-slate-800 flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-slate-400 truncate">{p.label}</span>
+                          <img
+                            src={p.url}
+                            alt={p.label}
+                            onClick={() => setEnlargedImage(p.url)}
+                            className="h-24 w-full object-cover rounded-lg border border-slate-800 cursor-pointer hover:opacity-90 transition bg-black"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Audit history on item */}
               {Array.isArray(selectedItem.history) && selectedItem.history.length > 0 && (
@@ -1256,6 +1382,72 @@ export default function StaffDesk() {
                     Daily (Rozana)
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Step: Photo & Verification Documents */}
+            <div className="space-y-2.5 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <span>📷</span>
+                  <span>Photo & Documents (Customer / Aadhaar / Cheque)</span>
+                </label>
+                <span className="text-[10px] text-slate-400 font-medium">Camera 📸 ya gallery se choose karein</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { key: "photoUrl", label: "Customer Photo", icon: "👤", capture: true },
+                  { key: "doc1Url", label: "Aadhaar Front", icon: "🪪" },
+                  { key: "doc1BackUrl", label: "Aadhaar Back", icon: "🪪" },
+                  { key: "doc2Url", label: "PAN / Cheque", icon: "📄" }
+                ].map(({ key, label, icon, capture }) => {
+                  const url = issueDocuments[key];
+                  return (
+                    <div
+                      key={key}
+                      className="bg-slate-900 border border-slate-800 rounded-xl p-2 flex flex-col items-center justify-center gap-1 text-center relative min-h-[95px] group"
+                    >
+                      {url ? (
+                        <>
+                          <img
+                            src={url}
+                            alt={label}
+                            onClick={() => setEnlargedImage(url)}
+                            className="w-full h-16 object-cover rounded-lg border border-slate-700 cursor-pointer"
+                          />
+                          <span className="text-[10px] font-bold text-emerald-400 truncate max-w-full">
+                            ✓ {label}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setIssueDocuments(prev => ({ ...prev, [key]: "" }))}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-md cursor-pointer hover:bg-rose-500"
+                            title="Remove photo"
+                          >
+                            ✕
+                          </button>
+                        </>
+                      ) : (
+                        <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-1">
+                          <span className="text-xl mb-0.5">{icon}</span>
+                          <span className="text-[10px] font-bold text-slate-300 block">{label}</span>
+                          <span className="text-[9px] text-blue-400 mt-0.5 font-bold">+ Add Photo</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture={capture ? "user" : undefined}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handlePhotoUpload(key, file);
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

@@ -2324,6 +2324,16 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
   try {
     const isStaff = req.user.role === 'staff';
     const allowedDepts = getAllowedDepartments(req.user);
+    const deptsKey = allowedDepts.slice().sort().join('_');
+    const cacheKey = `desk_queues_${isStaff ? req.user._id : 'admin'}_${deptsKey}`;
+
+    // Return in-memory cache instantly (sub-millisecond) if fresh within 8 seconds
+    const cached = memoryCache.get(cacheKey);
+    if (cached && !req.headers['x-force-refresh']) {
+      res.setHeader('X-Cache', 'HIT');
+      res.setHeader('Cache-Control', 'private, max-age=4');
+      return res.json(cached);
+    }
 
     const queues = {
       deposit: [],
@@ -2337,13 +2347,14 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
 
     const promises = [];
 
-    // Deposits, Withdrawals & Lending Transactions
+    // Deposits, Withdrawals & Lending Transactions (Optimized projection)
     if (allowedDepts.includes('deposit') || allowedDepts.includes('withdrawal') || allowedDepts.includes('lending')) {
       promises.push(
         Transaction.find({ status: { $in: ['pending', 'hold'] } })
-          .populate('userId', 'name email phone accountNumber upiId kycStatus')
+          .select('userId type amount status isHold sourceWallet referenceId utrNumber proofUrl screenshotUrl upiId accountNumber createdAt claim')
+          .populate('userId', 'name email phone accountNumber upiId kycStatus avatar photoUrl')
           .sort({ createdAt: -1 })
-          .limit(100)
+          .limit(60)
           .lean()
           .then(txns => {
             txns.forEach(t => {
@@ -2362,13 +2373,14 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
       );
     }
 
-    // Loans Queue
+    // Loans Queue (Exclude heavy 30-item subdocument schedules for 10x query speed)
     if (allowedDepts.includes('loan')) {
       promises.push(
         Loan.find({ status: { $in: ['pending', 'active'] } })
-          .populate('userId', 'name email phone accountNumber kycStatus')
+          .select('-installmentSchedule -emiSchedule -history')
+          .populate('userId', 'name email phone accountNumber kycStatus avatar photoUrl')
           .sort({ createdAt: -1 })
-          .limit(100)
+          .limit(60)
           .lean()
           .then(loans => {
             queues.loan = loans;
@@ -2381,9 +2393,9 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
     if (allowedDepts.includes('kyc')) {
       promises.push(
         User.find({ kycStatus: 'pending', role: { $ne: 'admin' } })
-          .select('name email phone kycStatus kycDocuments createdAt accountNumber upiId cardStatus')
+          .select('name email phone kycStatus kycDocuments.submittedAt kycDocuments.doc1Url kycDocuments.doc2Url kycDocuments.chequeUrl createdAt accountNumber upiId cardStatus avatar photoUrl')
           .sort({ 'kycDocuments.submittedAt': -1, createdAt: -1 })
-          .limit(100)
+          .limit(60)
           .lean()
           .then(users => {
             queues.kyc = users;
@@ -2396,9 +2408,10 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
     if (allowedDepts.includes('bond') || allowedDepts.includes('lending')) {
       promises.push(
         Bond.find({ status: 'pending' })
-          .populate('userId', 'name email phone accountNumber')
+          .select('userId bondType amount tenure interestRate status createdAt')
+          .populate('userId', 'name email phone accountNumber avatar photoUrl')
           .sort({ createdAt: -1 })
-          .limit(100)
+          .limit(60)
           .lean()
           .then(bonds => {
             bonds.forEach(b => {
@@ -2420,12 +2433,19 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
 
     await Promise.all(promises);
 
-    res.json({
+    const payload = {
       success: true,
       allowedDepartments: allowedDepts,
       counts: queues.counts,
       queues
-    });
+    };
+
+    // Cache in memory for 8 seconds
+    memoryCache.set(cacheKey, payload, 8);
+
+    res.setHeader('X-Cache', 'MISS');
+    res.setHeader('Cache-Control', 'private, max-age=4');
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ message: 'Failed to load desk queues: ' + err.message });
   }
@@ -2462,6 +2482,7 @@ router.post('/claim/:type/:id', protect, staffOrAdmin, async (req, res) => {
       expiresAt
     };
     await item.save();
+    memoryCache.delPrefix('desk_queues');
 
     res.json({ success: true, message: 'Item claimed successfully', claim: item.claim });
   } catch (err) {
@@ -2487,6 +2508,7 @@ router.post('/release-claim/:type/:id', protect, staffOrAdmin, async (req, res) 
 
     item.claim = null;
     await item.save();
+    memoryCache.delPrefix('desk_queues');
 
     res.json({ success: true, message: 'Claim released successfully' });
   } catch (err) {

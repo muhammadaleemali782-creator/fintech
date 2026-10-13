@@ -2165,8 +2165,8 @@ export default function AdminPanel() {
     }
     try {
       const url = `${API}/admin/analytics${force ? `?force=true&_t=${Date.now()}` : ""}`;
-      const res = await cachedAdminFetch(url, { headers }, 5000, force);
-      if (res.status === 429) return;
+      const res = await cachedAdminFetch(url, { headers }, 10000, force);
+      if (!res || !res.ok) return;
       const data = await res.json();
       if (data && data.success) {
         setAnalytics(data);
@@ -2500,11 +2500,11 @@ export default function AdminPanel() {
     if (tab === "analytics") {
       loadAnalytics(true);
       loadStats(true);
-      // 20-second auto-refresh interval for live 24h deposits & yields
+      // 45-second auto-refresh interval for live 24h deposits & yields
       analyticsInterval = setInterval(() => {
         loadAnalytics(true);
         loadStats(true);
-      }, 20 * 1000);
+      }, 45 * 1000);
     } else if (tab === "pending") {
       loadPending(true);
       loadLoans(true);

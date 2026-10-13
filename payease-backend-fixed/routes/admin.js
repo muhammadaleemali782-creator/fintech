@@ -999,16 +999,7 @@ router.get('/analytics', protect, admin, async (req, res) => {
       if (cached) return res.json(cached);
     }
 
-    // 0. Ensure up-to-the-minute daily yield is calculated for active depositors
-    try {
-      const { processDailyYield } = require('./user');
-      const activeDepositors = await User.find({ role: { $ne: 'admin' }, balance: { $gt: 0 } });
-      for (const u of activeDepositors) {
-        await processDailyYield(u);
-      }
-    } catch (yieldErr) {
-      console.warn('Live yield sync warning in analytics:', yieldErr.message);
-    }
+
 
     // 1. Users & Balances
     const users = await User.find({ role: { $ne: 'admin' } }).select('name email phone balance profitBalance lowestBalance24h createdAt');
@@ -1114,6 +1105,28 @@ router.get('/analytics', protect, admin, async (req, res) => {
           users: new Set()
         };
       }
+    }
+
+    // Ensure today's live accrued yield is accurately reflected in dailyMap without blocking DB operations
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const istMidnight = new Date(`${todayStr}T00:00:00+05:30`);
+    const msElapsedToday = Math.max(0, now.getTime() - istMidnight.getTime());
+    const dayProgress = Math.min(1, msElapsedToday / (24 * 3600 * 1000));
+    const liveAccruedToday = Number(((totalDeposits * 0.12 / 365) * dayProgress).toFixed(2));
+
+    if (!dailyMap[todayStr]) {
+      const [y, m, d] = todayStr.split('-').map(Number);
+      const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+      dailyMap[todayStr] = {
+        date: todayStr,
+        displayDate: dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' }),
+        amount: liveAccruedToday,
+        txnCount: 1,
+        users: new Set()
+      };
+    } else {
+      dailyMap[todayStr].amount = Math.max(dailyMap[todayStr].amount, liveAccruedToday);
     }
 
     let runningYieldSum = 0;

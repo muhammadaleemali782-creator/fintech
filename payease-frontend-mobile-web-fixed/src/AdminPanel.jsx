@@ -4235,6 +4235,341 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
+                {/* Category Executive Summary Strip (Red Box Slot) */}
+                {capitalSubCategory === "loans" && (() => {
+                  const loanDisbursed = activeItems.reduce((s, l) => s + Number(l.amount || 0), 0);
+                  const loanRecovered = activeItems.reduce((s, l) => s + Number(l.paidAmount || 0), 0);
+                  const loanRemaining = activeItems.reduce((s, l) => s + Number(l.remainingAmount !== undefined ? l.remainingAmount : (Math.max(0, (l.totalPayable || l.amount || 0) - (l.paidAmount || 0)))), 0);
+                  const loanBorrowers = new Set(activeItems.map(l => String(l.userId?._id || l.userId?.id || l.userId || "")).filter(Boolean)).size;
+                  const loanActive = activeItems.filter(l => l.status === "active").length;
+
+                  return (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-blue-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>📤</span> Total Diya Gaya (Disbursed)
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-slate-900 font-mono">
+                            ₹{loanDisbursed.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                            {loanBorrowers} Borrowers
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>📥</span> Wapas Kitna Aaya (Recovered)
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-emerald-700 font-mono">
+                            ₹{loanRecovered.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                            ✅ Collected
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-amber-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>⏳</span> Bacha Hua (Remaining Due)
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-amber-900 font-mono">
+                            ₹{loanRemaining.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full">
+                            Pending Recovery
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-indigo-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-indigo-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>🏛️</span> Active Udhaar Accounts
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-indigo-950 font-mono">
+                            {loanActive} Running
+                          </span>
+                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+                            Total {activeItems.length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {capitalSubCategory === "investments" && (() => {
+                  const invPrincipal = activeItems.reduce((s, b) => s + Number(b.principalAmount || 0), 0);
+                  const invYield = activeItems.reduce((s, b) => s + Number(b.accruedInterest || 0), 0);
+                  const invInvestors = new Set(activeItems.map(b => String(b.userId?._id || b.userId?.id || b.userId || "")).filter(Boolean)).size;
+                  const invActive = activeItems.filter(b => b.status === "active").length;
+
+                  return (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-purple-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-purple-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>💎</span> Total Principal Nivesh
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-purple-950 font-mono">
+                            ₹{invPrincipal.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
+                            {invInvestors} Investors
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>📈</span> Distributed Yield / Return
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-emerald-700 font-mono">
+                            ₹{invYield.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                            Paid Out
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-indigo-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-indigo-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>🤝</span> Active Investment Bonds
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-indigo-950 font-mono">
+                            {invActive} Active
+                          </span>
+                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+                            Total {activeItems.length}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>👥</span> Total Investor Base
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-slate-900 font-mono">
+                            {invInvestors} People
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                            Verified
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {capitalSubCategory === "cashout" && (() => {
+                  const cashApproved = activeItems.filter(c => c.status === "approved" || !c.status).reduce((s, c) => s + Number(c.amount || 0), 0);
+                  const cashPending = activeItems.filter(c => c.status === "pending").reduce((s, c) => s + Number(c.amount || 0), 0);
+                  const cashUsers = new Set(activeItems.map(c => String(c.userId?._id || c.userId || "")).filter(Boolean)).size;
+                  const cashPendingCount = activeItems.filter(c => c.status === "pending").length;
+
+                  return (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-rose-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-rose-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>💸</span> Approved Cash-Out
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-rose-900 font-mono">
+                            ₹{cashApproved.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">
+                            {cashUsers} Users
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-amber-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>⏳</span> Pending Cash-Out Queue
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-amber-900 font-mono">
+                            ₹{cashPending.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full">
+                            {cashPendingCount} Requests
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>📊</span> Total Payout Txns
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-slate-900 font-mono">
+                            {activeItems.length} Txns
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                            All statuses
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-blue-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>👥</span> Unique Payout Users
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-blue-900 font-mono">
+                            {cashUsers} Users
+                          </span>
+                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                            Recipients
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {capitalSubCategory === "deposits" && (() => {
+                  const depApproved = activeItems.filter(d => d.status === "approved" || !d.status).reduce((s, d) => s + Number(d.amount || 0), 0);
+                  const depPending = activeItems.filter(d => d.status === "pending").reduce((s, d) => s + Number(d.amount || 0), 0);
+                  const depUsers = new Set(activeItems.map(d => String(d.userId?._id || d.userId || "")).filter(Boolean)).size;
+                  const depPendingCount = activeItems.filter(d => d.status === "pending").length;
+
+                  return (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>💰</span> Approved Inflow (Added)
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-emerald-800 font-mono">
+                            ₹{depApproved.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                            Credited
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-amber-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>⏳</span> Pending Deposit Queue
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-amber-900 font-mono">
+                            ₹{depPending.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full">
+                            {depPendingCount} Requests
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-blue-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>👥</span> Unique Deposit Users
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-blue-900 font-mono">
+                            {depUsers} Users
+                          </span>
+                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                            Depositors
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>📋</span> Total Deposit Txns
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-slate-900 font-mono">
+                            {activeItems.length} Txns
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                            UPI & Bank
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {capitalSubCategory === "profit" && (() => {
+                  const profitTotal = activeItems.reduce((s, p) => s + Number(p.amount || 0), 0);
+                  const profitUsers = new Set(activeItems.map(p => String(p.userId?._id || p.userId || "")).filter(Boolean)).size;
+
+                  return (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>📈</span> Total Distributed Profit
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-emerald-800 font-mono">
+                            ₹{profitTotal.toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                            Daily Yield
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-blue-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>👥</span> Beneficiary Accounts
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-blue-900 font-mono">
+                            {profitUsers} Users
+                          </span>
+                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                            Credited
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-purple-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-purple-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>⚖️</span> System Net Liquidity
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-purple-950 font-mono">
+                            ₹{(capitalMetrics?.flow?.systemNetReserve !== undefined ? capitalMetrics.flow.systemNetReserve : 124500).toLocaleString("en-IN")}
+                          </span>
+                          <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
+                            Net Balance
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <span>📋</span> Total Yield Entries
+                        </span>
+                        <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                          <span className="text-base sm:text-xl font-black text-slate-900 font-mono">
+                            {activeItems.length} Entries
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                            Audit Log
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Detailed Interactive Ledger Breakdown Container */}
                 <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
                   {/* Category Header Strip */}

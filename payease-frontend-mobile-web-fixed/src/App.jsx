@@ -70,6 +70,8 @@ const KycPage = lazyWithRetry(() => import("./pages/KycPage"));
 const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
 
 
+import TopProgressBar from "./components/ui/TopProgressBar";
+
 function PrivateRoute({ children, adminOnly = false }) {
   const token = tokenStorage.getToken();
   let user = {};
@@ -83,22 +85,15 @@ function PrivateRoute({ children, adminOnly = false }) {
 }
 
 function LoadingScreen() {
-  const [showSpinner, setShowSpinner] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setShowSpinner(true), 1600);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-50 select-none">
       <div className="flex flex-col items-center justify-center">
         <img
           src="/icon-192.png"
           alt="Educa Fintech Logo"
-          className="w-24 h-24 object-contain mb-3"
+          className="w-20 h-20 object-contain mb-3 animate-pulse"
         />
-        <h2 className="text-2xl font-extrabold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+        <h2 className="text-xl sm:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
           Educa Fintech
         </h2>
         <p className="text-xs font-semibold text-slate-500 mt-1">
@@ -106,12 +101,13 @@ function LoadingScreen() {
         </p>
       </div>
 
-      {/* Subtle loader: appears ONLY after 1.6s if network/chunk download is slow */}
-      <div className={`mt-7 transition-opacity duration-300 ${showSpinner ? "opacity-100" : "opacity-0"}`}>
-        <div className="w-7 h-7 border-2.5 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+      {/* Immediate visual feedback spinner */}
+      <div className="mt-6 flex items-center gap-2.5">
+        <div className="w-5 h-5 border-2.5 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+        <span className="text-xs font-bold text-slate-600">Loading...</span>
       </div>
 
-      {/* Bottom Side Branding (Still) */}
+      {/* Bottom Side Branding */}
       <div className="absolute bottom-7 left-0 right-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none text-center">
         <span className="text-xs font-extrabold tracking-wider text-slate-900 uppercase">
           12% Per Year
@@ -160,6 +156,7 @@ function RootRoute() {
 export default function App() {
   return (
     <BrowserRouter>
+      <TopProgressBar />
       <ErrorBoundary>
         <Suspense fallback={<LoadingScreen />}>
           <Routes>

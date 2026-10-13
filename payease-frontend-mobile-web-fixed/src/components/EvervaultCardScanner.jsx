@@ -1,6 +1,6 @@
 import { useEffect, useRef, useMemo } from "react";
 
-// Card themes for Educa Fintech
+// Card themes for Educa Fintech with clean protocol specifications for scanner
 const cardDefs = [
   {
     id: "savings",
@@ -13,6 +13,15 @@ const cardDefs = [
     number: "•••• •••• •••• 1200",
     valid: "PERPETUAL",
     icon: "🏦",
+    scanLines: [
+      "// PROTOCOL: 12% LIQUID SAVINGS VAULT",
+      "STATUS: ACTIVE • ZERO MINIMUM BALANCE",
+      "CORE_YIELD: 12.00% DAILY COMPOUNDING",
+      "LOCK_IN: ZERO • 24x7 INSTANT UPI WITHDRAWAL",
+      "PAYOUT: REAL-TIME DAILY TO PROFIT WALLET",
+      "SECURITY: 100% RBI PARTNER & ASSET BACKED",
+      "HASH_SIG: 0x12FA_EDUCA_SAVINGS_VAULT_OK",
+    ],
   },
   {
     id: "recharge",
@@ -25,6 +34,15 @@ const cardDefs = [
     number: "•••• •••• •••• 0199",
     valid: "INSTANT",
     icon: "📱",
+    scanLines: [
+      "// PROTOCOL: ₹199 INSTANT RECHARGE MICRO LOAN",
+      "STATUS: SANCTIONED • PRE-APPROVED ACCESS",
+      "LOAN_AMOUNT: ₹199.00 DIRECT UPI CREDIT",
+      "CIBIL_SCORE_REQ: 0 • ZERO CIBIL REQUIRED",
+      "DISBURSAL: INSTANT 1-CLICK DISBURSEMENT",
+      "TENURE: 30 DAYS EXTENDABLE COVERAGE",
+      "HASH_SIG: 0x0199_EDUCA_MICRO_RECHARGE_OK",
+    ],
   },
   {
     id: "bike",
@@ -37,6 +55,15 @@ const cardDefs = [
     number: "•••• •••• •••• 8840",
     valid: "36 MONTHS",
     icon: "🏍️",
+    scanLines: [
+      "// PROTOCOL: TWO-WHEELER VEHICLE LOAN",
+      "STATUS: PRE-QUALIFIED UP TO ₹1,50,000",
+      "EMI_SCHEME: LOW FLAT RATE • ZERO ADVANCE",
+      "TENURE: 12 TO 36 MONTHS FLEXIBLE PAY",
+      "DISBURSAL: DIRECT TO AUTHORIZED DEALER",
+      "DOCUMENTATION: MINIMAL AADHAAR / KYC",
+      "HASH_SIG: 0x8840_EDUCA_BIKE_FINANCING_OK",
+    ],
   },
   {
     id: "school",
@@ -49,6 +76,15 @@ const cardDefs = [
     number: "•••• •••• •••• 5521",
     valid: "QUARTERLY",
     icon: "🎒",
+    scanLines: [
+      "// PROTOCOL: STUDENT EDUCATION EMI AID",
+      "STATUS: 100% PARENT RELIEF SANCTIONED",
+      "PURPOSE: SCHOOL & COLLEGE TERM FEES",
+      "INTEREST_TERMS: 0% ADVANCE INTEREST AID",
+      "REPAYMENT: QUARTERLY FLEXIBLE INSTALLMENTS",
+      "DISBURSAL: DIRECT TO EDUCATIONAL CAMPUS",
+      "HASH_SIG: 0x5521_EDUCA_STUDENT_RELIEF_OK",
+    ],
   },
   {
     id: "investment",
@@ -61,6 +97,15 @@ const cardDefs = [
     number: "•••• •••• •••• 9999",
     valid: "PREMIUM",
     icon: "📈",
+    scanLines: [
+      "// PROTOCOL: 18% FIXED WEALTH BOND",
+      "STATUS: GUARANTEED MATURITY RETURN",
+      "ANNUAL_PROFIT: 18.00% FLAT MATURITY PAYOUT",
+      "TENURE: 365 DAYS FIXED WEALTH BOND",
+      "MIN_ALLOCATION: ₹1,00,000 PER BOND UNIT",
+      "BACKED_BY: 100% FINTECH RESERVE LIQUIDITY",
+      "HASH_SIG: 0x9999_EDUCA_WEALTH_BOND_OK",
+    ],
   },
 ];
 
@@ -340,8 +385,11 @@ export default function EvervaultCardScanner() {
         const rect = wrapper.getBoundingClientRect();
         return {
           wrapper,
+          normal: wrapper.querySelector(".card-normal"),
+          ascii: wrapper.querySelector(".card-ascii"),
           baseLeft: rect.left - containerRect.left,
           width: rect.width,
+          state: 999,
         };
       });
 
@@ -376,22 +424,52 @@ export default function EvervaultCardScanner() {
       // Infinite wrap by exactly 1 cycle (5 cards)
       if (wrapWidth > 0 && s.position <= -wrapWidth) {
         s.position += wrapWidth;
+        for (let i = 0; i < cardData.length; i++) {
+          cardData[i].state = 999;
+        }
       }
 
       cardLine.style.transform = `translate3d(${s.position}px, 0, 0)`;
 
-      // Check if any card is actively crossing the laser beam to trigger sparks
+      // Split clip-path scanner laser decryption effect
       let anyScanning = false;
       const pos = s.position;
 
       for (let i = 0; i < cardData.length; i++) {
         const card = cardData[i];
+        if (!card.normal || !card.ascii) continue;
+
         const cardLeft = card.baseLeft + pos;
         const cardRight = cardLeft + card.width;
 
-        if (cardLeft < scannerX && cardRight > scannerX) {
+        if (cardRight <= scannerX) {
+          // Fully past scanner -> 100% decrypted cyber scan, normal hidden
+          if (card.state !== 1) {
+            card.normal.style.display = "none";
+            card.ascii.style.display = "flex";
+            card.ascii.style.clipPath = "none";
+            card.state = 1;
+          }
+        } else if (cardLeft >= scannerX) {
+          // Not yet reached scanner -> 100% normal card, ascii hidden
+          if (card.state !== -1) {
+            card.normal.style.display = "flex";
+            card.normal.style.clipPath = "none";
+            card.ascii.style.display = "none";
+            card.state = -1;
+          }
+        } else {
+          // Actively crossing the scanner beam -> Split clip-path!
           anyScanning = true;
-          break;
+          if (card.state !== 0) {
+            card.normal.style.display = "flex";
+            card.ascii.style.display = "flex";
+            card.state = 0;
+          }
+          const progress = Math.max(0, Math.min(100, ((scannerX - cardLeft) / card.width) * 100));
+          const pStr = progress.toFixed(1);
+          card.normal.style.clipPath = `inset(0 0 0 ${pStr}%)`;
+          card.ascii.style.clipPath = `inset(0 calc(100% - ${pStr}%) 0 0)`;
         }
       }
 
@@ -442,13 +520,15 @@ export default function EvervaultCardScanner() {
               key={i}
               className="evervault-card-wrapper relative shrink-0 w-[215px] h-[138px] sm:w-[270px] sm:h-[175px] md:w-[320px] md:h-[205px] rounded-2xl overflow-hidden pointer-events-none shadow-xl border border-white/15"
               style={{
-                background: c.bg,
+                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.7)",
                 contain: "paint",
               }}
             >
+              {/* (A) NORMAL CARD DESIGN */}
               <div
-                className="absolute inset-0 rounded-2xl p-3 sm:p-4 md:p-5 text-white flex flex-col justify-between overflow-hidden pointer-events-none"
+                className="card-normal absolute inset-0 rounded-2xl p-3 sm:p-4 md:p-5 text-white flex flex-col justify-between overflow-hidden pointer-events-none"
                 style={{
+                  background: c.bg,
                   transform: "translateZ(0)",
                   backfaceVisibility: "hidden",
                 }}
@@ -505,6 +585,42 @@ export default function EvervaultCardScanner() {
                     </span>
                     <span className="font-bold text-cyan-300">{c.valid}</span>
                   </div>
+                </div>
+              </div>
+
+              {/* (B) DECRYPTED CYBER SECURITY PROTOCOL SPECIFICATIONS */}
+              <div
+                className="card-ascii absolute inset-0 rounded-2xl bg-[#070B12]/95 p-3 sm:p-4 text-cyan-400 font-mono overflow-hidden select-none border border-cyan-500/50 pointer-events-none flex flex-col justify-between"
+                style={{
+                  textShadow: "0 0 2px rgba(0, 229, 255, 0.7)",
+                  transform: "translateZ(0)",
+                  backfaceVisibility: "hidden",
+                }}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-cyan-500/30 pb-1">
+                  <div className="flex items-center gap-1.5 text-[7px] sm:text-[8px] md:text-[9px] font-bold text-cyan-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                    <span>DECRYPTED: {c.type}</span>
+                  </div>
+                  <span className="text-[6.5px] sm:text-[7.5px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/40">
+                    {c.valid}
+                  </span>
+                </div>
+
+                {/* Real Specifications Lines */}
+                <div className="space-y-0.5 my-auto text-[7px] sm:text-[8px] md:text-[8.5px] leading-tight text-cyan-200/90 font-mono">
+                  {c.scanLines.map((line, idx) => (
+                    <div key={idx} className="truncate">
+                      {line}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between text-[6.5px] sm:text-[7.5px] text-cyan-400/70 border-t border-cyan-500/30 pt-1 font-mono">
+                  <span>EDUCA PROTOCOL v4.2</span>
+                  <span className="text-emerald-400 font-bold">VERIFIED ✓</span>
                 </div>
               </div>
             </div>

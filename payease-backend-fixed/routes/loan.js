@@ -353,6 +353,34 @@ const calculateStudentLoanQuote = (amount, installmentsCount = 15) => {
   };
 };
 
+// Lightweight Public Direct Loan Query from Landing Page
+router.post('/query', async (req, res) => {
+  try {
+    const { name, phone, email, amount, purpose } = req.body || {};
+    if (!phone && !email) {
+      return res.status(400).json({ success: false, message: 'Phone or email is required' });
+    }
+
+    // Fire & forget SSE admin notification (zero delay)
+    try {
+      sendNotification({
+        type: 'loan_query',
+        title: `⚡ New Loan Query: ₹${amount || '25,000'}`,
+        message: `${name || 'User'} (${phone || email}) - ${purpose || 'Loan inquiry'}`,
+        targetRole: 'admin',
+        data: { name, phone, email, amount, purpose }
+      }).catch(() => {});
+    } catch {}
+
+    return res.json({
+      success: true,
+      message: 'Query received! Our advisory team will contact you promptly.'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to process query' });
+  }
+});
+
 // Public/Live Calculator Quote
 router.post('/calculate', (req, res) => {
   const { loanType = 'personal', amount, installmentsCount, days } = req.body;

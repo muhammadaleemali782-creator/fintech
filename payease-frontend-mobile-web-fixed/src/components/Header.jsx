@@ -72,9 +72,11 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* LOGO */}
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#1D6AE5] to-[#0DC98A] flex items-center justify-center text-white font-black text-lg shadow-md shadow-blue-500/20">
-            E
-          </div>
+          <img
+            src="/icon-192.png"
+            alt="Educa Fintech Logo"
+            className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-full shadow-xs shrink-0"
+          />
           <div>
             <span className="font-extrabold text-xl text-[#0C1B3A] tracking-tight">
               Educa<span className="text-[#1D6AE5]">Fintech</span>

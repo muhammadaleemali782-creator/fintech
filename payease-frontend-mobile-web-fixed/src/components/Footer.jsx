@@ -8,9 +8,11 @@ export default function Footer() {
           {/* BRAND COLUMN */}
           <div className="lg:col-span-2 space-y-4">
             <Link to="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#1D6AE5] to-[#0DC98A] flex items-center justify-center text-white font-black text-lg shadow-md">
-                E
-              </div>
+              <img
+                src="/icon-192.png"
+                alt="Educa Fintech Logo"
+                className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-full bg-white p-0.5 shadow-xs shrink-0"
+              />
               <span className="font-extrabold text-xl text-white tracking-tight">
                 Educa<span className="text-[#0DC98A]">Fintech</span>
               </span>

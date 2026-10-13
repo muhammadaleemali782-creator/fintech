@@ -1,163 +1,215 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 
 const CODE_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789(){}[]<>;:,._-+=!@#$%^&*|\\/\"'`~?";
+
+// Helper to generate ASCII code block once
+const generateAscii = (w = 40, h = 14) => {
+  const lines = [];
+  const snippets = [
+    "// EDUCA_FINTECH_PROTOCOL v4.2",
+    "const SAVINGS_APY = 0.1200;",
+    "const RECHARGE_LOAN = 199.00;",
+    "const BIKE_LOAN_MAX = 150000;",
+    "verify_identity(uid, KYC_LEVEL_1);",
+    "instant_disburse_upi(user, amount);",
+    "function calculate_interest(p, t) {",
+    "  return p * Math.pow(1 + 0.12, t);",
+    "}",
+    "sha256_hash_signature(tx_token);",
+    "emit_approval_webhook(admin_channel);",
+    "play_audio_chime(FREQS.HIGH);",
+  ];
+
+  for (let r = 0; r < h; r++) {
+    let line = snippets[r % snippets.length];
+    while (line.length < w) {
+      line += " " + CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    }
+    lines.push(line.slice(0, w));
+  }
+  return lines.join("\n");
+};
+
+// Card themes for Educa Fintech
+const cardDefs = [
+  {
+    id: "savings",
+    type: "12% SAVINGS ACCOUNT",
+    badge: "WORLD'S HIGHEST",
+    bg: "linear-gradient(135deg, #0F2027 0%, #203A43 50%, #2C5364 100%)",
+    accent: "#00E5FF",
+    name: "12% Interest Savings",
+    tagline: "No bank in the world offers 12% on savings",
+    number: "•••• •••• •••• 1200",
+    valid: "PERPETUAL",
+    icon: "🏦",
+    asciiCode: generateAscii(36, 13),
+  },
+  {
+    id: "recharge",
+    type: "₹199 RECHARGE MICRO LOAN",
+    badge: "ZERO CIBIL NEEDED",
+    bg: "linear-gradient(135deg, #1A1C29 0%, #162447 60%, #1F4068 100%)",
+    accent: "#00F5D4",
+    name: "Mobile Recharge Loan",
+    tagline: "Instant ₹199 UPI credit for your phone",
+    number: "•••• •••• •••• 0199",
+    valid: "INSTANT",
+    icon: "📱",
+    asciiCode: generateAscii(36, 13),
+  },
+  {
+    id: "bike",
+    type: "BIKE & VEHICLE LOAN",
+    badge: "UP TO ₹1,50,000",
+    bg: "linear-gradient(135deg, #232526 0%, #414345 100%)",
+    accent: "#FFB703",
+    name: "Two-Wheeler Easy EMI",
+    tagline: "Apni bike ka sapna pura karein",
+    number: "•••• •••• •••• 8840",
+    valid: "36 MONTHS",
+    icon: "🏍️",
+    asciiCode: generateAscii(36, 13),
+  },
+  {
+    id: "school",
+    type: "SCHOOL FEES LOAN",
+    badge: "PARENT RELIEF",
+    bg: "linear-gradient(135deg, #111E25 0%, #1D6AE5 100%)",
+    accent: "#70E000",
+    name: "Student Education EMI",
+    tagline: "Direct school fee payment with 0% advance",
+    number: "•••• •••• •••• 5521",
+    valid: "QUARTERLY",
+    icon: "🎒",
+    asciiCode: generateAscii(36, 13),
+  },
+  {
+    id: "investment",
+    type: "EDUCA WEALTH POOL",
+    badge: "18% ANNUAL YIELD",
+    bg: "linear-gradient(135deg, #141E30 0%, #243B55 100%)",
+    accent: "#FF007F",
+    name: "High-Yield Investment",
+    tagline: "Earn monthly passive fintech returns",
+    number: "•••• •••• •••• 9999",
+    valid: "PREMIUM",
+    icon: "📈",
+    asciiCode: generateAscii(36, 13),
+  },
+];
 
 export default function EvervaultCardScanner() {
   const containerRef = useRef(null);
   const cardLineRef = useRef(null);
   const particleCanvasRef = useRef(null);
   const scannerCanvasRef = useRef(null);
+  const isVisibleRef = useRef(true);
 
   const stateRef = useRef({
     position: 0,
-    velocity: 25, // Gentle, calm, smooth speed (px/sec)
-    direction: -1, // Infinite continuous one-direction loop (leftward)
+    velocity: 28, // Smooth, consistent speed
+    direction: -1, // Infinite leftward flow
     lastTime: performance.now(),
-    containerWidth: 0,
-    cardLineWidth: 0,
     scanningActive: false,
   });
 
-  // Card themes for Educa Fintech
-  const cardDefs = [
-    {
-      id: "savings",
-      type: "12% SAVINGS ACCOUNT",
-      badge: "WORLD'S HIGHEST",
-      bg: "linear-gradient(135deg, #0F2027 0%, #203A43 50%, #2C5364 100%)",
-      accent: "#00E5FF",
-      name: "12% Interest Savings",
-      tagline: "No bank in the world offers 12% on savings",
-      number: "•••• •••• •••• 1200",
-      valid: "PERPETUAL",
-      icon: "🏦",
-    },
-    {
-      id: "recharge",
-      type: "₹199 RECHARGE MICRO LOAN",
-      badge: "ZERO CIBIL NEEDED",
-      bg: "linear-gradient(135deg, #1A1C29 0%, #162447 60%, #1F4068 100%)",
-      accent: "#00F5D4",
-      name: "Mobile Recharge Loan",
-      tagline: "Instant ₹199 UPI credit for your phone",
-      number: "•••• •••• •••• 0199",
-      valid: "INSTANT",
-      icon: "📱",
-    },
-    {
-      id: "bike",
-      type: "BIKE & VEHICLE LOAN",
-      badge: "UP TO ₹1,50,000",
-      bg: "linear-gradient(135deg, #232526 0%, #414345 100%)",
-      accent: "#FFB703",
-      name: "Two-Wheeler Easy EMI",
-      tagline: "Apni bike ka sapna pura karein",
-      number: "•••• •••• •••• 8840",
-      valid: "36 MONTHS",
-      icon: "🏍️",
-    },
-    {
-      id: "school",
-      type: "SCHOOL FEES LOAN",
-      badge: "PARENT RELIEF",
-      bg: "linear-gradient(135deg, #111E25 0%, #1D6AE5 100%)",
-      accent: "#70E000",
-      name: "Student Education EMI",
-      tagline: "Direct school fee payment with 0% advance",
-      number: "•••• •••• •••• 5521",
-      valid: "QUARTERLY",
-      icon: "🎒",
-    },
-    {
-      id: "investment",
-      type: "EDUCA WEALTH POOL",
-      badge: "18% ANNUAL YIELD",
-      bg: "linear-gradient(135deg, #141E30 0%, #243B55 100%)",
-      accent: "#FF007F",
-      name: "High-Yield Investment",
-      tagline: "Earn monthly passive fintech returns",
-      number: "•••• •••• •••• 9999",
-      valid: "PREMIUM",
-      icon: "📈",
-    },
-  ];
-
-  // Helper to generate ASCII code block
-  const generateAscii = (w = 48, h = 18) => {
-    const lines = [];
-    const snippets = [
-      "// EDUCA_FINTECH_PROTOCOL v4.2",
-      "const SAVINGS_APY = 0.1200;",
-      "const RECHARGE_LOAN = 199.00;",
-      "const BIKE_LOAN_MAX = 150000;",
-      "verify_identity(uid, KYC_LEVEL_1);",
-      "instant_disburse_upi(user, amount);",
-      "function calculate_interest(p, t) {",
-      "  return p * Math.pow(1 + 0.12, t);",
-      "}",
-      "sha256_hash_signature(tx_token);",
-      "emit_approval_webhook(admin_channel);",
-      "play_audio_chime(FREQS.HIGH);",
-    ];
-
-    for (let r = 0; r < h; r++) {
-      let line = snippets[r % snippets.length];
-      while (line.length < w) {
-        line += " " + CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
-      }
-      lines.push(line.slice(0, w));
-    }
-    return lines.join("\n");
-  };
+  // 15 cards (3 clean cycles of 5 cards) gives ample track buffer on any screen with 40% less DOM weight
+  const repeatedCards = useMemo(
+    () =>
+      Array.from({ length: 15 }, (_, i) => ({
+        ...cardDefs[i % cardDefs.length],
+        idx: i,
+      })),
+    []
+  );
 
   /* ═══════════════════════════════════════════════════════════
-     BACKGROUND PARTICLES CANVAS (Optimized, low overhead)
+     VIEWPORT VISIBILITY OBSERVER (Sleep when scrolled away)
+  ═══════════════════════════════════════════════════════════ */
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isVisibleRef.current = entry.isIntersecting;
+        if (entry.isIntersecting) {
+          stateRef.current.lastTime = performance.now();
+        }
+      },
+      { threshold: 0.05 }
+    );
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, []);
+
+  /* ═══════════════════════════════════════════════════════════
+     1. BACKGROUND STARS CANVAS (Optimized, lightweight)
   ═══════════════════════════════════════════════════════════ */
   useEffect(() => {
     const canvas = particleCanvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: true });
     let animId;
 
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-    const count = isMobile ? 25 : 55;
+    const count = isMobile ? 14 : 36;
 
     const resize = () => {
       canvas.width = canvas.parentElement?.offsetWidth || window.innerWidth;
       canvas.height = canvas.parentElement?.offsetHeight || 380;
     };
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", resize, { passive: true });
 
     const particles = Array.from({ length: count }, () => ({
       x: Math.random() * (canvas.width || 400),
       y: Math.random() * (canvas.height || 380),
-      vx: (Math.random() - 0.5) * 0.3 + 0.2,
-      vy: (Math.random() - 0.5) * 0.2,
-      r: Math.random() * 1.5 + 0.4,
-      alpha: Math.random() * 0.6 + 0.2,
-      hue: Math.random() > 0.5 ? 210 : 160,
+      vx: (Math.random() - 0.5) * 0.25 + 0.15,
+      vy: (Math.random() - 0.5) * 0.15,
+      size: Math.random() * 1.8 + 1,
+      alpha: Math.random() * 0.45 + 0.25,
+      color: Math.random() > 0.5 ? "rgba(0, 229, 255," : "rgba(167, 139, 250,",
     }));
 
-    const render = () => {
+    let lastTick = performance.now();
+
+    const render = (now) => {
+      if (!isVisibleRef.current) {
+        animId = requestAnimationFrame(render);
+        return;
+      }
+
+      // Throttle background stars to ~30fps on mobile to preserve GPU fill rate
+      if (isMobile && now - lastTick < 33) {
+        animId = requestAnimationFrame(render);
+        return;
+      }
+      lastTick = now;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const w = canvas.width;
+      const h = canvas.height;
+
       for (let i = 0; i < count; i++) {
         const p = particles[i];
         p.x += p.vx;
         p.y += p.vy;
-        if (p.x > canvas.width + 10) p.x = -10;
-        if (p.x < -10) p.x = canvas.width + 10;
-        if (p.y > canvas.height + 10) p.y = -10;
-        if (p.y < -10) p.y = canvas.height + 10;
+        if (p.x > w + 5) p.x = -5;
+        if (p.x < -5) p.x = w + 5;
+        if (p.y > h + 5) p.y = -5;
+        if (p.y < -5) p.y = h + 5;
 
-        ctx.fillStyle = `hsla(${p.hue}, 80%, 70%, ${p.alpha})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillStyle = `${p.color}${p.alpha})`;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
       }
+
       animId = requestAnimationFrame(render);
     };
-    render();
+
+    animId = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(animId);
@@ -166,59 +218,88 @@ export default function EvervaultCardScanner() {
   }, []);
 
   /* ═══════════════════════════════════════════════════════════
-     VERTICAL SCANNER LASER BEAM CANVAS (Pre-cached gradients)
+     2. VERTICAL SCANNER LASER BEAM CANVAS (Pre-pooled sparks)
   ═══════════════════════════════════════════════════════════ */
   useEffect(() => {
     const canvas = scannerCanvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: true });
     let animId;
 
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-    const maxParticles = isMobile ? 35 : 70;
+    const maxParticles = isMobile ? 12 : 28;
 
     let coreGrad = null;
     let glowGradScan = null;
     let glowGradIdle = null;
     let lightBarX = 0;
-    const lightBarWidth = 4;
+    const lightBarWidth = isMobile ? 3 : 4;
 
     const resize = () => {
       const w = canvas.parentElement?.offsetWidth || window.innerWidth;
       const h = canvas.parentElement?.offsetHeight || 380;
       canvas.width = w;
       canvas.height = h;
-
       lightBarX = w / 2;
 
-      // Pre-create gradients once per resize instead of re-allocating on every frame
-      coreGrad = ctx.createLinearGradient(lightBarX - 4, 0, lightBarX + 4, 0);
+      coreGrad = ctx.createLinearGradient(lightBarX - 3, 0, lightBarX + 3, 0);
       coreGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
       coreGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.95)");
       coreGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
 
-      glowGradScan = ctx.createLinearGradient(lightBarX - 25, 0, lightBarX + 25, 0);
+      glowGradScan = ctx.createLinearGradient(lightBarX - 22, 0, lightBarX + 22, 0);
       glowGradScan.addColorStop(0, "rgba(0, 229, 255, 0)");
-      glowGradScan.addColorStop(0.5, "rgba(37, 99, 235, 0.6)");
+      glowGradScan.addColorStop(0.5, "rgba(37, 99, 235, 0.5)");
       glowGradScan.addColorStop(1, "rgba(0, 229, 255, 0)");
 
-      glowGradIdle = ctx.createLinearGradient(lightBarX - 25, 0, lightBarX + 25, 0);
+      glowGradIdle = ctx.createLinearGradient(lightBarX - 18, 0, lightBarX + 18, 0);
       glowGradIdle.addColorStop(0, "rgba(0, 229, 255, 0)");
-      glowGradIdle.addColorStop(0.5, "rgba(0, 229, 255, 0.35)");
+      glowGradIdle.addColorStop(0.5, "rgba(0, 229, 255, 0.3)");
       glowGradIdle.addColorStop(1, "rgba(0, 229, 255, 0)");
     };
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", resize, { passive: true });
 
-    const particles = [];
+    // Pre-allocated static pool (zero garbage collection churn)
+    const pool = Array.from({ length: maxParticles }, () => ({
+      active: false,
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      alpha: 0,
+      r: 1,
+      color: "rgba(0, 229, 255,",
+    }));
+
+    const spawnSpark = (h) => {
+      for (let i = 0; i < maxParticles; i++) {
+        const p = pool[i];
+        if (!p.active) {
+          p.active = true;
+          p.x = lightBarX + (Math.random() - 0.5) * 3;
+          p.y = Math.random() * h;
+          p.vx = (Math.random() * 1.3 + 0.3) * (Math.random() > 0.3 ? 1 : -1);
+          p.vy = (Math.random() - 0.5) * 0.6;
+          p.alpha = 0.95;
+          p.r = Math.random() * 1.5 + 0.6;
+          p.color = Math.random() > 0.5 ? "rgba(0, 229, 255," : "rgba(196, 181, 253,";
+          return;
+        }
+      }
+    };
 
     const render = () => {
+      if (!isVisibleRef.current) {
+        animId = requestAnimationFrame(render);
+        return;
+      }
+
       const w = canvas.width;
       const h = canvas.height;
       const isScanning = stateRef.current.scanningActive;
 
       ctx.clearRect(0, 0, w, h);
-      ctx.globalCompositeOperation = "lighter";
 
       // 1. Core bright laser beam
       if (coreGrad) {
@@ -230,44 +311,34 @@ export default function EvervaultCardScanner() {
       const currentGlow = isScanning ? glowGradScan : glowGradIdle;
       if (currentGlow) {
         ctx.fillStyle = currentGlow;
-        ctx.fillRect(lightBarX - 20, 0, 40, h);
+        ctx.fillRect(lightBarX - 18, 0, 36, h);
       }
 
-      // 3. Spray particles emitted from laser beam
-      if (particles.length < maxParticles) {
-        const pCount = isScanning ? 2 : 1;
-        for (let i = 0; i < pCount; i++) {
-          particles.push({
-            x: lightBarX + (Math.random() - 0.5) * 4,
-            y: Math.random() * h,
-            vx: (Math.random() * 1.5 + 0.4) * (Math.random() > 0.3 ? 1 : -1),
-            vy: (Math.random() - 0.5) * 0.7,
-            alpha: 1,
-            r: Math.random() * 1.6 + 0.4,
-            color: Math.random() > 0.5 ? "rgba(0, 229, 255, " : "rgba(196, 181, 253, ",
-          });
-        }
+      // 3. Emit spray particles
+      if (Math.random() < (isScanning ? 0.75 : 0.35)) {
+        spawnSpark(h);
       }
 
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
+      for (let i = 0; i < maxParticles; i++) {
+        const p = pool[i];
+        if (!p.active) continue;
+
         p.x += p.vx;
         p.y += p.vy;
-        p.alpha -= isScanning ? 0.02 : 0.028;
+        p.alpha -= isScanning ? 0.024 : 0.034;
 
         if (p.alpha <= 0) {
-          particles.splice(i, 1);
+          p.active = false;
           continue;
         }
 
         ctx.fillStyle = `${p.color}${p.alpha})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillRect(p.x, p.y, p.r, p.r);
       }
 
       animId = requestAnimationFrame(render);
     };
+
     render();
 
     return () => {
@@ -277,8 +348,9 @@ export default function EvervaultCardScanner() {
   }, []);
 
   /* ═══════════════════════════════════════════════════════════
-     ZERO-REFLOW HARDWARE-ACCELERATED CARD STREAM
-     (No getBoundingClientRect or querySelector in rAF hot loop)
+     3. ZERO-REFLOW HARDWARE-ACCELERATED CARD STREAM
+        (Only 1 card crossing the laser has clip-path;
+         all other cards use plain display without clip overhead)
   ═══════════════════════════════════════════════════════════ */
   useEffect(() => {
     const container = containerRef.current;
@@ -295,7 +367,7 @@ export default function EvervaultCardScanner() {
       const containerWidth = containerRect.width || window.innerWidth;
       scannerX = containerWidth * 0.5;
 
-      // Temporarily clear transform for accurate initial measurement
+      // Reset transform temporarily for measurement
       cardLine.style.transform = "translate3d(0px, 0, 0)";
 
       const wrappers = Array.from(cardLine.querySelectorAll(".evervault-card-wrapper"));
@@ -307,35 +379,39 @@ export default function EvervaultCardScanner() {
           ascii: wrapper.querySelector(".card-ascii"),
           baseLeft: rect.left - containerRect.left,
           width: rect.width,
-          state: 999, // Force recalculation on next tick
+          state: 999, // Force recalculation
         };
       });
 
-      // Restore current transform
       cardLine.style.transform = `translate3d(${stateRef.current.position}px, 0, 0)`;
 
-      // Wrap exactly every 2 cycles (10 cards) for 100% seamless infinite loop
-      if (cardData.length >= 10 && cardData[10]) {
-        wrapWidth = cardData[10].baseLeft - cardData[0].baseLeft;
+      // 5 cards = 1 cycle of cardDefs. When wrapping, shift by 5 cards (seamless repeat)
+      if (cardData.length >= 5 && cardData[5]) {
+        wrapWidth = cardData[5].baseLeft - cardData[0].baseLeft;
       } else {
-        wrapWidth = (cardData[0]?.width || 300) * 5;
+        wrapWidth = (cardData[0]?.width || 280) * 5;
       }
     };
 
     updateDimensions();
-    window.addEventListener("resize", updateDimensions);
+    window.addEventListener("resize", updateDimensions, { passive: true });
 
-    // Continuous loop with constant smooth velocity
     const animateLoop = () => {
+      if (!isVisibleRef.current) {
+        stateRef.current.lastTime = performance.now();
+        animId = requestAnimationFrame(animateLoop);
+        return;
+      }
+
       const s = stateRef.current;
       const now = performance.now();
-      const dt = Math.min((now - s.lastTime) / 1000, 0.1); // Guard against giant tab-switch deltas
+      const dt = Math.min((now - s.lastTime) / 1000, 0.05);
       s.lastTime = now;
 
-      // Move continuously in one direction (leftward)
+      // Move leftward
       s.position += s.velocity * s.direction * dt;
 
-      // Seamless infinite loop wrap (reset card states on wrap)
+      // Infinite wrap by exactly 1 cycle (5 cards)
       if (wrapWidth > 0 && s.position <= -wrapWidth) {
         s.position += wrapWidth;
         for (let i = 0; i < cardData.length; i++) {
@@ -345,7 +421,7 @@ export default function EvervaultCardScanner() {
 
       cardLine.style.transform = `translate3d(${s.position}px, 0, 0)`;
 
-      // Update clipping mathematically without ANY getBoundingClientRect or querySelector calls
+      // Extremely efficient clipping: only the 1 card crossing the laser has clip-path
       let anyScanning = false;
       const pos = s.position;
 
@@ -357,23 +433,29 @@ export default function EvervaultCardScanner() {
         const cardRight = cardLeft + card.width;
 
         if (cardRight <= scannerX) {
-          // Fully past scanner (100% decrypted ASCII)
+          // Fully past scanner -> 100% decrypted ASCII, normal hidden
           if (card.state !== 1) {
-            card.normal.style.clipPath = "inset(0 0 0 100%)";
-            card.ascii.style.clipPath = "inset(0 0 0 0)";
+            card.normal.style.display = "none";
+            card.ascii.style.display = "flex";
+            card.ascii.style.clipPath = "none";
             card.state = 1;
           }
         } else if (cardLeft >= scannerX) {
-          // Not yet reached scanner (100% normal card)
+          // Not yet reached scanner -> 100% normal card, ascii hidden
           if (card.state !== -1) {
-            card.normal.style.clipPath = "inset(0 0 0 0)";
-            card.ascii.style.clipPath = "inset(0 100% 0 0)";
+            card.normal.style.display = "flex";
+            card.normal.style.clipPath = "none";
+            card.ascii.style.display = "none";
             card.state = -1;
           }
         } else {
-          // Actively crossing the scanner beam
+          // Actively crossing the scanner beam -> Apply split clip-path only to this card!
           anyScanning = true;
-          card.state = 0;
+          if (card.state !== 0) {
+            card.normal.style.display = "flex";
+            card.ascii.style.display = "flex";
+            card.state = 0;
+          }
           const progress = Math.max(0, Math.min(100, ((scannerX - cardLeft) / card.width) * 100));
           const pStr = progress.toFixed(1);
           card.normal.style.clipPath = `inset(0 0 0 ${pStr}%)`;
@@ -382,7 +464,6 @@ export default function EvervaultCardScanner() {
       }
 
       s.scanningActive = anyScanning;
-
       animId = requestAnimationFrame(animateLoop);
     };
 
@@ -394,17 +475,14 @@ export default function EvervaultCardScanner() {
     };
   }, []);
 
-  // Duplicate cards twice (25 cards total) so infinite wrap is completely seamless
-  const repeatedCards = Array.from({ length: 25 }, (_, i) => ({
-    ...cardDefs[i % cardDefs.length],
-    idx: i,
-  }));
-
   return (
     <div
       ref={containerRef}
       className="relative w-full overflow-hidden bg-[#0A0D14] py-8 my-5 border-y border-white/10 shadow-2xl pointer-events-none select-none"
-      style={{ minHeight: "380px" }}
+      style={{
+        minHeight: "380px",
+        contain: "layout paint",
+      }}
     >
       {/* 1. BACKGROUND STARS CANVAS */}
       <canvas
@@ -423,22 +501,26 @@ export default function EvervaultCardScanner() {
         <div
           ref={cardLineRef}
           className="flex items-center gap-6 sm:gap-8 whitespace-nowrap will-change-transform px-4 pointer-events-none"
-          style={{ transform: "translate3d(0px, 0, 0)" }}
+          style={{
+            transform: "translate3d(0px, 0, 0)",
+            willChange: "transform",
+          }}
         >
           {repeatedCards.map((c, i) => (
             <div
               key={i}
               className="evervault-card-wrapper relative shrink-0 w-[260px] h-[165px] sm:w-[320px] sm:h-[200px] md:w-[360px] md:h-[225px] rounded-2xl overflow-hidden pointer-events-none"
               style={{
-                boxShadow: "0 15px 35px rgba(0, 0, 0, 0.8)",
+                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.7)",
+                contain: "paint",
               }}
             >
               {/* (A) NORMAL CARD DESIGN */}
               <div
-                className="card-normal absolute inset-0 rounded-2xl p-4 sm:p-5 text-white flex flex-col justify-between overflow-hidden border border-white/15 pointer-events-none will-change-[clip-path]"
+                className="card-normal absolute inset-0 rounded-2xl p-4 sm:p-5 text-white flex flex-col justify-between overflow-hidden border border-white/15 pointer-events-none"
                 style={{
                   background: c.bg,
-                  transform: "translate3d(0, 0, 0)",
+                  transform: "translateZ(0)",
                   backfaceVisibility: "hidden",
                 }}
               >
@@ -499,10 +581,10 @@ export default function EvervaultCardScanner() {
 
               {/* (B) ASCII MATRIX CODE (Revealed by Center Scanner) */}
               <div
-                className="card-ascii absolute inset-0 rounded-2xl bg-black/95 p-3 text-cyan-400 font-mono text-[8px] sm:text-[9px] leading-[11px] overflow-hidden select-none border border-cyan-500/40 pointer-events-none will-change-[clip-path]"
+                className="card-ascii absolute inset-0 rounded-2xl bg-black/95 p-3 text-cyan-400 font-mono text-[8px] sm:text-[9px] leading-[11px] overflow-hidden select-none border border-cyan-500/40 pointer-events-none"
                 style={{
                   textShadow: "0 0 2px rgba(0, 229, 255, 0.7)",
-                  transform: "translate3d(0, 0, 0)",
+                  transform: "translateZ(0)",
                   backfaceVisibility: "hidden",
                 }}
               >
@@ -510,7 +592,7 @@ export default function EvervaultCardScanner() {
                   // DECRYPTED SCAN: {c.type}
                 </div>
                 <pre className="font-mono whitespace-pre-wrap opacity-90 leading-tight">
-                  {generateAscii(38, 14)}
+                  {c.asciiCode}
                 </pre>
               </div>
             </div>

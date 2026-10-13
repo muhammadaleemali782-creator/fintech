@@ -506,24 +506,36 @@ function QuickLoanQueryCard({ isHindi }) {
     e.preventDefault();
     setStatus({ state: "submitting", msg: isHindi ? "भेजा जा रहा है..." : "Submitting query..." });
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     try {
       const res = await fetch(`${API}/loan/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Submission failed");
 
       setStatus({
         state: "success",
         msg: isHindi
-          ? "रिक्वेस्ट प्राप्त हुई! एडमिन को तुरंत अलर्ट भेज दिया गया है, हमारी टीम आपसे जल्द संपर्क करेगी।"
-          : "Query received! Admin alerted in real-time, our advisory team will contact you promptly.",
+          ? "रिक्वेस्ट प्राप्त हुई! हमारी टीम आपसे जल्द संपर्क करेगी।"
+          : "Query received! Our advisory team will contact you promptly.",
       });
       setFormData({ name: "", phone: "", email: "", amount: "25000", purpose: "Micro Personal Loan (10-Day Cycle)" });
     } catch (err) {
-      setStatus({ state: "error", msg: err.message || "Failed to submit query" });
+      clearTimeout(timeoutId);
+      const isTimeout = err.name === "AbortError";
+      setStatus({
+        state: "error",
+        msg: isTimeout
+          ? (isHindi ? "सर्वर से संपर्क में देरी हो रही है। कृपया पुनः प्रयास करें।" : "Request timed out. Please try again.")
+          : (err.message || "Failed to submit query"),
+      });
     }
   };
 

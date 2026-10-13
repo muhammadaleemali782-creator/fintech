@@ -15,6 +15,7 @@ import android.os.Build
 import android.net.http.SslError
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
@@ -569,6 +570,7 @@ class MainActivity : AppCompatActivity() {
         webView.isHorizontalScrollBarEnabled = false
         webView.scrollBarStyle = WebView.SCROLLBARS_OUTSIDE_OVERLAY
         webView.overScrollMode = WebView.OVER_SCROLL_IF_CONTENT_SCROLLS
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
         // Custom User Agent flag so the web frontend instantly recognizes Educa Native App
         val defaultUA = settings.userAgentString

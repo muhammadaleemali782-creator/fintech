@@ -9,6 +9,7 @@ const router = express.Router();
 
 const { protect } = require('../middleware/auth');
 const memoryCache = require('../utils/cache');
+const { signAuthToken, setAuthCookie } = require('../utils/token');
 
 // Direct connection and SSO helpers for Educa Mail Database
 const {
@@ -20,15 +21,6 @@ const {
   updateEducaMailPassword
 } = require('../utils/educaMail');
 
-// Helper to set secure httpOnly cookie (protects auth tokens against XSS local storage theft)
-const setAuthCookie = (res, token, days = 30) => {
-  res.cookie('token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: days * 24 * 60 * 60 * 1000
-  });
-};
 
 // Input validation rules
 const registerRules = [
@@ -134,8 +126,7 @@ router.post('/register', (req, res, next) => {
       });
     }
 
-    // Default 7 days, or 30 days token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d', algorithm: 'HS256' });
+    const token = signAuthToken(user, { expiresIn: '30d' });
     setAuthCookie(res, token, 30);
 
     res.json({
@@ -153,7 +144,8 @@ router.post('/register', (req, res, next) => {
         referralCode: user.referralCode,
         accountNumber: user.accountNumber,
         upiId: user.upiId,
-        agentProfile: user.agentProfile
+        agentProfile: user.agentProfile,
+        staffProfile: user.staffProfile
       }
     });
   } catch (err) {
@@ -247,10 +239,8 @@ router.post('/login', async (req, res) => {
 
     if (user.isBlocked) return res.status(403).json({ message: 'Account blocked' });
 
-    // 30 days if rememberMe or default
-    const expiresIn = rememberMe ? '30d' : '7d';
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn, algorithm: 'HS256' });
-    setAuthCookie(res, token, rememberMe ? 30 : 7);
+    const token = signAuthToken(user, { rememberMe });
+    setAuthCookie(res, token, rememberMe ? 30 : (user.role === 'staff' ? 1 : 7));
 
     res.json({
       token,
@@ -268,6 +258,7 @@ router.post('/login', async (req, res) => {
         accountNumber: user.accountNumber,
         upiId: user.upiId,
         agentProfile: user.agentProfile,
+        staffProfile: user.staffProfile,
         mustChangePassword: !!user.mustChangePassword
       }
     });
@@ -352,13 +343,8 @@ router.post('/mail-login', async (req, res) => {
 
     if (user.isBlocked) return res.status(403).json({ message: 'Account blocked' });
 
-    // 30 din ka token — bar bar password na dalna pade!
-    const token = jwt.sign(
-      { id: user._id, loginMethod: 'educa-mail' },
-      process.env.JWT_SECRET,
-      { expiresIn: '30d', algorithm: 'HS256' }
-    );
-    setAuthCookie(res, token, 30);
+    const token = signAuthToken(user, { loginMethod: 'educa-mail' });
+    setAuthCookie(res, token, user.role === 'staff' ? 1 : 30);
 
     res.json({
       token,
@@ -371,6 +357,7 @@ router.post('/mail-login', async (req, res) => {
         referralCode: user.referralCode,
         accountNumber: user.accountNumber,
         upiId: user.upiId,
+        staffProfile: user.staffProfile,
         loginMethod: 'educa-mail',
         mustChangePassword: !!user.mustChangePassword
       }

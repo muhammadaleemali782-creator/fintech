@@ -50,6 +50,29 @@ const bondSchema = new mongoose.Schema({
     submittedAt: { type: Date, default: Date.now }
   },
   notes: { type: String },
+  handledBy: {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    name: String,
+    role: String,
+    department: String,
+    action: String,
+    at: Date
+  },
+  claim: {
+    claimedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    claimedByName: String,
+    claimedAt: Date,
+    expiresAt: Date
+  },
+  history: [{
+    action: String,
+    actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    actorName: String,
+    actorRole: String,
+    department: String,
+    note: String,
+    at: { type: Date, default: Date.now }
+  }],
   createdAt: { type: Date, default: Date.now }
 });
 

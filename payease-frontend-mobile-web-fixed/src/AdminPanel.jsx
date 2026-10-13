@@ -9,6 +9,9 @@ import { CacheManager, appCache, parseCachedNumber } from "./utils/dataCache";
 import LiveRefreshBadge from "./components/LiveRefreshBadge";
 import { useDebounce } from "./utils/performance";
 
+const StaffManager = React.lazy(() => import("./admin/StaffManager"));
+const ActivityLog = React.lazy(() => import("./admin/ActivityLog"));
+
 // --- PERSISTENT & IN-MEMORY CACHE WITH STALE-WHILE-REVALIDATE ---
 const apiCache = new Map();
 const inFlightRequests = new Map();
@@ -366,6 +369,66 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
     agentId: refId
   };
 };
+
+// --- DESK ROLE PRESETS (Staff Departments & Department Restrictions) ---
+const DESK_ROLE_PRESETS = [
+  {
+    key: "loan_desk",
+    role: "staff",
+    label: "📄 Loan Desk (Tum Loan wale ho)",
+    sub: "Loans review, approve/reject & disbursal access",
+    departments: ["loan"],
+    permissions: ["loan.view", "loan.approve", "loan.reject", "loan.disburse"]
+  },
+  {
+    key: "kyc_desk",
+    role: "staff",
+    label: "🪪 KYC Desk (Tum KYC wale ho)",
+    sub: "KYC Aadhaar/PAN verify & document approval",
+    departments: ["kyc"],
+    permissions: ["kyc.view", "kyc.approve", "kyc.reject"]
+  },
+  {
+    key: "deposit_desk",
+    role: "staff",
+    label: "💰 Deposit Desk (Tum Deposit wale ho)",
+    sub: "Inward deposits & UPI payment approvals",
+    departments: ["deposit"],
+    permissions: ["deposit.view", "deposit.approve", "deposit.reject"]
+  },
+  {
+    key: "withdrawal_desk",
+    role: "staff",
+    label: "💸 Withdrawal Desk (Tum Withdrawal wale ho)",
+    sub: "Outward payouts & withdrawal requests",
+    departments: ["withdrawal"],
+    permissions: ["withdrawal.view", "withdrawal.approve", "withdrawal.reject"]
+  },
+  {
+    key: "finance_desk",
+    role: "staff",
+    label: "🤝 Finance Desk (Deposit + Withdrawal)",
+    sub: "Cashier: Deposit + Withdrawal dono handle karega",
+    departments: ["deposit", "withdrawal"],
+    permissions: ["deposit.view", "deposit.approve", "deposit.reject", "withdrawal.view", "withdrawal.approve", "withdrawal.reject"]
+  },
+  {
+    key: "full_desk",
+    role: "staff",
+    label: "🌟 Full Desk (All Departments)",
+    sub: "Loan, KYC, Deposit, Withdrawal, Bonds & Lending (All Desks)",
+    departments: ["loan", "kyc", "deposit", "withdrawal", "lending", "bond"],
+    permissions: ["*"]
+  },
+  {
+    key: "revoke",
+    role: "user",
+    label: "🚫 Remove Staff Role (Normal Customer)",
+    sub: "Staff access band karke regular user/customer banao",
+    departments: [],
+    permissions: []
+  }
+];
 
 function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" }) {
   const [profit, setProfit] = useState(() => {
@@ -1067,6 +1130,10 @@ export default function AdminPanel() {
   const [resetPasswordSyncEduca, setResetPasswordSyncEduca] = useState(true);
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [resetPasswordSuccessData, setResetPasswordSuccessData] = useState(null);
+  // Admin User Desk Role Assignment Modal State
+  const [assignStaffModalUser, setAssignStaffModalUser] = useState(null);
+  const [assignStaffPreset, setAssignStaffPreset] = useState("loan_desk");
+  const [assignStaffLoading, setAssignStaffLoading] = useState(false);
   // Dual Universal Filters for Issue Loan Desk
   const [issueHierarchyFilter, setIssueHierarchyFilter] = useState("all");
   const [issueSelectedAgentFilter, setIssueSelectedAgentFilter] = useState("all");
@@ -2870,6 +2937,57 @@ export default function AdminPanel() {
     }
   };
 
+  const openAssignStaffModal = (targetUser) => {
+    setAssignStaffModalUser(targetUser);
+    const depts = targetUser?.staffProfile?.departments || [];
+    if (targetUser?.role !== "staff") {
+      setAssignStaffPreset("loan_desk");
+    } else if (depts.includes("loan") && depts.length === 1) {
+      setAssignStaffPreset("loan_desk");
+    } else if (depts.includes("kyc") && depts.length === 1) {
+      setAssignStaffPreset("kyc_desk");
+    } else if (depts.includes("deposit") && depts.length === 1) {
+      setAssignStaffPreset("deposit_desk");
+    } else if (depts.includes("withdrawal") && depts.length === 1) {
+      setAssignStaffPreset("withdrawal_desk");
+    } else if (depts.includes("deposit") && depts.includes("withdrawal") && depts.length === 2) {
+      setAssignStaffPreset("finance_desk");
+    } else if (depts.length > 2) {
+      setAssignStaffPreset("full_desk");
+    } else {
+      setAssignStaffPreset("loan_desk");
+    }
+  };
+
+  const handleAssignStaffRole = async () => {
+    if (!assignStaffModalUser) return;
+    setAssignStaffLoading(true);
+    try {
+      const selectedPreset = DESK_ROLE_PRESETS.find(p => p.key === assignStaffPreset) || DESK_ROLE_PRESETS[0];
+      const payload = {
+        role: selectedPreset.role,
+        departments: selectedPreset.departments,
+        permissions: selectedPreset.permissions,
+        isActive: selectedPreset.role === "staff"
+      };
+      const res = await fetch(`${API}/admin/user/${assignStaffModalUser._id}/assign-role`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to assign desk role");
+      showToast(`👔 ${assignStaffModalUser.name} ka desk role update ho gaya: ${selectedPreset.label}!`, "success");
+      apiCache.clear();
+      loadUsers(true);
+      setAssignStaffModalUser(null);
+    } catch (err) {
+      showToast(`⚠️ ${err.message}`, "error");
+    } finally {
+      setAssignStaffLoading(false);
+    }
+  };
+
   const updateCustomInterest = async (userId, rate) => {
     const num = parseFloat(rate);
     if (!num || isNaN(num) || num < 1 || num > 100) return showToast("Enter valid rate (1-100%)", "error");
@@ -3256,6 +3374,8 @@ export default function AdminPanel() {
   const tabs = [
     { key: "capital", label: "Capital & Fund Hub", icon: "📊" },
     { key: "analytics", label: "Profit & Reserves", icon: "📈" },
+    { key: "staff", label: "Staff & Desks", icon: "👥" },
+    { key: "activity-log", label: "Audit Activity Log", icon: "🛡️" },
     { key: "pending", label: "Pending", icon: "⏳", badge: totalPendingDeskCount },
     { key: "kyc", label: "KYC Requests", icon: "📄", badge: pendingKycCount },
     { key: "history", label: "Audit History", icon: "📜" },
@@ -3813,6 +3933,14 @@ export default function AdminPanel() {
         {/* Footer Area */}
         <div className={`shrink-0 ${isSidebarCollapsed ? "p-2 space-y-2" : "px-3.5 py-3 space-y-2"} border-t border-slate-800 bg-slate-950/60`}>
           <Link
+            to="/desk"
+            title={isSidebarCollapsed ? "Department Desks" : undefined}
+            className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
+          >
+            <span>🏢</span>
+            {!isSidebarCollapsed && <span className="truncate">Department Desks</span>}
+          </Link>
+          <Link
             to="/dashboard"
             title={isSidebarCollapsed ? "Customer App View" : undefined}
             className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
@@ -3898,7 +4026,17 @@ export default function AdminPanel() {
             </h2>
             <span className="text-xs text-slate-400 font-medium">| Educa Executive Console</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => switchTab("staff")}
+              className="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+              title="Open Staff & ID Maker"
+            >
+              <span>👔</span>
+              <span>Staff ID Maker</span>
+              <span className="bg-amber-400 text-slate-900 text-[9px] px-1.5 py-0.2 rounded font-extrabold uppercase">NEW</span>
+            </button>
             <LiveRefreshBadge
               secondsToNext={adminCountdown}
               isRefreshing={isRefreshing}
@@ -5016,6 +5154,16 @@ export default function AdminPanel() {
             <div className="space-y-6 w-full min-w-0">
               {/* Quick Actions Bar */}
               <div className="flex items-center justify-end gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => switchTab("staff")}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-md shadow-blue-500/20"
+                  title="Open Staff & ID Maker to create department IDs"
+                >
+                  <span>👔</span>
+                  <span>Create Staff ID / Assign Role</span>
+                  <span className="bg-amber-400 text-slate-900 text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase">NEW</span>
+                </button>
                 <button
                   onClick={() => {
                     loadAnalytics(true);
@@ -9394,11 +9542,16 @@ export default function AdminPanel() {
                           <tr key={u._id} className="hover:bg-slate-50/60 transition-colors">
                             {/* USER */}
                             <td className="py-4 px-4 align-top">
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <p className="font-bold text-sm text-gray-900 leading-tight">{u.name}</p>
                                 {(u.role === "agent" || u.agentProfile?.status === "approved") && (
                                   <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
                                     🤝 Agent
+                                  </span>
+                                )}
+                                {u.role === "staff" && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-purple-100 text-purple-900 border border-purple-300" title={`Staff departments: ${(u.staffProfile?.departments || []).join(", ")}`}>
+                                    👔 Staff ({u.staffProfile?.departments?.length ? u.staffProfile.departments.join(", ") : "Desk"})
                                   </span>
                                 )}
                               </div>
@@ -9693,6 +9846,13 @@ export default function AdminPanel() {
                                 >
                                   🔑 Reset Password
                                 </button>
+                                <button
+                                  onClick={() => openAssignStaffModal(u)}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-purple-950 bg-purple-100 hover:bg-purple-200 border border-purple-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                                  title="Assign Staff Desk Role (Loan, KYC, Deposit, Withdrawal, etc.)"
+                                >
+                                  👔 Assign Desk Role
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -9715,6 +9875,11 @@ export default function AdminPanel() {
                               {(u.role === "agent" || u.agentProfile?.status === "approved") && (
                                 <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wide shrink-0">
                                   Agent
+                                </span>
+                              )}
+                              {u.role === "staff" && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-purple-100 text-purple-900 border border-purple-300 uppercase tracking-wide shrink-0" title={`Staff departments: ${(u.staffProfile?.departments || []).join(", ")}`}>
+                                  👔 Staff ({u.staffProfile?.departments?.length ? u.staffProfile.departments.join(", ") : "Desk"})
                                 </span>
                               )}
                             </div>
@@ -9921,6 +10086,12 @@ export default function AdminPanel() {
                           className="w-full mt-2 py-2 rounded-xl text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
                         >
                           🔑 Reset User Password
+                        </button>
+                        <button
+                          onClick={() => openAssignStaffModal(u)}
+                          className="w-full mt-2 py-2 rounded-xl text-xs font-bold text-purple-950 bg-purple-100 hover:bg-purple-200 border border-purple-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                        >
+                          👔 Assign Desk Role (Tum Loan/KYC/Deposit wale ho)
                         </button>
                       </div>
                     ); })}
@@ -12857,6 +13028,20 @@ export default function AdminPanel() {
             </div>
           )}
 
+          {/* STAFF & DESKS */}
+          {tab === "staff" && (
+            <React.Suspense fallback={<div className="p-8 text-center text-slate-400">Loading Staff Manager...</div>}>
+              <StaffManager />
+            </React.Suspense>
+          )}
+
+          {/* AUDIT ACTIVITY LOG */}
+          {tab === "activity-log" && (
+            <React.Suspense fallback={<div className="p-8 text-center text-slate-400">Loading Activity Log...</div>}>
+              <ActivityLog />
+            </React.Suspense>
+          )}
+
           {/* SETTINGS */}
           {tab === "settings" && (
             <div className="space-y-6">
@@ -14515,6 +14700,114 @@ Login karke apna naya personal password turant set karein.`}
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ASSIGN STAFF DESK ROLE MODAL */}
+      {assignStaffModalUser && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-gray-100 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start border-b border-gray-100 pb-3">
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
+                  <span>👔</span> Assign Staff Desk Role
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Choose which department this user will handle: <strong className="text-gray-800">{assignStaffModalUser.name}</strong>
+                </p>
+                <div className="mt-1 flex items-center gap-2 text-[11px] font-mono text-gray-500">
+                  <span>{assignStaffModalUser.email}</span>
+                  {assignStaffModalUser.phone && <span>• {assignStaffModalUser.phone}</span>}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssignStaffModalUser(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl text-xs text-purple-950 space-y-1">
+              <p className="font-bold">🎯 &ldquo;Tum Yeh Wale Ho&rdquo; Desk Role Assignment</p>
+              <p className="text-[11px] text-purple-900 leading-relaxed">
+                Yahan se aap kisi bhi user ko specific department de sakte hain (Loan, KYC, Deposit, ya Withdrawal). Staff user login karte hi seedhe apne assigned desk par enter karega aur doosre departments access nahi kar sakega.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-gray-700">
+                Select Department / Desk Preset:
+              </label>
+              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                {DESK_ROLE_PRESETS.map((preset) => {
+                  const isSelected = assignStaffPreset === preset.key;
+                  return (
+                    <div
+                      key={preset.key}
+                      onClick={() => setAssignStaffPreset(preset.key)}
+                      className={`p-3 rounded-2xl border cursor-pointer transition flex items-start gap-3 ${
+                        isSelected
+                          ? "bg-purple-50/80 border-purple-500 ring-2 ring-purple-400/50 shadow-xs"
+                          : "bg-white border-gray-200 hover:border-purple-300 hover:bg-gray-50/60"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="deskPreset"
+                        checked={isSelected}
+                        onChange={() => setAssignStaffPreset(preset.key)}
+                        className="mt-1 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-black text-gray-900">{preset.label}</p>
+                          {preset.role === "staff" ? (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
+                              STAFF
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                              CUSTOMER
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{preset.sub}</p>
+                        {preset.departments.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {preset.departments.map(d => (
+                              <span key={d} className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-white border border-gray-200 text-gray-700 uppercase">
+                                {d}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setAssignStaffModalUser(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAssignStaffRole}
+                disabled={assignStaffLoading}
+                className="flex-1 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-extrabold shadow-md active:scale-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                {assignStaffLoading ? "Updating..." : "✅ Confirm Desk Assignment"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const Bond = require('../models/Bond');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const { protect, admin } = require('../middleware/auth');
+const AuditLog = require('../models/AuditLog');
+const { protect, admin, staffOrAdmin, requirePermission } = require('../middleware/auth');
+const { hasPermission } = require('../utils/permissions');
 const Settings = require('../models/Settings');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
@@ -417,10 +419,25 @@ router.post('/create', protect, async (req, res) => {
   }
 });
 
-// Admin: Get all bonds with user info & documents
-router.get('/admin/all', protect, admin, async (req, res) => {
+// Admin/Staff: Get all bonds with user info & documents
+router.get('/admin/all', protect, staffOrAdmin, async (req, res) => {
   try {
-    const bonds = await Bond.find().populate('userId', 'name email phone').sort({ createdAt: -1 });
+    const isStaff = req.user.role === 'staff';
+    const query = {};
+    if (isStaff) {
+      const hasBond = hasPermission(req.user, 'bond.view');
+      const hasLending = hasPermission(req.user, 'lending.view');
+      if (!hasBond && !hasLending) {
+        return res.status(403).json({ message: 'Access denied. Requires bond.view or lending.view' });
+      }
+      if (hasBond && !hasLending) {
+        query.bondType = 'debit_365';
+      } else if (!hasBond && hasLending) {
+        query.bondType = { $in: ['lending_40', 'lending_80'] };
+      }
+    }
+
+    const bonds = await Bond.find(query).populate('userId', 'name email phone').sort({ createdAt: -1 });
     for (const b of bonds) {
       if (!b.accountNumber || !b.accountNumber.startsWith('EFS0000')) {
         b.accountNumber = await generateBondAccountNumber();
@@ -514,14 +531,52 @@ router.get('/my', protect, async (req, res) => {
   }
 });
 
-// Admin: Approve a pending bond
-router.post('/:id/approve', protect, admin, async (req, res) => {
+// Admin/Staff: Approve a pending bond
+router.post('/:id/approve', protect, staffOrAdmin, async (req, res) => {
   try {
     const bond = await Bond.findById(req.params.id);
     if (!bond) return res.status(404).json({ message: 'Bond not found' });
     if (bond.status === 'active') return res.status(400).json({ message: 'Bond is already active' });
 
+    const dept = ['lending_40', 'lending_80'].includes(bond.bondType) ? 'lending' : 'bond';
+    if (req.user.role === 'staff') {
+      const requiredPerm = `${dept}.process`;
+      if (!hasPermission(req.user, requiredPerm)) {
+        return res.status(403).json({ message: `Access denied. Requires permission: ${requiredPerm}` });
+      }
+
+      // Self-approval guard
+      if (String(bond.userId) === String(req.user._id)) {
+        return res.status(403).json({ message: 'Self-approval is forbidden.' });
+      }
+
+      // Max approval limit check
+      const maxLimit = req.user.staffProfile?.limits?.maxApprovalAmount || 0;
+      if (maxLimit > 0 && bond.principalAmount > maxLimit) {
+        return res.status(403).json({ message: `Bond amount (₹${bond.principalAmount}) exceeds your maximum approval limit of ₹${maxLimit}` });
+      }
+    }
+
     bond.status = 'active';
+    bond.handledBy = {
+      userId: req.user._id,
+      name: req.user.name,
+      role: req.user.role,
+      department: dept,
+      action: 'approve',
+      at: new Date()
+    };
+    bond.claim = null;
+    if (!bond.history) bond.history = [];
+    bond.history.push({
+      action: 'approve',
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: dept,
+      note: 'Bond approved & activated',
+      at: new Date()
+    });
     await bond.save();
 
     await Transaction.create({
@@ -531,7 +586,24 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       method: 'wallet',
       status: 'completed',
       referenceId: bond._id.toString(),
-      remarks: `Bond (${bond.accountNumber || 'EFS0000XXX'}) approved by Admin`
+      remarks: `Bond (${bond.accountNumber || 'EFS0000XXX'}) approved by ${req.user.role === 'staff' ? 'Staff' : 'Admin'}`
+    });
+
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: dept,
+      action: `${dept}.approve`,
+      entityType: 'bond',
+      entityId: bond._id.toString(),
+      userId: bond.userId,
+      amount: bond.principalAmount,
+      fromStatus: 'pending',
+      toStatus: 'active',
+      note: 'Bond approved and activated',
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
     });
 
     dispatchBondUserAlert(
@@ -547,14 +619,48 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
   }
 });
 
-// Admin: Reject a pending bond and refund
-router.post('/:id/reject', protect, admin, async (req, res) => {
+// Admin/Staff: Reject a pending bond and refund
+router.post('/:id/reject', protect, staffOrAdmin, async (req, res) => {
   try {
     const bond = await Bond.findById(req.params.id);
     if (!bond) return res.status(404).json({ message: 'Bond not found' });
     if (bond.status === 'rejected') return res.status(400).json({ message: 'Bond is already rejected' });
 
+    const dept = ['lending_40', 'lending_80'].includes(bond.bondType) ? 'lending' : 'bond';
+    if (req.user.role === 'staff') {
+      const requiredPerm = `${dept}.process`;
+      if (!hasPermission(req.user, requiredPerm)) {
+        return res.status(403).json({ message: `Access denied. Requires permission: ${requiredPerm}` });
+      }
+
+      // Self-approval guard
+      if (String(bond.userId) === String(req.user._id)) {
+        return res.status(403).json({ message: 'Self-approval is forbidden.' });
+      }
+    }
+
+    const remarks = typeof req.body.remarks === 'string' ? req.body.remarks.trim() : 'Bond request rejected';
+
     bond.status = 'rejected';
+    bond.handledBy = {
+      userId: req.user._id,
+      name: req.user.name,
+      role: req.user.role,
+      department: dept,
+      action: 'reject',
+      at: new Date()
+    };
+    bond.claim = null;
+    if (!bond.history) bond.history = [];
+    bond.history.push({
+      action: 'reject',
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: dept,
+      note: remarks,
+      at: new Date()
+    });
     await bond.save();
 
     // Refund principal to user's wallet
@@ -570,6 +676,23 @@ router.post('/:id/reject', protect, admin, async (req, res) => {
       status: 'completed',
       referenceId: bond._id.toString(),
       remarks: `Bond request rejected. ₹${bond.principalAmount.toLocaleString('en-IN')} refunded to wallet.`
+    });
+
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: dept,
+      action: `${dept}.reject`,
+      entityType: 'bond',
+      entityId: bond._id.toString(),
+      userId: bond.userId,
+      amount: bond.principalAmount,
+      fromStatus: 'pending',
+      toStatus: 'rejected',
+      note: remarks,
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
     });
 
     res.json({ message: `Bond rejected and ₹${bond.principalAmount.toLocaleString('en-IN')} refunded to user wallet.`, bond });

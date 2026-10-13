@@ -20,7 +20,7 @@ export default function Login({ isApp = false }) {
       const token = tokenStorage.getToken();
       const user = JSON.parse(localStorage.getItem("user") || "null");
       if (token && user) {
-        const target = user.role === "admin" ? "/admin" : "/dashboard";
+        const target = user.role === "admin" ? "/admin" : (user.role === "staff" ? "/desk" : "/dashboard");
         navigate(target, { replace: true });
       }
     } catch {
@@ -87,7 +87,7 @@ export default function Login({ isApp = false }) {
         }
       }
       showMsg("Login successful! Redirecting...", "success");
-      const target = data.user?.role === "admin" ? "/admin" : "/dashboard";
+      const target = data.user?.role === "admin" ? "/admin" : (data.user?.role === "staff" ? "/desk" : "/dashboard");
       setTimeout(() => {
         try {
           navigate(target, { replace: true });
@@ -134,7 +134,7 @@ export default function Login({ isApp = false }) {
         }
       }
       showMsg("Logged in with Educa Mail (30 Days Active)! Redirecting...", "success");
-      const target = data.user?.role === "admin" ? "/admin" : "/dashboard";
+      const target = data.user?.role === "admin" ? "/admin" : (data.user?.role === "staff" ? "/desk" : "/dashboard");
       setTimeout(() => {
         try {
           navigate(target, { replace: true });

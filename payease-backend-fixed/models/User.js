@@ -12,7 +12,19 @@ const userSchema = new mongoose.Schema({
   profitBalance: { type: Number, default: 0 }, // Capitalised profits
   duesBalance: { type: Number, default: 0 }, // Total pending loan installments & card dues
   loanLimit: { type: Number, default: 5000 }, // Initial ₹5,000; doubles on loan completion (5k -> 10k -> 20k -> 40k -> 50k max)
-  role: { type: String, enum: ['user', 'admin', 'agent'], default: 'user' },
+  role: { type: String, enum: ['user', 'admin', 'agent', 'staff'], default: 'user' },
+  tokenVersion: { type: Number, default: 0 },
+  staffProfile: {
+    departments: [{ type: String, enum: ['loan', 'kyc', 'deposit', 'withdrawal', 'lending', 'bond'] }],
+    permissions: [{ type: String }],
+    isActive: { type: Boolean, default: true },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    createdAt: { type: Date, default: null },
+    limits: {
+      maxApprovalAmount: { type: Number, default: 0 } // 0 = unlimited
+    },
+    lastActiveAt: { type: Date, default: null }
+  },
   agentProfile: {
     applied: { type: Boolean, default: false },
     status: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
@@ -156,12 +168,12 @@ userSchema.pre('save', async function (next) {
     // 5 attempts ke baad bhi clash mile (bahut rare) to timestamp suffix daal do
     // -> guaranteed unique, save kabhi fail nahi hoga
     this.referralCode = code || `EF${prefix}${Date.now().toString().slice(-6)}`;
-  } else if (!isAgent && this.role !== 'admin') {
+  } else if (!isAgent && this.role !== 'admin' && this.role !== 'staff') {
     // Normal users never have a referral code
     this.referralCode = undefined;
   }
 
-  if (!this.accountNumber && this.role !== 'admin') {
+  if (!this.accountNumber && this.role !== 'admin' && this.role !== 'staff') {
     const Model = this.constructor;
     const count = await Model.countDocuments({ accountNumber: { $exists: true } });
     let seq = count + 1;

@@ -1,5 +1,6 @@
 const express = require('express');
-const { protect, admin } = require('../middleware/auth');
+const { protect, admin, staffOrAdmin } = require('../middleware/auth');
+const { hasPermission, getAllowedDepartments } = require('../utils/permissions');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Loan = require('../models/Loan');
@@ -175,9 +176,9 @@ router.get('/agent', protect, async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 3. COMBINED ADMIN BOOTSTRAP: Full Admin Operations in 1 Query
+// 3. COMBINED ADMIN BOOTSTRAP: Full Operations in 1 Query (Role & Dept segregated)
 // -------------------------------------------------------------
-router.get('/admin', protect, admin, async (req, res) => {
+router.get('/admin', protect, staffOrAdmin, async (req, res) => {
   try {
     const [
       usersRes,
@@ -292,6 +293,50 @@ router.get('/admin', protect, admin, async (req, res) => {
       }
       return l;
     });
+
+    // If caller is Staff, securely segregate datasets to only permitted departments
+    if (req.user.role === 'staff') {
+      const allowedDepts = getAllowedDepartments(req.user);
+      const filteredPending = pendingTxns.filter(t => {
+        if (t.type === 'deposit') return allowedDepts.includes('deposit');
+        if (t.type === 'withdrawal') return allowedDepts.includes('withdrawal');
+        if (t.sourceWallet === 'lending' || (t.type && t.type.includes('lending'))) return allowedDepts.includes('lending');
+        return false;
+      });
+      const rawHold = holdTxnsRes.status === 'fulfilled' ? holdTxnsRes.value : [];
+      const filteredHold = rawHold.filter(t => {
+        if (t.type === 'deposit') return allowedDepts.includes('deposit');
+        if (t.type === 'withdrawal') return allowedDepts.includes('withdrawal');
+        if (t.sourceWallet === 'lending' || (t.type && t.type.includes('lending'))) return allowedDepts.includes('lending');
+        return false;
+      });
+      const filteredLoans = allowedDepts.includes('loan') ? cleanLoans : [];
+      const filteredBonds = bonds.filter(b => {
+        if (['lending_40', 'lending_80'].includes(b.bondType)) return allowedDepts.includes('lending');
+        return allowedDepts.includes('bond');
+      });
+      const filteredUsers = allowedDepts.includes('kyc') ? cleanUsers.filter(u => u.kycStatus === 'pending') : [];
+
+      return res.json({
+        success: true,
+        allowedDepartments: allowedDepts,
+        analytics: {
+          pendingTxns: filteredPending.length,
+          activeLoans: filteredLoans.filter(l => l.status === 'pending').length,
+          pendingKyc: filteredUsers.length
+        },
+        users: filteredUsers,
+        pendingTxns: filteredPending,
+        holdTxns: filteredHold,
+        loans: filteredLoans,
+        bonds: filteredBonds,
+        agentApplications: [],
+        devices: [],
+        settings: { depositDetails: settingsMap.depositDetails },
+        depositDetails: depositDetailsRes.status === 'fulfilled' ? depositDetailsRes.value : null,
+        timestamp: Date.now()
+      });
+    }
 
     const payload = {
       analytics: {

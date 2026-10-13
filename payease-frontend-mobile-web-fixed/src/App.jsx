@@ -36,6 +36,7 @@ const Login = lazyWithRetry(() => import("./Login"));
 const ResetPassword = lazyWithRetry(() => import("./ResetPassword"));
 const Dashboard = lazyWithRetry(() => import("./Dashboard"));
 const AdminPanel = lazyWithRetry(() => import("./AdminPanel"));
+const StaffDesk = lazyWithRetry(() => import("./desk/StaffDesk"));
 
 // Product & Information Pages
 const AboutPage = lazyWithRetry(() => import("./pages/AboutPage"));
@@ -55,7 +56,7 @@ const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
 
 import TopProgressBar from "./components/ui/TopProgressBar";
 
-function PrivateRoute({ children, adminOnly = false }) {
+function PrivateRoute({ children, adminOnly = false, staffOrAdmin = false }) {
   const token = tokenStorage.getToken();
   let user = {};
   try {
@@ -64,6 +65,7 @@ function PrivateRoute({ children, adminOnly = false }) {
 
   if (!token) return <Navigate to="/login" replace />;
   if (adminOnly && user?.role !== "admin") return <Navigate to="/dashboard" replace />;
+  if (staffOrAdmin && !["admin", "staff"].includes(user?.role)) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -124,9 +126,10 @@ function RootRoute() {
   const token = tokenStorage.getToken();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  // In App Mode: Direct login / admin / dashboard, zero landing page
+  // In App Mode: Direct login / admin / desk / dashboard, zero landing page
   if (isApp) {
     if (token) {
+      if (user.role === "staff") return <Navigate to="/desk" replace />;
       return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
     }
     return <Login isApp={true} />;
@@ -245,6 +248,16 @@ export default function App() {
 
           {/* 19. Grievance Redressal */}
           <Route path="/grievance" element={<LegalPage defaultTab="grievance" />} />
+
+          {/* Staff Desk */}
+          <Route
+            path="/desk"
+            element={
+              <PrivateRoute staffOrAdmin>
+                <StaffDesk />
+              </PrivateRoute>
+            }
+          />
 
           {/* Admin Panel */}
           <Route

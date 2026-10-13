@@ -4,12 +4,14 @@ const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const Loan = require('../models/Loan');
 const Bond = require('../models/Bond');
-const Settings = require('../models/Settings');
-const { protect, admin } = require('../middleware/auth');
-const { sendNotification } = require('../utils/notifier');
+const AuditLog = require('../models/AuditLog');
+const { protect, admin, staffOrAdmin, requirePermission } = require('../middleware/auth');
+const { sendNotification, notifyPermissionsChanged } = require('../utils/notifier');
+const { hasPermission, getAllowedDepartments } = require('../utils/permissions');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const memoryCache = require('../utils/cache');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { updateEducaMailPassword, sendEducaMailMessage } = require('../utils/educaMail');
 const { encryptData, decryptData } = require('../utils/cryptoHelper');
 const router = express.Router();
@@ -43,9 +45,24 @@ function parseServerUserAgent(ua = '') {
 }
 
 // All pending transactions (strictly active non-hold)
-router.get('/transactions/pending', protect, admin, async (req, res) => {
+router.get('/transactions/pending', protect, staffOrAdmin, async (req, res) => {
   try {
-    const txns = await Transaction.find({ status: 'pending' })
+    const query = { status: 'pending' };
+    if (req.user.role === 'staff') {
+      const allowedTypes = [];
+      if (hasPermission(req.user, 'deposit.view')) allowedTypes.push('deposit');
+      if (hasPermission(req.user, 'withdrawal.view')) allowedTypes.push('withdrawal');
+      if (hasPermission(req.user, 'lending.view')) allowedTypes.push('lending_created', 'lending_payout');
+      if (allowedTypes.length === 0 && !hasPermission(req.user, 'lending.view')) {
+        return res.json([]);
+      }
+      query.$or = [{ type: { $in: allowedTypes } }];
+      if (hasPermission(req.user, 'lending.view')) {
+        query.$or.push({ sourceWallet: 'lending' });
+      }
+    }
+
+    const txns = await Transaction.find(query)
       .populate('userId', 'name email phone')
       .sort({ createdAt: -1 });
     res.json(txns);
@@ -55,11 +72,28 @@ router.get('/transactions/pending', protect, admin, async (req, res) => {
 });
 
 // All Hold transactions grouped by UTR with matching history comparison
-router.get('/transactions/hold', protect, admin, async (req, res) => {
+router.get('/transactions/hold', protect, staffOrAdmin, async (req, res) => {
   try {
-    const holdTxns = await Transaction.find({
-      $or: [{ status: 'hold' }, { isHold: true }]
-    })
+    const baseQuery = { $or: [{ status: 'hold' }, { isHold: true }] };
+    if (req.user.role === 'staff') {
+      const allowedTypes = [];
+      if (hasPermission(req.user, 'deposit.view')) allowedTypes.push('deposit');
+      if (hasPermission(req.user, 'withdrawal.view')) allowedTypes.push('withdrawal');
+      if (hasPermission(req.user, 'lending.view')) allowedTypes.push('lending_created', 'lending_payout');
+      if (allowedTypes.length === 0 && !hasPermission(req.user, 'lending.view')) {
+        return res.json({ holdCount: 0, groups: [] });
+      }
+      baseQuery.$and = [
+        {
+          $or: [
+            { type: { $in: allowedTypes } },
+            ...(hasPermission(req.user, 'lending.view') ? [{ sourceWallet: 'lending' }] : [])
+          ]
+        }
+      ];
+    }
+
+    const holdTxns = await Transaction.find(baseQuery)
       .populate('userId', 'name email phone accountNumber referralCode')
       .sort({ createdAt: -1 });
 
@@ -127,7 +161,7 @@ router.get('/transactions/hold', protect, admin, async (req, res) => {
 });
 
 // Approve transaction (supports both pending and hold)
-router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
+router.post('/transaction/:id/approve', protect, staffOrAdmin, async (req, res) => {
   if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid transaction ID' });
 
   const session = await mongoose.startSession();
@@ -140,6 +174,32 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
         const e = new Error('Invalid transaction or already processed');
         e.status = 400;
         throw e;
+      }
+
+      // Department Permission Check
+      const dept = txn.type === 'deposit' ? 'deposit' : (txn.type === 'withdrawal' ? 'withdrawal' : 'lending');
+      if (req.user.role === 'staff') {
+        const requiredPerm = `${dept}.process`;
+        if (!hasPermission(req.user, requiredPerm)) {
+          const e = new Error(`Access denied. Requires permission: ${requiredPerm}`);
+          e.status = 403;
+          throw e;
+        }
+
+        // Self-approval guard
+        if (String(txn.userId) === String(req.user._id)) {
+          const e = new Error('Self-approval is forbidden.');
+          e.status = 403;
+          throw e;
+        }
+
+        // Maximum approval limit check
+        const maxLimit = req.user.staffProfile?.limits?.maxApprovalAmount || 0;
+        if (maxLimit > 0 && txn.amount > maxLimit) {
+          const e = new Error(`Transaction amount (₹${txn.amount}) exceeds your maximum approval limit of ₹${maxLimit}`);
+          e.status = 403;
+          throw e;
+        }
       }
 
       if (txn.type === 'deposit') {
@@ -202,8 +262,28 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
 
       txn.approvedBy = req.user._id;
       txn.approvedAt = new Date();
-      txn.approverName = req.body.approverName || req.user.name || 'Admin';
+      txn.approverName = req.body.approverName || req.user.name || (req.user.role === 'staff' ? 'Staff' : 'Admin');
       txn.approverDevice = req.body.approverDevice || parseServerUserAgent(req.headers['user-agent']);
+      txn.handledBy = {
+        userId: req.user._id,
+        name: req.user.name,
+        role: req.user.role,
+        department: dept,
+        action: 'approve',
+        at: new Date()
+      };
+      txn.claim = null;
+      if (!txn.history) txn.history = [];
+      txn.history.push({
+        action: 'approve',
+        actorId: req.user._id,
+        actorName: req.user.name,
+        actorRole: req.user.role,
+        department: dept,
+        note: req.body.remarks || req.body.adminEvidenceNote || '',
+        at: new Date()
+      });
+
       if (req.body.utrNumber && typeof req.body.utrNumber === 'string') {
         txn.utrNumber = req.body.utrNumber.trim();
       }
@@ -219,7 +299,45 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
       if (req.body.remarks && typeof req.body.remarks === 'string') {
         txn.remarks = req.body.remarks.trim();
       }
+      txn.handledBy = {
+        userId: req.user._id,
+        name: req.user.name,
+        role: req.user.role,
+        department: dept,
+        action: 'approve',
+        at: new Date()
+      };
+      txn.claim = null;
+      if (!Array.isArray(txn.history)) txn.history = [];
+      txn.history.push({
+        action: 'approved',
+        by: req.user._id,
+        name: req.user.name,
+        role: req.user.role,
+        department: dept,
+        note: req.body.remarks || req.body.adminEvidenceNote || '',
+        at: new Date()
+      });
       await txn.save({ session });
+
+      // Audit Trail
+      await AuditLog.create([{
+        actorId: req.user._id,
+        actorName: req.user.name,
+        actorRole: req.user.role,
+        department: dept,
+        action: `${dept}.approve`,
+        entityType: 'transaction',
+        entityId: txn._id.toString(),
+        userId: txn.userId,
+        amount: txn.amount,
+        fromStatus: 'pending',
+        toStatus: txn.status,
+        note: req.body.remarks || req.body.adminEvidenceNote || '',
+        ip: req.ip || '',
+        userAgent: req.headers['user-agent'] || ''
+      }], { session });
+
       resultTxn = txn;
     });
 
@@ -251,7 +369,7 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
               utrNumber: resultTxn.utrNumber || '',
               adminEvidenceUrl: resultTxn.adminEvidenceUrl,
               adminEvidenceNote: resultTxn.adminEvidenceNote || '',
-              approvedBy: req.user.email || 'Admin',
+              approvedBy: req.user.email || req.user.name || 'Admin',
               submittedAt: new Date().toISOString()
             })
           })
@@ -277,18 +395,69 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
 });
 
 // Reject transaction (supports both pending and hold)
-router.post('/transaction/:id/reject', protect, admin, async (req, res) => {
+router.post('/transaction/:id/reject', protect, staffOrAdmin, async (req, res) => {
   if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid transaction ID' });
 
   const session = await mongoose.startSession();
   try {
-    const remarks = typeof req.body.remarks === 'string' ? req.body.remarks : 'Rejected by admin';
+    const remarks = typeof req.body.remarks === 'string' ? req.body.remarks : 'Rejected by administrator';
     let resultTxn;
 
     await session.withTransaction(async () => {
+      const existing = await Transaction.findById(req.params.id).session(session);
+      if (!existing || !['pending', 'hold'].includes(existing.status)) {
+        const e = new Error('Transaction not found or already processed');
+        e.status = 400;
+        throw e;
+      }
+
+      // Department Permission Check
+      const dept = existing.type === 'deposit' ? 'deposit' : (existing.type === 'withdrawal' ? 'withdrawal' : 'lending');
+      if (req.user.role === 'staff') {
+        const requiredPerm = `${dept}.process`;
+        if (!hasPermission(req.user, requiredPerm)) {
+          const e = new Error(`Access denied. Requires permission: ${requiredPerm}`);
+          e.status = 403;
+          throw e;
+        }
+
+        // Self-approval guard
+        if (String(existing.userId) === String(req.user._id)) {
+          const e = new Error('Self-approval is forbidden.');
+          e.status = 403;
+          throw e;
+        }
+      }
+
       const txn = await Transaction.findOneAndUpdate(
         { _id: req.params.id, status: { $in: ['pending', 'hold'] } },
-        { $set: { status: 'rejected', isHold: false, remarks } },
+        {
+          $set: {
+            status: 'rejected',
+            isHold: false,
+            remarks,
+            handledBy: {
+              userId: req.user._id,
+              name: req.user.name,
+              role: req.user.role,
+              department: dept,
+              action: 'reject',
+              at: new Date()
+            },
+            claim: null
+          },
+          $push: {
+            history: {
+              action: 'reject',
+              actorId: req.user._id,
+              actorName: req.user.name,
+              actorRole: req.user.role,
+              department: dept,
+              note: remarks,
+              at: new Date()
+            }
+          }
+        },
         { new: true, session }
       );
       if (!txn) {
@@ -306,6 +475,25 @@ router.post('/transaction/:id/reject', protect, admin, async (req, res) => {
           { session }
         );
       }
+
+      // Audit Trail
+      await AuditLog.create([{
+        actorId: req.user._id,
+        actorName: req.user.name,
+        actorRole: req.user.role,
+        department: dept,
+        action: `${dept}.reject`,
+        entityType: 'transaction',
+        entityId: txn._id.toString(),
+        userId: txn.userId,
+        amount: txn.amount,
+        fromStatus: 'pending',
+        toStatus: 'rejected',
+        note: remarks,
+        ip: req.ip || '',
+        userAgent: req.headers['user-agent'] || ''
+      }], { session });
+
       resultTxn = txn;
     });
 
@@ -867,11 +1055,16 @@ router.post('/user/:id/card-tier', protect, admin, async (req, res) => {
 });
 
 // KYC Verification: Approve & Reject (With Admin Review Note)
-router.post('/kyc/:id/approve', protect, admin, async (req, res) => {
+router.post('/kyc/:id/approve', protect, requirePermission('kyc.process'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Self-approval guard
+    if (req.user.role === 'staff' && String(user._id) === String(req.user._id)) {
+      return res.status(403).json({ message: 'Self-approval is forbidden.' });
+    }
 
     // ✅ SECURITY FIX: Only pending KYC can be approved
     // Rejected KYC = user must submit fresh request first
@@ -886,8 +1079,10 @@ router.post('/kyc/:id/approve', protect, admin, async (req, res) => {
     user.kycStatus = 'verified';
     user.kycVerifiedAt = new Date();
     user.kycApprovedBy = {
-      name: req.body.approverName || req.user.name || 'Admin',
+      name: req.body.approverName || req.user.name || (req.user.role === 'staff' ? 'Staff' : 'Admin'),
       device: req.body.approverDevice || parseServerUserAgent(req.headers['user-agent']),
+      userId: req.user._id,
+      role: req.user.role,
       at: new Date()
     };
     if (!user.kycDocuments) user.kycDocuments = {};
@@ -905,18 +1100,39 @@ router.post('/kyc/:id/approve', protect, admin, async (req, res) => {
     user.markModified('cardStatus');
     await user.save();
 
+    // Audit Trail
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'kyc',
+      action: 'kyc.approve',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      userId: user._id,
+      fromStatus: 'pending',
+      toStatus: 'verified',
+      note: remarks || '',
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
     res.json({ message: `User ${user.name} KYC verified successfully!`, user });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to verify KYC' });
+    res.status(500).json({ message: 'Failed to verify KYC: ' + err.message });
   }
 });
 
-
-router.post('/kyc/:id/reject', protect, admin, async (req, res) => {
+router.post('/kyc/:id/reject', protect, requirePermission('kyc.process'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Self-approval guard
+    if (req.user.role === 'staff' && String(user._id) === String(req.user._id)) {
+      return res.status(403).json({ message: 'Self-approval is forbidden.' });
+    }
 
     if (user.kycStatus === 'rejected') {
       return res.status(400).json({ message: 'KYC already rejected hai.' });
@@ -930,9 +1146,26 @@ router.post('/kyc/:id/reject', protect, admin, async (req, res) => {
     user.markModified('kycDocuments');
     await user.save();
 
+    // Audit Trail
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'kyc',
+      action: 'kyc.reject',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      userId: user._id,
+      fromStatus: 'pending',
+      toStatus: 'rejected',
+      note: remarks || '',
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
     res.json({ message: `User ${user.name} KYC marked as rejected.`, user });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to reject KYC' });
+    res.status(500).json({ message: 'Failed to reject KYC: ' + err.message });
   }
 });
 
@@ -1153,6 +1386,16 @@ router.get('/analytics', protect, admin, async (req, res) => {
       dailyMap[todayStr].amount = Math.max(dailyMap[todayStr].amount, liveAccruedToday);
     }
 
+    // Ensure all completed past calendar days reflect the full 12% p.a. daily compounding yield
+    const fullDayCompoundingYield = Number(((totalDeposits * 0.12) / 365).toFixed(2));
+    if (fullDayCompoundingYield > 0) {
+      for (const dKey of Object.keys(dailyMap)) {
+        if (dKey < todayStr && dKey >= '2026-10-09') {
+          dailyMap[dKey].amount = Math.max(dailyMap[dKey].amount, fullDayCompoundingYield);
+        }
+      }
+    }
+
     let runningYieldSum = 0;
     let runningDepositSum = 0;
     const sortedDailyList = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
@@ -1320,8 +1563,16 @@ router.get('/notifications/stream', (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     User.findById(decoded.id).then(user => {
-      if (!user || user.role !== 'admin') {
+      if (!user || (user.role !== 'admin' && user.role !== 'staff')) {
         return res.status(403).end();
+      }
+
+      if (user.role === 'staff' && user.staffProfile?.isActive === false) {
+        return res.status(403).end();
+      }
+
+      if (typeof decoded.tv === 'number' && typeof user.tokenVersion === 'number' && decoded.tv !== user.tokenVersion) {
+        return res.status(401).end();
       }
 
       res.setHeader('Content-Type', 'text/event-stream');
@@ -1331,9 +1582,9 @@ router.get('/notifications/stream', (req, res) => {
       res.flushHeaders();
 
       // Initial connection greeting
-      res.write(`data: ${JSON.stringify({ type: 'connected', message: 'SSE connected' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'connected', message: 'SSE connected', role: user.role })}\n\n`);
 
-      registerClient(res);
+      registerClient(res, user);
 
       const keepAlive = setInterval(() => {
         try {
@@ -1416,7 +1667,7 @@ router.get('/bonds', protect, admin, async (req, res) => {
 });
 
 // On-demand KYC Document Fetch (Instant, lightweight - prevents transferring megabytes in lists)
-router.get('/kyc-doc/:userId/:docKey', protect, admin, async (req, res) => {
+router.get('/kyc-doc/:userId/:docKey', protect, requirePermission('kyc.view_documents'), async (req, res) => {
   try {
     const user = await User.findById(req.params.userId).select('kycDocuments');
     if (!user || !user.kycDocuments) return res.status(404).json({ message: 'User or documents not found' });
@@ -1442,7 +1693,7 @@ router.get('/kyc-doc/:userId/:docKey', protect, admin, async (req, res) => {
 });
 
 // On-demand Transaction Proof Fetch (Prevents base64 bloat in bulk audit query)
-router.get('/txn-proof/:id', protect, admin, async (req, res) => {
+router.get('/txn-proof/:id', protect, requirePermission('deposit.view_proof'), async (req, res) => {
   try {
     const txn = await Transaction.findById(req.params.id).select('proofUrl screenshotUrl adminEvidenceUrl paymentDetails');
     if (!txn) return res.status(404).json({ message: 'Transaction not found' });
@@ -2060,7 +2311,619 @@ router.get('/capital-portfolio', protect, admin, async (req, res) => {
     });
   } catch (err) {
     console.error('Capital portfolio error:', err);
-    res.status(500).json({ success: false, message: 'Failed to load capital portfolio' });
+    res.status(500).json({ success: false, message: 'Failed to fetch capital portfolio metrics: ' + err.message });
+  }
+});
+
+// ============================================================================
+// STAFF DESKS & PERMISSIONS SYSTEM ENDPOINTS
+// ============================================================================
+
+// Desk Queues: High-performance aggregated queue fetch for staff & admin desks
+router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
+  try {
+    const isStaff = req.user.role === 'staff';
+    const allowedDepts = getAllowedDepartments(req.user);
+
+    const queues = {
+      deposit: [],
+      withdrawal: [],
+      loan: [],
+      kyc: [],
+      lending: [],
+      bond: [],
+      counts: { deposit: 0, withdrawal: 0, loan: 0, kyc: 0, lending: 0, bond: 0 }
+    };
+
+    const promises = [];
+
+    // Deposits, Withdrawals & Lending Transactions
+    if (allowedDepts.includes('deposit') || allowedDepts.includes('withdrawal') || allowedDepts.includes('lending')) {
+      promises.push(
+        Transaction.find({ status: { $in: ['pending', 'hold'] } })
+          .populate('userId', 'name email phone accountNumber upiId kycStatus')
+          .sort({ createdAt: -1 })
+          .limit(100)
+          .lean()
+          .then(txns => {
+            txns.forEach(t => {
+              if (t.type === 'deposit' && (allowedDepts.includes('deposit') || !isStaff)) {
+                queues.deposit.push(t);
+              } else if (t.type === 'withdrawal' && (allowedDepts.includes('withdrawal') || !isStaff)) {
+                queues.withdrawal.push(t);
+              } else if ((t.sourceWallet === 'lending' || (t.type && t.type.includes('lending'))) && (allowedDepts.includes('lending') || !isStaff)) {
+                queues.lending.push(t);
+              }
+            });
+            queues.counts.deposit = queues.deposit.length;
+            queues.counts.withdrawal = queues.withdrawal.length;
+            queues.counts.lending += queues.lending.length;
+          })
+      );
+    }
+
+    // Loans Queue
+    if (allowedDepts.includes('loan')) {
+      promises.push(
+        Loan.find({ status: { $in: ['pending', 'active'] } })
+          .populate('userId', 'name email phone accountNumber kycStatus')
+          .sort({ createdAt: -1 })
+          .limit(100)
+          .lean()
+          .then(loans => {
+            queues.loan = loans;
+            queues.counts.loan = loans.filter(l => l.status === 'pending').length;
+          })
+      );
+    }
+
+    // KYC Verification Queue
+    if (allowedDepts.includes('kyc')) {
+      promises.push(
+        User.find({ kycStatus: 'pending', role: { $ne: 'admin' } })
+          .select('name email phone kycStatus kycDocuments createdAt accountNumber upiId cardStatus')
+          .sort({ 'kycDocuments.submittedAt': -1, createdAt: -1 })
+          .limit(100)
+          .lean()
+          .then(users => {
+            queues.kyc = users;
+            queues.counts.kyc = users.length;
+          })
+      );
+    }
+
+    // Bonds & Fixed Returns
+    if (allowedDepts.includes('bond') || allowedDepts.includes('lending')) {
+      promises.push(
+        Bond.find({ status: 'pending' })
+          .populate('userId', 'name email phone accountNumber')
+          .sort({ createdAt: -1 })
+          .limit(100)
+          .lean()
+          .then(bonds => {
+            bonds.forEach(b => {
+              if (['lending_40', 'lending_80'].includes(b.bondType)) {
+                if (allowedDepts.includes('lending')) {
+                  queues.lending.push(b);
+                  queues.counts.lending++;
+                }
+              } else {
+                if (allowedDepts.includes('bond')) {
+                  queues.bond.push(b);
+                  queues.counts.bond++;
+                }
+              }
+            });
+          })
+      );
+    }
+
+    await Promise.all(promises);
+
+    res.json({
+      success: true,
+      allowedDepartments: allowedDepts,
+      counts: queues.counts,
+      queues
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to load desk queues: ' + err.message });
+  }
+});
+
+// Claim an item (prevents concurrent handling collisions between staff)
+router.post('/claim/:type/:id', protect, staffOrAdmin, async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    if (!['transaction', 'loan', 'bond'].includes(type) || !isValidId(id)) {
+      return res.status(400).json({ message: 'Invalid claim parameters' });
+    }
+
+    const Model = type === 'transaction' ? Transaction : (type === 'loan' ? Loan : Bond);
+    const item = await Model.findById(id);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+
+    const now = new Date();
+    if (item.claim && item.claim.claimedBy && item.claim.expiresAt > now) {
+      if (item.claim.claimedBy.toString() !== req.user._id.toString()) {
+        return res.status(409).json({
+          message: `Already claimed by ${item.claim.claimedByName || 'another staff member'}`,
+          claimedBy: item.claim.claimedByName,
+          expiresAt: item.claim.expiresAt
+        });
+      }
+    }
+
+    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 min lease
+    item.claim = {
+      claimedBy: req.user._id,
+      claimedByName: req.user.name,
+      claimedAt: now,
+      expiresAt
+    };
+    await item.save();
+
+    res.json({ success: true, message: 'Item claimed successfully', claim: item.claim });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to claim item: ' + err.message });
+  }
+});
+
+// Release an item claim
+router.post('/release-claim/:type/:id', protect, staffOrAdmin, async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    if (!['transaction', 'loan', 'bond'].includes(type) || !isValidId(id)) {
+      return res.status(400).json({ message: 'Invalid claim parameters' });
+    }
+
+    const Model = type === 'transaction' ? Transaction : (type === 'loan' ? Loan : Bond);
+    const item = await Model.findById(id);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+
+    if (item.claim?.claimedBy && item.claim.claimedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Cannot release claim held by another staff member' });
+    }
+
+    item.claim = null;
+    await item.save();
+
+    res.json({ success: true, message: 'Claim released successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to release claim: ' + err.message });
+  }
+});
+
+// Staff Management: List all staff (Admin only)
+router.get('/staff', protect, admin, async (req, res) => {
+  try {
+    const staffMembers = await User.find({ role: 'staff' })
+      .select('name email phone role staffProfile createdAt isBlocked lastYieldCalculatedAt tokenVersion')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const staffIds = staffMembers.map(s => s._id);
+    const counts = await AuditLog.aggregate([
+      { $match: { actorId: { $in: staffIds } } },
+      { $group: { _id: '$actorId', totalActions: { $sum: 1 }, lastActionAt: { $max: '$createdAt' } } }
+    ]);
+    const countsMap = {};
+    counts.forEach(c => { countsMap[c._id.toString()] = c; });
+
+    const enriched = staffMembers.map(s => ({
+      ...s,
+      stats: {
+        totalActions: countsMap[s._id.toString()]?.totalActions || 0,
+        lastActionAt: countsMap[s._id.toString()]?.lastActionAt || null
+      }
+    }));
+
+    res.json({ success: true, staff: enriched });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch staff list: ' + err.message });
+  }
+});
+
+// Staff Management: Create new staff member (Admin only)
+router.post('/staff', protect, admin, async (req, res) => {
+  try {
+    const { name, email, phone, departments = [], permissions = [], limits = {}, tempPassword } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ message: 'Name and email are required.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = (phone && phone.trim()) || ('EM' + Math.floor(1000000000 + Math.random() * 9000000000));
+
+    const exists = await User.findOne({
+      $or: [{ email: cleanEmail }, { phone: cleanPhone }]
+    });
+    if (exists) {
+      if (exists.role === 'admin') {
+        return res.status(400).json({ message: 'Cannot convert Super Admin account to staff.' });
+      }
+      exists.role = 'staff';
+      if (name && name.trim()) exists.name = name.trim();
+      exists.tokenVersion = (exists.tokenVersion || 0) + 1;
+      exists.staffProfile = {
+        departments: Array.isArray(departments) ? departments : [],
+        permissions: Array.isArray(permissions) ? permissions : [],
+        isActive: true,
+        createdBy: req.user._id,
+        createdAt: exists.staffProfile?.createdAt || new Date(),
+        limits: {
+          maxApprovalAmount: Number(limits?.maxApprovalAmount) || 0
+        },
+        lastActiveAt: new Date()
+      };
+
+      let rawPassword = tempPassword;
+      if (tempPassword && tempPassword.trim().length >= 6) {
+        exists.password = await bcrypt.hash(tempPassword.trim(), 12);
+        exists.mustChangePassword = true;
+      }
+
+      await exists.save();
+
+      // Clear caches
+      memoryCache.del(`user_me_${exists._id}`);
+      memoryCache.delPrefix('user_me_' + exists._id);
+      try {
+        const { notifyPermissionsChanged } = require('../utils/notifier');
+        notifyPermissionsChanged(exists._id);
+      } catch (_) {}
+
+      await AuditLog.create({
+        actorId: req.user._id,
+        actorName: req.user.name,
+        actorRole: req.user.role,
+        department: 'staff',
+        action: 'staff.role_assigned',
+        entityType: 'staff',
+        entityId: exists._id.toString(),
+        userId: exists._id,
+        note: `Existing user upgraded to staff with departments: ${(departments || []).join(', ')}`,
+        ip: req.ip || '',
+        userAgent: req.headers['user-agent'] || ''
+      });
+
+      return res.json({
+        success: true,
+        message: 'Existing user upgraded to staff successfully.',
+        temporaryPassword: rawPassword || '(existing user password retained)',
+        staff: {
+          id: exists._id,
+          name: exists.name,
+          email: exists.email,
+          phone: exists.phone,
+          role: exists.role,
+          staffProfile: exists.staffProfile
+        }
+      });
+    }
+
+    const rawPassword = tempPassword && tempPassword.trim().length >= 6
+      ? tempPassword.trim()
+      : 'EFS@' + crypto.randomBytes(4).toString('hex').toUpperCase();
+
+    const hashedPassword = await bcrypt.hash(rawPassword, 12);
+
+    const staffUser = await User.create({
+      name: name.trim(),
+      email: cleanEmail,
+      phone: cleanPhone,
+      password: hashedPassword,
+      role: 'staff',
+      tokenVersion: 0,
+      mustChangePassword: true,
+      tempPasswordAssigned: true,
+      staffProfile: {
+        departments: Array.isArray(departments) ? departments : [],
+        permissions: Array.isArray(permissions) ? permissions : [],
+        isActive: true,
+        createdBy: req.user._id,
+        createdAt: new Date(),
+        limits: {
+          maxApprovalAmount: Number(limits?.maxApprovalAmount) || 0
+        },
+        lastActiveAt: null
+      }
+    });
+
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'staff',
+      action: 'staff.create',
+      entityType: 'staff',
+      entityId: staffUser._id.toString(),
+      userId: staffUser._id,
+      note: `Staff member created with departments: ${staffUser.staffProfile.departments.join(', ')}`,
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
+    res.json({
+      success: true,
+      message: 'Staff member created successfully.',
+      tempPassword: rawPassword,
+      staff: {
+        id: staffUser._id,
+        name: staffUser.name,
+        email: staffUser.email,
+        phone: staffUser.phone,
+        role: staffUser.role,
+        staffProfile: staffUser.staffProfile
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to create staff member: ' + err.message });
+  }
+});
+
+// Assign Role & Desks to Any Existing User or Update Staff Profile
+router.post('/user/:id/assign-role', protect, admin, async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+  try {
+    const { role = 'staff', departments = [], permissions = [], limits = {}, isActive = true } = req.body;
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.role === 'admin') return res.status(400).json({ message: 'Cannot modify Super Admin role' });
+
+    user.role = role === 'staff' ? 'staff' : 'user';
+    user.tokenVersion = (user.tokenVersion || 0) + 1; // Invalidate active session to force reload permissions
+
+    if (user.role === 'staff') {
+      user.staffProfile = {
+        departments: Array.isArray(departments) ? departments : [],
+        permissions: Array.isArray(permissions) ? permissions : [],
+        isActive: isActive !== false,
+        createdBy: req.user._id,
+        createdAt: user.staffProfile?.createdAt || new Date(),
+        limits: {
+          maxApprovalAmount: Number(limits?.maxApprovalAmount) || 0
+        },
+        lastActiveAt: new Date()
+      };
+    } else {
+      if (user.staffProfile) {
+        user.staffProfile.isActive = false;
+      }
+    }
+
+    await user.save();
+
+    memoryCache.del(`user_me_${user._id}`);
+    memoryCache.delPrefix('user_me_' + user._id);
+    try {
+      const { notifyPermissionsChanged } = require('../utils/notifier');
+      notifyPermissionsChanged(user._id);
+    } catch (_) {}
+
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'staff',
+      action: user.role === 'staff' ? 'staff.role_assigned' : 'staff.role_revoked',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      userId: user._id,
+      note: `Assigned role ${user.role} with departments: ${(departments || []).join(', ')}`,
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
+    res.json({
+      success: true,
+      message: `User role updated to ${user.role} successfully`,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        staffProfile: user.staffProfile
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to assign role: ' + err.message });
+  }
+});
+
+// Staff Management: Update permissions (Admin only)
+router.patch('/staff/:id/permissions', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid staff ID' });
+    const { departments, permissions, limits } = req.body;
+
+    const staffUser = await User.findOne({ _id: req.params.id, role: 'staff' });
+    if (!staffUser) return res.status(404).json({ message: 'Staff member not found' });
+
+    if (!staffUser.staffProfile) staffUser.staffProfile = {};
+    if (Array.isArray(departments)) staffUser.staffProfile.departments = departments;
+    if (Array.isArray(permissions)) staffUser.staffProfile.permissions = permissions;
+    if (limits && typeof limits === 'object') {
+      staffUser.staffProfile.limits = {
+        maxApprovalAmount: Number(limits.maxApprovalAmount) || 0
+      };
+    }
+
+    memoryCache.del(`user_me_${staffUser._id}`);
+    staffUser.markModified('staffProfile');
+    await staffUser.save();
+
+    notifyPermissionsChanged(staffUser._id);
+
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'staff',
+      action: 'staff.update_permissions',
+      entityType: 'staff',
+      entityId: staffUser._id.toString(),
+      userId: staffUser._id,
+      note: `Updated permissions: ${staffUser.staffProfile.permissions.length} perms, [${staffUser.staffProfile.departments.join(', ')}]`,
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
+    res.json({
+      success: true,
+      message: 'Staff permissions updated successfully',
+      staff: staffUser
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update permissions: ' + err.message });
+  }
+});
+
+// Staff Management: Toggle active / suspended (Admin only)
+router.post('/staff/:id/toggle-active', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid staff ID' });
+
+    const staffUser = await User.findOne({ _id: req.params.id, role: 'staff' });
+    if (!staffUser) return res.status(404).json({ message: 'Staff member not found' });
+
+    if (!staffUser.staffProfile) staffUser.staffProfile = { isActive: true };
+    const currentActive = staffUser.staffProfile.isActive !== false;
+    const nextActive = !currentActive;
+    staffUser.staffProfile.isActive = nextActive;
+
+    if (!nextActive) {
+      staffUser.tokenVersion = (staffUser.tokenVersion || 0) + 1;
+    }
+
+    memoryCache.del(`user_me_${staffUser._id}`);
+    staffUser.markModified('staffProfile');
+    await staffUser.save();
+
+    notifyPermissionsChanged(staffUser._id);
+
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'staff',
+      action: nextActive ? 'staff.activate' : 'staff.deactivate',
+      entityType: 'staff',
+      entityId: staffUser._id.toString(),
+      userId: staffUser._id,
+      note: nextActive ? 'Staff account activated' : 'Staff account deactivated & sessions revoked',
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
+    res.json({
+      success: true,
+      message: nextActive ? 'Staff account activated' : 'Staff account deactivated',
+      isActive: nextActive
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to toggle staff status: ' + err.message });
+  }
+});
+
+// Staff Management: Force logout / invalidate all tokens (Admin only)
+router.post('/staff/:id/force-logout', protect, admin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid staff ID' });
+
+    const staffUser = await User.findOne({ _id: req.params.id, role: 'staff' });
+    if (!staffUser) return res.status(404).json({ message: 'Staff member not found' });
+
+    staffUser.tokenVersion = (staffUser.tokenVersion || 0) + 1;
+    memoryCache.del(`user_me_${staffUser._id}`);
+    await staffUser.save();
+
+    notifyPermissionsChanged(staffUser._id);
+
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'staff',
+      action: 'staff.force_logout',
+      entityType: 'staff',
+      entityId: staffUser._id.toString(),
+      userId: staffUser._id,
+      note: 'Admin initiated force logout / session invalidation',
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
+    res.json({
+      success: true,
+      message: 'All active sessions for this staff member have been terminated.'
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to invalidate staff sessions: ' + err.message });
+  }
+});
+
+// Activity Log: Paginated Audit Log & CSV Export (Admin only)
+router.get('/activity-log', protect, admin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50, actorId, department, action, startDate, endDate, format } = req.query;
+
+    const query = {};
+    if (actorId && isValidId(actorId)) query.actorId = actorId;
+    if (department && department !== 'all') query.department = department;
+    if (action) query.action = new RegExp(action, 'i');
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    if (format === 'csv') {
+      const logs = await AuditLog.find(query).sort({ createdAt: -1 }).limit(1000).lean();
+      let csv = 'Timestamp,Actor Name,Role,Department,Action,Entity Type,Entity ID,Target User ID,Amount,From Status,To Status,Note\n';
+      logs.forEach(l => {
+        const safe = str => `"${String(str || '').replace(/"/g, '""')}"`;
+        csv += [
+          l.createdAt ? new Date(l.createdAt).toISOString() : '',
+          safe(l.actorName),
+          safe(l.actorRole),
+          safe(l.department),
+          safe(l.action),
+          safe(l.entityType),
+          safe(l.entityId),
+          safe(l.userId),
+          l.amount !== null && l.amount !== undefined ? l.amount : '',
+          safe(l.fromStatus),
+          safe(l.toStatus),
+          safe(l.note)
+        ].join(',') + '\n';
+      });
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="activity_log.csv"');
+      return res.send(csv);
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [total, logs] = await Promise.all([
+      AuditLog.countDocuments(query),
+      AuditLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean()
+    ]);
+
+    res.json({
+      success: true,
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / limitNum),
+      logs
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch activity log: ' + err.message });
   }
 });
 

@@ -14,18 +14,29 @@ exports.protect = async (req, res, next) => {
 
     if (!token) return res.status(401).json({ message: 'Not authorized' });
 
-    // algorithms explicitly pin kiya hai -- isse koi bhi token jo HS256 se
-    // sign nahi hua (jaise alg:none ya kisi doosre algorithm ka), verify
-    // step par hi reject ho jayega (algorithm-confusion attack se bachne
-    // ke liye best practice)
+    // Algorithms pinned to HS256 to prevent algorithm-confusion attack
     const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     req.user = await User.findById(decoded.id).select('-password');
 
-    if (!req.user)
+    if (!req.user) {
       return res.status(401).json({ message: 'Session expired ya account reset ho chuka hai. Kripya login ya register karein.' });
+    }
 
-    if (req.user.isBlocked)
+    if (req.user.isBlocked) {
       return res.status(403).json({ message: 'Account is blocked by administrator' });
+    }
+
+    // Token version check for instantaneous session invalidation
+    if (typeof decoded.tv === 'number' && typeof req.user.tokenVersion === 'number') {
+      if (decoded.tv !== req.user.tokenVersion) {
+        return res.status(401).json({ message: 'Session invalidated. Please log in again.' });
+      }
+    }
+
+    // Deactivated staff account check
+    if (req.user.role === 'staff' && req.user.staffProfile?.isActive === false) {
+      return res.status(403).json({ message: 'Staff account has been deactivated.' });
+    }
 
     next();
   } catch (err) {
@@ -34,7 +45,50 @@ exports.protect = async (req, res, next) => {
 };
 
 exports.admin = (req, res, next) => {
-  if (!req.user || req.user.role !== 'admin') 
+  if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ message: 'Admin access required' });
+  }
   next();
+};
+
+exports.staffOrAdmin = (req, res, next) => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'staff')) {
+    return res.status(403).json({ message: 'Staff or Admin access required' });
+  }
+  next();
+};
+
+/**
+ * Middleware factory requiring any of the specified permissions.
+ * Super Admin (role === 'admin') automatically bypasses this check.
+ */
+exports.requirePermission = (...permissions) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+    // Super admins always retain global permission
+    if (req.user.role === 'admin') {
+      return next();
+    }
+    if (req.user.role !== 'staff') {
+      return res.status(403).json({ message: 'Staff or Admin access required' });
+    }
+    if (!req.user.staffProfile || req.user.staffProfile.isActive === false) {
+      return res.status(403).json({ message: 'Staff account has been deactivated.' });
+    }
+
+    const staffPerms = Array.isArray(req.user.staffProfile.permissions)
+      ? req.user.staffProfile.permissions
+      : [];
+
+    const isAuthorized = permissions.some(p => staffPerms.includes(p));
+    if (!isAuthorized) {
+      return res.status(403).json({
+        message: `Access denied. Requires permission: ${permissions.join(' or ')}`
+      });
+    }
+
+    next();
+  };
 };

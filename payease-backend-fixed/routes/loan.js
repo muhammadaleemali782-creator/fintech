@@ -4,7 +4,9 @@ const Loan = require('../models/Loan');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Settings = require('../models/Settings');
-const { protect, admin } = require('../middleware/auth');
+const AuditLog = require('../models/AuditLog');
+const { protect, admin, staffOrAdmin, requirePermission } = require('../middleware/auth');
+const { hasPermission } = require('../utils/permissions');
 const { isValidAmount } = require('../utils/validateAmount');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
@@ -1190,8 +1192,8 @@ router.post('/:id/pay-emi', protect, async (req, res) => {
   return router.handle(req, res);
 });
 
-// Admin creates a loan application on behalf of an existing user or newly created user
-router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
+// Admin/Staff creates a loan application on behalf of an existing user or newly created user
+router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_on_behalf'), async (req, res) => {
   try {
     const {
       borrowerType = 'existing', // 'existing' | 'new'
@@ -1570,9 +1572,9 @@ router.post('/admin/create-on-behalf', protect, admin, async (req, res) => {
   }
 });
 
-// Admin: Toggle Penalty Waiver for a Loan ("chor sakta hai" / waive or re-apply)
+// Admin/Staff: Toggle Penalty Waiver for a Loan ("chor sakta hai" / waive or re-apply)
 // Rule: When waived, penalty is 0. When applied again, all overdue installments are counted (2% per installment)
-router.post('/:id/toggle-penalty-waiver', protect, admin, async (req, res) => {
+router.post('/:id/toggle-penalty-waiver', protect, requirePermission('loan.waive_penalty'), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: 'Invalid loan ID' });
@@ -1585,7 +1587,7 @@ router.post('/:id/toggle-penalty-waiver', protect, admin, async (req, res) => {
     loan.penaltyWaived = shouldWaive;
     if (shouldWaive) {
       loan.penaltyWaivedAt = new Date();
-      loan.penaltyWaivedBy = req.user.email;
+      loan.penaltyWaivedBy = req.user.email || req.user.name;
     } else {
       loan.penaltyWaivedAt = null;
       loan.penaltyWaivedBy = null;
@@ -1593,6 +1595,20 @@ router.post('/:id/toggle-penalty-waiver', protect, admin, async (req, res) => {
 
     syncLoanOverdueAndPenalties(loan);
     await loan.save();
+
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'loan',
+      action: shouldWaive ? 'loan.waive_penalty' : 'loan.unwaive_penalty',
+      entityType: 'loan',
+      entityId: loan._id.toString(),
+      userId: loan.userId,
+      note: shouldWaive ? 'Penalty waived' : 'Penalty re-applied',
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
 
     res.json({
       success: true,
@@ -1607,8 +1623,8 @@ router.post('/:id/toggle-penalty-waiver', protect, admin, async (req, res) => {
   }
 });
 
-// Admin: Approve loan + Disburse Net Amount
-router.post('/:id/approve', protect, admin, async (req, res) => {
+// Admin/Staff: Approve loan + Disburse Net Amount
+router.post('/:id/approve', protect, requirePermission('loan.process', 'loan.disburse'), async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id))
     return res.status(400).json({ message: 'Invalid loan ID' });
 
@@ -1620,6 +1636,17 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       const loan = await Loan.findById(req.params.id).session(session);
       if (!loan) throw Object.assign(new Error('Loan not found'), { status: 404 });
       if (loan.status !== 'pending') throw Object.assign(new Error('Loan already processed'), { status: 400 });
+
+      // Self-approval guard
+      if (req.user.role === 'staff' && String(loan.userId) === String(req.user._id)) {
+        throw Object.assign(new Error('Self-approval is forbidden.'), { status: 403 });
+      }
+
+      // Max approval limit check
+      const maxLimit = req.user.staffProfile?.limits?.maxApprovalAmount || 0;
+      if (req.user.role === 'staff' && maxLimit > 0 && loan.amount > maxLimit) {
+        throw Object.assign(new Error(`Loan amount (₹${loan.amount}) exceeds your maximum approval limit of ₹${maxLimit}`), { status: 403 });
+      }
 
       const user = await User.findById(loan.userId).session(session);
       if (!user) throw Object.assign(new Error('Borrower not found'), { status: 404 });
@@ -1771,9 +1798,45 @@ router.post('/:id/approve', protect, admin, async (req, res) => {
       }
 
       loan.approvedAt = new Date();
-      loan.approverName = req.body.approverName || req.user.name || 'Admin';
+      loan.approverName = req.body.approverName || req.user.name || (req.user.role === 'staff' ? 'Staff' : 'Admin');
       loan.approverDevice = req.body.approverDevice || '💻 Windows PC • Chrome';
+      loan.handledBy = {
+        userId: req.user._id,
+        name: req.user.name,
+        role: req.user.role,
+        department: 'loan',
+        action: 'approve',
+        at: new Date()
+      };
+      loan.claim = null;
+      if (!loan.history) loan.history = [];
+      loan.history.push({
+        action: 'approve',
+        actorId: req.user._id,
+        actorName: req.user.name,
+        actorRole: req.user.role,
+        department: 'loan',
+        note: `Approved & disbursed net ₹${payout}`,
+        at: new Date()
+      });
       await loan.save({ session });
+
+      await AuditLog.create([{
+        actorId: req.user._id,
+        actorName: req.user.name,
+        actorRole: req.user.role,
+        department: 'loan',
+        action: 'loan.approve',
+        entityType: 'loan',
+        entityId: loan._id.toString(),
+        userId: user._id,
+        amount: loan.amount,
+        fromStatus: 'pending',
+        toStatus: 'active',
+        note: `Disbursed ₹${payout} to ${disburseToWallet !== false ? 'wallet' : 'offline cash'}`,
+        ip: req.ip || '',
+        userAgent: req.headers['user-agent'] || ''
+      }], { session });
 
       await Transaction.create([{
         userId: user._id,
@@ -1846,26 +1909,80 @@ router.get('/current-rate', async (req, res) => {
   }
 });
 
-// Admin: Reject loan
-router.post('/:id/reject', protect, admin, async (req, res) => {
+// Admin/Staff: Reject loan
+router.post('/:id/reject', protect, requirePermission('loan.process'), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id))
       return res.status(400).json({ message: 'Invalid loan ID' });
 
+    const existing = await Loan.findById(req.params.id);
+    if (!existing || existing.status !== 'pending') {
+      return res.status(400).json({ message: 'Loan not found or already processed' });
+    }
+
+    // Self-approval guard
+    if (req.user.role === 'staff' && String(existing.userId) === String(req.user._id)) {
+      return res.status(403).json({ message: 'Self-approval is forbidden.' });
+    }
+
+    const remarks = typeof req.body.remarks === 'string' ? req.body.remarks.trim() : 'Rejected by loan desk';
+
     const loan = await Loan.findOneAndUpdate(
       { _id: req.params.id, status: 'pending' },
-      { $set: { status: 'rejected' } },
+      {
+        $set: {
+          status: 'rejected',
+          handledBy: {
+            userId: req.user._id,
+            name: req.user.name,
+            role: req.user.role,
+            department: 'loan',
+            action: 'reject',
+            at: new Date()
+          },
+          claim: null
+        },
+        $push: {
+          history: {
+            action: 'reject',
+            actorId: req.user._id,
+            actorName: req.user.name,
+            actorRole: req.user.role,
+            department: 'loan',
+            note: remarks,
+            at: new Date()
+          }
+        }
+      },
       { new: true }
     );
     if (!loan) return res.status(400).json({ message: 'Loan not found or already processed' });
+
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'loan',
+      action: 'loan.reject',
+      entityType: 'loan',
+      entityId: loan._id.toString(),
+      userId: loan.userId,
+      amount: loan.amount,
+      fromStatus: 'pending',
+      toStatus: 'rejected',
+      note: remarks,
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
     res.json({ message: 'Loan rejected', loan });
   } catch (err) {
-    res.status(500).json({ message: 'Something went wrong. Please try again.' });
+    res.status(500).json({ message: 'Something went wrong: ' + err.message });
   }
 });
 
-// Admin: All loans (Instant response, background async persistence)
-router.get('/all', protect, admin, async (req, res) => {
+// Admin/Staff: All loans (Instant response, background async persistence)
+router.get('/all', protect, requirePermission('loan.view'), async (req, res) => {
   try {
     const loans = await Loan.find()
       .populate('userId', 'name email phone referralCode kycDocuments')
@@ -1980,14 +2097,19 @@ router.post('/:id/submit-installment', protect, async (req, res) => {
   }
 });
 
-// Admin approves user's submitted installment payment
-router.post('/admin/:loanId/installment/:installmentNo/approve', protect, admin, async (req, res) => {
+// Admin/Staff approves user's submitted installment payment
+router.post('/admin/:loanId/installment/:installmentNo/approve', protect, requirePermission('loan.process'), async (req, res) => {
   const session = await mongoose.startSession();
   try {
     let updatedLoan;
     await session.withTransaction(async () => {
       const loan = await Loan.findById(req.params.loanId).session(session);
       if (!loan) throw Object.assign(new Error('Loan not found'), { status: 404 });
+
+      // Self-approval guard
+      if (req.user.role === 'staff' && String(loan.userId) === String(req.user._id)) {
+        throw Object.assign(new Error('Self-approval is forbidden.'), { status: 403 });
+      }
 
       const list = loan.installmentSchedule.length > 0 ? loan.installmentSchedule : loan.emiSchedule;
       const target = list.find(x => x.installmentNo === Number(req.params.installmentNo));
@@ -1996,7 +2118,7 @@ router.post('/admin/:loanId/installment/:installmentNo/approve', protect, admin,
 
       target.status = 'paid';
       target.paidOn = new Date();
-      target.approvedBy = req.user.email;
+      target.approvedBy = req.user.email || req.user.name;
 
       loan.paidAmount = (loan.paidAmount || 0) + target.amount;
       loan.remainingAmount = Math.max(0, (loan.remainingAmount || loan.totalPayable) - target.amount);
@@ -2028,7 +2150,22 @@ router.post('/admin/:loanId/installment/:installmentNo/approve', protect, admin,
         method: target.paymentMethod || 'upi_qr',
         status: 'completed',
         referenceId: `${loan._id}_inst_${target.installmentNo}`,
-        remarks: `Installment #${target.installmentNo} approved by Admin (UTR: ${target.utrNumber || 'N/A'})`
+        remarks: `Installment #${target.installmentNo} approved by ${req.user.role === 'staff' ? 'Staff' : 'Admin'} (UTR: ${target.utrNumber || 'N/A'})`
+      }], { session });
+
+      await AuditLog.create([{
+        actorId: req.user._id,
+        actorName: req.user.name,
+        actorRole: req.user.role,
+        department: 'loan',
+        action: 'loan.approve_installment',
+        entityType: 'loan',
+        entityId: loan._id.toString(),
+        userId: loan.userId,
+        amount: target.amount,
+        note: `Approved installment #${target.installmentNo}`,
+        ip: req.ip || '',
+        userAgent: req.headers['user-agent'] || ''
       }], { session });
 
       updatedLoan = loan;
@@ -2046,8 +2183,8 @@ router.post('/admin/:loanId/installment/:installmentNo/approve', protect, admin,
   }
 });
 
-// Admin marks an installment as paid directly with evidence/note
-router.post('/admin/:loanId/installment/:installmentNo/admin-pay', protect, admin, async (req, res) => {
+// Admin/Staff marks an installment as paid directly with evidence/note
+router.post('/admin/:loanId/installment/:installmentNo/admin-pay', protect, requirePermission('loan.process'), async (req, res) => {
   const session = await mongoose.startSession();
   try {
     const { evidenceNote, utrNumber, proofUrl } = req.body;

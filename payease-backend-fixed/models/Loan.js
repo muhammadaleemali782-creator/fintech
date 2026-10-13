@@ -118,6 +118,29 @@ const loanSchema = new mongoose.Schema({
   purpose: { type: String, default: 'Personal Loan' },
   referralCommissionPaid: { type: Boolean, default: false },
   referralCommissionAmount: { type: Number, default: 0 },
+  handledBy: {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    name: String,
+    role: String,
+    department: String,
+    action: String,
+    at: Date
+  },
+  claim: {
+    claimedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    claimedByName: String,
+    claimedAt: Date,
+    expiresAt: Date
+  },
+  history: [{
+    action: String,
+    actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    actorName: String,
+    actorRole: String,
+    department: String,
+    note: String,
+    at: { type: Date, default: Date.now }
+  }],
   createdAt: { type: Date, default: Date.now }
 });
 

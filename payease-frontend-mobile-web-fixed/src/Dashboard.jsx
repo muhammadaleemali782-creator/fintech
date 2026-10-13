@@ -4854,6 +4854,23 @@ export default function Dashboard() {
 
   return (
     <div className="bg-gray-50 min-h-[100dvh] w-full max-w-full overflow-x-hidden pb-safe-nav sm:pb-0 font-sans">
+      {/* STAFF PERSISTENCE BANNER */}
+      {(userStored.role === "staff" || userProfile?.role === "staff") && (
+        <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 border-b border-blue-500/40 text-white px-3.5 sm:px-6 py-2.5 flex items-center justify-between text-xs sticky top-0 z-50 shadow-md">
+          <div className="flex items-center gap-2 font-bold min-w-0">
+            <span className="text-base shrink-0">🏢</span>
+            <span className="truncate">Staff Account Active</span>
+            <span className="hidden sm:inline text-blue-300 font-normal">| Department Desks Portal</span>
+          </div>
+          <a
+            href="/desk"
+            className="shrink-0 px-3 py-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black rounded-lg shadow-sm flex items-center gap-1 transition"
+          >
+            <span>⚡</span> Open Staff Desk →
+          </a>
+        </div>
+      )}
+
       {/* ADMIN PERSISTENCE BANNER */}
       {(userStored.role === "admin" || userProfile?.role === "admin") && (
         <div className="bg-gradient-to-r from-gray-950 via-indigo-950 to-gray-950 border-b border-indigo-500/40 text-white px-3.5 sm:px-6 py-2.5 flex items-center justify-between text-xs sticky top-0 z-50 shadow-md">
@@ -4892,14 +4909,32 @@ export default function Dashboard() {
                 silentSyncAll();
               }}
             />
-            {(userStored.role === "admin" || userProfile?.role === "admin") && (
+            {(userStored.role === "staff" || userProfile?.role === "staff") && (
               <a
-                href="/admin"
-                className="px-2.5 sm:px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
-                title="Return to Admin Panel"
+                href="/desk"
+                className="px-2.5 sm:px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
+                title="Open Staff Desk"
               >
-                <span>🛡️</span> <span>Admin</span>
+                <span>🏢</span> <span>Desk</span>
               </a>
+            )}
+            {(userStored.role === "admin" || userProfile?.role === "admin") && (
+              <>
+                <a
+                  href="/desk"
+                  className="px-2.5 sm:px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
+                  title="Open Department Desks"
+                >
+                  <span>🏢</span> <span>Desk</span>
+                </a>
+                <a
+                  href="/admin"
+                  className="px-2.5 sm:px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
+                  title="Return to Admin Panel"
+                >
+                  <span>🛡️</span> <span>Admin</span>
+                </a>
+              </>
             )}
 
             {/* Collapsible Language Selector - Ultra Compact (EN / HI / HN) */}

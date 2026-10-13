@@ -2352,7 +2352,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
       promises.push(
         Transaction.find({ status: { $in: ['pending', 'hold'] } })
           .select('userId type amount status isHold sourceWallet referenceId utrNumber proofUrl screenshotUrl upiId accountNumber createdAt claim')
-          .populate('userId', 'name email phone accountNumber upiId kycStatus avatar photoUrl')
+          .populate('userId', 'name email phone accountNumber upiId aadharNumber panNumber bankAccount kycStatus avatar photoUrl')
           .sort({ createdAt: -1 })
           .limit(60)
           .lean()
@@ -2378,7 +2378,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
       promises.push(
         Loan.find({ status: { $in: ['pending', 'active'] } })
           .select('-installmentSchedule -emiSchedule -history')
-          .populate('userId', 'name email phone accountNumber kycStatus avatar photoUrl')
+          .populate('userId', 'name email phone accountNumber aadharNumber panNumber address bankAccount kycStatus kycDocuments avatar photoUrl')
           .sort({ createdAt: -1 })
           .limit(60)
           .lean()
@@ -2393,7 +2393,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
     if (allowedDepts.includes('kyc')) {
       promises.push(
         User.find({ kycStatus: 'pending', role: { $ne: 'admin' } })
-          .select('name email phone kycStatus kycDocuments.submittedAt kycDocuments.doc1Url kycDocuments.doc2Url kycDocuments.chequeUrl createdAt accountNumber upiId cardStatus avatar photoUrl')
+          .select('name email phone aadharNumber panNumber address bankAccount kycStatus kycDocuments.submittedAt kycDocuments.doc1Url kycDocuments.doc1BackUrl kycDocuments.doc2Url kycDocuments.doc2BackUrl kycDocuments.chequeUrl createdAt accountNumber upiId cardStatus avatar photoUrl')
           .sort({ 'kycDocuments.submittedAt': -1, createdAt: -1 })
           .limit(60)
           .lean()
@@ -2409,7 +2409,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
       promises.push(
         Bond.find({ status: 'pending' })
           .select('userId bondType amount tenure interestRate status createdAt')
-          .populate('userId', 'name email phone accountNumber avatar photoUrl')
+          .populate('userId', 'name email phone accountNumber aadharNumber panNumber bankAccount kycStatus avatar photoUrl')
           .sort({ createdAt: -1 })
           .limit(60)
           .lean()

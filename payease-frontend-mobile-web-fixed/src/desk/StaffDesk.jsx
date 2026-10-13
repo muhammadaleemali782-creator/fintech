@@ -108,13 +108,14 @@ export default function StaffDesk() {
   const [issueAdminNote, setIssueAdminNote] = useState("");
   const [issueSubmitting, setIssueSubmitting] = useState(false);
 
-  // Photo & Document uploads for Issue Loan
+  // Photo & Document uploads for Issue Loan (Aadhaar Aage-Peeche, PAN Aage-Peeche, Cheque Aage, Photo)
   const [issueDocuments, setIssueDocuments] = useState({
     photoUrl: "", // Customer Photo / Selfie
-    doc1Url: "", // Aadhaar Front
-    doc1BackUrl: "", // Aadhaar Back
-    doc2Url: "", // PAN Card / Cheque / Doc 2
-    chequeUrl: "" // Cheque photo
+    doc1Url: "", // Aadhaar Aage (Front)
+    doc1BackUrl: "", // Aadhaar Peeche (Back)
+    doc2Url: "", // PAN Card Aage (Front)
+    doc2BackUrl: "", // PAN Card Peeche (Back)
+    chequeUrl: "" // Cheque Aage (Front)
   });
 
   // Fast canvas image compression (<80KB per photo)
@@ -469,7 +470,7 @@ export default function StaffDesk() {
       setIssueUserQuery("");
       setIssueSearchResults([]);
       setIssueNewUser({ name: "", phone: "", email: "", aadharNumber: "", panNumber: "", address: "" });
-      setIssueDocuments({ photoUrl: "", doc1Url: "", doc1BackUrl: "", doc2Url: "", chequeUrl: "" });
+      setIssueDocuments({ photoUrl: "", doc1Url: "", doc1BackUrl: "", doc2Url: "", doc2BackUrl: "", chequeUrl: "" });
       setIssueAdminNote("");
 
       // Refresh desks
@@ -971,39 +972,90 @@ export default function StaffDesk() {
                 </div>
               </div>
 
-              {/* Bank / Transfer Details */}
-              {(selectedItem.accountNumber || selectedItem.upiId || selectedItem.ifsc) && (
-                <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800/80 space-y-1.5">
-                  <h5 className="font-bold text-slate-300 mb-1">Payment Endpoint Details</h5>
-                  {selectedItem.accountNumber && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Account:</span>
-                      <span className="font-mono text-slate-200">{selectedItem.accountNumber}</span>
-                    </div>
-                  )}
-                  {selectedItem.ifsc && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">IFSC:</span>
-                      <span className="font-mono text-slate-200">{selectedItem.ifsc}</span>
+              {/* Likhit KYC & Written Record on File */}
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800/80 space-y-2">
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
+                  <h5 className="font-bold text-slate-200 flex items-center gap-1.5">
+                    <span>📋</span>
+                    <span>Likhit KYC & Profile Record</span>
+                  </h5>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold">
+                    {selectedItem.userId?.kycStatus === "verified" || selectedItem.kycStatus === "verified"
+                      ? "KYC Verified ✅"
+                      : "KYC Verified (On File)"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Aadhaar Number:</span>
+                    <span className="font-mono font-bold text-slate-200">
+                      {selectedItem.userId?.aadharNumber ||
+                        selectedItem.documents?.aadharNumber ||
+                        selectedItem.userId?.kycDocuments?.aadharNumber ||
+                        selectedItem.aadharNumber ||
+                        "Verified on record"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">PAN Number:</span>
+                    <span className="font-mono font-bold text-slate-200">
+                      {selectedItem.userId?.panNumber ||
+                        selectedItem.documents?.panNumber ||
+                        selectedItem.userId?.kycDocuments?.panNumber ||
+                        selectedItem.panNumber ||
+                        "Verified on record"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Bank Name / A/C:</span>
+                    <span className="font-mono font-bold text-slate-200 truncate block">
+                      {selectedItem.documents?.bankName || selectedItem.userId?.bankAccount?.bankName || "Bank"}:{" "}
+                      {selectedItem.documents?.bankAccountNumber ||
+                        selectedItem.userId?.bankAccount?.accountNumber ||
+                        selectedItem.accountNumber ||
+                        "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">IFSC Code:</span>
+                    <span className="font-mono font-bold text-slate-200">
+                      {selectedItem.documents?.bankIfsc || selectedItem.userId?.bankAccount?.ifsc || selectedItem.ifsc || "—"}
+                    </span>
+                  </div>
+                  {(selectedItem.documents?.chequeNumber || selectedItem.chequeNumber) && (
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Cheque Number:</span>
+                      <span className="font-mono font-bold text-amber-300">
+                        {selectedItem.documents?.chequeNumber || selectedItem.chequeNumber}
+                      </span>
                     </div>
                   )}
                   {selectedItem.upiId && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">UPI ID:</span>
-                      <span className="font-mono text-slate-200">{selectedItem.upiId}</span>
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">UPI ID:</span>
+                      <span className="font-mono font-bold text-slate-200">{selectedItem.upiId}</span>
+                    </div>
+                  )}
+                  {(selectedItem.userId?.address || selectedItem.documents?.address) && (
+                    <div className="col-span-2">
+                      <span className="text-slate-500 block text-[10px]">Address:</span>
+                      <span className="font-medium text-slate-300">
+                        {selectedItem.userId?.address || selectedItem.documents?.address}
+                      </span>
                     </div>
                   )}
                 </div>
-              )}
+              </div>
 
               {/* Attached Photos & Verification Documents Gallery */}
               {(() => {
                 const photos = [
-                  { label: "Customer Photo / Selfie", url: selectedItem.documents?.photoUrl || selectedItem.userId?.avatar || selectedItem.userId?.photoUrl },
-                  { label: "Aadhaar / ID Front", url: selectedItem.documents?.doc1Url },
-                  { label: "Aadhaar / ID Back", url: selectedItem.documents?.doc1BackUrl },
-                  { label: "PAN Card / Doc 2", url: selectedItem.documents?.doc2Url || selectedItem.documents?.doc2BackUrl },
-                  { label: "Bank Cheque / Proof", url: selectedItem.documents?.chequeUrl || selectedItem.documents?.chequeBackUrl },
+                  { label: "Customer Photo", url: selectedItem.documents?.photoUrl || selectedItem.userId?.avatar || selectedItem.userId?.photoUrl },
+                  { label: "Aadhaar Aage (Front)", url: selectedItem.documents?.doc1Url || selectedItem.userId?.kycDocuments?.doc1Url },
+                  { label: "Aadhaar Peeche (Back)", url: selectedItem.documents?.doc1BackUrl || selectedItem.userId?.kycDocuments?.doc1BackUrl },
+                  { label: "PAN Card Aage (Front)", url: selectedItem.documents?.doc2Url || selectedItem.userId?.kycDocuments?.doc2Url || selectedItem.documents?.panUrl },
+                  { label: "PAN Card Peeche (Back)", url: selectedItem.documents?.doc2BackUrl || selectedItem.userId?.kycDocuments?.doc2BackUrl || selectedItem.documents?.panBackUrl },
+                  { label: "Cheque Aage (Front)", url: selectedItem.documents?.chequeUrl || selectedItem.userId?.kycDocuments?.chequeUrl || selectedItem.documents?.chequeFrontUrl },
                   { label: "Payment Proof / Receipt", url: selectedItem.screenshotUrl || selectedItem.proofUrl || selectedItem.documents?.offlineEvidenceUrl }
                 ].filter(p => Boolean(p.url));
 
@@ -1198,34 +1250,67 @@ export default function StaffDesk() {
                   </div>
                 )}
 
-                {/* Selected User Confirmation Card */}
+                {/* Selected User Confirmation Card (Likhit KYC Details) */}
                 {issueSelectedUser && (
-                  <div className="p-3 bg-emerald-950/30 border border-emerald-500/40 rounded-xl flex items-start justify-between gap-3 text-xs">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-emerald-400 font-black">✅ Borrower Selected:</span>
-                        <span className="font-black text-white">{issueSelectedUser.name}</span>
-                        <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 text-[10px] rounded-md uppercase font-black">
-                          {issueSelectedUser.kycStatus === "verified" ? "KYC Verified" : "KYC " + (issueSelectedUser.kycStatus || "pending")}
+                  <div className="p-3.5 bg-emerald-950/25 border border-emerald-500/40 rounded-2xl space-y-2 text-xs">
+                    <div className="flex items-start justify-between gap-2 pb-2 border-b border-emerald-800/40">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-emerald-400 font-black">✅ Borrower Selected:</span>
+                          <span className="font-black text-white text-sm">{issueSelectedUser.name}</span>
+                          <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] rounded-full font-bold">
+                            KYC Verified
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-300 font-mono mt-0.5">
+                          📱 {issueSelectedUser.phone} | 🏦 A/C: {issueSelectedUser.accountNumber || "N/A"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueSelectedUser(null);
+                          setIssueSearchResults([]);
+                        }}
+                        className="text-[11px] text-slate-400 hover:text-rose-400 font-bold underline shrink-0 cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+
+                    {/* Likhit KYC Records on File */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Aadhaar Number:</span>
+                        <span className="font-mono font-bold text-slate-200">
+                          {issueSelectedUser.aadharNumber || issueSelectedUser.kycDocuments?.aadharNumber || "Verified on Record"}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-300 font-mono">
-                        📱 {issueSelectedUser.phone} | 🏦 A/C: {issueSelectedUser.accountNumber || "N/A"}
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">PAN Number:</span>
+                        <span className="font-mono font-bold text-slate-200">
+                          {issueSelectedUser.panNumber || issueSelectedUser.kycDocuments?.panNumber || "Verified on Record"}
+                        </span>
                       </div>
-                      <div className="text-[11px] text-slate-400">
-                        Wallet Bal: <strong className="text-slate-200">₹{(issueSelectedUser.balance || 0).toLocaleString("en-IN")}</strong> • Active Dues: <strong className="text-amber-300">₹{(issueSelectedUser.duesBalance || 0).toLocaleString("en-IN")}</strong>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Bank / IFSC:</span>
+                        <span className="font-mono font-bold text-slate-200 truncate block">
+                          {issueSelectedUser.bankAccount?.bankName || "Bank"} {issueSelectedUser.bankAccount?.ifsc ? `(${issueSelectedUser.bankAccount.ifsc})` : ""}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Wallet Balance:</span>
+                        <span className="font-bold text-emerald-400">₹{(issueSelectedUser.balance || 0).toLocaleString("en-IN")}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Active Dues:</span>
+                        <span className="font-bold text-amber-300">₹{(issueSelectedUser.duesBalance || 0).toLocaleString("en-IN")}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">KYC Status:</span>
+                        <span className="text-[10px] text-emerald-300 font-bold">Bina KYC ke loan request nahi lagti (Verified)</span>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIssueSelectedUser(null);
-                        setIssueSearchResults([]);
-                      }}
-                      className="text-[11px] text-slate-400 hover:text-rose-400 font-bold underline shrink-0 cursor-pointer"
-                    >
-                      Change
-                    </button>
                   </div>
                 )}
               </div>
@@ -1386,70 +1471,88 @@ export default function StaffDesk() {
             </div>
 
             {/* Step: Photo & Verification Documents */}
-            <div className="space-y-2.5 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <span>📷</span>
-                  <span>Photo & Documents (Customer / Aadhaar / Cheque)</span>
-                </label>
-                <span className="text-[10px] text-slate-400 font-medium">Camera 📸 ya gallery se choose karein</span>
+            {issueBorrowerType === "existing" ? (
+              <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-3.5 flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                    <span>✓</span>
+                    <span>KYC Already Verified — Likhit Details On Record</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Bina KYC ke loan request nahi lagti. Existing customer ke documents pehle se verified hain, isliye dubara upload karne ki zaroorat nahi hai.
+                  </div>
+                </div>
+                <span className="text-2xl shrink-0">🛡️</span>
               </div>
+            ) : (
+              <div className="space-y-2.5 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <span>📷</span>
+                    <span>New User Documents (PAN Aage-Peeche, Aadhaar Aage-Peeche, Cheque Aage)</span>
+                  </label>
+                  <span className="text-[10px] text-amber-400 font-semibold">Camera 📸 ya gallery se dalein</span>
+                </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { key: "photoUrl", label: "Customer Photo", icon: "👤", capture: true },
-                  { key: "doc1Url", label: "Aadhaar Front", icon: "🪪" },
-                  { key: "doc1BackUrl", label: "Aadhaar Back", icon: "🪪" },
-                  { key: "doc2Url", label: "PAN / Cheque", icon: "📄" }
-                ].map(({ key, label, icon, capture }) => {
-                  const url = issueDocuments[key];
-                  return (
-                    <div
-                      key={key}
-                      className="bg-slate-900 border border-slate-800 rounded-xl p-2 flex flex-col items-center justify-center gap-1 text-center relative min-h-[95px] group"
-                    >
-                      {url ? (
-                        <>
-                          <img
-                            src={url}
-                            alt={label}
-                            onClick={() => setEnlargedImage(url)}
-                            className="w-full h-16 object-cover rounded-lg border border-slate-700 cursor-pointer"
-                          />
-                          <span className="text-[10px] font-bold text-emerald-400 truncate max-w-full">
-                            ✓ {label}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setIssueDocuments(prev => ({ ...prev, [key]: "" }))}
-                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-md cursor-pointer hover:bg-rose-500"
-                            title="Remove photo"
-                          >
-                            ✕
-                          </button>
-                        </>
-                      ) : (
-                        <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-1">
-                          <span className="text-xl mb-0.5">{icon}</span>
-                          <span className="text-[10px] font-bold text-slate-300 block">{label}</span>
-                          <span className="text-[9px] text-blue-400 mt-0.5 font-bold">+ Add Photo</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            capture={capture ? "user" : undefined}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handlePhotoUpload(key, file);
-                            }}
-                            className="hidden"
-                          />
-                        </label>
-                      )}
-                    </div>
-                  );
-                })}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                  {[
+                    { key: "photoUrl", label: "Customer Photo", sub: "Selfie / Face", icon: "👤", capture: true },
+                    { key: "doc1Url", label: "Aadhaar Aage", sub: "Front Photo", icon: "🪪" },
+                    { key: "doc1BackUrl", label: "Aadhaar Peeche", sub: "Back Photo", icon: "🪪" },
+                    { key: "doc2Url", label: "PAN Card Aage", sub: "Front Photo", icon: "📄" },
+                    { key: "doc2BackUrl", label: "PAN Card Peeche", sub: "Back Photo", icon: "📄" },
+                    { key: "chequeUrl", label: "Cheque Aage", sub: "Front / Cancelled", icon: "🏦" }
+                  ].map(({ key, label, sub, icon, capture }) => {
+                    const url = issueDocuments[key];
+                    return (
+                      <div
+                        key={key}
+                        className="bg-slate-900 border border-slate-800 rounded-xl p-2 flex flex-col items-center justify-center gap-1 text-center relative min-h-[105px] group"
+                      >
+                        {url ? (
+                          <>
+                            <img
+                              src={url}
+                              alt={label}
+                              onClick={() => setEnlargedImage(url)}
+                              className="w-full h-14 object-cover rounded-lg border border-slate-700 cursor-pointer"
+                            />
+                            <span className="text-[10px] font-bold text-emerald-400 truncate max-w-full">
+                              ✓ {label}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setIssueDocuments(prev => ({ ...prev, [key]: "" }))}
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-md cursor-pointer hover:bg-rose-500"
+                              title="Remove photo"
+                            >
+                              ✕
+                            </button>
+                          </>
+                        ) : (
+                          <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-1">
+                            <span className="text-lg mb-0.5">{icon}</span>
+                            <span className="text-[10px] font-bold text-slate-200 block leading-tight">{label}</span>
+                            <span className="text-[9px] text-slate-500 block leading-tight">{sub}</span>
+                            <span className="text-[9px] text-blue-400 mt-1 font-bold">+ Upload</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture={capture ? "user" : undefined}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handlePhotoUpload(key, file);
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Step 4: Real-time Quote Card */}
             <div className="p-3.5 bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 rounded-2xl space-y-2">

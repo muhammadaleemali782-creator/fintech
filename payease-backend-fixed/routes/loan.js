@@ -1216,7 +1216,7 @@ router.get('/admin/search-borrowers', protect, requirePermission('loan.create_on
       role: { $ne: 'admin' },
       $or: conditions
     })
-      .select('_id name phone email accountNumber kycStatus duesBalance balance')
+      .select('_id name phone email accountNumber aadharNumber panNumber address bankAccount kycStatus kycDocuments duesBalance balance avatar photoUrl')
       .limit(10)
       .lean();
 

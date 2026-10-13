@@ -125,3 +125,39 @@ export function prefetchChunk(importPromiseFn) {
     }, 100);
   }
 }
+
+/**
+ * Mobile Haptic Feedback helper (Zero dependencies, native navigator.vibrate)
+ */
+export function triggerHaptic(type = "light") {
+  if (typeof navigator === "undefined" || !navigator.vibrate) return;
+  try {
+    if (type === "light") navigator.vibrate(12);
+    else if (type === "medium") navigator.vibrate(25);
+    else if (type === "success") navigator.vibrate([15, 30, 20]);
+    else if (type === "error") navigator.vibrate([40, 50, 40]);
+  } catch {}
+}
+
+/**
+ * Fetch wrapper with native AbortController timeout & offline check
+ */
+export async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    throw new Error("Aap offline hain. Kripya apna internet connection check karein.");
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === "AbortError") {
+      throw new Error("Request timeout ho gayi. Server response der se aa rahi hai, dobara try karein.");
+    }
+    throw err;
+  }
+}
+

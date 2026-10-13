@@ -1,8 +1,10 @@
 import { useEffect } from "react";
+import { triggerHaptic } from "../utils/performance";
 
 export default function Toast({ msg, onHide }) {
   useEffect(() => {
     if (msg?.text) {
+      triggerHaptic(msg.type === "success" ? "success" : msg.type === "error" ? "error" : "medium");
       const t = setTimeout(onHide, 3500);
       return () => clearTimeout(t);
     }
@@ -26,7 +28,8 @@ export default function Toast({ msg, onHide }) {
           ? "bg-blue-600 border border-blue-400/40"
           : "bg-rose-600 border border-rose-400/40"
       }`}
-      role="status"
+      role="alert"
+      aria-live="polite"
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <span className="text-base shrink-0">

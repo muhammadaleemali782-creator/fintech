@@ -17,7 +17,22 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 3000, forceRefresh = 
   const method = (options.method || "GET").toUpperCase();
   if (method !== "GET") {
     apiCache.clear();
-    return fetch(url, options);
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      throw new Error("Aap offline hain. Kripya apna internet connection check karein.");
+    }
+    const controller = new AbortController();
+    const timeoutTimer = setTimeout(() => controller.abort(), 30000);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutTimer);
+      return res;
+    } catch (err) {
+      clearTimeout(timeoutTimer);
+      if (err.name === "AbortError") {
+        throw new Error("Request timeout ho gayi. Server response der se aa rahi hai, dobara try karein.");
+      }
+      throw err;
+    }
   }
 
   const cacheKey = `${url}`;

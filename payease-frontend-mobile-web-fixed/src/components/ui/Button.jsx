@@ -1,5 +1,6 @@
 import React from "react";
 import Loader from "./Loader";
+import { triggerHaptic } from "../../utils/performance";
 
 export default function Button({
   children,
@@ -17,6 +18,12 @@ export default function Button({
   ...props
 }) {
   const isDisabled = disabled || isLoading;
+
+  const handleClick = (e) => {
+    if (isDisabled) return;
+    triggerHaptic("light");
+    if (onClick) onClick(e);
+  };
 
   const baseStyles =
     "inline-flex items-center justify-center font-bold rounded-2xl select-none transition-all duration-75 focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2 touch-manipulation cursor-pointer active:scale-96";
@@ -53,9 +60,10 @@ export default function Button({
   return (
     <button
       type={type}
-      onClick={isDisabled ? undefined : onClick}
+      onClick={handleClick}
       disabled={isDisabled}
       aria-disabled={isDisabled}
+      aria-busy={isLoading}
       className={`
         ${baseStyles}
         ${sizeStyles[size] || sizeStyles.md}
@@ -95,14 +103,21 @@ export function Touchable({
   tabIndex = 0,
   ...props
 }) {
+  const handleTouchableClick = (e) => {
+    if (disabled) return;
+    triggerHaptic("light");
+    if (onClick) onClick(e);
+  };
+
   return (
     <div
       role={role}
       tabIndex={disabled ? -1 : tabIndex}
-      onClick={disabled ? undefined : onClick}
+      onClick={handleTouchableClick}
       onKeyDown={(e) => {
         if (!disabled && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
+          triggerHaptic("light");
           if (onClick) onClick(e);
         }
       }}

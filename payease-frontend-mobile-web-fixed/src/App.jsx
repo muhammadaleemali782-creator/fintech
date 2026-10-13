@@ -153,10 +153,46 @@ function RootRoute() {
   return <LandingPage />;
 }
 
+function OfflineNotice() {
+  const [isOffline, setIsOffline] = useState(() => (typeof navigator !== "undefined" ? !navigator.onLine : false));
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  if (!isOffline) return null;
+
+  return (
+    <div
+      role="alert"
+      aria-live="assertive"
+      className="fixed top-0 inset-x-0 z-[1000] bg-rose-600 text-white text-xs font-bold py-2.5 px-4 text-center flex items-center justify-center gap-2 shadow-lg select-none"
+    >
+      <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+      <span>⚠️ Aap offline hain. Kripya apna internet connection check karein.</span>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="ml-2 bg-white/25 hover:bg-white/40 active:scale-95 text-white text-[11px] font-bold px-2.5 py-1 rounded-md transition cursor-pointer"
+      >
+        Retry 🔄
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <TopProgressBar />
+      <OfflineNotice />
       <ErrorBoundary>
         <Suspense fallback={<LoadingScreen />}>
           <Routes>

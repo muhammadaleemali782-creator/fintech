@@ -212,6 +212,16 @@ input[type="radio"]:active {
   transition: transform 50ms ease;
 }
 
+/* Accessible keyboard focus outlines */
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 2px solid #2563eb !important;
+  outline-offset: 2px !important;
+}
+
 /* Form input focus ring & state */
 input:not([type="checkbox"]):not([type="radio"]):focus-visible,
 select:focus-visible,

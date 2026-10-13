@@ -2892,10 +2892,17 @@ export default function Dashboard() {
     }
     setTransferringProfit(true);
     try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        throw new Error("Aap offline hain. Kripya apna internet connection check karein.");
+      }
+      const controller = new AbortController();
+      const transferTimer = setTimeout(() => controller.abort(), 20000);
       const res = await fetch(`${API}/user/transfer-profit-to-wallet`, {
         method: "POST",
-        headers
+        headers,
+        signal: controller.signal
       });
+      clearTimeout(transferTimer);
       const data = await res.json();
       if (res.ok) {
         showToast(data.message || "Profit Main Wallet me transfer ho gaya!", "success");
@@ -2937,8 +2944,12 @@ export default function Dashboard() {
       } else {
         showToast(data.message || "Profit transfer fail hua", "error");
       }
-    } catch {
-      showToast("Network error profit transfer me", "error");
+    } catch (err) {
+      if (err.name === "AbortError") {
+        showToast("Request timeout ho gayi. Server response nahi mila, status check karein.", "error");
+      } else {
+        showToast(err.message || "Network error profit transfer me", "error");
+      }
     } finally {
       setTransferringProfit(false);
     }
@@ -3773,9 +3784,15 @@ export default function Dashboard() {
     }
 
     try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        throw new Error("Aap offline hain. Kripya apna internet connection check karein.");
+      }
+      const controller = new AbortController();
+      const transferTimer = setTimeout(() => controller.abort(), 25000);
       const res = await fetch(`${API}/transaction/transfer`, {
         method: "POST",
         headers,
+        signal: controller.signal,
         body: JSON.stringify({
           recipient: formPayload.recipient.trim(),
           amount: amt,
@@ -3784,6 +3801,7 @@ export default function Dashboard() {
           sourceWallet: formPayload.sourceWallet || "main"
         })
       });
+      clearTimeout(transferTimer);
       const data = await res.json();
       if (res.ok) {
         showToast(data.message || "🎉 Transfer successful!", "success");
@@ -3818,8 +3836,12 @@ export default function Dashboard() {
           showToast(data.message || "Transfer fail ho gaya. Kripya PIN check karein.", "error");
         }
       }
-    } catch {
-      showToast("Network error transferring funds", "error");
+    } catch (err) {
+      if (err.name === "AbortError") {
+        showToast("Request timeout ho gayi. Server response nahi mila, status check karein.", "error");
+      } else {
+        showToast(err.message || "Network error. Transfer complete nahi ho saka.", "error");
+      }
     } finally {
       setIsSendingMoney(false);
     }

@@ -393,7 +393,9 @@ export async function smartFetch(url, options = {}, config = {}) {
           "Cache-Control": "no-cache",
           "Pragma": "no-cache"
         };
-        const res = await fetch(url, {
+        const sep = url.includes("?") ? "&" : "?";
+        const fetchUrl = url.includes("_t=") ? url : `${url}${sep}_t=${Date.now()}`;
+        const res = await fetch(fetchUrl, {
           ...options,
           headers: reqHeaders,
           signal: controller.signal

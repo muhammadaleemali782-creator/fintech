@@ -91,11 +91,14 @@ async function processDailyYield(user) {
 
 router.get('/me', protect, async (req, res) => {
   try {
+    const isForce = req.query.force === 'true' || req.headers['cache-control'] === 'no-cache';
     const cacheKey = `user_me_${req.user._id}`;
-    const cached = memoryCache.get(cacheKey);
-    if (cached) {
-      cached.serverTime = new Date().toISOString();
-      return res.json(cached);
+    if (!isForce) {
+      const cached = memoryCache.get(cacheKey);
+      if (cached) {
+        cached.serverTime = new Date().toISOString();
+        return res.json(cached);
+      }
     }
 
     try {

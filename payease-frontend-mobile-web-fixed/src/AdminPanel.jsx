@@ -79,7 +79,9 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 3000, forceRefresh = 
         "Cache-Control": "no-cache",
         "Pragma": "no-cache"
       };
-      const res = await fetch(url, { ...options, headers: requestHeaders, signal: controller.signal });
+      const sep = url.includes("?") ? "&" : "?";
+      const fetchUrl = forceRefresh ? `${url}${sep}_t=${Date.now()}` : url;
+      const res = await fetch(fetchUrl, { ...options, headers: requestHeaders, signal: controller.signal });
       clearTimeout(timeoutTimer);
       if (res.ok) {
         try {
@@ -2499,6 +2501,49 @@ export default function AdminPanel() {
       if (analyticsInterval) clearInterval(analyticsInterval);
     };
   }, [tab]); // eslint-disable-line
+
+  // 30-SECOND LIVE SYNC TICKER & COUNTDOWN: Guarantees 100% fresh data on all desks
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      setAdminCountdown((prev) => {
+        if (prev <= 1) {
+          loadBootstrapAdmin(true);
+          if (tab === "analytics" || tab === "capital") {
+            loadAnalytics(true);
+          } else if (tab === "pending") {
+            loadPending(true);
+            loadLoans(true);
+          }
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [loadBootstrapAdmin, loadAnalytics, loadPending, loadLoans, tab]);
+
+  // INSTANT SYNC ON RESUME / TAB FOCUS (Web & Native Mobile App)
+  useEffect(() => {
+    const handleResume = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setAdminCountdown(30);
+        loadBootstrapAdmin(true);
+        if (tab === "analytics" || tab === "capital") {
+          loadAnalytics(true);
+        } else if (tab === "pending") {
+          loadPending(true);
+          loadLoans(true);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleResume);
+    window.addEventListener("focus", handleResume);
+    return () => {
+      document.removeEventListener("visibilitychange", handleResume);
+      window.removeEventListener("focus", handleResume);
+    };
+  }, [loadBootstrapAdmin, loadAnalytics, loadPending, loadLoans, tab]);
 
 
   // REAL-TIME SSE CONNECTION FOR LIVE ALERTS & SOUND

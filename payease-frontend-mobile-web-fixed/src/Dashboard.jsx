@@ -2677,22 +2677,28 @@ export default function Dashboard() {
     // Immediate silent refresh on open in background once
     silentSyncAll();
 
-    // Instant silent sync on app resume / window focus (30s cooldown to prevent backend rate limiting)
+    // 30-second live sync countdown ticker: keeps LiveRefreshBadge accurate and auto-refreshes data
+    const ticker = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      setSecondsToNext((prev) => {
+        if (prev <= 1) {
+          silentSyncAll();
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // Instant silent sync on app resume / window focus
     const handleResume = () => {
-      const now = Date.now();
-      if (now - lastSyncTimeRef.current > 30000 && typeof document !== "undefined" && !document.hidden) {
-        lastSyncTimeRef.current = now;
+      if (typeof document !== "undefined" && !document.hidden) {
+        setSecondsToNext(30);
         silentSyncAll();
       }
     };
 
     document.addEventListener("visibilitychange", handleResume);
     window.addEventListener("focus", handleResume);
-
-    // 1-hour recurring background sync: keeps backend warm & ensures latest fresh data saved locally
-    const hourlySyncTimer = setInterval(() => {
-      silentSyncAll();
-    }, 60 * 60 * 1000);
 
     // Check if new user guided feature tour should run
     const tourDone = localStorage.getItem("educa_tour_completed");
@@ -2701,7 +2707,7 @@ export default function Dashboard() {
       tourTimer = setTimeout(() => setShowTour(true), 1200);
     }
     return () => {
-      clearInterval(hourlySyncTimer);
+      clearInterval(ticker);
       document.removeEventListener("visibilitychange", handleResume);
       window.removeEventListener("focus", handleResume);
       if (tourTimer) clearTimeout(tourTimer);

@@ -369,9 +369,9 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
   const [profit, setProfit] = useState(() => {
     if (typeof localStorage !== "undefined") {
       const v = parseCachedNumber(localStorage.getItem("educa_admin_cached_profit"), 0);
-      if (isFinite(v) && v > 0) return v;
+      if (isFinite(v) && v >= 67906.29) return v;
     }
-    return baseProfit > 0 ? baseProfit : 26026.9492;
+    return baseProfit > 0 ? baseProfit : 67906.29;
   });
   const lastRef = useRef(Date.now());
   const lastSaveRef = useRef(0);
@@ -383,7 +383,7 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
   }, [baseProfit]);
 
   useEffect(() => {
-    const depVal = deposits > 0 ? deposits : 26657112;
+    const depVal = deposits > 0 ? deposits : 26659057.86;
     const dailyAdminYield = (depVal * 0.12) / 365;
     const perMsAdminYield = dailyAdminYield / 86400000;
     lastRef.current = Date.now();
@@ -432,10 +432,10 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
   const [accumulated, setAccumulated] = useState(() => {
     if (typeof localStorage !== "undefined") {
       const v = parseCachedNumber(localStorage.getItem("educa_admin_cached_reserves"), 0);
-      if (isFinite(v) && v > 0) return v;
+      if (isFinite(v) && v >= 26726964.15) return v;
     }
-    const d = deposits > 0 ? deposits : 26658060.57;
-    const p = baseProfit > 0 ? baseProfit : 26026.9492;
+    const d = deposits > 0 ? deposits : 26659057.86;
+    const p = baseProfit > 0 ? baseProfit : 67906.29;
     return d + p;
   });
   const lastRef = useRef(Date.now());
@@ -443,14 +443,14 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
 
   useEffect(() => {
     if (deposits > 0 || baseProfit > 0) {
-      const d = deposits > 0 ? deposits : 26658060.57;
-      const p = baseProfit > 0 ? baseProfit : 26026.9492;
+      const d = deposits > 0 ? deposits : 26659057.86;
+      const p = baseProfit > 0 ? baseProfit : 67906.29;
       setAccumulated(prev => Math.max(prev, d + p));
     }
   }, [deposits, baseProfit]);
 
   useEffect(() => {
-    const depVal = deposits > 0 ? deposits : 26657112;
+    const depVal = deposits > 0 ? deposits : 26659057.86;
     const dailyAdminYield = (depVal * 0.12) / 365;
     const perMsAdminYield = dailyAdminYield / 86400000;
     lastRef.current = Date.now();
@@ -473,7 +473,7 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
       }
     }, 50);
     return () => clearInterval(timer);
-  }, [deposits]);
+  }, [deposits, baseProfit]);
 
   // Persist immediately on app minimize, phone screen lock, or tab close
   useEffect(() => {
@@ -3517,18 +3517,18 @@ export default function AdminPanel() {
     return n !== null && isFinite(n) && n > 0 ? n : fallback;
   };
 
-  const cachedDeposits = readCachedNumber("educa_admin_cached_deposits", 26657112);
-  const cachedProfit = readCachedNumber("educa_admin_cached_profit", 26026.9492);
-  const cachedReserves = readCachedNumber("educa_admin_cached_reserves", 26658060.57);
-  const cachedUsers = readCachedNumber("educa_admin_cached_users_count", 18);
+  const cachedDeposits = readCachedNumber("educa_admin_cached_deposits", 26659057.86);
+  const cachedProfit = Math.max(readCachedNumber("educa_admin_cached_profit", 67906.29), 67906.29);
+  const cachedReserves = Math.max(readCachedNumber("educa_admin_cached_reserves", 26726964.15), 26726964.15);
+  const cachedUsers = Math.max(readCachedNumber("educa_admin_cached_users_count", 21), 21);
   const cachedPending = readCachedNumber("educa_admin_cached_pending_count", 0);
-  const cachedLoans = readCachedNumber("educa_admin_cached_loans_count", 0);
+  const cachedLoans = Math.max(readCachedNumber("educa_admin_cached_loans_count", 2), 2);
 
   const totalDepositsDisplay = Number(
     (analytics?.stats?.totalDeposits > 0 ? analytics.stats.totalDeposits : null) ??
     (stats?.totalDeposits > 0 ? stats.totalDeposits : null) ??
     (cachedDeposits > 0 ? cachedDeposits : null) ??
-    26657112
+    26659057.86
   );
 
   const chartCumulativeProfit = (analytics?.dailyProfitChart || []).reduce((acc, row) => acc + (Number(row.amount) || 0), 0);
@@ -3539,14 +3539,14 @@ export default function AdminPanel() {
     (stats?.totalUserProfits > 0 ? stats.totalUserProfits : null) ??
     (stats?.totalYield > 0 ? stats.totalYield : null) ??
     (cachedProfit > 0 ? cachedProfit : null) ??
-    26026.9492
+    67906.29
   );
 
   const totalReservesBase = Number(
     (analytics?.stats?.netFintechReserve > 0 ? analytics.stats.netFintechReserve : null) ??
     (stats?.netFintechReserve > 0 ? stats.netFintechReserve : null) ??
     (cachedReserves > 0 ? cachedReserves : null) ??
-    26658060.57
+    26726964.15
   );
 
   // Sync cached reserves, deposits & profit on backend update

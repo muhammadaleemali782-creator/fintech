@@ -2164,7 +2164,8 @@ export default function AdminPanel() {
       setLoadingAnalytics(true);
     }
     try {
-      const res = await cachedAdminFetch(`${API}/admin/analytics`, { headers }, 45000, force);
+      const url = `${API}/admin/analytics${force ? `?force=true&_t=${Date.now()}` : ""}`;
+      const res = await cachedAdminFetch(url, { headers }, 5000, force);
       if (res.status === 429) return;
       const data = await res.json();
       if (data && data.success) {
@@ -2499,11 +2500,11 @@ export default function AdminPanel() {
     if (tab === "analytics") {
       loadAnalytics(true);
       loadStats(true);
-      // 2-minute auto-refresh interval for live 24h deposits & yields
+      // 20-second auto-refresh interval for live 24h deposits & yields
       analyticsInterval = setInterval(() => {
         loadAnalytics(true);
         loadStats(true);
-      }, 2 * 60 * 1000);
+      }, 20 * 1000);
     } else if (tab === "pending") {
       loadPending(true);
       loadLoans(true);
@@ -5404,31 +5405,44 @@ export default function AdminPanel() {
                 </div>
 
                 {/* Hover Details Card */}
-                {hoveredChartBar && (
-                  <div className="mt-4 p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">📅</span>
-                      <div>
-                        <span className="font-extrabold text-slate-900 text-sm">{hoveredChartBar.displayDate}</span>
-                        <p className="text-[11px] text-slate-600">12% p.a. Savings Compounding Yield</p>
+                {(() => {
+                  const chartList = analytics?.dailyProfitChart || [];
+                  const activeBar = hoveredChartBar
+                    ? chartList.find(d => d.date === hoveredChartBar.date) || hoveredChartBar
+                    : (chartList.length > 0 ? chartList[chartList.length - 1] : null);
+
+                  if (!activeBar) return null;
+
+                  return (
+                    <div className="mt-4 p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">📅</span>
+                        <div>
+                          <span className="font-extrabold text-slate-900 text-sm">{activeBar.displayDate}</span>
+                          <p className="text-[11px] text-slate-600">12% p.a. Savings Compounding Yield</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs font-semibold">
+                        <div>
+                          <span className="text-gray-500 text-[10px] block">Day's Profit:</span>
+                          <span className="font-black text-emerald-600 text-sm">
+                            +₹{Number(activeBar.amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 text-[10px] block">Cumulative Yield:</span>
+                          <span className="font-black text-blue-600 text-sm">
+                            ₹{Number(activeBar.cumulativeYield).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 text-[10px] block">Total Capital:</span>
+                          <span className="font-black text-gray-900 text-sm">₹{Number(activeBar.cumulativeDeposit !== undefined ? activeBar.cumulativeDeposit : (activeBar.estimatedCapital || 0)).toLocaleString("en-IN")}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 text-xs font-semibold">
-                      <div>
-                        <span className="text-gray-500 text-[10px] block">Day's Profit:</span>
-                        <span className="font-black text-emerald-600 text-sm">+₹{hoveredChartBar.amount}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 text-[10px] block">Cumulative Yield:</span>
-                        <span className="font-black text-blue-600 text-sm">₹{hoveredChartBar.cumulativeYield}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 text-[10px] block">Total Capital:</span>
-                        <span className="font-black text-gray-900 text-sm">₹{Number(hoveredChartBar.cumulativeDeposit !== undefined ? hoveredChartBar.cumulativeDeposit : (hoveredChartBar.estimatedCapital || 0)).toLocaleString("en-IN")}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* ══════════════════════════════════════════════════════

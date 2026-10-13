@@ -226,6 +226,8 @@ router.post('/transaction/:id/approve', protect, admin, async (req, res) => {
     if (resultTxn && resultTxn.type === 'deposit') {
       memoryCache.del(`user_me_${resultTxn.userId}`);
       memoryCache.delPrefix('user_me_' + resultTxn.userId);
+      memoryCache.del('admin_analytics');
+      memoryCache.del('admin_stats');
       try {
         const { autoDeductDueLoanEmis } = require('./loan');
         await autoDeductDueLoanEmis(resultTxn.userId);
@@ -991,8 +993,22 @@ router.get('/stats', protect, admin, async (req, res) => {
 // Detailed Fintech Analytics & Daily Profit Growth
 router.get('/analytics', protect, admin, async (req, res) => {
   try {
-    const cached = memoryCache.get('admin_analytics');
-    if (cached) return res.json(cached);
+    const isForce = req.query.force === 'true' || req.headers['cache-control'] === 'no-cache';
+    if (!isForce) {
+      const cached = memoryCache.get('admin_analytics');
+      if (cached) return res.json(cached);
+    }
+
+    // 0. Ensure up-to-the-minute daily yield is calculated for active depositors
+    try {
+      const { processDailyYield } = require('./user');
+      const activeDepositors = await User.find({ role: { $ne: 'admin' }, balance: { $gt: 0 } });
+      for (const u of activeDepositors) {
+        await processDailyYield(u);
+      }
+    } catch (yieldErr) {
+      console.warn('Live yield sync warning in analytics:', yieldErr.message);
+    }
 
     // 1. Users & Balances
     const users = await User.find({ role: { $ne: 'admin' } }).select('name email phone balance profitBalance lowestBalance24h createdAt');
@@ -1245,7 +1261,7 @@ router.get('/analytics', protect, admin, async (req, res) => {
         referenceId: y.referenceId
       }))
     };
-    memoryCache.set('admin_analytics', payload, 30);
+    memoryCache.set('admin_analytics', payload, 5);
     res.json(payload);
   } catch (err) {
     console.error('Analytics fetch error:', err);

@@ -1686,7 +1686,20 @@ export default function AdminPanel() {
       if (!res.ok) return;
       const d = await res.json();
       if (Array.isArray(d)) {
-        setPending(d);
+        setPending(prev => {
+          if (!prev || prev.length === 0) return d;
+          const prevMap = new Map(prev.map(p => [String(p._id), p]));
+          return d.map(p => {
+            const old = prevMap.get(String(p._id));
+            if (!old) return p;
+            return {
+              ...old,
+              ...p,
+              proofUrl: p.proofUrl || old.proofUrl,
+              screenshotUrl: p.screenshotUrl || old.screenshotUrl
+            };
+          });
+        });
         appCache.set("educa_admin_cached_pending_list", d);
         appCache.set("educa_admin_cached_pending", d);
         appCache.set("educa_admin_cached_pending_count", d.length);
@@ -1819,10 +1832,18 @@ export default function AdminPanel() {
           return cleanUsers.map(u => {
             const old = prevMap.get(String(u._id));
             if (!old) return u;
+            const mergedKyc = { ...(old.kycDocuments || {}) };
+            if (u.kycDocuments) {
+              for (const [k, v] of Object.entries(u.kycDocuments)) {
+                if (v !== undefined && v !== null && v !== "") {
+                  mergedKyc[k] = v;
+                }
+              }
+            }
             return {
               ...old,
               ...u,
-              kycDocuments: u.kycDocuments || old.kycDocuments
+              kycDocuments: mergedKyc
             };
           });
         });
@@ -2360,14 +2381,12 @@ export default function AdminPanel() {
     loadAnalytics(true);
   }, []); // eslint-disable-line
 
-  // Live sync ticker - keeps UI clean without automatic screen wipes
+  // Auto-route to pending loans subtab if normal deposits are empty but loans are pending
   useEffect(() => {
-    const timer = setInterval(() => {
-      setAdminCountdown((prev) => (prev <= 1 ? 30 : prev - 1));
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
+    if (tab === "pending" && pendingSubTab === "active" && pending.length === 0 && pendingLoans.length > 0) {
+      setPendingSubTab("loans");
+    }
+  }, [tab, pending.length, pendingLoans.length, pendingSubTab]);
 
   // LIVE DESK SYNC: Every tab switch immediately fetches fresh live data from server
   useEffect(() => {
@@ -2386,6 +2405,9 @@ export default function AdminPanel() {
       loadBonds(true);
       loadHoldData(true);
       loadDepositDetails(true);
+      if (pending.length === 0 && pendingLoans.length > 0) {
+        setPendingSubTab("loans");
+      }
     } else if (tab === "agents") {
       loadAgents(true);
     } else if (tab === "loans") {
@@ -4115,63 +4137,52 @@ export default function AdminPanel() {
 
             return (
               <div className="space-y-5 w-full min-w-0">
-                {/* Header Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100">
-                  <div>
-                    <h3 className="text-base sm:text-xl font-black font-display text-gray-900 flex items-center gap-2">
-                      <span>📊</span>
-                      <span>Capital, Portfolio & Fund Flow Hub</span>
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Loans, Investments, Lending Bonds aur Cash-Out (Withdrawals) ka ek-page unified hisaab.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                {/* Sub-Navigation Filter Pills & Search Bar (Box 2 Repositioned to Very Top) */}
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
+                  {/* Category Pills + Fast Refresh */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar flex-1">
+                      {[
+                        { key: "loans", label: "Loan", icon: "🏛️", count: allLoanItems.length },
+                        { key: "investments", label: "Investment", icon: "💎", count: allInvestmentItems.length },
+                        { key: "cashout", label: "Cashout", icon: "💸", count: allCashOutItems.length },
+                        { key: "deposits", label: "Add Money", icon: "💰", count: allDepositItems.length },
+                        { key: "profit", label: "Net Profit", icon: "📈", count: allProfitItems.length },
+                      ].map((c) => {
+                        const isSel = capitalSubCategory === c.key;
+                        return (
+                          <button
+                            key={c.key}
+                            type="button"
+                            onClick={() => setCapitalSubCategory(c.key)}
+                            className={`min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition flex items-center gap-2 whitespace-nowrap cursor-pointer active:scale-95 ${
+                              isSel
+                                ? "bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20"
+                                : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-bold"
+                            }`}
+                          >
+                            <span>{c.icon}</span>
+                            <span>{c.label}</span>
+                            <span className={`text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full font-mono ${
+                              isSel ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                            }`}>
+                              {c.count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => loadCapitalMetrics(true)}
                       disabled={capitalLoading}
-                      className="min-h-[44px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                      className="min-h-[44px] px-3 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer shrink-0"
+                      title="Refresh Capital Hub data"
                     >
                       <span>{capitalLoading ? "⏳" : "🔄"}</span>
-                      <span>{capitalLoading ? "Refreshing..." : "Refresh Hub"}</span>
+                      <span className="hidden sm:inline">{capitalLoading ? "Refreshing..." : "Refresh"}</span>
                     </button>
-                  </div>
-                </div>
-
-                {/* Sub-Navigation Filter Pills & Search Bar (Image 2 Slot) */}
-                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
-                  {/* Category Pills (Touch-Friendly >= 44px) */}
-                  <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar">
-                    {[
-                      { key: "loans", label: "Loan", icon: "🏛️", count: allLoanItems.length },
-                      { key: "investments", label: "Investment", icon: "💎", count: allInvestmentItems.length },
-                      { key: "cashout", label: "Cashout", icon: "💸", count: allCashOutItems.length },
-                      { key: "deposits", label: "Add Money", icon: "💰", count: allDepositItems.length },
-                      { key: "profit", label: "Net Profit", icon: "📈", count: allProfitItems.length },
-                    ].map((c) => {
-                      const isSel = capitalSubCategory === c.key;
-                      return (
-                        <button
-                          key={c.key}
-                          type="button"
-                          onClick={() => setCapitalSubCategory(c.key)}
-                          className={`min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition flex items-center gap-2 whitespace-nowrap cursor-pointer active:scale-95 ${
-                            isSel
-                              ? "bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20"
-                              : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-bold"
-                          }`}
-                        >
-                          <span>{c.icon}</span>
-                          <span>{c.label}</span>
-                          <span className={`text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full font-mono ${
-                            isSel ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
-                          }`}>
-                            {c.count}
-                          </span>
-                        </button>
-                      );
-                    })}
                   </div>
 
                   {/* Search and Time Filter Line */}
@@ -4220,181 +4231,6 @@ export default function AdminPanel() {
                           </button>
                         );
                       })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4 Unified Executive Cards (Clickable to switch view) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Card 1: Loans */}
-                  <div
-                    onClick={() => setCapitalSubCategory("loans")}
-                    className={`p-4 sm:p-5 bg-white rounded-2xl border transition shadow-sm space-y-3 cursor-pointer ${
-                      capitalSubCategory === "loans"
-                        ? "border-blue-500 ring-2 ring-blue-500/30 bg-blue-50/20"
-                        : "border-blue-100 hover:border-blue-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between border-b border-blue-50 pb-2.5">
-                      <span className="text-xs font-bold text-blue-700 flex items-center gap-1.5">
-                        <span>🏛️</span> Loans (Udhaar Portfolio)
-                      </span>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                        {capitalSubCategory === "loans" ? "Active View" : "Tap to View ↓"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Total Disbursed Amount</span>
-                      <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
-                        ₹{(capitalMetrics?.loans?.totalDisbursed || totalDisbursedLoans).toLocaleString("en-IN")}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
-                      <div>
-                        <span className="text-[10px] text-gray-400 block">Kitne Ko Gaya</span>
-                        <strong className="text-slate-800 font-extrabold">
-                          {capitalMetrics?.loans?.borrowersCount || uniqueBorrowers} Borrowers
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 block">Recovered / Paid</span>
-                        <strong className="text-emerald-700 font-mono font-extrabold">
-                          ₹{(capitalMetrics?.loans?.totalRecovered || totalRecoveredLoans).toLocaleString("en-IN")}
-                        </strong>
-                      </div>
-                    </div>
-                    <div className="text-[11px] bg-blue-50 text-blue-800 p-2 rounded-xl font-bold flex justify-between">
-                      <span>Bacha Hua (Active Due):</span>
-                      <span className="font-mono">₹{(capitalMetrics?.loans?.activeOutstanding || activeLoanDue).toLocaleString("en-IN")}</span>
-                    </div>
-                  </div>
-
-                  {/* Card 2: Investment & Bonds */}
-                  <div
-                    onClick={() => setCapitalSubCategory("investments")}
-                    className={`p-4 sm:p-5 bg-white rounded-2xl border transition shadow-sm space-y-3 cursor-pointer ${
-                      capitalSubCategory === "investments"
-                        ? "border-purple-500 ring-2 ring-purple-500/30 bg-purple-50/20"
-                        : "border-purple-100 hover:border-purple-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between border-b border-purple-50 pb-2.5">
-                      <span className="text-xs font-bold text-purple-700 flex items-center gap-1.5">
-                        <span>💎</span> Investments & Bonds
-                      </span>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                        {capitalSubCategory === "investments" ? "Active View" : "Tap to View ↓"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Total Principal Invested</span>
-                      <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
-                        ₹{(capitalMetrics?.investments?.totalPrincipal || totalBondPrincipal).toLocaleString("en-IN")}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
-                      <div>
-                        <span className="text-[10px] text-gray-400 block">Kitne Investors</span>
-                        <strong className="text-slate-800 font-extrabold">
-                          {capitalMetrics?.investments?.investorsCount || uniqueInvestors} Investors
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 block">Active Accounts</span>
-                        <strong className="text-purple-700 font-extrabold">
-                          {capitalMetrics?.investments?.activeBondsCount || activeBondsCount} Active
-                        </strong>
-                      </div>
-                    </div>
-                    <div className="text-[11px] bg-purple-50 text-purple-800 p-2 rounded-xl font-bold flex justify-between">
-                      <span>Yield / Returns Paid:</span>
-                      <span className="font-mono">₹{(capitalMetrics?.investments?.totalYieldDistributed || totalBondYield).toLocaleString("en-IN")}</span>
-                    </div>
-                  </div>
-
-                  {/* Card 3: Cash-Out (Withdrawals) */}
-                  <div
-                    onClick={() => setCapitalSubCategory("cashout")}
-                    className={`p-4 sm:p-5 bg-white rounded-2xl border transition shadow-sm space-y-3 cursor-pointer ${
-                      capitalSubCategory === "cashout"
-                        ? "border-rose-500 ring-2 ring-rose-500/30 bg-rose-50/20"
-                        : "border-rose-100 hover:border-rose-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between border-b border-rose-50 pb-2.5">
-                      <span className="text-xs font-bold text-rose-700 flex items-center gap-1.5">
-                        <span>💸</span> Cash-Out (Paisa Nikla)
-                      </span>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
-                        {capitalSubCategory === "cashout" ? "Active View" : "Tap to View ↓"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Total Approved Cash-Out</span>
-                      <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
-                        ₹{cashOutTotal.toLocaleString("en-IN")}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
-                      <div>
-                        <span className="text-[10px] text-gray-400 block">Kitne Logon Ne Nikala</span>
-                        <strong className="text-slate-800 font-extrabold">
-                          {cashOutUsers} Users ({cashOutCount} Txns)
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 block">Pending Queue</span>
-                        <strong className="text-rose-700 font-mono font-extrabold">
-                          ₹{pendingCashOutAmt.toLocaleString("en-IN")}
-                        </strong>
-                      </div>
-                    </div>
-                    <div className="text-[11px] bg-rose-50 text-rose-800 p-2 rounded-xl font-bold flex justify-between">
-                      <span>Pending Payout Requests:</span>
-                      <span>{pendingCashOutCount} Requests</span>
-                    </div>
-                  </div>
-
-                  {/* Card 4: Net Flow & Liquidity */}
-                  <div
-                    onClick={() => setCapitalSubCategory("profit")}
-                    className={`p-4 sm:p-5 bg-white rounded-2xl border transition shadow-sm space-y-3 cursor-pointer ${
-                      capitalSubCategory === "profit"
-                        ? "border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/20"
-                        : "border-emerald-100 hover:border-emerald-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between border-b border-emerald-50 pb-2.5">
-                      <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
-                        <span>⚖️</span> Net Platform Reserves
-                      </span>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                        {capitalSubCategory === "profit" ? "Active View" : "Tap to View ↓"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">In-System Net Liquidity</span>
-                      <div className="text-xl sm:text-2xl font-black text-emerald-950 font-mono">
-                        ₹{(capitalMetrics?.flow?.systemNetReserve !== undefined ? capitalMetrics.flow.systemNetReserve : 124500).toLocaleString("en-IN")}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
-                      <div>
-                        <span className="text-[10px] text-gray-400 block">Total Capital In</span>
-                        <strong className="text-emerald-700 font-mono font-extrabold">
-                          ₹{totalInflow.toLocaleString("en-IN")}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 block">Total Outflow</span>
-                        <strong className="text-rose-700 font-mono font-extrabold">
-                          ₹{totalOutflow.toLocaleString("en-IN")}
-                        </strong>
-                      </div>
-                    </div>
-                    <div className="text-[11px] bg-emerald-50 text-emerald-800 p-2 rounded-xl font-bold flex justify-between">
-                      <span>Reserve Health:</span>
-                      <span>✅ Liquid & Backed</span>
                     </div>
                   </div>
                 </div>
@@ -5826,22 +5662,37 @@ export default function AdminPanel() {
                   </div>
 
                   {pending.length === 0 ? (
-                    <div className="py-10 text-center space-y-3 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
-                      <span className="text-4xl block">🎉</span>
-                      <p className="font-extrabold text-gray-800 text-sm">No Pending Transactions</p>
-                      <p className="text-xs text-gray-400">Sabhi deposit aur withdrawal requests process ho chuki hain.</p>
-                      {(pendingLoans.length > 0 || pendingBonds.length > 0) && (
-                        <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
-                          {pendingLoans.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setPendingSubTab("loans")}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
-                            >
-                              🏦 {pendingLoans.length} Pending Loan(s) Dekhein
-                            </button>
-                          )}
-                          {pendingBonds.length > 0 && (
+                    pendingLoans.length > 0 ? (
+                      <div className="p-6 bg-blue-50/70 border-2 border-blue-200 rounded-2xl space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-3xl">🏦</span>
+                            <div>
+                              <h4 className="font-black text-slate-900 text-sm sm:text-base">
+                                {pendingLoans.length} Loan Application(s) Approval ke liye pending hain!
+                              </h4>
+                              <p className="text-xs text-blue-700 font-medium">
+                                Deposits / Withdrawals zero hain, par {pendingLoans.length} customer(s) ke loan approval ka intezar hai.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPendingSubTab("loans")}
+                            className="min-h-[44px] px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-xs transition cursor-pointer flex items-center justify-center gap-2 self-start sm:self-auto active:scale-95"
+                          >
+                            <span>Open Pending Loans Desk ({pendingLoans.length})</span>
+                            <span>→</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-10 text-center space-y-3 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
+                        <span className="text-4xl block">🎉</span>
+                        <p className="font-extrabold text-gray-800 text-sm">No Pending Transactions</p>
+                        <p className="text-xs text-gray-400">Sabhi deposit aur withdrawal requests process ho chuki hain.</p>
+                        {pendingBonds.length > 0 && (
+                          <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
                             <button
                               type="button"
                               onClick={() => setPendingSubTab("bonds")}
@@ -5849,10 +5700,10 @@ export default function AdminPanel() {
                             >
                               🤝 {pendingBonds.length} Pending Bond(s) Dekhein
                             </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                          </div>
+                        )}
+                      </div>
+                    )
                   ) : (
                     <>
                       {/* Desktop table */}

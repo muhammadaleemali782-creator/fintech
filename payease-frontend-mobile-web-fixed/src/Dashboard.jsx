@@ -2217,7 +2217,15 @@ export default function Dashboard() {
         const data = res.data;
         const uId = data._id || data.id || "guest";
         const role = data.role || "user";
-        setUserProfile(prev => (isDataEqual(prev, data) ? prev : data));
+        setUserProfile(prev => {
+          const merged = { ...(prev || {}), ...data };
+          if (!merged.kycDocuments && prev?.kycDocuments) merged.kycDocuments = prev.kycDocuments;
+          else if (merged.kycDocuments && prev?.kycDocuments) {
+            merged.kycDocuments = { ...prev.kycDocuments, ...merged.kycDocuments };
+          }
+          if (!merged.customQrUrl && prev?.customQrUrl) merged.customQrUrl = prev.customQrUrl;
+          return isDataEqual(prev, merged) ? prev : merged;
+        });
         appCache.set("educa_cached_profile", data);
         CacheManager.set(CacheManager.createKey(role, uId, "profile"), data);
         try { localStorage.setItem("educa_cached_profile", JSON.stringify(data)); } catch {}
@@ -2472,12 +2480,15 @@ export default function Dashboard() {
     try {
       const res = await silentFetch(`${API}/loan/active-details`, { headers }, 35000);
       if (res.notModified) return;
-      if (res.data && res.data.hasActiveLoan) {
-        setActiveLoanDetails(prev => (isDataEqual(prev, res.data) ? prev : res.data));
-        appCache.set("educa_cached_active_loan", res.data);
-      } else {
-        setActiveLoanDetails(null);
-        localStorage.removeItem("educa_cached_active_loan");
+      if (res.data && typeof res.data === "object") {
+        if (res.data.hasActiveLoan) {
+          setActiveLoanDetails(prev => (isDataEqual(prev, res.data) ? prev : res.data));
+          appCache.set("educa_cached_active_loan", res.data);
+          try { localStorage.setItem("educa_cached_active_loan", JSON.stringify(res.data)); } catch {}
+        } else if (res.data.hasActiveLoan === false) {
+          setActiveLoanDetails(null);
+          localStorage.removeItem("educa_cached_active_loan");
+        }
       }
     } catch {}
   };
@@ -2533,7 +2544,15 @@ export default function Dashboard() {
           const freshBal = freshProf.balance !== undefined ? freshProf.balance : balance;
           const freshPb = freshProf.profitBalance !== undefined ? parseCachedNumber(freshProf.profitBalance) : cachedProfitBalance;
 
-          setUserProfile(prev => (isDataEqual(prev, freshProf) ? prev : freshProf));
+          setUserProfile(prev => {
+            const merged = { ...(prev || {}), ...freshProf };
+            if (!merged.kycDocuments && prev?.kycDocuments) merged.kycDocuments = prev.kycDocuments;
+            else if (merged.kycDocuments && prev?.kycDocuments) {
+              merged.kycDocuments = { ...prev.kycDocuments, ...merged.kycDocuments };
+            }
+            if (!merged.customQrUrl && prev?.customQrUrl) merged.customQrUrl = prev.customQrUrl;
+            return isDataEqual(prev, merged) ? prev : merged;
+          });
           setBalance(prev => (prev === freshBal ? prev : freshBal));
           if (role !== "admin") {
             setCachedProfitBalance(freshPb);
@@ -2655,28 +2674,14 @@ export default function Dashboard() {
   const lastSyncTimeRef = useRef(Date.now());
 
   useEffect(() => {
-    // Immediate silent refresh on open in background
+    // Immediate silent refresh on open in background once
     silentSyncAll();
 
-    // 1-second ticking countdown for live badge (pauses when tab hidden)
-    const countdownTimer = setInterval(() => {
-      if (typeof document !== "undefined" && !document.hidden && !isSyncingRef.current) {
-        setSecondsToNext(prev => {
-          if (prev <= 1) {
-            silentSyncAll();
-            return 30;
-          }
-          return prev - 1;
-        });
-      }
-    }, 1000);
-
-    // Instant silent sync on app resume / window focus (5s cooldown)
+    // Instant silent sync on app resume / window focus (30s cooldown to prevent backend rate limiting)
     const handleResume = () => {
       const now = Date.now();
-      if (now - lastSyncTimeRef.current > 5000 && typeof document !== "undefined" && !document.hidden) {
+      if (now - lastSyncTimeRef.current > 30000 && typeof document !== "undefined" && !document.hidden) {
         lastSyncTimeRef.current = now;
-        setSecondsToNext(30);
         silentSyncAll();
       }
     };
@@ -2696,7 +2701,6 @@ export default function Dashboard() {
       tourTimer = setTimeout(() => setShowTour(true), 1200);
     }
     return () => {
-      clearInterval(countdownTimer);
       clearInterval(hourlySyncTimer);
       document.removeEventListener("visibilitychange", handleResume);
       window.removeEventListener("focus", handleResume);

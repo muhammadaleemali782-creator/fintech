@@ -1858,15 +1858,18 @@ router.get('/all', protect, admin, async (req, res) => {
     const cleanLoans = loans.map(l => {
       const obj = l.toObject ? l.toObject() : { ...l };
       if (obj.userId && obj.userId.kycDocuments) {
+        const {
+          doc1Url, doc1BackUrl, doc2Url, doc2BackUrl, chequeUrl, chequeBackUrl, docUrl,
+          ...restKyc
+        } = obj.userId.kycDocuments;
         obj.userId.kycDocuments = {
-          ...obj.userId.kycDocuments,
-          doc1Url: decryptData(obj.userId.kycDocuments.doc1Url || obj.userId.kycDocuments.docUrl || ''),
-          doc1BackUrl: decryptData(obj.userId.kycDocuments.doc1BackUrl || ''),
-          doc2Url: decryptData(obj.userId.kycDocuments.doc2Url || ''),
-          doc2BackUrl: decryptData(obj.userId.kycDocuments.doc2BackUrl || ''),
-          chequeUrl: decryptData(obj.userId.kycDocuments.chequeUrl || ''),
-          chequeBackUrl: decryptData(obj.userId.kycDocuments.chequeBackUrl || ''),
-          docUrl: decryptData(obj.userId.kycDocuments.docUrl || '')
+          ...restKyc,
+          hasDoc1: !!(doc1Url || docUrl),
+          hasDoc1Back: !!doc1BackUrl,
+          hasDoc2: !!doc2Url,
+          hasDoc2Back: !!doc2BackUrl,
+          hasCheque: !!chequeUrl,
+          hasChequeBack: !!chequeBackUrl
         };
       }
       return obj;

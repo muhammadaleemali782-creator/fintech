@@ -53,4 +53,9 @@ const bondSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// High-performance compound indexes for instant sorting & filtering
+bondSchema.index({ userId: 1, createdAt: -1 });
+bondSchema.index({ status: 1, createdAt: -1 });
+bondSchema.index({ bondType: 1, status: 1 });
+
 module.exports = mongoose.model('Bond', bondSchema);

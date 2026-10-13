@@ -65,4 +65,12 @@ const transactionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// High-performance compound indexes for instant sorting & filtering
+transactionSchema.index({ userId: 1, createdAt: -1 });
+transactionSchema.index({ status: 1, createdAt: -1 });
+transactionSchema.index({ type: 1, status: 1 });
+transactionSchema.index({ referenceId: 1 }, { sparse: true });
+transactionSchema.index({ utrNumber: 1 }, { sparse: true });
+transactionSchema.index({ isHold: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Transaction', transactionSchema);

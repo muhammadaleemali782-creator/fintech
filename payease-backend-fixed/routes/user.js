@@ -91,17 +91,17 @@ async function processDailyYield(user) {
 
 router.get('/me', protect, async (req, res) => {
   try {
-    try {
-      const { autoDeductDueLoanEmis } = require('./loan');
-      await autoDeductDueLoanEmis(req.user._id);
-    } catch (_) {}
-
     const cacheKey = `user_me_${req.user._id}`;
     const cached = memoryCache.get(cacheKey);
     if (cached) {
       cached.serverTime = new Date().toISOString();
       return res.json(cached);
     }
+
+    try {
+      const { autoDeductDueLoanEmis } = require('./loan');
+      await autoDeductDueLoanEmis(req.user._id);
+    } catch (_) {}
 
     let user = await User.findById(req.user._id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });

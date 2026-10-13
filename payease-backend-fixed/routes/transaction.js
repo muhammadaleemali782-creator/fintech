@@ -457,15 +457,14 @@ router.post('/withdraw', protect, async (req, res) => {
   }
 });
 
-// Get My Transactions
+// Get My Transactions (Fast & lightweight without multi-megabyte base64 bloat)
 router.get('/my', protect, async (req, res) => {
   try {
-    let user = await User.findById(req.user._id);
-    if (user) {
-      const { processDailyYield } = require('./user');
-      if (processDailyYield) await processDailyYield(user);
-    }
-    const txns = await Transaction.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    const txns = await Transaction.find({ userId: req.user._id })
+      .select('-screenshotUrl -proofUrl -adminEvidenceUrl')
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
     res.json(txns);
   } catch (err) {
     res.status(500).json({ message: 'Something went wrong. Please try again.' });

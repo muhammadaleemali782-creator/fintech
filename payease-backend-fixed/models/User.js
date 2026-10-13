@@ -178,4 +178,10 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
+// High-performance compound indexes for user management & agent hierarchy
+userSchema.index({ role: 1, createdAt: -1 });
+userSchema.index({ 'agentProfile.status': 1 }, { sparse: true });
+userSchema.index({ referredBy: 1 }, { sparse: true });
+userSchema.index({ kycStatus: 1 });
+
 module.exports = mongoose.model('User', userSchema);

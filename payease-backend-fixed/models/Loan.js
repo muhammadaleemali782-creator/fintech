@@ -121,4 +121,10 @@ const loanSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// High-performance compound indexes for instant sorting & filtering
+loanSchema.index({ userId: 1, createdAt: -1 });
+loanSchema.index({ status: 1, createdAt: -1 });
+loanSchema.index({ userId: 1, status: 1 });
+loanSchema.index({ loanType: 1, status: 1 });
+
 module.exports = mongoose.model('Loan', loanSchema);

@@ -44,6 +44,22 @@ const app = express();
 // real client IP sahi milta hai (rate-limiter ke liye zaroori)
 app.set('trust proxy', 1);
 
+// ------------------ HIGH-PRECISION RESPONSE TIME PROFILER ------------------
+app.use((req, res, next) => {
+  const startHr = process.hrtime();
+  res.on('finish', () => {
+    const [seconds, nanoseconds] = process.hrtime(startHr);
+    const durationMs = ((seconds * 1000) + (nanoseconds / 1e6)).toFixed(1);
+    try {
+      if (!res.headersSent) res.setHeader('X-Response-Time', `${durationMs}ms`);
+    } catch {}
+    if (Number(durationMs) > 300 && req.originalUrl?.startsWith('/api')) {
+      console.warn(`⚡ [SLOW API ${durationMs}ms] ${req.method} ${req.originalUrl} (${res.statusCode})`);
+    }
+  });
+  next();
+});
+
 // ------------------ SPEED (compression) ------------------
 // Har response ko gzip karke bhejta hai -> data kam, site fast
 app.use(compression());
@@ -255,10 +271,16 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ message: err.status ? err.message : 'Something went wrong. Please try again.' });
 });
 
-// ------------------ DB CONNECTION ------------------
-mongoose.connect(process.env.MONGO_URI)
+// ------------------ DB CONNECTION (CONNECTION POOLING OPTIMIZED) ------------------
+mongoose.connect(process.env.MONGO_URI, {
+  maxPoolSize: 50,
+  minPoolSize: 5,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 25000,
+  maxIdleTimeMS: 30000
+})
   .then(() => {
-    console.log('✅ MongoDB Connected');
+    console.log('✅ MongoDB Connected with Connection Pooling');
     scheduleDailyYield(); // Start daily yield processor after DB is ready
   })
   .catch(err => {

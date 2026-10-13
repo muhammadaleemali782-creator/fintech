@@ -326,17 +326,20 @@ router.get('/users', protect, admin, async (req, res) => {
 
     const cleanUsers = users.map(u => {
       if (u.kycDocuments) {
+        const {
+          doc1Url, doc1BackUrl, doc2Url, doc2BackUrl, chequeUrl, chequeBackUrl, docUrl,
+          ...restKyc
+        } = u.kycDocuments;
         return {
           ...u,
           kycDocuments: {
-            ...u.kycDocuments,
-            doc1Url: decryptData(u.kycDocuments.doc1Url || u.kycDocuments.docUrl || ''),
-            doc1BackUrl: decryptData(u.kycDocuments.doc1BackUrl || ''),
-            doc2Url: decryptData(u.kycDocuments.doc2Url || ''),
-            doc2BackUrl: decryptData(u.kycDocuments.doc2BackUrl || ''),
-            chequeUrl: decryptData(u.kycDocuments.chequeUrl || ''),
-            chequeBackUrl: decryptData(u.kycDocuments.chequeBackUrl || ''),
-            docUrl: decryptData(u.kycDocuments.docUrl || '')
+            ...restKyc,
+            hasDoc1: !!(doc1Url || docUrl),
+            hasDoc1Back: !!doc1BackUrl,
+            hasDoc2: !!doc2Url,
+            hasDoc2Back: !!doc2BackUrl,
+            hasCheque: !!chequeUrl,
+            hasChequeBack: !!chequeBackUrl
           }
         };
       }
@@ -934,33 +937,37 @@ router.post('/kyc/:id/reject', protect, admin, async (req, res) => {
 // Dashboard stats
 router.get('/stats', protect, admin, async (req, res) => {
   try {
-    const { processDailyYield } = require('./user');
-    const users = await User.find({ role: { $ne: 'admin' } });
-    if (processDailyYield && users.length > 0) {
-      Promise.all(users.slice(0, 15).map(u => processDailyYield(u).catch(() => {}))).catch(() => {});
-    }
+    const [
+      users,
+      pendingTxns,
+      holdTxns,
+      totalDeposits,
+      totalYield,
+      activeBonds,
+      pendingLoans,
+      totalLoans
+    ] = await Promise.all([
+      User.find({ role: { $ne: 'admin' } }).select('balance profitBalance').lean(),
+      Transaction.countDocuments({ status: 'pending' }),
+      Transaction.countDocuments({ $or: [{ status: 'hold' }, { isHold: true }] }),
+      Transaction.aggregate([
+        { $match: { type: 'deposit', status: { $in: ['approved', 'completed'] } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      Transaction.aggregate([
+        { $match: { type: 'daily_yield' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      Bond.find({ status: 'active' }).select('principalAmount').lean(),
+      Loan.countDocuments({ status: 'pending' }),
+      Loan.countDocuments({ status: { $in: ['active', 'approved'] } })
+    ]);
 
     const totalUsers = users.length;
-    const pendingTxns = await Transaction.countDocuments({ status: 'pending' });
-    const holdTxns = await Transaction.countDocuments({ $or: [{ status: 'hold' }, { isHold: true }] });
-    const totalDeposits = await Transaction.aggregate([
-      { $match: { type: 'deposit', status: { $in: ['approved', 'completed'] } } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-    const totalYield = await Transaction.aggregate([
-      { $match: { type: 'daily_yield' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
     const totalUserBalances = Number(users.reduce((sum, u) => sum + (u.balance || 0), 0).toFixed(2));
     const totalUserProfits = Number(users.reduce((sum, u) => sum + (u.profitBalance || 0), 0).toFixed(4));
-    const Bond = require('../models/Bond');
-    const activeBonds = await Bond.find({ status: 'active' });
     const totalActiveBonds = Number(activeBonds.reduce((sum, b) => sum + (b.principalAmount || 0), 0).toFixed(2));
-    
-    // Clean Fintech Reserves: Total user deposits/balances (+ active bonds). Strictly clean integer, NO PROFIT ADDED.
     const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds);
-    const pendingLoans = await Loan.countDocuments({ status: 'pending' });
-    const totalLoans = await Loan.countDocuments({ status: { $in: ['active', 'approved'] } });
 
     res.json({
       totalUsers,

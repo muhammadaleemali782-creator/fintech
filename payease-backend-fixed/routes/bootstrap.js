@@ -248,17 +248,20 @@ router.get('/admin', protect, admin, async (req, res) => {
 
     const cleanUsers = users.map(u => {
       if (u.kycDocuments) {
+        const {
+          doc1Url, doc1BackUrl, doc2Url, doc2BackUrl, chequeUrl, chequeBackUrl, docUrl,
+          ...restKyc
+        } = u.kycDocuments;
         return {
           ...u,
           kycDocuments: {
-            ...u.kycDocuments,
-            doc1Url: decryptData(u.kycDocuments.doc1Url || u.kycDocuments.docUrl || ''),
-            doc1BackUrl: decryptData(u.kycDocuments.doc1BackUrl || ''),
-            doc2Url: decryptData(u.kycDocuments.doc2Url || ''),
-            doc2BackUrl: decryptData(u.kycDocuments.doc2BackUrl || ''),
-            chequeUrl: decryptData(u.kycDocuments.chequeUrl || ''),
-            chequeBackUrl: decryptData(u.kycDocuments.chequeBackUrl || ''),
-            docUrl: decryptData(u.kycDocuments.docUrl || '')
+            ...restKyc,
+            hasDoc1: !!(doc1Url || docUrl),
+            hasDoc1Back: !!doc1BackUrl,
+            hasDoc2: !!doc2Url,
+            hasDoc2Back: !!doc2BackUrl,
+            hasCheque: !!chequeUrl,
+            hasChequeBack: !!chequeBackUrl
           }
         };
       }
@@ -267,19 +270,22 @@ router.get('/admin', protect, admin, async (req, res) => {
 
     const cleanLoans = loans.map(l => {
       if (l.userId && l.userId.kycDocuments) {
+        const {
+          doc1Url, doc1BackUrl, doc2Url, doc2BackUrl, chequeUrl, chequeBackUrl, docUrl,
+          ...restKyc
+        } = l.userId.kycDocuments;
         return {
           ...l,
           userId: {
             ...l.userId,
             kycDocuments: {
-              ...l.userId.kycDocuments,
-              doc1Url: decryptData(l.userId.kycDocuments.doc1Url || l.userId.kycDocuments.docUrl || ''),
-              doc1BackUrl: decryptData(l.userId.kycDocuments.doc1BackUrl || ''),
-              doc2Url: decryptData(l.userId.kycDocuments.doc2Url || ''),
-              doc2BackUrl: decryptData(l.userId.kycDocuments.doc2BackUrl || ''),
-              chequeUrl: decryptData(l.userId.kycDocuments.chequeUrl || ''),
-              chequeBackUrl: decryptData(l.userId.kycDocuments.chequeBackUrl || ''),
-              docUrl: decryptData(l.userId.kycDocuments.docUrl || '')
+              ...restKyc,
+              hasDoc1: !!(doc1Url || docUrl),
+              hasDoc1Back: !!doc1BackUrl,
+              hasDoc2: !!doc2Url,
+              hasDoc2Back: !!doc2BackUrl,
+              hasCheque: !!chequeUrl,
+              hasChequeBack: !!chequeBackUrl
             }
           }
         };

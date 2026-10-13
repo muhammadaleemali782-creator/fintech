@@ -1001,25 +1001,66 @@ router.get('/analytics', protect, admin, async (req, res) => {
 
 
 
-    // 1. Users & Balances
-    const users = await User.find({ role: { $ne: 'admin' } }).select('name email phone balance profitBalance lowestBalance24h createdAt');
+    // 1. Parallel lean queries with projected fields (eliminates 50s timeouts from huge base64 fields)
+    const Bond = require('../models/Bond');
+    const [
+      users,
+      activeBonds,
+      depositTxnsRaw,
+      yieldTxnsRaw,
+      withdrawalTxns,
+      activeLoans,
+      pendingTxnsCount,
+      pendingLoansCount
+    ] = await Promise.all([
+      User.find({ role: { $ne: 'admin' } })
+        .select('name email phone balance profitBalance lowestBalance24h createdAt accountNumber interestRate')
+        .lean(),
+      Bond.find({ status: 'active' })
+        .select('principalAmount status')
+        .lean(),
+      Transaction.find({ type: 'deposit', status: { $in: ['approved', 'completed'] } })
+        .select('userId amount type status createdAt method utrNumber referenceId')
+        .sort({ createdAt: 1 })
+        .lean(),
+      Transaction.find({ type: 'daily_yield' })
+        .select('userId amount type status createdAt referenceId remarks')
+        .sort({ createdAt: 1 })
+        .lean(),
+      Transaction.find({ type: 'withdrawal', status: { $in: ['approved', 'completed'] } })
+        .select('amount status')
+        .lean(),
+      Loan.find({ status: { $in: ['approved', 'active'] } })
+        .select('amount status')
+        .lean(),
+      Transaction.countDocuments({ status: 'pending' }),
+      Loan.countDocuments({ status: 'pending' })
+    ]);
+
     const totalUsers = users.length;
     const totalUserBalances = Number(users.reduce((sum, u) => sum + (u.balance || 0), 0).toFixed(2));
     const totalUserProfits = Number(users.reduce((sum, u) => sum + (u.profitBalance || 0), 0).toFixed(4));
-
-    // Active Bonds in company
-    const Bond = require('../models/Bond');
-    const activeBonds = await Bond.find({ status: 'active' });
     const totalActiveBonds = Number(activeBonds.reduce((sum, b) => sum + (b.principalAmount || 0), 0).toFixed(2));
-
-    // Clean Fintech Reserves: Pure capital pool without profit decimals added. Strictly rounded integer.
     const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds);
+    const totalWithdrawals = Number(withdrawalTxns.reduce((sum, w) => sum + (w.amount || 0), 0).toFixed(2));
+    const totalLoansDisbursed = Number(activeLoans.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(2));
 
-    // 2. Deposits (Enriched with user info & populated for daily breakup display)
-    const depositTxns = await Transaction.find({ type: 'deposit', status: { $in: ['approved', 'completed'] } })
-      .populate('userId', 'name email phone accountNumber interestRate')
-      .sort({ createdAt: 1 });
+    // Fast in-memory user map (0ms)
+    const userMap = new Map(users.map(u => [String(u._id), u]));
+
+    const depositTxns = depositTxnsRaw.map(d => ({
+      ...d,
+      userId: userMap.get(String(d.userId)) || null
+    }));
+
+    const yieldTxns = yieldTxnsRaw.map(y => ({
+      ...y,
+      userId: userMap.get(String(y.userId)) || null
+    }));
+
     const totalDeposits = Number(depositTxns.reduce((sum, d) => sum + (d.amount || 0), 0).toFixed(2));
+    const totalYieldTxns = Number(yieldTxns.reduce((sum, y) => sum + (y.amount || 0), 0).toFixed(4));
+    const totalYieldCredited = Math.max(totalUserProfits, totalYieldTxns);
 
     // Group Deposits by dateKey (IST Calendar) for daily cards breakup & totals
     const dayDepositsMap = {};
@@ -1043,27 +1084,10 @@ router.get('/analytics', protect, admin, async (req, res) => {
         utrNumber: dt.utrNumber || dt.referenceId || 'Direct',
         rateText: `${rate}% p.a. • +₹${dailyYieldForAmount}/day profit`,
         dailyYieldForAmount,
-        proofUrl: dt.proofUrl || dt.screenshotUrl || '',
-        hasProof: Boolean(dt.proofUrl || dt.screenshotUrl)
+        proofUrl: '', // On-demand via /txn-proof/:id prevents megabyte payload crashing mobile app
+        hasProof: true
       });
     }
-
-    // 3. Daily Yield / Profits
-    const yieldTxns = await Transaction.find({ type: 'daily_yield' }).sort({ createdAt: 1 }).populate('userId', 'name email');
-    const totalYieldTxns = Number(yieldTxns.reduce((sum, y) => sum + (y.amount || 0), 0).toFixed(4));
-    const totalYieldCredited = Math.max(totalUserProfits, totalYieldTxns);
-
-    // 4. Pending Txns & Pending Loans
-    const pendingTxnsCount = await Transaction.countDocuments({ status: 'pending' });
-    const pendingLoansCount = await Loan.countDocuments({ status: 'pending' });
-
-    // 5. Withdrawals
-    const withdrawalTxns = await Transaction.find({ type: 'withdrawal', status: { $in: ['approved', 'completed'] } });
-    const totalWithdrawals = Number(withdrawalTxns.reduce((sum, w) => sum + (w.amount || 0), 0).toFixed(2));
-
-    // 6. Loans Active
-    const activeLoans = await Loan.find({ status: { $in: ['approved', 'active'] } });
-    const totalLoansDisbursed = Number(activeLoans.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(2));
 
     // 7. Group Daily Yields by Date for Profit Chart (IST Calendar)
     const dailyMap = {};
@@ -1254,7 +1278,7 @@ router.get('/analytics', protect, admin, async (req, res) => {
         totalYieldCredited,
         totalWithdrawals,
         totalLoansDisbursed,
-        totalLoans: await Loan.countDocuments({ status: { $in: ['active', 'approved'] } }),
+        totalLoans: activeLoans.length,
         pendingTxnsCount,
         pendingLoansCount,
         netFintechReserve,

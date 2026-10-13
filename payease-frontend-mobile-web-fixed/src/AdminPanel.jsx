@@ -2171,6 +2171,7 @@ export default function AdminPanel() {
       if (data && data.success) {
         setAnalytics(data);
         appCache.set("educa_admin_cached_analytics", data);
+        try { localStorage.setItem("educa_admin_cached_analytics", JSON.stringify(data)); } catch {}
         if (data.stats?.netFintechReserve !== undefined) {
           appCache.set("educa_admin_cached_reserves", data.stats.netFintechReserve);
           try { localStorage.setItem("educa_admin_cached_reserves", String(data.stats.netFintechReserve)); } catch {}
@@ -5081,8 +5082,12 @@ export default function AdminPanel() {
                           <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-3 shadow-xs">
                             📊
                           </div>
-                          <p className="font-extrabold text-gray-800 text-sm">No Profit Yield History Yet</p>
-                          <p className="text-xs text-gray-400 mt-1 max-w-sm">Daily interest calculations will automatically plot here as customer balances accrue yield.</p>
+                          <p className="font-extrabold text-gray-800 text-sm">
+                            {loadingAnalytics ? "🔄 Live Profit Data Sync Ho Raha Hai..." : "No Profit Yield History Yet"}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1 max-w-sm">
+                            {loadingAnalytics ? "Server se taaza record load ho raha hai, kripya thoda wait karein..." : "Daily interest calculations will automatically plot here as customer balances accrue yield."}
+                          </p>
                         </div>
                       );
                     }
@@ -5593,10 +5598,12 @@ export default function AdminPanel() {
                       })
                     ) : (
                       <div className="py-12 text-center text-gray-400">
-                        <span className="text-3xl block mb-2">📋</span>
-                        <p className="font-bold text-xs text-gray-600">Abhi koi capital activity record nahi hui hai</p>
+                        <span className="text-3xl block mb-2">{loadingAnalytics ? "🔄" : "📋"}</span>
+                        <p className="font-bold text-xs text-gray-600">
+                          {loadingAnalytics ? "Live Capital Activity Sync Ho Rahi Hai..." : "Abhi koi capital activity record nahi hui hai"}
+                        </p>
                         <p className="text-[11px] mt-1 text-gray-400 max-w-xs mx-auto">
-                          Naye deposits ya daily profit credit hote hi live audit trail yahan appear hoga.
+                          {loadingAnalytics ? "Server se audit trail sync ho raha hai..." : "Naye deposits ya daily profit credit hote hi live audit trail yahan appear hoga."}
                         </p>
                       </div>
                     )}

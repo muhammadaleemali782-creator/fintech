@@ -1191,6 +1191,44 @@ export default function AdminPanel() {
     return () => clearInterval(ticker);
   }, [tab]);
 
+  // On-demand fetch for KYC preview modal documents (supporting stripped list payload)
+  useEffect(() => {
+    if (!previewKycUser?._id) return;
+    const uid = previewKycUser._id;
+    const docs = previewKycUser.kycDocuments || {};
+    const keys = [
+      { key: "doc1", field: "doc1Url", has: previewKycUser.hasDoc1 !== false },
+      { key: "doc1Back", field: "doc1BackUrl", has: previewKycUser.hasDoc1Back !== false },
+      { key: "doc2", field: "doc2Url", has: previewKycUser.hasDoc2 !== false },
+      { key: "doc2Back", field: "doc2BackUrl", has: previewKycUser.hasDoc2Back !== false }
+    ];
+    keys.forEach(({ key, field, has }) => {
+      if (!has || (docs[field] && !docs[field].startsWith("enc::"))) return;
+      const cached = kycDocMemoryCache.get(`${uid}_${key}`);
+      if (cached) {
+        setPreviewKycUser(prev => (prev && prev._id === uid ? {
+          ...prev,
+          kycDocuments: { ...prev.kycDocuments, [field]: cached }
+        } : prev));
+        return;
+      }
+      fetch(`${API}/admin/kyc-doc/${uid}/${key}`, {
+        headers: { Authorization: `Bearer ${tokenStorage.getToken() || localStorage.getItem("token") || ""}` }
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.url) {
+            kycDocMemoryCache.set(`${uid}_${key}`, d.url);
+            setPreviewKycUser(prev => (prev && prev._id === uid ? {
+              ...prev,
+              kycDocuments: { ...prev.kycDocuments, [field]: d.url }
+            } : prev));
+          }
+        })
+        .catch(() => {});
+    });
+  }, [previewKycUser?._id]); // eslint-disable-line
+
   const allKycUsers = useMemo(() => {
     if (!Array.isArray(users)) return [];
     return users.filter(u => u.kycStatus && u.kycStatus !== "none");

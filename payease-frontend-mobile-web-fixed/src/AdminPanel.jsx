@@ -6475,8 +6475,10 @@ export default function AdminPanel() {
                                 <span className="font-bold text-gray-900 text-sm font-mono">₹{Number(l.totalPayable || 0).toLocaleString("en-IN")}</span>
                               </div>
                               <div>
-                                <span className="text-gray-400 block font-medium">Disbursal Amount</span>
-                                <span className="font-extrabold text-emerald-700 text-sm font-mono">₹{Number(l.disbursalAmount || l.amount).toLocaleString("en-IN")}</span>
+                                <span className="text-gray-400 block font-medium">Khate Me Jayega (In-Hand)</span>
+                                <span className="font-extrabold text-emerald-700 text-sm font-mono">
+                                  ₹{Number(l.disbursalAmount || Math.max(0, (l.amount || 0) - Math.round((l.amount || 0) * 0.05) - Math.round((l.amount || 0) * 0.01))).toLocaleString("en-IN")}
+                                </span>
                               </div>
                             </div>
 
@@ -10245,17 +10247,50 @@ export default function AdminPanel() {
                             </button>
                           </div>
                         )}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-sm mb-4">
-                          {[
-                            { label: "Amount", value: `₹${l.amount.toLocaleString("en-IN")}` },
-                            { label: "Rate (locked)", value: `${l.interestRate}% p.a.` },
-                            { label: "Per Installment", value: `₹${l.installmentAmount || l.emiAmount}` },
-                            { label: "Paid / Total", value: `${paidCount} / ${totalCount} Paid` },
-                            { label: "Remaining Dues", value: `₹${(l.remainingAmount ?? l.amount).toLocaleString("en-IN")}` },
-                          ].map(({ label, value }) => (
-                            <div key={label}><p className="text-gray-400 text-xs">{label}</p><p className="font-bold">{value}</p></div>
-                          ))}
-                        </div>
+                        {(() => {
+                          const pFee = Number(l.processingFee !== undefined && l.processingFee !== null ? l.processingFee : Math.round(l.amount * 0.05));
+                          const uFee = Number(l.upiCharges !== undefined && l.upiCharges !== null ? l.upiCharges : Math.round(l.amount * 0.01));
+                          const inHand = Number(l.disbursalAmount || Math.max(0, l.amount - pFee - uFee));
+
+                          return (
+                            <>
+                              {/* User In-Hand Disbursal Breakdown Desk */}
+                              <div className="mb-3.5 p-3 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-xs space-y-1">
+                                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                  <div className="flex items-center gap-1.5 font-black text-emerald-950">
+                                    <span className="text-sm">💵</span>
+                                    <span>User Ke Account Me Jayega (In-Hand):</span>
+                                    <span className="font-mono text-sm font-black text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-lg border border-emerald-300/60">
+                                      ₹{inHand.toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full font-mono">
+                                    Net Disbursed
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-emerald-900 leading-relaxed font-medium">
+                                  <strong>Kyu itna gaya:</strong> Sanctioned loan ₹{l.amount.toLocaleString("en-IN")} me se <strong>₹{pFee.toLocaleString("en-IN")} (5% Processing Fee)</strong> aur <strong>₹{uFee.toLocaleString("en-IN")} (1% Transfer/UPI Charge)</strong> deduct hokar seedhe user ke bank/wallet me transfer hota hai.
+                                </p>
+                              </div>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-sm mb-4">
+                                {[
+                                  { label: "Loan Sanctioned", value: `₹${l.amount.toLocaleString("en-IN")}` },
+                                  { label: "Khate Me Jayega", value: `₹${inHand.toLocaleString("en-IN")}`, highlight: true },
+                                  { label: "Rate (locked)", value: `${l.interestRate}% p.a.` },
+                                  { label: "Per Installment", value: `₹${l.installmentAmount || l.emiAmount}` },
+                                  { label: "Paid / Total", value: `${paidCount} / ${totalCount} Paid` },
+                                  { label: "Remaining Dues", value: `₹${(l.remainingAmount ?? l.amount).toLocaleString("en-IN")}` },
+                                ].map(({ label, value, highlight }) => (
+                                  <div key={label} className={highlight ? "bg-emerald-50/60 p-1.5 rounded-lg border border-emerald-200/60" : ""}>
+                                    <p className="text-gray-400 text-xs">{label}</p>
+                                    <p className={`font-bold ${highlight ? "text-emerald-700 font-black text-sm font-mono" : ""}`}>{value}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          );
+                        })()}
                         {l.referralCommissionPaid && (
                           <div className="mb-3 text-xs bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-orange-700 font-semibold">
                             🎯 Referral commission ₹{l.referralCommissionAmount} paid on this loan
@@ -11058,12 +11093,19 @@ export default function AdminPanel() {
 
                                               {/* Financial Grid */}
                                               <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-                                                <div className="p-1.5 bg-slate-50 rounded-lg">
-                                                  <span className="text-gray-500 block text-[9px]">Disbursed</span>
-                                                  <span className="font-mono font-bold text-gray-900">
-                                                    ₹{Number(pl.disbursalAmount || pl.amount || 0).toLocaleString("en-IN")}
-                                                  </span>
-                                                </div>
+                                                {(() => {
+                                                  const pFee = Number(pl.processingFee !== undefined && pl.processingFee !== null ? pl.processingFee : Math.round((pl.amount || 0) * 0.05));
+                                                  const uFee = Number(pl.upiCharges !== undefined && pl.upiCharges !== null ? pl.upiCharges : Math.round((pl.amount || 0) * 0.01));
+                                                  const inHand = Number(pl.disbursalAmount || Math.max(0, (pl.amount || 0) - pFee - uFee));
+                                                  return (
+                                                    <div className="p-1.5 bg-emerald-50/80 border border-emerald-200/70 rounded-lg" title={`Sanctioned ₹${pl.amount} me se ₹${pFee} (5% Fee) aur ₹${uFee} (1% UPI) cut hokar user ko ₹${inHand} transfer hua.`}>
+                                                      <span className="text-emerald-800 block text-[9px] font-bold">Khate Me (In-Hand)</span>
+                                                      <span className="font-mono font-black text-emerald-700">
+                                                        ₹{inHand.toLocaleString("en-IN")}
+                                                      </span>
+                                                    </div>
+                                                  );
+                                                })()}
                                                 <div className="p-1.5 bg-slate-50 rounded-lg">
                                                   <span className="text-gray-500 block text-[9px]">Tenure / Kist</span>
                                                   <span className="font-mono font-bold text-blue-800">

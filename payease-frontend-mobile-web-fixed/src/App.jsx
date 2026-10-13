@@ -37,23 +37,6 @@ const ResetPassword = lazyWithRetry(() => import("./ResetPassword"));
 const Dashboard = lazyWithRetry(() => import("./Dashboard"));
 const AdminPanel = lazyWithRetry(() => import("./AdminPanel"));
 
-// Instant background prefetch for active users (cold-start acceleration)
-if (typeof window !== "undefined") {
-  try {
-    const hasToken = tokenStorage.getToken();
-    const user = JSON.parse(localStorage.getItem("user") || "{}") || {};
-    if (hasToken) {
-      if (user?.role === "admin") {
-        import("./AdminPanel").catch(() => {});
-      } else {
-        import("./Dashboard").catch(() => {});
-      }
-    } else {
-      import("./Login").catch(() => {});
-    }
-  } catch {}
-}
-
 // Product & Information Pages
 const AboutPage = lazyWithRetry(() => import("./pages/AboutPage"));
 const AccountsPage = lazyWithRetry(() => import("./pages/AccountsPage"));

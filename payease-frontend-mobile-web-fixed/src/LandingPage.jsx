@@ -43,120 +43,98 @@ function Counter({ to, suffix = "", prefix = "", decimals = 0 }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   INTERACTIVE YIELD SPEEDOMETER & ACCELERATION SIMULATOR
-   (Replaces static audit strip with dynamic live example)
+   LIVE WEALTH SIMULATOR & ACCRUAL CALCULATOR (12% & 18% ONLY)
+   (Zero AI slop, high-speed smooth ticking, 100% client-side)
 ═══════════════════════════════════════════════════════════ */
 function InteractiveYieldSpeedometer({ isHindi }) {
-  const [deposit, setDeposit] = useState(100000); // 1 Lakh default
-  const [tier, setTier] = useState(12); // 12 | 18 | 24
-  const [isAuto, setIsAuto] = useState(true);
+  const [deposit, setDeposit] = useState(100000);
+  const [tier, setTier] = useState(12); // Only 12 (Liquid Savings) or 18 (Fixed Bond)
   const [liveElapsedMs, setLiveElapsedMs] = useState(0);
 
-  // Auto-cycle through speedometer tiers (12% -> 18% -> 24%) every 4.5 seconds
-  useEffect(() => {
-    if (!isAuto) return;
-    const interval = setInterval(() => {
-      setTier((prev) => (prev === 12 ? 18 : prev === 18 ? 24 : 12));
-    }, 4500);
-    return () => clearInterval(interval);
-  }, [isAuto]);
-
-  // Live second-by-second micro-ticker simulation (calm 1000ms ticker)
+  // Fast, energetic 50ms live ledger ticker (20 updates/second)
   useEffect(() => {
     const timer = setInterval(() => {
-      setLiveElapsedMs((prev) => prev + 1000);
-    }, 1000);
+      setLiveElapsedMs((prev) => prev + 50);
+    }, 50);
     return () => clearInterval(timer);
   }, []);
 
-  // Financial calculations based on current tier & deposit
+  // Pure client-side mathematical calculations
   const annualReturn = (deposit * tier) / 100;
   const dailyReturn = annualReturn / 365;
   const perMinuteReturn = dailyReturn / 1440;
   const perSecondReturn = dailyReturn / 86400;
-  // Accumulated simulation yield over elapsed seconds
   const simulatedAccrued = (liveElapsedMs / 1000) * perSecondReturn;
 
-  // Speedometer Needle Angle Mapping (-90deg at 0% to +90deg at 24%)
-  // 0% -> -90deg, 12% -> 0deg, 18% -> +45deg, 24% -> +90deg
-  const needleAngle = tier === 12 ? 0 : tier === 18 ? 45 : 90;
+  // Calibrated Needle Angle:
+  // 0% -> -90deg, 6% -> -30deg, 12% -> +30deg, 18% -> +90deg
+  const needleAngle = tier === 12 ? 30 : 90;
 
   return (
-    <div className="mt-8 mb-6 bg-gradient-to-br from-white via-slate-50 to-blue-50/40 rounded-3xl p-5 sm:p-7 border border-slate-200 shadow-xl shadow-blue-950/5 relative overflow-hidden">
-      {/* GLOW ACCENTS */}
-      <div className="absolute -top-16 -right-16 w-48 h-48 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none" />
-      <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-
+    <div className="mt-8 mb-6 bg-white rounded-2xl p-5 sm:p-7 border border-slate-200 shadow-sm relative overflow-hidden">
       {/* HEADER ROW */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/80">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-100">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-              {isHindi ? "इंटरएक्टिव सिमुलेशन (उदाहरण)" : "Interactive Simulation (Example)"}
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-100">
+              {isHindi ? "लाइव वेल्थ कैलकुलेटर" : "Live Compounding Simulator"}
             </span>
-            <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {isHindi ? "लाइव स्पीडोमीटर" : "Live Speedometer Engine"}
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              {isHindi ? "रियल-टाइम गणना" : "Real-Time Ticker"}
             </span>
           </div>
-          <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+          <h3 className="text-xl sm:text-2xl font-extrabold text-[#0A192F] tracking-tight">
             {isHindi
-              ? "देखें ₹1,00,000 जमा करने पर हर मिनट कैसे बढ़ता है पैसा"
-              : "Watch ₹1,00,000 Grow Live Every Minute & Hour"}
+              ? "देखें आपका पैसा सेकंड-दर-सेकंड कैसे बढ़ता है"
+              : "Watch Your Savings Compound in Real Time"}
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
             {isHindi
-              ? "स्पीडोमीटर खुद 12% से 18% और 24% टर्बो मोड में कन्वर्ट होता है और रिटर्न की गति बढ़ जाती है!"
-              : "Speedometer dynamically converts between 12% Liquid, 18% Bond, and 24% Turbo acceleration!"}
+              ? "12% लिक्विड बचत खाता (दैनिक क्रेडिट) या 18% वार्षिक वेल्थ बॉन्ड (365 दिन) चुनें।"
+              : "Compare guaranteed 12% daily compounding liquid savings with 18% 365-day fixed wealth bonds."}
           </p>
         </div>
 
-        {/* INTERACTIVE CONTROLS */}
-        <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-slate-200 shadow-xs self-start sm:self-auto">
-          {[12, 18, 24].map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                setTier(t);
-                setIsAuto(false);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
-                tier === t
-                  ? t === 24
-                    ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xs"
-                    : t === 18
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "bg-emerald-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-              }`}
-            >
-              {t === 12 ? "12% Liquid" : t === 18 ? "18% Bond" : "24% Turbo"}
-            </button>
-          ))}
+        {/* CLEAN 2-WAY PRODUCT TOGGLE (NO FAKE 24%) */}
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto border border-slate-200/80">
           <button
             type="button"
-            onClick={() => setIsAuto(!isAuto)}
-            title={isAuto ? "Pause Auto-Cycle" : "Resume Auto-Cycle"}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-50 text-xs"
+            onClick={() => setTier(12)}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              tier === 12
+                ? "bg-white text-emerald-700 shadow-xs border border-emerald-200/60"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
-            {isAuto ? "⏸️" : "▶️"}
+            12% Liquid Savings
+          </button>
+          <button
+            type="button"
+            onClick={() => setTier(18)}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              tier === 18
+                ? "bg-white text-blue-700 shadow-xs border border-blue-200/60"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            18% Wealth Bond
           </button>
         </div>
       </div>
 
-      {/* MAIN VISUALIZATION: SPEEDOMETER GAUGE + REAL-TIME ACCRUAL STATS */}
+      {/* MAIN VISUALIZATION: GAUGE + REAL-TIME LEDGER */}
       <div className="grid md:grid-cols-12 gap-6 items-center pt-6">
         {/* SPEEDOMETER GAUGE (COL 5) */}
-        <div className="md:col-span-5 flex flex-col items-center justify-center p-4 bg-white rounded-3xl border border-slate-100 shadow-sm relative">
+        <div className="md:col-span-5 flex flex-col items-center justify-center p-5 bg-slate-50/70 rounded-2xl border border-slate-100">
           <div className="relative w-56 h-32 flex items-center justify-center overflow-hidden">
             {/* SVG GAUGE ARC */}
             <svg viewBox="0 0 200 110" className="w-full h-full">
               <defs>
-                <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <linearGradient id="fintechGaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stopColor="#10B981" />
-                  <stop offset="50%" stopColor="#3B82F6" />
-                  <stop offset="100%" stopColor="#8B5CF6" />
+                  <stop offset="66%" stopColor="#059669" />
+                  <stop offset="100%" stopColor="#1D6AE5" />
                 </linearGradient>
               </defs>
               {/* Background Arc */}
@@ -164,135 +142,131 @@ function InteractiveYieldSpeedometer({ isHindi }) {
                 d="M 20 100 A 80 80 0 0 1 180 100"
                 fill="none"
                 stroke="#E2E8F0"
-                strokeWidth="14"
+                strokeWidth="12"
                 strokeLinecap="round"
               />
-              {/* Colored Gauge Arc */}
+              {/* Active Gauge Arc (Calibrated to 18% max) */}
               <path
                 d="M 20 100 A 80 80 0 0 1 180 100"
                 fill="none"
-                stroke="url(#gaugeGrad)"
-                strokeWidth="14"
+                stroke="url(#fintechGaugeGrad)"
+                strokeWidth="12"
                 strokeLinecap="round"
                 strokeDasharray="251.2"
-                strokeDashoffset={tier === 12 ? "125.6" : tier === 18 ? "62.8" : "0"}
-                className="transition-all duration-700 ease-out"
+                strokeDashoffset={tier === 12 ? "83.7" : "0"}
+                className="transition-all duration-500 ease-out"
               />
-              {/* Dial Marks */}
-              <text x="18" y="108" fontSize="9" fontWeight="bold" fill="#64748B">0%</text>
-              <text x="94" y="24" fontSize="10" fontWeight="bold" fill="#10B981">12%</text>
-              <text x="146" y="44" fontSize="10" fontWeight="bold" fill="#3B82F6">18%</text>
-              <text x="175" y="108" fontSize="10" fontWeight="bold" fill="#8B5CF6">24%</text>
+              {/* Dial Marks (Strict 0% to 18%) */}
+              <text x="18" y="108" fontSize="10" fontWeight="700" fill="#64748B">0%</text>
+              <text x="65" y="46" fontSize="10" fontWeight="700" fill="#64748B">6%</text>
+              <text x="125" y="46" fontSize="11" fontWeight="800" fill="#059669">12%</text>
+              <text x="172" y="108" fontSize="11" fontWeight="800" fill="#1D6AE5">18%</text>
             </svg>
 
-            {/* NEEDLE (ACCELERATING TRANSITION WITH CUBIC-BEZIER) */}
+            {/* NEEDLE */}
             <div
-              className="absolute bottom-0 left-1/2 w-1.5 h-22 bg-slate-900 rounded-full origin-bottom shadow-md"
+              className="absolute bottom-0 left-1/2 w-1.5 h-22 bg-[#0A192F] rounded-full origin-bottom shadow-sm"
               style={{
                 transform: `translateX(-50%) rotate(${needleAngle}deg)`,
-                transition: "transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)",
+                transition: "transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
               }}
             >
-              <div className="w-3 h-3 rounded-full bg-rose-500 absolute -top-1 -left-[3px] shadow-sm animate-pulse" />
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute -top-1 -left-[2px] shadow-xs" />
             </div>
 
-            {/* Center Pivot Pin */}
-            <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-slate-900 border-2 border-white shadow-md z-10 flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full bg-emerald-400" />
-            </div>
+            {/* Center Pivot */}
+            <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#0A192F] border-2 border-white shadow-sm z-10" />
           </div>
 
-          {/* DYNAMIC RATE BADGE */}
+          {/* PRODUCT SPECS PILL */}
           <div className="mt-3 text-center">
             <span
-              className={`inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                tier === 24
-                  ? "bg-purple-100 text-purple-900 border border-purple-300 shadow-xs"
-                  : tier === 18
-                  ? "bg-blue-100 text-blue-900 border border-blue-300"
-                  : "bg-emerald-100 text-emerald-900 border border-emerald-300"
+              className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                tier === 18
+                  ? "bg-blue-50 text-blue-800 border border-blue-200"
+                  : "bg-emerald-50 text-emerald-800 border border-emerald-200"
               }`}
             >
-              ⚡ {tier}.0% APY {tier === 24 ? "Turbo Mode 🚀" : tier === 18 ? "Fixed Bond 📜" : "Liquid Savings 💧"}
+              {tier === 18 ? "18.0% P.A. FIXED WEALTH BOND" : "12.0% P.A. LIQUID SAVINGS"}
             </span>
-            <div className="text-[11px] text-slate-500 font-semibold mt-1">
-              {tier === 24
-                ? "Compounding speed accelerated to peak!"
-                : tier === 18
-                ? "365-day fixed bond guaranteed payout"
-                : "Real-time daily liquid compounding"}
+            <div className="text-[11px] text-slate-500 font-medium mt-1">
+              {tier === 18
+                ? "365 Din locked • Guaranteed maturity payout"
+                : "Real-time daily credit • 24x7 instant withdrawal"}
             </div>
           </div>
         </div>
 
         {/* METRICS & GROWTH BREAKDOWN (COL 7) */}
-        <div className="md:col-span-7 space-y-3.5">
-          {/* LIVE SIMULATED REVENUE TICKER BANNER */}
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-600 to-blue-600 text-white shadow-md flex items-center justify-between">
+        <div className="md:col-span-7 space-y-4">
+          {/* HIGH-SPEED LIVE TICKING LEDGER */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#0A192F] text-white shadow-sm flex items-center justify-between">
             <div>
-              <div className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-emerald-100 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                <span>Live Ticking Growth (₹{(deposit).toLocaleString("en-IN")} Principal)</span>
+              <div className="text-[11px] font-bold tracking-wider uppercase text-emerald-400 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>Live Accrued Returns (₹{deposit.toLocaleString("en-IN")})</span>
               </div>
-              <div className="font-mono text-xl sm:text-2xl font-black mt-0.5 tracking-tight">
+              <div className="font-mono text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight tabular-nums text-white">
                 +₹{simulatedAccrued.toFixed(4)}
               </div>
-              <p className="text-[10px] text-emerald-100">
-                Updating real-time every 100ms • Har second live munafa!
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Fast live ledger • 20 updates per second
               </p>
             </div>
             <div className="text-right">
-              <span className="text-[10px] font-bold text-white/80 block uppercase">Yearly Profit</span>
-              <span className="font-mono text-base sm:text-lg font-black text-white">
+              <span className="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">
+                Annual Profit
+              </span>
+              <span className="font-mono text-lg sm:text-xl font-extrabold text-emerald-400">
                 +₹{Math.round(annualReturn).toLocaleString("en-IN")}
               </span>
             </div>
           </div>
 
-          {/* 3-STEP REAL-TIME RUNTIME TIERS */}
+          {/* 3-COLUMN METRICS BREAKDOWN */}
           <div className="grid grid-cols-3 gap-2.5 text-center">
-            <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-xs">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">1 Minute Me</span>
-              <div className="text-xs sm:text-sm font-black font-mono text-slate-800 mt-0.5">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+              <span className="text-[10px] text-slate-500 font-bold uppercase block">1 Minute Me</span>
+              <div className="text-xs sm:text-sm font-bold font-mono text-slate-800 mt-0.5 tabular-nums">
                 +₹{perMinuteReturn.toFixed(4)}
               </div>
-              <span className="text-[9px] text-emerald-600 font-bold block mt-0.5">Live Accrual</span>
+              <span className="text-[9px] text-emerald-600 font-semibold block mt-0.5">Live Accrual</span>
             </div>
 
-            <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-xs">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">1 Din Me</span>
-              <div className="text-xs sm:text-sm font-black font-mono text-emerald-700 mt-0.5">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+              <span className="text-[10px] text-slate-500 font-bold uppercase block">1 Din Me</span>
+              <div className="text-xs sm:text-sm font-bold font-mono text-emerald-700 mt-0.5 tabular-nums">
                 +₹{dailyReturn.toFixed(2)}
               </div>
-              <span className="text-[9px] text-slate-500 font-semibold block mt-0.5">24h Credit</span>
+              <span className="text-[9px] text-slate-500 font-medium block mt-0.5">Daily Payout</span>
             </div>
 
-            <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-xs">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Kul Maturity</span>
-              <div className="text-xs sm:text-sm font-black font-mono text-blue-700 mt-0.5">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+              <span className="text-[10px] text-slate-500 font-bold uppercase block">Kul Maturity</span>
+              <div className="text-xs sm:text-sm font-bold font-mono text-blue-700 mt-0.5 tabular-nums">
                 ₹{Math.round(deposit + annualReturn).toLocaleString("en-IN")}
               </div>
-              <span className="text-[9px] text-blue-600 font-bold block mt-0.5">Principal + Profit</span>
+              <span className="text-[9px] text-slate-500 font-medium block mt-0.5">Principal + Profit</span>
             </div>
           </div>
 
-          {/* QUICK AMOUNT CHIPS */}
+          {/* QUICK DEPOSIT SELECTOR */}
           <div className="flex items-center gap-1.5 flex-wrap pt-1 text-xs">
             <span className="text-[11px] font-bold text-slate-500 mr-1">
-              {isHindi ? "राशि बदलें:" : "Change Deposit:"}
+              {isHindi ? "जमा राशि:" : "Deposit:"}
             </span>
             {[25000, 50000, 100000, 200000, 500000].map((amt) => (
               <button
                 key={amt}
                 type="button"
                 onClick={() => setDeposit(amt)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   deposit === amt
-                    ? "bg-slate-900 text-white shadow-2xs"
-                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                    ? "bg-[#0A192F] text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                ₹{(amt / 100000 >= 1 ? `${amt / 100000} Lakh` : `${amt / 1000}k`)}
+                ₹{amt >= 100000 ? `${amt / 100000} Lakh` : `${amt / 1000}k`}
               </button>
             ))}
           </div>

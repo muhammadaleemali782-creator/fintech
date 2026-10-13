@@ -1,35 +1,5 @@
 import { useEffect, useRef, useMemo } from "react";
 
-const CODE_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789(){}[]<>;:,._-+=!@#$%^&*|\\/\"'`~?";
-
-// Helper to generate ASCII code block once
-const generateAscii = (w = 40, h = 14) => {
-  const lines = [];
-  const snippets = [
-    "// EDUCA_FINTECH_PROTOCOL v4.2",
-    "const SAVINGS_APY = 0.1200;",
-    "const RECHARGE_LOAN = 199.00;",
-    "const BIKE_LOAN_MAX = 150000;",
-    "verify_identity(uid, KYC_LEVEL_1);",
-    "instant_disburse_upi(user, amount);",
-    "function calculate_interest(p, t) {",
-    "  return p * Math.pow(1 + 0.12, t);",
-    "}",
-    "sha256_hash_signature(tx_token);",
-    "emit_approval_webhook(admin_channel);",
-    "play_audio_chime(FREQS.HIGH);",
-  ];
-
-  for (let r = 0; r < h; r++) {
-    let line = snippets[r % snippets.length];
-    while (line.length < w) {
-      line += " " + CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
-    }
-    lines.push(line.slice(0, w));
-  }
-  return lines.join("\n");
-};
-
 // Card themes for Educa Fintech
 const cardDefs = [
   {
@@ -43,7 +13,6 @@ const cardDefs = [
     number: "•••• •••• •••• 1200",
     valid: "PERPETUAL",
     icon: "🏦",
-    asciiCode: generateAscii(36, 13),
   },
   {
     id: "recharge",
@@ -56,7 +25,6 @@ const cardDefs = [
     number: "•••• •••• •••• 0199",
     valid: "INSTANT",
     icon: "📱",
-    asciiCode: generateAscii(36, 13),
   },
   {
     id: "bike",
@@ -69,7 +37,6 @@ const cardDefs = [
     number: "•••• •••• •••• 8840",
     valid: "36 MONTHS",
     icon: "🏍️",
-    asciiCode: generateAscii(36, 13),
   },
   {
     id: "school",
@@ -82,7 +49,6 @@ const cardDefs = [
     number: "•••• •••• •••• 5521",
     valid: "QUARTERLY",
     icon: "🎒",
-    asciiCode: generateAscii(36, 13),
   },
   {
     id: "investment",
@@ -95,7 +61,6 @@ const cardDefs = [
     number: "•••• •••• •••• 9999",
     valid: "PREMIUM",
     icon: "📈",
-    asciiCode: generateAscii(36, 13),
   },
 ];
 
@@ -375,11 +340,8 @@ export default function EvervaultCardScanner() {
         const rect = wrapper.getBoundingClientRect();
         return {
           wrapper,
-          normal: wrapper.querySelector(".card-normal"),
-          ascii: wrapper.querySelector(".card-ascii"),
           baseLeft: rect.left - containerRect.left,
           width: rect.width,
-          state: 999, // Force recalculation
         };
       });
 
@@ -389,7 +351,7 @@ export default function EvervaultCardScanner() {
       if (cardData.length >= 5 && cardData[5]) {
         wrapWidth = cardData[5].baseLeft - cardData[0].baseLeft;
       } else {
-        wrapWidth = (cardData[0]?.width || 280) * 5;
+        wrapWidth = (cardData[0]?.width || 240) * 5;
       }
     };
 
@@ -408,58 +370,28 @@ export default function EvervaultCardScanner() {
       const dt = Math.min((now - s.lastTime) / 1000, 0.05);
       s.lastTime = now;
 
-      // Move leftward
+      // Move continuously leftward
       s.position += s.velocity * s.direction * dt;
 
       // Infinite wrap by exactly 1 cycle (5 cards)
       if (wrapWidth > 0 && s.position <= -wrapWidth) {
         s.position += wrapWidth;
-        for (let i = 0; i < cardData.length; i++) {
-          cardData[i].state = 999;
-        }
       }
 
       cardLine.style.transform = `translate3d(${s.position}px, 0, 0)`;
 
-      // Extremely efficient clipping: only the 1 card crossing the laser has clip-path
+      // Check if any card is actively crossing the laser beam to trigger sparks
       let anyScanning = false;
       const pos = s.position;
 
       for (let i = 0; i < cardData.length; i++) {
         const card = cardData[i];
-        if (!card.normal || !card.ascii) continue;
-
         const cardLeft = card.baseLeft + pos;
         const cardRight = cardLeft + card.width;
 
-        if (cardRight <= scannerX) {
-          // Fully past scanner -> 100% decrypted ASCII, normal hidden
-          if (card.state !== 1) {
-            card.normal.style.display = "none";
-            card.ascii.style.display = "flex";
-            card.ascii.style.clipPath = "none";
-            card.state = 1;
-          }
-        } else if (cardLeft >= scannerX) {
-          // Not yet reached scanner -> 100% normal card, ascii hidden
-          if (card.state !== -1) {
-            card.normal.style.display = "flex";
-            card.normal.style.clipPath = "none";
-            card.ascii.style.display = "none";
-            card.state = -1;
-          }
-        } else {
-          // Actively crossing the scanner beam -> Apply split clip-path only to this card!
+        if (cardLeft < scannerX && cardRight > scannerX) {
           anyScanning = true;
-          if (card.state !== 0) {
-            card.normal.style.display = "flex";
-            card.ascii.style.display = "flex";
-            card.state = 0;
-          }
-          const progress = Math.max(0, Math.min(100, ((scannerX - cardLeft) / card.width) * 100));
-          const pStr = progress.toFixed(1);
-          card.normal.style.clipPath = `inset(0 0 0 ${pStr}%)`;
-          card.ascii.style.clipPath = `inset(0 calc(100% - ${pStr}%) 0 0)`;
+          break;
         }
       }
 
@@ -478,9 +410,8 @@ export default function EvervaultCardScanner() {
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden bg-[#0A0D14] py-8 my-5 border-y border-white/10 shadow-2xl pointer-events-none select-none"
+      className="relative w-full overflow-hidden bg-[#0A0D14] py-3 sm:py-6 my-2 sm:my-4 border-y border-white/10 shadow-2xl pointer-events-none select-none min-h-[190px] sm:min-h-[250px] md:min-h-[290px]"
       style={{
-        minHeight: "380px",
         contain: "layout paint",
       }}
     >
@@ -497,10 +428,10 @@ export default function EvervaultCardScanner() {
       />
 
       {/* 3. NON-INTERACTIVE CONTINUOUS CARD STREAM */}
-      <div className="relative w-full h-[280px] sm:h-[310px] md:h-[340px] flex items-center z-10 overflow-visible pointer-events-none">
+      <div className="relative w-full h-[165px] sm:h-[210px] md:h-[245px] flex items-center z-10 overflow-visible pointer-events-none">
         <div
           ref={cardLineRef}
-          className="flex items-center gap-6 sm:gap-8 whitespace-nowrap will-change-transform px-4 pointer-events-none"
+          className="flex items-center gap-4 sm:gap-6 md:gap-8 whitespace-nowrap will-change-transform px-4 pointer-events-none"
           style={{
             transform: "translate3d(0px, 0, 0)",
             willChange: "transform",
@@ -509,36 +440,34 @@ export default function EvervaultCardScanner() {
           {repeatedCards.map((c, i) => (
             <div
               key={i}
-              className="evervault-card-wrapper relative shrink-0 w-[260px] h-[165px] sm:w-[320px] sm:h-[200px] md:w-[360px] md:h-[225px] rounded-2xl overflow-hidden pointer-events-none"
+              className="evervault-card-wrapper relative shrink-0 w-[215px] h-[138px] sm:w-[270px] sm:h-[175px] md:w-[320px] md:h-[205px] rounded-2xl overflow-hidden pointer-events-none shadow-xl border border-white/15"
               style={{
-                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.7)",
+                background: c.bg,
                 contain: "paint",
               }}
             >
-              {/* (A) NORMAL CARD DESIGN */}
               <div
-                className="card-normal absolute inset-0 rounded-2xl p-4 sm:p-5 text-white flex flex-col justify-between overflow-hidden border border-white/15 pointer-events-none"
+                className="absolute inset-0 rounded-2xl p-3 sm:p-4 md:p-5 text-white flex flex-col justify-between overflow-hidden pointer-events-none"
                 style={{
-                  background: c.bg,
                   transform: "translateZ(0)",
                   backfaceVisibility: "hidden",
                 }}
               >
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl sm:text-2xl">{c.icon}</span>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-base sm:text-xl md:text-2xl">{c.icon}</span>
                     <div>
-                      <div className="text-[8px] sm:text-[9px] tracking-wider uppercase font-bold text-white/60">
+                      <div className="text-[7px] sm:text-[8px] md:text-[9px] tracking-wider uppercase font-bold text-white/60">
                         {c.type}
                       </div>
-                      <div className="text-xs sm:text-sm font-extrabold text-white">
+                      <div className="text-[11px] sm:text-xs md:text-sm font-extrabold text-white leading-tight">
                         {c.name}
                       </div>
                     </div>
                   </div>
                   <span
-                    className="text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full"
+                    className="text-[7px] sm:text-[8px] md:text-[9px] font-black px-1.5 sm:px-2 py-0.5 rounded-full shrink-0"
                     style={{
                       backgroundColor: `${c.accent}25`,
                       color: c.accent,
@@ -550,50 +479,33 @@ export default function EvervaultCardScanner() {
                 </div>
 
                 {/* Card Number & Tagline */}
-                <div className="my-auto">
+                <div className="my-auto py-1">
                   <div
-                    className="font-mono text-sm sm:text-base tracking-widest font-bold"
+                    className="font-mono text-xs sm:text-sm md:text-base tracking-widest font-bold"
                     style={{ color: c.accent }}
                   >
                     {c.number}
                   </div>
-                  <p className="text-[9px] sm:text-xs text-gray-300 mt-1 line-clamp-1">
+                  <p className="text-[8px] sm:text-[10px] md:text-xs text-gray-300 mt-0.5 line-clamp-1">
                     {c.tagline}
                   </p>
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between text-[8px] sm:text-[10px] text-white/70 border-t border-white/10 pt-2">
+                <div className="flex items-center justify-between text-[7px] sm:text-[8px] md:text-[10px] text-white/70 border-t border-white/10 pt-1.5 sm:pt-2">
                   <div>
-                    <span className="block text-[7px] uppercase tracking-wider text-white/40">
+                    <span className="block text-[6px] sm:text-[7px] uppercase tracking-wider text-white/40">
                       Product
                     </span>
                     <span className="font-bold text-white">EDUCA FINTECH</span>
                   </div>
                   <div className="text-right">
-                    <span className="block text-[7px] uppercase tracking-wider text-white/40">
+                    <span className="block text-[6px] sm:text-[7px] uppercase tracking-wider text-white/40">
                       Approval
                     </span>
                     <span className="font-bold text-cyan-300">{c.valid}</span>
                   </div>
                 </div>
-              </div>
-
-              {/* (B) ASCII MATRIX CODE (Revealed by Center Scanner) */}
-              <div
-                className="card-ascii absolute inset-0 rounded-2xl bg-black/95 p-3 text-cyan-400 font-mono text-[8px] sm:text-[9px] leading-[11px] overflow-hidden select-none border border-cyan-500/40 pointer-events-none"
-                style={{
-                  textShadow: "0 0 2px rgba(0, 229, 255, 0.7)",
-                  transform: "translateZ(0)",
-                  backfaceVisibility: "hidden",
-                }}
-              >
-                <div className="text-[7px] text-cyan-300 font-bold mb-1 opacity-70">
-                  // DECRYPTED SCAN: {c.type}
-                </div>
-                <pre className="font-mono whitespace-pre-wrap opacity-90 leading-tight">
-                  {c.asciiCode}
-                </pre>
               </div>
             </div>
           ))}

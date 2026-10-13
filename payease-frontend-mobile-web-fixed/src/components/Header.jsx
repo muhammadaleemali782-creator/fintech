@@ -205,7 +205,7 @@ export default function Header() {
         {/* MOBILE MENU TOGGLE */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="lg:hidden p-2 rounded-lg bg-gray-100 text-gray-700 text-base"
+          className="lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 text-base transition cursor-pointer"
           aria-label="Toggle menu"
         >
           {menuOpen ? "✕" : "☰"}
@@ -222,7 +222,7 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => toggleLang("en")}
-                className={`px-3 py-1 rounded-lg transition ${
+                className={`min-h-[40px] px-3.5 py-1.5 rounded-lg transition ${
                   siteLang === "en" ? "bg-white text-blue-600 shadow-2xs font-black" : "text-slate-600"
                 }`}
               >
@@ -231,7 +231,7 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => toggleLang("hi")}
-                className={`px-3 py-1 rounded-lg transition ${
+                className={`min-h-[40px] px-3.5 py-1.5 rounded-lg transition ${
                   siteLang === "hi" ? "bg-white text-blue-600 shadow-2xs font-black" : "text-slate-600"
                 }`}
               >
@@ -244,7 +244,7 @@ export default function Header() {
               <Link
                 to={item.path}
                 onClick={() => setMenuOpen(false)}
-                className={`block py-2 text-sm font-bold border-b border-gray-50 ${
+                className={`min-h-[44px] flex items-center py-2.5 text-sm font-bold border-b border-gray-50 active:scale-[0.98] transition ${
                   location.pathname === item.path ? "text-[#1D6AE5]" : "text-gray-700"
                 }`}
               >

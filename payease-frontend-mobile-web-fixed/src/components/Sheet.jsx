@@ -31,7 +31,7 @@ export default function Sheet({ open, onClose, title, icon, extraHeader = null, 
             <button
               onClick={onClose}
               aria-label="Close"
-              className="w-9 h-9 flex items-center justify-center rounded-full text-xl shrink-0 text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition cursor-pointer"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-2xl shrink-0 text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:scale-90 active:bg-gray-200 transition cursor-pointer"
             >
               ×
             </button>

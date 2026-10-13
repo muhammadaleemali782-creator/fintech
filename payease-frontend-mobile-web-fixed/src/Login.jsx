@@ -47,6 +47,7 @@ export default function Login({ isApp = false }) {
 
   const handleStandardLogin = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     let identifier = loginData.email.trim();
     if (identifier.toLowerCase().endsWith('@gmail.com')) {
@@ -103,6 +104,7 @@ export default function Login({ isApp = false }) {
 
   const handleMailLogin = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     try {
       const res = await fetch(`${API}/auth/mail-login`, {
@@ -149,6 +151,7 @@ export default function Login({ isApp = false }) {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     let cleanEmail = regData.email.trim().toLowerCase();
     if (cleanEmail.endsWith('@gmail.com')) {
@@ -199,6 +202,7 @@ export default function Login({ isApp = false }) {
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     let cleanForgot = forgotEmail.trim().toLowerCase();
     if (cleanForgot.endsWith('@gmail.com')) {

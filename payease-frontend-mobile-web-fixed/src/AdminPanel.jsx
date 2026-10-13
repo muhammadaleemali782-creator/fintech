@@ -7,6 +7,7 @@ import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
 import { CacheManager, appCache, parseCachedNumber } from "./utils/dataCache";
 import LiveRefreshBadge from "./components/LiveRefreshBadge";
+import { useDebounce } from "./utils/performance";
 
 // --- PERSISTENT & IN-MEMORY CACHE WITH STALE-WHILE-REVALIDATE ---
 const apiCache = new Map();
@@ -1306,6 +1307,7 @@ export default function AdminPanel() {
   const [capitalLoading, setCapitalLoading] = useState(false);
   const [capitalSubCategory, setCapitalSubCategory] = useState("loans"); // "loans" | "investments" | "cashout" | "deposits" | "profit"
   const [capitalSearch, setCapitalSearch] = useState("");
+  const debouncedCapitalSearch = useDebounce(capitalSearch, 200);
   const [capitalTimeFilter, setCapitalTimeFilter] = useState("all"); // "all" | "today" | "7days" | "month"
   const [rejectLoadingId, setRejectLoadingId] = useState(null);
   const [adminHeroFlyId, setAdminHeroFlyId] = useState(null);
@@ -4093,7 +4095,7 @@ export default function AdminPanel() {
             };
 
             // Search filter helper
-            const q = (capitalSearch || "").trim().toLowerCase();
+            const q = (debouncedCapitalSearch || "").trim().toLowerCase();
             const matchesSearch = (item) => {
               if (!q) return true;
               const name = String(item.userId?.name || item.name || "").toLowerCase();

@@ -26,7 +26,7 @@ export default function BottomNav({ items, active, onChange }) {
               key={key}
               type="button"
               onClick={() => { onChange?.(key); onClick?.(); }}
-              className={`relative overflow-visible flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-semibold transition-all active:scale-90 cursor-pointer ${
+              className={`relative overflow-visible flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-[48px] text-[11px] font-semibold transition-all active:scale-90 cursor-pointer ${
                 active === key ? "text-blue-600 font-bold" : "text-gray-400"
               }`}
             >

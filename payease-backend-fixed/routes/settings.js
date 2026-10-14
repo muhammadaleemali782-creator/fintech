@@ -69,6 +69,26 @@ router.post('/referral-commission', protect, admin, async (req, res) => {
   }
 });
 
+// Update Loan Department Profit Rate (%)
+router.post('/loan-dept-profit', protect, admin, async (req, res) => {
+  try {
+    const { rate } = req.body;
+    const numRate = Number(rate);
+    if (!Number.isFinite(numRate) || numRate < 0 || numRate > 50) {
+      return res.status(400).json({ message: 'Rate must be a number between 0% and 50%' });
+    }
+    await Settings.findOneAndUpdate(
+      { key: 'loanDeptProfitRate' },
+      { key: 'loanDeptProfitRate', value: numRate, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    memoryCache.del('admin_settings');
+    res.json({ success: true, message: `Loan Department Profit set to ${numRate}%`, rate: numRate });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update loan profit rate' });
+  }
+});
+
 // Get referral stats for a user
 router.get('/referral-stats/:userId', protect, admin, async (req, res) => {
   try {

@@ -80,6 +80,72 @@ export default function StaffDesk() {
     setStatusFilter("all");
   }, [activeTab]);
 
+  // Loan Department Stats & Profit Percentage
+  const [loanProfitRate, setLoanProfitRate] = useState(() => {
+    try {
+      const saved = localStorage.getItem("educa_loan_dept_profit_rate");
+      if (saved) return Number(saved);
+    } catch (_) {}
+    return 5;
+  });
+  const [showProfitConfigModal, setShowProfitConfigModal] = useState(false);
+  const [tempProfitRate, setTempProfitRate] = useState(loanProfitRate);
+
+  const handleSaveProfitRate = async () => {
+    const rateNum = Number(tempProfitRate);
+    if (isNaN(rateNum) || rateNum < 0 || rateNum > 50) {
+      showToast("Please enter a valid rate between 0% and 50%", true);
+      return;
+    }
+    setLoanProfitRate(rateNum);
+    try {
+      localStorage.setItem("educa_loan_dept_profit_rate", String(rateNum));
+      if (token && isAdmin) {
+        await fetch(`${API}/settings/loan-dept-profit`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ rate: rateNum })
+        });
+      }
+    } catch (_) {}
+    setShowProfitConfigModal(false);
+    showToast(`Loan Department Profit updated to ${rateNum}%`);
+  };
+
+  const loanStats = useMemo(() => {
+    const list = queues.loan || [];
+    let totalDisbursed = 0;
+    let totalRepayable = 0;
+    let totalCollected = 0;
+    let activeCount = 0;
+
+    list.forEach(l => {
+      const amt = Number(l.amount || 0);
+      const payable = Number(l.totalPayable || (amt * 1.12));
+      const paid = Number(l.paidAmount || 0);
+      totalDisbursed += amt;
+      totalRepayable += payable;
+      totalCollected += paid;
+      if (l.status === "active") activeCount++;
+    });
+
+    const totalRemaining = Math.max(0, totalRepayable - totalCollected);
+    const recoveryRate = totalRepayable > 0 ? ((totalCollected / totalRepayable) * 100).toFixed(1) : "0.0";
+
+    return {
+      totalDisbursed,
+      totalRepayable,
+      totalCollected,
+      totalRemaining,
+      recoveryRate,
+      activeCount,
+      totalCount: list.length
+    };
+  }, [queues.loan]);
+
   // Selected item for drawer/modal
   const [selectedItem, setSelectedItem] = useState(null);
   const [actionModal, setActionModal] = useState(null); // { item, type: 'approve' | 'reject' }
@@ -705,19 +771,95 @@ export default function StaffDesk() {
                 </>
               )}
             </select>
-
-            {(activeTab === "loan" || isAdmin || hasPermission("loan.create_on_behalf")) && (
-              <button
-                type="button"
-                onClick={() => setShowIssueLoanModal(true)}
-                className="px-3.5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer shrink-0"
-              >
-                <span>➕</span>
-                <span>Issue Loan (Naya Loan Karein)</span>
-              </button>
-            )}
           </div>
         </div>
+
+        {/* Loan Department Overview & Profit Card */}
+        {activeTab === "loan" && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📊</span>
+                <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                  Loan Department Overview & Profit
+                </h4>
+              </div>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTempProfitRate(loanProfitRate);
+                    setShowProfitConfigModal(true);
+                  }}
+                  className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 cursor-pointer bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 transition"
+                >
+                  <span>⚙️ Customise Profit ({loanProfitRate}%)</span>
+                </button>
+              )}
+            </div>
+
+            {/* 4 Stat Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {/* 1. Total Disbursed (Gaye Paise) */}
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <span className="text-[10px] font-bold text-gray-500 uppercase block">Total Loan Diya (Gaye)</span>
+                <span className="text-base sm:text-lg font-black text-gray-900 mt-0.5 block">
+                  ₹{loanStats.totalDisbursed.toLocaleString("en-IN")}
+                </span>
+                <span className="text-[10px] text-gray-400 mt-0.5 block font-medium">
+                  {loanStats.totalCount} Total Loans
+                </span>
+              </div>
+
+              {/* 2. Total Recovered / Received (Aaye Paise) */}
+              <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase block">Total EMI Aayi (Aaye)</span>
+                <span className="text-base sm:text-lg font-black text-emerald-800 mt-0.5 block">
+                  ₹{loanStats.totalCollected.toLocaleString("en-IN")}
+                </span>
+                <span className="text-[10px] text-emerald-600 mt-0.5 block font-medium">
+                  out of ₹{loanStats.totalRepayable.toLocaleString("en-IN")} ({loanStats.recoveryRate}%)
+                </span>
+              </div>
+
+              {/* 3. Total Due / Pending EMI (Baki Paise) */}
+              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200">
+                <span className="text-[10px] font-bold text-amber-700 uppercase block">Pending Due (Baki EMI)</span>
+                <span className="text-base sm:text-lg font-black text-amber-800 mt-0.5 block">
+                  ₹{loanStats.totalRemaining.toLocaleString("en-IN")}
+                </span>
+                <span className="text-[10px] text-amber-600 mt-0.5 block font-medium">
+                  {loanStats.activeCount} Active EMIs
+                </span>
+              </div>
+
+              {/* 4. Dept Profit on Collected EMIs */}
+              <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-blue-700 uppercase block">Dept Profit ({loanProfitRate}%)</span>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTempProfitRate(loanProfitRate);
+                        setShowProfitConfigModal(true);
+                      }}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+                <span className="text-base sm:text-lg font-black text-blue-800 mt-0.5 block">
+                  ₹{Math.round(loanStats.totalCollected * (loanProfitRate / 100)).toLocaleString("en-IN")}
+                </span>
+                <span className="text-[10px] text-blue-600 mt-0.5 block font-medium">
+                  Expected: ₹{Math.round(loanStats.totalDisbursed * (loanProfitRate / 100)).toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Queue Items Grid / List */}
         {loading ? (
@@ -732,26 +874,14 @@ export default function StaffDesk() {
             <p className="text-xs text-gray-500 max-w-sm">
               There are currently no items matching your filter criteria in the {DEPT_CONFIG[activeTab]?.label} desk.
             </p>
-            {(activeTab === "loan" || isAdmin || hasPermission("loan.create_on_behalf")) && (
-              <button
-                type="button"
-                onClick={() => setShowIssueLoanModal(true)}
-                className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
-              >
-                <span>➕</span>
-                <span>Kisi Ka Naya Loan Issue Karein</span>
-              </button>
-            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {currentItems.map((item) => {
-              const claimInfo = getClaimStatus(item);
               const amount = item.amount || item.principalAmount || 0;
               const isOverLimit = maxApprovalAmount > 0 && amount > maxApprovalAmount;
               const isSelfAction = String(item.userId?._id || item.userId || "") === String(user?._id || user?.id || "");
-              const canProcess = hasPermission(DEPT_CONFIG[activeTab]?.processPerm) && !isSelfAction && (!claimInfo.isClaimed || claimInfo.isClaimedByMe);
-              const customerPhoto = item.documents?.photoUrl || item.avatar || item.photoUrl || item.userId?.avatar || item.userId?.photoUrl || item.documents?.doc1Url || item.kycDocuments?.doc1Url;
+              const canProcess = hasPermission(DEPT_CONFIG[activeTab]?.processPerm) && !isSelfAction;
               const hasDocs = !!(item.documents?.photoUrl || item.documents?.doc1Url || item.documents?.doc1BackUrl || item.documents?.doc2Url || item.documents?.chequeUrl || item.screenshotUrl || item.proofUrl || item.kycDocuments?.doc1Url);
               const customerName = item.name || item.userId?.name || item.userName || "Customer";
               const customerPhone = item.phone || item.userId?.phone || item.userPhone || item.email || item.userId?.email || "—";
@@ -759,13 +889,7 @@ export default function StaffDesk() {
               return (
                 <div
                   key={item._id}
-                  className={`bg-white border rounded-2xl p-4 flex flex-col justify-between gap-4 transition hover:shadow-md shadow-xs ${
-                    claimInfo.isClaimedByMe
-                      ? "border-blue-300 bg-blue-50/20"
-                      : claimInfo.isClaimed
-                      ? "border-amber-300 bg-amber-50/20"
-                      : "border-gray-200"
-                  }`}
+                  className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col justify-between gap-4 transition hover:shadow-md shadow-xs"
                 >
                   {/* Top Bar: Status & Amount */}
                   <div>
@@ -802,24 +926,11 @@ export default function StaffDesk() {
                       )}
                     </div>
 
-                    {/* User Identity & Photo */}
+                    {/* User Identity */}
                     <div className="flex items-center gap-3">
-                      {customerPhoto ? (
-                        <img
-                          src={customerPhoto}
-                          alt="Customer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEnlargedImage(customerPhoto);
-                          }}
-                          className="w-10 h-10 rounded-2xl object-cover border border-gray-200 bg-gray-50 cursor-pointer hover:scale-105 transition shrink-0"
-                          title="Click to enlarge photo"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 font-black flex items-center justify-center text-sm shrink-0">
-                          {customerName[0].toUpperCase()}
-                        </div>
-                      )}
+                      <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700 font-black flex items-center justify-center text-sm shrink-0">
+                        {customerName ? customerName[0].toUpperCase() : "C"}
+                      </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <h4 className="text-sm font-bold text-gray-900 truncate">
@@ -877,31 +988,6 @@ export default function StaffDesk() {
                       </div>
                     </div>
 
-                    {/* Claim Lock Status Badge */}
-                    {claimInfo.isClaimed && (
-                      <div className="mt-3 p-2 rounded-xl text-xs flex items-center justify-between border bg-gray-50 border-gray-200">
-                        {claimInfo.isClaimedByMe ? (
-                          <div className="flex items-center gap-1.5 text-blue-600 font-bold text-[11px]">
-                            <span>🔒</span>
-                            <span>Claimed by you</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-amber-600 font-bold text-[11px]">
-                            <span>🔒</span>
-                            <span className="truncate">Claimed by {claimInfo.claimedByName}</span>
-                          </div>
-                        )}
-                        {claimInfo.isClaimedByMe && (
-                          <button
-                            onClick={() => handleReleaseClaim(item, activeTab)}
-                            className="text-[10px] text-gray-500 hover:text-rose-600 underline font-semibold"
-                          >
-                            Release
-                          </button>
-                        )}
-                      </div>
-                    )}
-
                     {/* Warning Badges */}
                     {isSelfAction && (
                       <div className="mt-2 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-bold">
@@ -923,16 +1009,6 @@ export default function StaffDesk() {
                     >
                       Inspect 🔍
                     </button>
-
-                    {!claimInfo.isClaimed && (
-                      <button
-                        onClick={() => handleClaim(item, activeTab)}
-                        className="py-1.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 transition cursor-pointer"
-                        title="Lock for exclusive review"
-                      >
-                        Claim 🔒
-                      </button>
-                    )}
 
                     {canProcess && ["pending", "hold"].includes(item.status || item.kycStatus || "pending") && (
                       <>
@@ -1777,6 +1853,108 @@ export default function StaffDesk() {
               >
                 {actionLoading && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                 <span>{actionLoading ? "Processing..." : `Confirm ${actionModal.type === "approve" ? "Approval" : "Rejection"}`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loan Department Profit Customizer Modal */}
+      {showProfitConfigModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center text-lg font-black">
+                  %
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Customise Loan Profit %</h3>
+                  <p className="text-xs text-gray-500">Collected EMI payments per department percentage</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowProfitConfigModal(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold flex items-center justify-center text-sm transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-emerald-50/60 border border-emerald-200/60 rounded-2xl p-3.5 text-xs text-emerald-900">
+              <p className="font-semibold mb-1">ℹ️ Department Profit Rule</p>
+              <p className="text-emerald-800 text-[11px] leading-relaxed">
+                Customer dwara pay ki gayi collected EMI amount par Loan Department ko profit percentage credit hota hai. Admin ise custom set kar sakta hai.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                Department Profit Percentage (%):
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="100"
+                  value={tempProfitRate}
+                  onChange={(e) => setTempProfitRate(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 focus:bg-white focus:border-emerald-500 rounded-2xl px-4 py-3 text-lg font-black text-gray-900 outline-none transition"
+                  placeholder="e.g. 5"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-black text-sm">%</span>
+              </div>
+
+              {/* Quick Preset Chips */}
+              <div className="flex items-center gap-2 mt-2.5">
+                {[1, 2, 3, 5, 8, 10].map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    onClick={() => setTempProfitRate(rate)}
+                    className={`px-2.5 py-1 text-xs font-black rounded-xl border transition ${
+                      Number(tempProfitRate) === rate
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                        : "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200"
+                    }`}
+                  >
+                    {rate}%
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Live Preview */}
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3.5 text-xs flex justify-between items-center">
+              <div>
+                <div className="text-gray-500 text-[11px]">Calculated Department Profit:</div>
+                <div className="text-base font-black text-emerald-700">
+                  ₹{Math.round((loanStats.totalCollected * (Number(tempProfitRate) || 0)) / 100).toLocaleString("en-IN")}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-gray-500 text-[11px]">From Collected EMI:</div>
+                <div className="font-bold text-gray-800">
+                  ₹{loanStats.totalCollected.toLocaleString("en-IN")}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowProfitConfigModal(false)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveProfitRate}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition"
+              >
+                Save Profit Rate ✓
               </button>
             </div>
           </div>

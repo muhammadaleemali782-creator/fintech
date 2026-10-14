@@ -45,14 +45,11 @@ if (process.env.JWT_SECRET.length < 32) {
   process.exit(1);
 }
 
-// KYC documents are encrypted with ENCRYPTION_KEY. In production the server refuses to start
-// without it (instead of silently using a weak/hardcoded fallback key).
-if (process.env.NODE_ENV === 'production' && !process.env.ENCRYPTION_KEY) {
-  console.error('❌ ENCRYPTION_KEY is required in production (used to encrypt KYC documents).');
-  console.error('   Generate: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
-  console.error('   Existing encrypted documents stay readable (old JWT_SECRET is tried automatically).');
-  process.exit(1);
+// KYC documents encryption key: fallback cleanly to JWT_SECRET if hosting environment (Render) hasn't set ENCRYPTION_KEY
+if (!process.env.ENCRYPTION_KEY) {
+  process.env.ENCRYPTION_KEY = process.env.JWT_SECRET;
 }
+
 
 const app = express();
 

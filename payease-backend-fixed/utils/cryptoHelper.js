@@ -21,10 +21,10 @@ function deriveKey(secret) {
 }
 
 function getPrimaryKey() {
-  const secret = process.env.ENCRYPTION_KEY;
+  const secret = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
   if (!secret) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('ENCRYPTION_KEY must be set in production');
+      throw new Error('ENCRYPTION_KEY or JWT_SECRET must be set in production');
     }
     // Development only: stable per-machine fallback so local dev works. Never used in production.
     return deriveKey('dev-only-encryption-key::' + (process.env.JWT_SECRET || 'local'));

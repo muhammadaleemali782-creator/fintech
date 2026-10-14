@@ -146,6 +146,33 @@ export default function StaffDesk() {
     };
   }, [queues.loan]);
 
+  const depositStats = useMemo(() => {
+    const list = queues.deposit || [];
+    let totalDeposited = 0;
+    let pendingAmount = 0;
+    let pendingCount = 0;
+    let approvedCount = 0;
+
+    list.forEach(d => {
+      const amt = Number(d.amount) || 0;
+      if (['approved', 'completed'].includes(d.status)) {
+        totalDeposited += amt;
+        approvedCount++;
+      } else if (['pending', 'hold'].includes(d.status)) {
+        pendingAmount += amt;
+        pendingCount++;
+      }
+    });
+
+    return {
+      totalDeposited,
+      pendingAmount,
+      pendingCount,
+      approvedCount,
+      totalCount: list.length
+    };
+  }, [queues.deposit]);
+
   // Selected item for drawer/modal
   const [selectedItem, setSelectedItem] = useState(null);
   const [actionModal, setActionModal] = useState(null); // { item, type: 'approve' | 'reject' }
@@ -602,7 +629,7 @@ export default function StaffDesk() {
         const userName = (item.name || item.userId?.name || item.userName || "").toLowerCase();
         const userEmail = (item.email || item.userId?.email || item.userEmail || "").toLowerCase();
         const userPhone = (item.phone || item.userId?.phone || item.userPhone || "").toLowerCase();
-        const ref = (item.reference || item.accountNumber || item._id || item.aadharNumber || "").toLowerCase();
+        const ref = (item.reference || item.referenceId || item.utrNumber || item.accountNumber || item._id || item.aadharNumber || "").toLowerCase();
         const amountStr = String(item.amount || item.principalAmount || "");
 
         return userName.includes(q) || userEmail.includes(q) || userPhone.includes(q) || ref.includes(q) || amountStr.includes(q);
@@ -859,6 +886,59 @@ export default function StaffDesk() {
           </div>
         )}
 
+        {/* Deposit Department Overview Card */}
+        {activeTab === "deposit" && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">💳</span>
+                <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                  Deposit Department Overview (Inflow / Aaya Paisa)
+                </h4>
+              </div>
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                {depositStats.approvedCount} Successful Past Deposits
+              </span>
+            </div>
+
+            {/* 3 Stat Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {/* 1. Total Deposit Aaya (Approved) */}
+              <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase block">Total Deposit Aaya (Inflow)</span>
+                <span className="text-base sm:text-lg font-black text-emerald-800 mt-0.5 block">
+                  ₹{depositStats.totalDeposited.toLocaleString("en-IN")}
+                </span>
+                <span className="text-[10px] text-emerald-600 mt-0.5 block font-medium">
+                  {depositStats.approvedCount} Approved Deposits
+                </span>
+              </div>
+
+              {/* 2. Pending Verification */}
+              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200">
+                <span className="text-[10px] font-bold text-amber-700 uppercase block">Pending Verification</span>
+                <span className="text-base sm:text-lg font-black text-amber-800 mt-0.5 block">
+                  ₹{depositStats.pendingAmount.toLocaleString("en-IN")}
+                </span>
+                <span className="text-[10px] text-amber-600 mt-0.5 block font-medium">
+                  {depositStats.pendingCount} Requests Awaiting Check
+                </span>
+              </div>
+
+              {/* 3. Total Deposit Records */}
+              <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-200 col-span-2 lg:col-span-1">
+                <span className="text-[10px] font-bold text-blue-700 uppercase block">Total Deposit History</span>
+                <span className="text-base sm:text-lg font-black text-blue-800 mt-0.5 block">
+                  {depositStats.totalCount} Total Requests
+                </span>
+                <span className="text-[10px] text-blue-600 mt-0.5 block font-medium">
+                  Select "All Items" to view past deposits
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Queue Items Grid / List */}
         {loading ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3 text-gray-400">
@@ -966,7 +1046,19 @@ export default function StaffDesk() {
                           <span className="font-mono text-gray-800 font-semibold">{item.panNumber || item.kycDocuments?.panNumber}</span>
                         </div>
                       )}
-                      {item.reference && (
+                      {(item.utrNumber || item.referenceId) && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">UTR / Ref:</span>
+                          <span className="font-mono text-gray-800 font-bold">{item.utrNumber || item.referenceId}</span>
+                        </div>
+                      )}
+                      {item.method && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Method:</span>
+                          <span className="text-gray-800 uppercase font-semibold text-[10px]">{item.method}</span>
+                        </div>
+                      )}
+                      {item.reference && !item.utrNumber && !item.referenceId && (
                         <div className="flex justify-between">
                           <span className="text-gray-400">Ref:</span>
                           <span className="font-mono text-gray-700">{item.reference}</span>

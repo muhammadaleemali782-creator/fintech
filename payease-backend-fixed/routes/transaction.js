@@ -308,6 +308,7 @@ router.post('/deposit', protect, async (req, res) => {
     });
     
     memoryCache.delPrefix('user_me_' + req.user._id);
+    memoryCache.delPrefix('desk_queues');
 
     // Fast non-blocking Google Drive sync for deposit evidence
     if (finalProof && finalProof.startsWith('data:')) {

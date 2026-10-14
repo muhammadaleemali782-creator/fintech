@@ -2388,17 +2388,35 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
 
     const promises = [];
 
-    // Deposits, Withdrawals & Lending Transactions (Optimized projection)
+    // Deposits, Withdrawals & Lending Transactions (Optimized projection: pending first + recent past)
     if (allowedDepts.includes('deposit') || allowedDepts.includes('withdrawal') || allowedDepts.includes('lending')) {
+      const typeConditions = [];
+      if (allowedDepts.includes('deposit') || !isStaff) typeConditions.push({ type: 'deposit' });
+      if (allowedDepts.includes('withdrawal') || !isStaff) typeConditions.push({ type: 'withdrawal' });
+      if (allowedDepts.includes('lending') || !isStaff) {
+        typeConditions.push({ sourceWallet: 'lending' });
+        typeConditions.push({ type: /lending/i });
+      }
+
+      const txQuery = typeConditions.length > 0 ? { $or: typeConditions } : {};
+
       promises.push(
-        Transaction.find({ status: { $in: ['pending', 'hold'] } })
-          .select('userId type amount status isHold sourceWallet referenceId utrNumber proofUrl screenshotUrl upiId accountNumber createdAt claim')
+        Transaction.find(txQuery)
+          .select('userId type amount status isHold sourceWallet referenceId utrNumber method proofUrl screenshotUrl upiId accountNumber remarks createdAt claim')
           .populate('userId', 'name email phone accountNumber upiId aadharNumber panNumber bankAccount kycStatus avatar photoUrl')
           .sort({ createdAt: -1 })
-          .limit(60)
+          .limit(120)
           .lean()
           .then(txns => {
-            txns.forEach(t => {
+            // Sort: pending & hold on top, followed by recent approved/completed/rejected
+            const sortedTxns = [...txns].sort((a, b) => {
+              const aPending = ['pending', 'hold'].includes(a.status) ? 1 : 0;
+              const bPending = ['pending', 'hold'].includes(b.status) ? 1 : 0;
+              if (aPending !== bPending) return bPending - aPending;
+              return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+
+            sortedTxns.forEach(t => {
               if (t.type === 'deposit' && (allowedDepts.includes('deposit') || !isStaff)) {
                 queues.deposit.push(t);
               } else if (t.type === 'withdrawal' && (allowedDepts.includes('withdrawal') || !isStaff)) {
@@ -2407,9 +2425,9 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
                 queues.lending.push(t);
               }
             });
-            queues.counts.deposit = queues.deposit.length;
-            queues.counts.withdrawal = queues.withdrawal.length;
-            queues.counts.lending += queues.lending.length;
+            queues.counts.deposit = queues.deposit.filter(t => ['pending', 'hold'].includes(t.status)).length;
+            queues.counts.withdrawal = queues.withdrawal.filter(t => ['pending', 'hold'].includes(t.status)).length;
+            queues.counts.lending = queues.lending.filter(t => ['pending', 'hold'].includes(t.status)).length;
           })
       );
     }

@@ -5849,24 +5849,45 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* 2. Debt Account (Dues & 365-Day 1 Lakh Bond) */}
+            {/* 2. Debt Account (Loan Dues & Kist) */}
             <div
-              onClick={() => setAccountModal("debt")}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-rose-500 bg-white hover:bg-rose-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+              onClick={openLoansHub}
+              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-red-500 bg-white hover:bg-red-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
             >
               <div>
                 <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-xl">
+                  <div className="w-11 h-11 rounded-xl bg-red-100 text-red-700 flex items-center justify-center text-xl">
                     📑
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-100 text-rose-800">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-red-100 text-red-800">
+                    10-Day Cycle
+                  </span>
+                </div>
+                <h4 className="font-extrabold text-base text-gray-900">Debt Account</h4>
+              </div>
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-end text-xs mt-3">
+                <span className="text-red-600 font-bold">Open Debt & Dues →</span>
+              </div>
+            </div>
+
+            {/* 3. Bond Account (365-Day Fixed 18% Profit Bond) */}
+            <div
+              onClick={() => setAccountModal("debt")}
+              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-emerald-500 bg-white hover:bg-emerald-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl">
+                    📜
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800">
                     365-Day Bond
                   </span>
                 </div>
-                <h4 className="font-extrabold text-base text-gray-900">Debt & Bond Account</h4>
+                <h4 className="font-extrabold text-base text-gray-900">Bond Account</h4>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-end text-xs mt-3">
-                <span className="text-rose-600 font-bold">Open Bonds & Dues →</span>
+                <span className="text-emerald-700 font-bold">Open 365d Bond →</span>
               </div>
             </div>
 
@@ -7895,9 +7916,9 @@ export default function Dashboard() {
       </Sheet>
 
       {/* ══════════════════════════════════════════════════════
-          5. DEBT ACCOUNT SHEET (DUES & 365-DAY 1 LAKH BOND)
+          5. 365-DAY FIXED BOND ACCOUNT SHEET
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={accountModal === "debt"} onClose={closeModal} title="Debt & Bond Account" icon="📑">
+      <Sheet open={accountModal === "debt"} onClose={closeModal} title="Bond Account (365-Day Fixed)" icon="📜">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2.5">
             <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-4 text-white shadow-sm">

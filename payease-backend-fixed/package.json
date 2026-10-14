@@ -9,6 +9,7 @@
     "test": "node --test tests/crypto.test.js tests/token.test.js tests/db.test.js tests/money.test.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1152.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",
     "cors": "^2.8.5",

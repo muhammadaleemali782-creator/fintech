@@ -9,6 +9,7 @@ const { validateBase64Upload } = require('../utils/validateUpload');
 const bcrypt = require('bcryptjs');
 const memoryCache = require('../utils/cache');
 const { syncToGoogleDrive } = require('../utils/drive');
+const { uploadToR2 } = require('../utils/r2');
 const { acquireLock } = require('../utils/lock');
 const { lockedMinutes, registerFailure, registerSuccess } = require('../utils/lockout');
 const router = express.Router();
@@ -291,6 +292,17 @@ router.post('/deposit', protect, async (req, res) => {
           message: 'Aap already is UTR ki request bhej chuke ho. Kripya verification ka intezar karein.'
         });
       }
+    // Fast Cloudflare R2 Upload for deposit evidence (zero DB bloat + edge CDN speed)
+    let storedProof = finalProof;
+    if (finalProof && finalProof.startsWith('data:')) {
+      try {
+        const r2Url = await uploadToR2(finalProof, 'deposits', `dep_${req.user._id}`);
+        if (r2Url && r2Url.startsWith('http')) {
+          storedProof = r2Url;
+        }
+      } catch (r2Err) {
+        console.warn('R2 deposit upload notice:', r2Err.message);
+      }
     }
 
     const txn = await Transaction.create({
@@ -299,8 +311,8 @@ router.post('/deposit', protect, async (req, res) => {
       amount: numAmount,
       method,
       utrNumber: cleanUtr,
-      proofUrl: finalProof,
-      screenshotUrl: finalProof,
+      proofUrl: storedProof,
+      screenshotUrl: storedProof,
       status: 'pending',
       isHold: false,
       holdReason: '',

@@ -13,6 +13,7 @@ const { generateAccountNumber } = require('../utils/accountNumber');
 const { validateBase64Upload } = require('../utils/validateUpload');
 const { syncToGoogleDrive } = require('../utils/drive');
 const { encryptData, decryptData } = require('../utils/cryptoHelper');
+const { uploadToR2 } = require('../utils/r2');
 const memoryCache = require('../utils/cache');
 const { sendNotification } = require('../utils/notifier');
 const { acquireLock, releaseLock } = require('../utils/lock');
@@ -637,21 +638,46 @@ router.post('/apply', protect, async (req, res) => {
       return res.status(400).json({ message: 'Valid phone number darj karna anivarya (mandatory) hai.' });
     }
 
+    // Fast Cloudflare R2 Uploads for loan documents (Edge CDN + zero MongoDB bloat)
+    let finalAadharFront = aadharFront;
+    let finalAadharBack = aadharBack;
+    let finalPanFront = panFront;
+    let finalPanBack = panBack;
+    let finalChequeFront = chequeFront;
+    let finalChequeBack = chequeBack;
+
+    try {
+      const [r2Af, r2Ab, r2Pf, r2Pb, r2Cf, r2Cb] = await Promise.all([
+        aadharFront && aadharFront.startsWith('data:') ? uploadToR2(aadharFront, 'loans', `loan_aadhaar_f_${userDoc._id}`) : aadharFront,
+        aadharBack && aadharBack.startsWith('data:') ? uploadToR2(aadharBack, 'loans', `loan_aadhaar_b_${userDoc._id}`) : aadharBack,
+        panFront && panFront.startsWith('data:') ? uploadToR2(panFront, 'loans', `loan_pan_f_${userDoc._id}`) : panFront,
+        panBack && panBack.startsWith('data:') ? uploadToR2(panBack, 'loans', `loan_pan_b_${userDoc._id}`) : panBack,
+        chequeFront && chequeFront.startsWith('data:') ? uploadToR2(chequeFront, 'loans', `loan_cheque_f_${userDoc._id}`) : chequeFront,
+        chequeBack && chequeBack.startsWith('data:') ? uploadToR2(chequeBack, 'loans', `loan_cheque_b_${userDoc._id}`) : chequeBack,
+      ]);
+      if (r2Af && r2Af.startsWith('http')) finalAadharFront = r2Af;
+      if (r2Ab && r2Ab.startsWith('http')) finalAadharBack = r2Ab;
+      if (r2Pf && r2Pf.startsWith('http')) finalPanFront = r2Pf;
+      if (r2Pb && r2Pb.startsWith('http')) finalPanBack = r2Pb;
+      if (r2Cf && r2Cf.startsWith('http')) finalChequeFront = r2Cf;
+      if (r2Cb && r2Cb.startsWith('http')) finalChequeBack = r2Cb;
+    } catch (_) {}
+
     // Consolidated documents payload
     const loanDocumentsPayload = {
       aadharNumber,
-      aadharUrl: aadharFront,
-      aadharBackUrl: aadharBack,
-      doc1Url: aadharFront,
-      doc1BackUrl: aadharBack,
+      aadharUrl: finalAadharFront,
+      aadharBackUrl: finalAadharBack,
+      doc1Url: finalAadharFront,
+      doc1BackUrl: finalAadharBack,
       panNumber,
-      panUrl: panFront,
-      panBackUrl: panBack,
-      doc2Url: panFront,
-      doc2BackUrl: panBack,
+      panUrl: finalPanFront,
+      panBackUrl: finalPanBack,
+      doc2Url: finalPanFront,
+      doc2BackUrl: finalPanBack,
       chequeNumber: chequeNum,
-      chequeUrl: chequeFront,
-      chequeBackUrl: chequeBack,
+      chequeUrl: finalChequeFront,
+      chequeBackUrl: finalChequeBack,
       bankName,
       bankAccountNumber: bankAccount,
       bankIfsc,
@@ -676,11 +702,11 @@ router.post('/apply', protect, async (req, res) => {
     if (!userDoc.kycDocuments) userDoc.kycDocuments = {};
     userDoc.aadharNumber = aadharNumber;
     userDoc.kycDocuments.aadharNumber = aadharNumber;
-    userDoc.kycDocuments.doc1Url = encryptData(aadharFront);
-    userDoc.kycDocuments.doc1BackUrl = encryptData(aadharBack);
+    userDoc.kycDocuments.doc1Url = encryptData(finalAadharFront);
+    userDoc.kycDocuments.doc1BackUrl = encryptData(finalAadharBack);
     userDoc.kycDocuments.panNumber = panNumber;
-    userDoc.kycDocuments.doc2Url = encryptData(panFront);
-    userDoc.kycDocuments.doc2BackUrl = encryptData(panBack);
+    userDoc.kycDocuments.doc2Url = encryptData(finalPanFront);
+    userDoc.kycDocuments.doc2BackUrl = encryptData(finalPanBack);
     userDoc.kycDocuments.chequeNumber = chequeNum;
     await userDoc.save();
 

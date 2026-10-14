@@ -4,6 +4,7 @@ const Settings = require('../models/Settings');
 const User = require('../models/User');
 const { protect, admin } = require('../middleware/auth');
 const memoryCache = require('../utils/cache');
+const { getR2Config, testR2Connection } = require('../utils/r2');
 const router = express.Router();
 
 // Get all settings
@@ -211,6 +212,83 @@ router.post('/google-drive', protect, admin, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: 'Failed to update Google Drive link.' });
+  }
+});
+
+// Get Cloudflare R2 Configuration (safe/masked)
+router.get('/r2', protect, admin, async (req, res) => {
+  try {
+    const config = await getR2Config(true);
+    res.json({
+      isConfigured: config.isConfigured,
+      accountId: config.accountId,
+      bucketName: config.bucketName,
+      publicUrl: config.publicUrl,
+      hasAccessKey: Boolean(config.accessKeyId),
+      hasSecretKey: Boolean(config.secretAccessKey),
+      source: process.env.R2_ACCOUNT_ID ? 'env' : (config.isConfigured ? 'database' : 'none')
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch R2 configuration: ' + err.message });
+  }
+});
+
+// Save Cloudflare R2 Configuration to Database Settings
+router.post('/r2', protect, admin, async (req, res) => {
+  try {
+    const { accountId, accessKeyId, secretAccessKey, bucketName, publicUrl } = req.body;
+    
+    // Get existing to preserve secret if not provided
+    const existing = await Settings.findOne({ key: 'cloudflare_r2' }).lean();
+    const existingVal = existing?.value || {};
+
+    const updatedValue = {
+      accountId: (accountId || existingVal.accountId || '').trim(),
+      accessKeyId: (accessKeyId || existingVal.accessKeyId || '').trim(),
+      secretAccessKey: (secretAccessKey || existingVal.secretAccessKey || '').trim(),
+      bucketName: (bucketName || existingVal.bucketName || '').trim(),
+      publicUrl: (publicUrl || existingVal.publicUrl || '').trim()
+    };
+
+    await Settings.findOneAndUpdate(
+      { key: 'cloudflare_r2' },
+      { key: 'cloudflare_r2', value: updatedValue, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    // Refresh R2 cache
+    await getR2Config(true);
+
+    res.json({
+      success: true,
+      message: '✅ Cloudflare R2 credentials saved successfully!',
+      config: {
+        accountId: updatedValue.accountId,
+        bucketName: updatedValue.bucketName,
+        publicUrl: updatedValue.publicUrl,
+        isConfigured: Boolean(updatedValue.accountId && updatedValue.accessKeyId && updatedValue.secretAccessKey && updatedValue.bucketName)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to save Cloudflare R2 settings: ' + err.message });
+  }
+});
+
+// Test Cloudflare R2 Connection
+router.post('/r2/test', protect, admin, async (req, res) => {
+  try {
+    const customConfig = req.body.accountId ? {
+      accountId: (req.body.accountId || '').trim(),
+      accessKeyId: (req.body.accessKeyId || '').trim(),
+      secretAccessKey: (req.body.secretAccessKey || '').trim(),
+      bucketName: (req.body.bucketName || '').trim(),
+      publicUrl: (req.body.publicUrl || '').trim()
+    } : null;
+
+    const result = await testR2Connection(customConfig);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'R2 Test Error: ' + err.message });
   }
 });
 

@@ -1222,6 +1222,17 @@ export default function AdminPanel() {
   const [newCommissionRate, setNewCommissionRate] = useState("");
   const [googleDriveUrl, setGoogleDriveUrl] = useState("");
   const [newGoogleDriveUrl, setNewGoogleDriveUrl] = useState("");
+  const [r2Config, setR2Config] = useState({
+    accountId: "",
+    accessKeyId: "",
+    secretAccessKey: "",
+    bucketName: "",
+    publicUrl: "",
+    isConfigured: false,
+    source: "none"
+  });
+  const [r2Testing, setR2Testing] = useState(false);
+  const [r2Saving, setR2Saving] = useState(false);
   const [deptCommissions, setDeptCommissions] = useState({
     loan: { name: 'Loan Department', rate: 5, unit: '%', type: 'percentage', basis: 'Collected EMI Repayments', description: 'Commission on EMIs recovered from borrowers' },
     deposit: { name: 'Deposit Department', rate: 1, unit: '%', type: 'percentage', basis: 'Approved Inflow Deposits', description: 'Commission on verified external deposits added to fintech' },
@@ -1830,6 +1841,22 @@ export default function AdminPanel() {
       setCommissionRate(data.referralCommissionRate || 2);
       setGoogleDriveUrl(data.googleDriveUrl || "");
       setNewGoogleDriveUrl(data.googleDriveUrl || "");
+      
+      // Load Cloudflare R2 Status & Configuration
+      fetch(`${API}/settings/r2`, { headers })
+        .then(r => r.json())
+        .then(r2 => {
+          if (r2 && typeof r2 === 'object') {
+            setR2Config(prev => ({
+              ...prev,
+              accountId: r2.accountId || "",
+              bucketName: r2.bucketName || "",
+              publicUrl: r2.publicUrl || "",
+              isConfigured: Boolean(r2.isConfigured),
+              source: r2.source || "none"
+            }));
+          }
+        }).catch(() => {});
     } catch {}
   }, []); // eslint-disable-line
 
@@ -3362,6 +3389,51 @@ export default function AdminPanel() {
       if (res.ok) setGoogleDriveUrl(data.url || newGoogleDriveUrl);
     } catch {
       showToast("Network error updating Google Drive link", "error");
+    }
+  };
+
+  const handleSaveR2 = async () => {
+    setR2Saving(true);
+    try {
+      const res = await fetch(`${API}/settings/r2`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(r2Config)
+      });
+      const data = await res.json();
+      showToast(data.message || "R2 settings updated", res.ok ? "success" : "error");
+      if (res.ok && data.config) {
+        setR2Config(prev => ({
+          ...prev,
+          ...data.config,
+          secretAccessKey: "" // reset secret field for security
+        }));
+      }
+    } catch (e) {
+      showToast(e.message || "Failed to save R2 settings", "error");
+    } finally {
+      setR2Saving(false);
+    }
+  };
+
+  const handleTestR2 = async () => {
+    setR2Testing(true);
+    try {
+      const res = await fetch(`${API}/settings/r2/test`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(r2Config)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("🎉 " + data.message, "success");
+      } else {
+        showToast("❌ " + (data.message || "R2 Connection failed"), "error");
+      }
+    } catch (e) {
+      showToast("Network error testing R2: " + e.message, "error");
+    } finally {
+      setR2Testing(false);
     }
   };
 
@@ -13378,6 +13450,134 @@ export default function AdminPanel() {
                       </a>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* Cloudflare R2 High-Speed Object Storage */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-100 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center text-lg">
+                      ⚡
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 flex items-center gap-2">
+                        Cloudflare R2 Object Storage (Edge CDN)
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        Ultra-fast image hosting (KYC documents, deposit receipts, QR codes) with 0ms egress fees
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border self-start sm:self-auto ${
+                    r2Config.isConfigured
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-gray-100 text-gray-600 border-gray-200"
+                  }`}>
+                    {r2Config.isConfigured ? "● Active & Connected" : "○ Not Configured"}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                  <p className="font-bold">⚡ Kyu use karein Cloudflare R2:</p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Google Drive slow redirects (2–4s) aur MongoDB base64 bloat ki jagah Cloudflare Edge CDN se photos <strong>50ms me khulti hain</strong>. Cloudflare R2 me 10GB free storage milti hai aur bandwidth 100% free hoti hai.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Account ID <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={r2Config.accountId}
+                      onChange={e => setR2Config(p => ({ ...p, accountId: e.target.value }))}
+                      placeholder="e.g. 7c9d4b... (Cloudflare overview URL se)"
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Bucket Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={r2Config.bucketName}
+                      onChange={e => setR2Config(p => ({ ...p, bucketName: e.target.value }))}
+                      placeholder="e.g. educafintech"
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Access Key ID <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={r2Config.accessKeyId}
+                      onChange={e => setR2Config(p => ({ ...p, accessKeyId: e.target.value }))}
+                      placeholder="e.g. 8f6b... (R2 API Token Access Key)"
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Secret Access Key <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={r2Config.secretAccessKey}
+                      onChange={e => setR2Config(p => ({ ...p, secretAccessKey: e.target.value }))}
+                      placeholder={r2Config.isConfigured ? "•••••••••••• (Leave blank to keep current)" : "R2 Secret Key"}
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-xs font-mono"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Public Bucket URL / Custom CDN Domain (Optional for direct public links)
+                    </label>
+                    <input
+                      type="url"
+                      value={r2Config.publicUrl}
+                      onChange={e => setR2Config(p => ({ ...p, publicUrl: e.target.value }))}
+                      placeholder="e.g. https://pub-xxxxxxxx.r2.dev ya https://cdn.yourdomain.com"
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    disabled={r2Saving || !r2Config.accountId || !r2Config.bucketName}
+                    onClick={handleSaveR2}
+                    className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white font-bold text-xs rounded-xl transition shadow-md shadow-orange-600/20 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {r2Saving ? "Saving..." : "💾 Save R2 Credentials"}
+                  </button>
+
+                  <button
+                    disabled={r2Testing || !r2Config.accountId || !r2Config.bucketName}
+                    onClick={handleTestR2}
+                    className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-800 font-bold text-xs rounded-xl border border-gray-200 transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {r2Testing ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                        <span>Testing Connection...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>🧪</span>
+                        <span>Test Connection</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 

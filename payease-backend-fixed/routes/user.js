@@ -10,6 +10,7 @@ const { validateBase64Upload } = require('../utils/validateUpload');
 const { getEducaMailUser, updateEducaMailPassword, sendEducaMailMessage } = require('../utils/educaMail');
 const memoryCache = require('../utils/cache');
 const { encryptData, decryptData } = require('../utils/cryptoHelper');
+const { uploadToR2 } = require('../utils/r2');
 const { lockedMinutes, registerFailure, registerSuccess } = require('../utils/lockout');
 const router = express.Router();
 
@@ -626,14 +627,35 @@ router.post('/kyc/submit', protect, async (req, res) => {
       }
     }
 
+    // Fast Cloudflare R2 Upload for KYC documents (CDN speed, removes base64 bloat)
+    let savedFile1 = file1;
+    let savedDoc1Back = doc1BackUrl || '';
+    let savedFile2 = file2;
+    let savedDoc2Back = doc2BackUrl || '';
+
+    try {
+      const [r2File1, r2Doc1Back, r2File2, r2Doc2Back] = await Promise.all([
+        uploadToR2(file1, 'kyc', `aadhaar_front_${user._id}`),
+        doc1BackUrl ? uploadToR2(doc1BackUrl, 'kyc', `aadhaar_back_${user._id}`) : '',
+        uploadToR2(file2, 'kyc', `pan_front_${user._id}`),
+        doc2BackUrl ? uploadToR2(doc2BackUrl, 'kyc', `pan_back_${user._id}`) : ''
+      ]);
+      if (r2File1 && r2File1.startsWith('http')) savedFile1 = r2File1;
+      if (r2Doc1Back && r2Doc1Back.startsWith('http')) savedDoc1Back = r2Doc1Back;
+      if (r2File2 && r2File2.startsWith('http')) savedFile2 = r2File2;
+      if (r2Doc2Back && r2Doc2Back.startsWith('http')) savedDoc2Back = r2Doc2Back;
+    } catch (r2Err) {
+      console.warn('R2 KYC upload notice:', r2Err.message);
+    }
+
     user.kycDocuments = {
       docType: 'aadhaar',
       doc1Type: 'aadhaar',
-      doc1Url: encryptData(file1),
-      doc1BackUrl: encryptData(doc1BackUrl || ''),
+      doc1Url: encryptData(savedFile1),
+      doc1BackUrl: encryptData(savedDoc1Back),
       doc2Type: selectedDoc2,
-      doc2Url: encryptData(file2),
-      doc2BackUrl: encryptData(doc2BackUrl || ''),
+      doc2Url: encryptData(savedFile2),
+      doc2BackUrl: encryptData(savedDoc2Back),
       aadharNumber: cleanAadhaar,
       aadhaarName: cleanAadhaarName,
       aadharName: cleanAadhaarName,
@@ -643,7 +665,7 @@ router.post('/kyc/submit', protect, async (req, res) => {
       chequeNumber: cleanCheque || user.kycDocuments?.chequeNumber || '',
       address: cleanAadhaarAddress,
       googleDriveLink: '',
-      docUrl: encryptData(file1), // backwards compatibility
+      docUrl: encryptData(savedFile1), // backwards compatibility
       adminRemarks: '',
       submittedAt: new Date()
     };
@@ -1036,7 +1058,15 @@ router.post('/custom-qr', protect, async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    user.customQrUrl = customQrUrl || '';
+    let finalCustomQr = customQrUrl || '';
+    if (customQrUrl && customQrUrl.startsWith('data:')) {
+      try {
+        const r2Qr = await uploadToR2(customQrUrl, 'qr', `user_qr_${user._id}`);
+        if (r2Qr && r2Qr.startsWith('http')) finalCustomQr = r2Qr;
+      } catch (_) {}
+    }
+
+    user.customQrUrl = finalCustomQr;
     user.customQrUpi = (customQrUpi || '').trim();
     user.customQrApp = (customQrApp || 'custom').trim();
     await user.save();

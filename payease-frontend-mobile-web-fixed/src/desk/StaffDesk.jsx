@@ -76,6 +76,10 @@ export default function StaffDesk() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  useEffect(() => {
+    setStatusFilter("all");
+  }, [activeTab]);
+
   // Selected item for drawer/modal
   const [selectedItem, setSelectedItem] = useState(null);
   const [actionModal, setActionModal] = useState(null); // { item, type: 'approve' | 'reject' }
@@ -686,14 +690,11 @@ export default function StaffDesk() {
             >
               {activeTab === "kyc" ? (
                 <>
-                  <option value="all">Full KYC (All: Normal, Loan, Lending, Bond)</option>
-                  <option value="normal_kyc">Normal KYC Only</option>
-                  <option value="loan_kyc">Loan KYC Only</option>
-                  <option value="lending_kyc">Lending KYC Only</option>
-                  <option value="bond_kyc">Bond KYC Only</option>
-                  <option value="pending">Pending Only</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
+                  <option value="all">Full KYC (All)</option>
+                  <option value="normal_kyc">Normal KYC</option>
+                  <option value="loan_kyc">Loan KYC</option>
+                  <option value="lending_kyc">Lending KYC</option>
+                  <option value="bond_kyc">Bond KYC</option>
                 </>
               ) : (
                 <>

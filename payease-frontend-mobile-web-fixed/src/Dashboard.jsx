@@ -7920,19 +7920,6 @@ export default function Dashboard() {
       ══════════════════════════════════════════════════════ */}
       <Sheet open={accountModal === "debt"} onClose={closeModal} title="Bond Account (365-Day Fixed)" icon="📜">
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-4 text-white shadow-sm">
-              <span className="text-[10px] text-emerald-100 font-bold uppercase tracking-wider block">Profit Wallet</span>
-              <div className="text-2xl font-black font-display my-0.5">₹{(userProfile.profitBalance || 0).toLocaleString("en-IN")}</div>
-              <p className="text-[10px] text-emerald-100">Bonds & Capital Earnings</p>
-            </div>
-            <div className="bg-gradient-to-br from-rose-600 to-red-700 rounded-2xl p-4 text-white shadow-sm">
-              <span className="text-[10px] text-rose-100 font-bold uppercase tracking-wider block">Total Pending Dues</span>
-              <div className="text-2xl font-black font-display my-0.5">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")}</div>
-              <p className="text-[10px] text-rose-100">Scheduled on 1st, 11th & 21st</p>
-            </div>
-          </div>
-
           {/* 365-DAY MULTI-UNIT FIXED BOND CREATION */}
           <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-3 shadow-xs">
             <div className="flex justify-between items-start">

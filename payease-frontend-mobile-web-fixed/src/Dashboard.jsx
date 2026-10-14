@@ -73,14 +73,16 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
   }
 };
 
-// Shared 100ms ticker for the live yield counters. Pauses while the app is hidden (battery + no wasted renders).
+// Shared live ticker for the yield counters. Runs on requestAnimationFrame (~60 updates/sec instead of 10),
+// so the rupee digits roll smoothly. Pauses while the app is hidden (battery + no wasted renders).
 function useLiveNow(enabled) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!enabled || typeof document === "undefined") return undefined;
-    let timer = null;
-    const start = () => { if (!timer) { setNow(Date.now()); timer = setInterval(() => setNow(Date.now()), 100); } };
-    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    let raf = null;
+    const loop = () => { setNow(Date.now()); raf = requestAnimationFrame(loop); };
+    const start = () => { if (!raf) { setNow(Date.now()); raf = requestAnimationFrame(loop); } };
+    const stop = () => { if (raf) { cancelAnimationFrame(raf); raf = null; } };
     const onVis = () => (document.hidden ? stop() : start());
     if (!document.hidden) start();
     document.addEventListener("visibilitychange", onVis);

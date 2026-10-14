@@ -4040,11 +4040,20 @@ export default function AdminPanel() {
         {/* MOBILE / TABLET TOP NAV (SLIM WHITE EXECUTIVE BAR) */}
         <nav className="lg:hidden bg-white border-b border-slate-200/90 shadow-2xs sticky top-0 z-40 safe-top">
           <div className="px-3 sm:px-5 py-2 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <img src="/icon-192.png" alt="Educa Fintech" className="w-6 h-6 rounded-full object-contain bg-slate-50 border border-slate-200 p-0.5 shadow-2xs shrink-0" />
-              <div>
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                className="w-8 h-8 rounded-lg bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center text-base active:scale-90 cursor-pointer shrink-0"
+                aria-label="Open menu"
+              >
+                ☰
+              </button>
+              <div className="min-w-0">
                 <h1 className="text-slate-900 font-black text-sm leading-tight">Admin Panel</h1>
-                <p className="text-blue-600 text-[10px] font-bold hidden sm:block leading-none">Control Center</p>
+                <p className="text-blue-600 text-[10px] font-bold leading-none truncate">
+                  {tabs.find(t => t.key === tab)?.icon} {tabs.find(t => t.key === tab)?.label}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
@@ -4191,143 +4200,82 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {/* Tabs — mobile/tablet (Custom Executive Navigation Desk) */}
-          <div className="lg:hidden mb-4 bg-white p-3 rounded-2xl shadow-2xs border border-slate-200/90">
-            {/* Header: Active Section + Sheet Launcher (NO UGLY NATIVE SELECT) */}
-            <div className="flex items-center justify-between gap-2 mb-2.5">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center text-sm shrink-0">
-                  {tabs.find(t => t.key === tab)?.icon || "⚡"}
-                </span>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block leading-tight">
-                    Active Desk
-                  </span>
-                  <span className="text-xs font-black text-slate-900 truncate block leading-tight">
-                    {tabs.find(t => t.key === tab)?.label}
-                  </span>
-                </div>
-              </div>
-
-              {/* Custom Bottom Sheet Opener */}
-              <button
-                type="button"
-                onClick={() => setMobileNavOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer shrink-0"
-              >
-                <span>Switch Desk</span>
-                <span className="text-slate-400 text-[10px]">▼</span>
-              </button>
-            </div>
-
-            {/* Primary Action Quick-Access Desks (Smooth Horizontal Scroll on Mobile - ALL 12 Desks Permanent) */}
-            <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-100 overflow-x-auto no-scrollbar pb-0.5">
-              {tabs.map(({ key, label, icon, badge }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => switchTab(key)}
-                  className={`py-1.5 px-3 rounded-xl text-xs font-bold text-center flex items-center gap-1.5 transition active:scale-95 cursor-pointer relative shrink-0 ${
-                    tab === key
-                      ? "bg-blue-600 text-white shadow-xs font-black"
-                      : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200/70"
-                  }`}
-                >
-                  <span className="text-xs">{icon}</span>
-                  <span className="leading-tight whitespace-nowrap">{label}</span>
-                  {!!badge && (
-                    <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${
-                      tab === key ? "bg-amber-400 text-slate-950 font-black" : "bg-rose-500 text-white"
-                    }`}>
-                      {badge}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Custom iOS/Executive Mobile Navigation Drawer / Bottom Sheet */}
+          {/* MOBILE LEFT SIDEBAR DRAWER (replaces old "Switch Desk" bottom sheet) */}
           {mobileNavOpen && (
-            <div className="fixed inset-0 z-50 flex flex-col justify-end lg:hidden">
-              {/* Backdrop */}
+            <div className="fixed inset-0 z-50 flex lg:hidden">
               <div
-                className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
                 onClick={() => setMobileNavOpen(false)}
               />
-
-              {/* Bottom Sheet Modal */}
-              <div className="relative bg-white rounded-t-3xl border-t border-slate-200 max-h-[85vh] flex flex-col shadow-2xl z-10 animate-in slide-in-from-bottom duration-200">
-                {/* Drag Handle */}
-                <div className="pt-3 pb-1 flex justify-center">
-                  <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
-                </div>
-
-                {/* Sheet Header */}
-                <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-extrabold text-slate-900 leading-tight">
-                      Admin Operations Desks
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Tap any desk to switch workspace immediately
-                    </p>
+              <aside className="relative w-72 max-w-[85vw] h-full bg-slate-900 text-slate-100 border-r border-slate-800 shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+                <div className="shrink-0 px-4 py-4 border-b border-slate-800 flex items-center justify-between safe-top">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img src="/icon-192.png" alt="Educa" className="w-8 h-8 rounded-full bg-white object-contain p-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-black leading-tight truncate">Educa Admin</h3>
+                      <p className="text-[10px] text-slate-400 leading-tight">Operations Desks</p>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setMobileNavOpen(false)}
-                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 text-sm font-bold transition active:scale-90 cursor-pointer"
+                    className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 text-sm font-bold active:scale-90 cursor-pointer"
+                    aria-label="Close menu"
                   >
                     ✕
                   </button>
                 </div>
 
-                {/* Desk Items Grid */}
-                <div className="overflow-y-auto p-4 space-y-1.5 no-scrollbar">
+                <nav className="flex-1 overflow-y-auto p-3 space-y-1 no-scrollbar">
                   {tabs.map(({ key, label, icon, badge }) => {
                     const isActive = tab === key;
                     return (
                       <button
                         key={key}
                         type="button"
-                        onClick={() => {
-                          switchTab(key);
-                          setMobileNavOpen(false);
-                        }}
-                        className={`w-full p-3 rounded-2xl flex items-center justify-between transition active:scale-[0.98] cursor-pointer border ${
-                          isActive
-                            ? "bg-blue-50/80 border-blue-400 text-blue-900 shadow-2xs font-extrabold"
-                            : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                        onClick={() => { switchTab(key); setMobileNavOpen(false); }}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition active:scale-[0.98] cursor-pointer ${
+                          isActive ? "bg-blue-600 text-white shadow-md" : "text-slate-300 hover:bg-slate-800"
                         }`}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-lg shrink-0">
-                            {icon}
+                        <span className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-base shrink-0">{icon}</span>
+                          <span className="truncate">{label}</span>
+                        </span>
+                        {!!badge && (
+                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isActive ? "bg-amber-400 text-slate-950" : "bg-rose-500 text-white"}`}>
+                            {badge}
                           </span>
-                          <span className="text-sm font-bold truncate">
-                            {label}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {!!badge && (
-                            <span className="text-xs font-black px-2 py-0.5 rounded-full bg-rose-500 text-white">
-                              {badge}
-                            </span>
-                          )}
-                          {isActive ? (
-                            <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-black">
-                              ✓
-                            </span>
-                          ) : (
-                            <span className="text-slate-300 text-xs">›</span>
-                          )}
-                        </div>
+                        )}
                       </button>
                     );
                   })}
+                </nav>
+
+                <div className="shrink-0 px-3 py-3 space-y-2 border-t border-slate-800 bg-slate-950/60 pb-safe">
+                  <Link
+                    to="/desk"
+                    onClick={() => setMobileNavOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 rounded-xl text-xs font-bold active:scale-95"
+                  >
+                    <span>🏢</span><span>Department Desks</span>
+                  </Link>
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setMobileNavOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold active:scale-95"
+                  >
+                    <span>📱</span><span>Customer App View</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="w-full px-2.5 py-2 bg-rose-600/90 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <span>🚪</span><span>Logout</span>
+                  </button>
                 </div>
-              </div>
+              </aside>
             </div>
           )}
 

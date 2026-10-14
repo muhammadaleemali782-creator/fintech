@@ -261,6 +261,17 @@ const sensitiveAuthLimiter = rateLimit({
 app.use('/api/auth/change-password', sensitiveAuthLimiter);
 app.use('/api/user/change-password', sensitiveAuthLimiter);
 
+// Device pairing: stops brute-forcing of short pairing codes
+const pairingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many pairing attempts. Please try again after 15 minutes.' }
+});
+app.use('/v1/pairing/redeem', pairingLimiter);
+app.use('/api/v1/pairing/redeem', pairingLimiter);
+
 // Financial Transaction Limiter: Protects money transfers & withdrawals from spam/race conditions
 const txLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

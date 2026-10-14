@@ -73,15 +73,40 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
   }
 };
 
-// Shared live ticker for the yield counters. Runs at 25ms interval (40 updates/sec),
-// so the rupee digits roll smoothly while maintaining ultra-low CPU on mobile. Pauses while the app is hidden.
+// Shared high-speed live ticker for yield counters. Runs at 10ms (~100 updates/sec) with
+// requestAnimationFrame fallback so rupee digits roll at lightning speed without stuttering. Pauses when app is hidden.
 function useLiveNow(enabled) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!enabled || typeof document === "undefined") return undefined;
+    if (!enabled || typeof window === "undefined") return undefined;
     let timer = null;
-    const start = () => { if (!timer) { setNow(Date.now()); timer = setInterval(() => setNow(Date.now()), 25); } };
-    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    let raf = null;
+    let last = 0;
+    const tick = () => {
+      const t = Date.now();
+      if (t - last >= 10) {
+        last = t;
+        setNow(t);
+      }
+      if (typeof requestAnimationFrame !== "undefined") {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    const start = () => {
+      if (!timer && !raf) {
+        last = Date.now();
+        setNow(last);
+        if (typeof requestAnimationFrame !== "undefined") {
+          raf = requestAnimationFrame(tick);
+        } else {
+          timer = setInterval(() => setNow(Date.now()), 10);
+        }
+      }
+    };
+    const stop = () => {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      if (timer) { clearInterval(timer); timer = null; }
+    };
     const onVis = () => (document.hidden ? stop() : start());
     if (!document.hidden) start();
     document.addEventListener("visibilitychange", onVis);
@@ -138,7 +163,8 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
     return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
   }
 
-  const decimals = cap >= 100000 ? 6 : (cap >= 10000 ? 7 : 8);
+  // 10 decimals for small/demo balances (< ₹10,000) so nano-rupee digits spin rapidly at 100fps
+  const decimals = cap >= 100000 ? 6 : (cap >= 10000 ? 8 : 10);
   const formatted = totalProfit.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
   return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
@@ -171,7 +197,7 @@ function LiveTodayAccrued({ activeCapital = 0, isAdmin = false }) {
     return <span className="font-mono tabular-nums tracking-tight">₹0.00</span>;
   }
 
-  const decimals = cap >= 100000 ? 4 : (cap >= 10000 ? 5 : 6);
+  const decimals = cap >= 100000 ? 4 : (cap >= 10000 ? 6 : 8);
   return <span className="font-mono tabular-nums tracking-tight">₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</span>;
 }
 
@@ -6632,7 +6658,7 @@ export default function Dashboard() {
               <div className="text-right">
                 <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Added Every Second:</span>
                 <div className="text-xs sm:text-sm font-black font-mono text-emerald-200 bg-emerald-900/60 px-2.5 py-1.5 rounded-xl border border-emerald-500/30 inline-block">
-                  ⚡ +₹{perSecondYield.toFixed(4)}/sec
+                  ⚡ +₹{perSecondYield >= 0.0001 ? perSecondYield.toFixed(4) : perSecondYield.toFixed(6)}/sec
                 </div>
               </div>
             </div>

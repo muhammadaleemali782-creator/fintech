@@ -502,7 +502,10 @@ export default function StaffDesk() {
     const list = queues[activeTab] || [];
     return list.filter(item => {
       if (activeTab === "kyc") {
-        if (statusFilter === "loan_kyc") {
+        if (statusFilter === "normal_kyc") {
+          const isSpecialized = Boolean(item.hasLoan || item.loanId || item.hasLending || item.lendingId || item.hasBond || item.bondId || item.documents?.chequeUrl || item.kycDocuments?.chequeUrl || (item.kycType && item.kycType !== "normal"));
+          if (isSpecialized) return false;
+        } else if (statusFilter === "loan_kyc") {
           const hasLoan = Boolean(item.hasLoan || item.loanId || item.documents?.chequeUrl || item.kycDocuments?.chequeUrl || (item.purpose && item.purpose.toLowerCase().includes("loan")));
           if (!hasLoan && item.kycType && item.kycType !== "loan") return false;
         } else if (statusFilter === "lending_kyc") {
@@ -661,7 +664,7 @@ export default function StaffDesk() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={`Search ${activeTab === 'kyc' ? 'Full KYC (Loan, Lending, Bond)' : (DEPT_CONFIG[activeTab]?.label || 'queue')} by user, phone, account, ID...`}
+              placeholder={`Search ${activeTab === 'kyc' ? 'KYC (Normal, Loan, Lending, Bond)' : (DEPT_CONFIG[activeTab]?.label || 'queue')} by user, phone, account, ID...`}
               className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white transition"
             />
             {searchTerm && (
@@ -683,7 +686,8 @@ export default function StaffDesk() {
             >
               {activeTab === "kyc" ? (
                 <>
-                  <option value="all">Full KYC (Lending KYC, Loan KYC, Bond KYC)</option>
+                  <option value="all">Full KYC (All: Normal, Loan, Lending, Bond)</option>
+                  <option value="normal_kyc">Normal KYC Only</option>
                   <option value="loan_kyc">Loan KYC Only</option>
                   <option value="lending_kyc">Lending KYC Only</option>
                   <option value="bond_kyc">Bond KYC Only</option>
@@ -779,7 +783,13 @@ export default function StaffDesk() {
                         </span>
                         {activeTab === "kyc" && (
                           <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-bold">
-                            Full KYC
+                            {item.hasLoan || item.loanId || item.documents?.chequeUrl || item.kycDocuments?.chequeUrl || item.kycType === "loan"
+                              ? "Loan KYC"
+                              : item.hasLending || item.lendingId || item.kycType === "lending"
+                              ? "Lending KYC"
+                              : item.hasBond || item.bondId || item.kycType === "bond"
+                              ? "Bond KYC"
+                              : "Normal KYC"}
                           </span>
                         )}
                       </div>

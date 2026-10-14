@@ -104,7 +104,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'", 'https://educafintech.vercel.app'],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net'], // API serves JSON only: no inline scripts
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
@@ -169,18 +169,23 @@ app.use((req, res, next) => {
 // Body size limits: 1 MB everywhere by default (stops unauthenticated 25 MB request floods).
 // The 25 MB limit (base64 KYC / proof / QR images) applies only to the upload endpoints below
 // AND only when the request carries credentials.
+// Multi-document uploads (several base64 images per request): 25 MB.
 const BIG_BODY_PREFIXES = [
   '/api/user/kyc', '/api/user/update', '/api/user/custom-qr',
   '/api/loan', '/api/bond',
-  '/api/transaction/deposit', '/api/transaction/withdraw',
-  '/api/settings', '/api/admin'
+  '/api/transaction/deposit', '/api/transaction/withdraw'
 ];
+// Admin/settings only carry a single evidence image (each file is capped at 5 MB by validateUpload): 10 MB.
+const MEDIUM_BODY_PREFIXES = ['/api/settings', '/api/admin'];
 const smallJson = express.json({ limit: '1mb' });
+const mediumJson = express.json({ limit: '10mb' });
 const bigJson = express.json({ limit: '25mb' });
 app.use((req, res, next) => {
   const hasCredentials = Boolean(req.headers.authorization || (req.cookies && req.cookies.token));
-  const isUploadRoute = BIG_BODY_PREFIXES.some(p => req.path.startsWith(p));
-  return (hasCredentials && isUploadRoute) ? bigJson(req, res, next) : smallJson(req, res, next);
+  if (!hasCredentials) return smallJson(req, res, next);
+  if (BIG_BODY_PREFIXES.some(p => req.path.startsWith(p))) return bigJson(req, res, next);
+  if (MEDIUM_BODY_PREFIXES.some(p => req.path.startsWith(p))) return mediumJson(req, res, next);
+  return smallJson(req, res, next);
 });
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 

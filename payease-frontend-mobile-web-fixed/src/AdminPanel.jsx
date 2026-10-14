@@ -4039,12 +4039,12 @@ export default function AdminPanel() {
       <div className={`flex-1 min-w-0 max-w-full min-h-screen ${isSidebarCollapsed ? "lg:pl-20" : "lg:pl-64"} transition-all duration-200`}>
         {/* MOBILE / TABLET TOP NAV (SLIM WHITE EXECUTIVE BAR) */}
         <nav className="lg:hidden bg-white border-b border-slate-200/90 shadow-2xs sticky top-0 z-40 safe-top">
-          <div className="px-3 sm:px-5 py-2 flex justify-between items-center">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="px-3 sm:px-5 py-2 flex items-center">
+            <div className="flex items-center gap-2.5 min-w-0">
               <button
                 type="button"
                 onClick={() => setMobileNavOpen(true)}
-                className="w-8 h-8 rounded-lg bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center text-base active:scale-90 cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs flex items-center justify-center text-base active:scale-90 cursor-pointer shrink-0"
                 aria-label="Open menu"
               >
                 ☰
@@ -4055,32 +4055,6 @@ export default function AdminPanel() {
                   {tabs.find(t => t.key === tab)?.icon} {tabs.find(t => t.key === tab)?.label}
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <LiveRefreshBadge
-                secondsToNext={adminCountdown}
-                isRefreshing={isRefreshing}
-                onRefresh={() => {
-                  setAdminCountdown(30);
-                  loadBootstrapAdmin(true);
-                }}
-              />
-              <Link
-                to="/dashboard"
-                className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-md text-[11px] font-bold flex items-center gap-1 active:scale-95"
-              >
-                <span>📱</span> <span className="hidden sm:inline">App</span>
-              </Link>
-              <div className="text-right hidden sm:block">
-                <p className="text-slate-700 font-semibold text-xs leading-none">{user.name}</p>
-              </div>
-              <button
-                type="button"
-                onClick={logout}
-                className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded-md transition text-[10px] font-bold cursor-pointer active:scale-95 shadow-2xs leading-normal"
-              >
-                Logout
-              </button>
             </div>
           </div>
         </nav>
@@ -4207,19 +4181,19 @@ export default function AdminPanel() {
                 className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
                 onClick={() => setMobileNavOpen(false)}
               />
-              <aside className="relative w-72 max-w-[85vw] h-full bg-slate-900 text-slate-100 border-r border-slate-800 shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
-                <div className="shrink-0 px-4 py-4 border-b border-slate-800 flex items-center justify-between safe-top">
+              <aside className="relative w-72 max-w-[85vw] h-full bg-white text-slate-800 border-r border-slate-200 shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+                <div className="shrink-0 px-4 py-4 border-b border-slate-100 flex items-center justify-between safe-top bg-slate-50/50">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <img src="/icon-192.png" alt="Educa" className="w-8 h-8 rounded-full bg-white object-contain p-0.5 shrink-0" />
+                    <img src="/icon-192.png" alt="Educa" className="w-8 h-8 rounded-full bg-white object-contain p-0.5 border border-slate-200 shrink-0" />
                     <div className="min-w-0">
-                      <h3 className="text-sm font-black leading-tight truncate">Educa Admin</h3>
-                      <p className="text-[10px] text-slate-400 leading-tight">Operations Desks</p>
+                      <h3 className="text-sm font-black text-slate-900 leading-tight truncate">Educa Admin</h3>
+                      <p className="text-[10px] text-slate-500 leading-tight">Operations Desks</p>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setMobileNavOpen(false)}
-                    className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 text-sm font-bold active:scale-90 cursor-pointer"
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 text-sm font-bold active:scale-90 cursor-pointer"
                     aria-label="Close menu"
                   >
                     ✕
@@ -4235,7 +4209,7 @@ export default function AdminPanel() {
                         type="button"
                         onClick={() => { switchTab(key); setMobileNavOpen(false); }}
                         className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition active:scale-[0.98] cursor-pointer ${
-                          isActive ? "bg-blue-600 text-white shadow-md" : "text-slate-300 hover:bg-slate-800"
+                          isActive ? "bg-blue-600 text-white shadow-xs font-bold" : "text-slate-700 hover:bg-slate-100"
                         }`}
                       >
                         <span className="flex items-center gap-2.5 min-w-0">
@@ -4250,31 +4224,46 @@ export default function AdminPanel() {
                       </button>
                     );
                   })}
-                </nav>
 
-                <div className="shrink-0 px-3 py-3 space-y-2 border-t border-slate-800 bg-slate-950/60 pb-safe">
-                  <Link
-                    to="/desk"
-                    onClick={() => setMobileNavOpen(false)}
-                    className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 rounded-xl text-xs font-bold active:scale-95"
-                  >
-                    <span>🏢</span><span>Department Desks</span>
-                  </Link>
-                  <Link
-                    to="/dashboard"
-                    onClick={() => setMobileNavOpen(false)}
-                    className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold active:scale-95"
-                  >
-                    <span>📱</span><span>Customer App View</span>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={logout}
-                    className="w-full px-2.5 py-2 bg-rose-600/90 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-                  >
-                    <span>🚪</span><span>Logout</span>
-                  </button>
-                </div>
+                  {/* Clean inline navigation links scrolled at bottom */}
+                  <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
+                    <Link
+                      to="/desk"
+                      onClick={() => setMobileNavOpen(false)}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-base shrink-0">🏢</span>
+                        <span className="truncate">Department Desks</span>
+                      </span>
+                      <span className="text-slate-400 text-xs font-bold">→</span>
+                    </Link>
+                    <Link
+                      to="/dashboard"
+                      onClick={() => setMobileNavOpen(false)}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-base shrink-0">📱</span>
+                        <span className="truncate">Customer App View</span>
+                      </span>
+                      <span className="text-slate-400 text-xs font-bold">→</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileNavOpen(false);
+                        logout();
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-base shrink-0">🚪</span>
+                        <span className="truncate">Logout</span>
+                      </span>
+                    </button>
+                  </div>
+                </nav>
               </aside>
             </div>
           )}

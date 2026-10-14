@@ -784,18 +784,17 @@ export default function StaffDesk() {
                   Loan Department Overview & Profit
                 </h4>
               </div>
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTempProfitRate(loanProfitRate);
-                    setShowProfitConfigModal(true);
-                  }}
-                  className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 cursor-pointer bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 transition"
-                >
-                  <span>⚙️ Customise Profit ({loanProfitRate}%)</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setTempProfitRate(loanProfitRate);
+                  setShowProfitConfigModal(true);
+                }}
+                className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 cursor-pointer bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition"
+                title="Admin: Click to customise loan profit percentage"
+              >
+                <span>⚙️ Customise Profit ({loanProfitRate}%)</span>
+              </button>
             </div>
 
             {/* 4 Stat Cards */}
@@ -834,21 +833,20 @@ export default function StaffDesk() {
               </div>
 
               {/* 4. Dept Profit on Collected EMIs */}
-              <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-200">
+              <div
+                onClick={() => {
+                  setTempProfitRate(loanProfitRate);
+                  setShowProfitConfigModal(true);
+                }}
+                className="bg-blue-50/60 hover:bg-blue-50 p-3 rounded-xl border border-blue-200 hover:border-blue-400 cursor-pointer transition group shadow-2xs"
+                title="Click to customise loan profit percentage"
+              >
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-blue-700 uppercase block">Dept Profit ({loanProfitRate}%)</span>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTempProfitRate(loanProfitRate);
-                        setShowProfitConfigModal(true);
-                      }}
-                      className="text-[10px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <span className="text-[10px] text-blue-700 group-hover:text-blue-900 font-bold bg-blue-100 group-hover:bg-blue-200 px-1.5 py-0.5 rounded transition flex items-center gap-0.5">
+                    <span>⚙️</span>
+                    <span>Edit</span>
+                  </span>
                 </div>
                 <span className="text-base sm:text-lg font-black text-blue-800 mt-0.5 block">
                   ₹{Math.round(loanStats.totalCollected * (loanProfitRate / 100)).toLocaleString("en-IN")}

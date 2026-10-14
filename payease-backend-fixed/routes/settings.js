@@ -16,6 +16,7 @@ router.get('/', protect, admin, async (req, res) => {
     // Defaults agar settings nahi hain
     if (!result.loanInterestRate) result.loanInterestRate = 12;
     if (!result.referralCommissionRate) result.referralCommissionRate = 2;
+    if (result.loanDeptProfitRate === undefined) result.loanDeptProfitRate = 5;
 
     res.json(result);
   } catch (err) {

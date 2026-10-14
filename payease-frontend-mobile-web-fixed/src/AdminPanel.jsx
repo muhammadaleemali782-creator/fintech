@@ -1222,6 +1222,14 @@ export default function AdminPanel() {
   const [newCommissionRate, setNewCommissionRate] = useState("");
   const [googleDriveUrl, setGoogleDriveUrl] = useState("");
   const [newGoogleDriveUrl, setNewGoogleDriveUrl] = useState("");
+  const [loanDeptProfitRate, setLoanDeptProfitRate] = useState(() => {
+    try {
+      const saved = localStorage.getItem("educa_loan_dept_profit_rate");
+      if (saved) return Number(saved);
+    } catch (_) {}
+    return 5;
+  });
+  const [newLoanDeptProfitRate, setNewLoanDeptProfitRate] = useState("");
   const [analytics, setAnalytics] = useState(() => {
     const cached = appCache.get("educa_admin_cached_analytics", null);
     if (cached && typeof cached === "object" && cached.stats) {
@@ -1819,6 +1827,7 @@ export default function AdminPanel() {
       const data = await res.json();
       setInterestRate(data.loanInterestRate || 12);
       setCommissionRate(data.referralCommissionRate || 2);
+      setLoanDeptProfitRate(data.loanDeptProfitRate !== undefined ? data.loanDeptProfitRate : 5);
       setGoogleDriveUrl(data.googleDriveUrl || "");
       setNewGoogleDriveUrl(data.googleDriveUrl || "");
     } catch {}
@@ -3292,6 +3301,21 @@ export default function AdminPanel() {
     const data = await res.json();
     showToast(data.message, res.ok ? "success" : "error");
     if (res.ok) { setCommissionRate(rate); setNewCommissionRate(""); }
+  };
+
+  const updateLoanDeptProfitRate = async () => {
+    const rate = parseFloat(newLoanDeptProfitRate);
+    if (isNaN(rate) || rate < 0 || rate > 50) return showToast("0% se 50% ke beech dalo", "error");
+    const res = await fetch(`${API}/settings/loan-dept-profit`, { method: "POST", headers, body: JSON.stringify({ rate }) });
+    const data = await res.json();
+    showToast(data.message || `Loan Department Profit set to ${rate}%`, res.ok ? "success" : "error");
+    if (res.ok) {
+      setLoanDeptProfitRate(rate);
+      setNewLoanDeptProfitRate("");
+      try {
+        localStorage.setItem("educa_loan_dept_profit_rate", String(rate));
+      } catch (_) {}
+    }
   };
 
   const updateGoogleDriveUrl = async () => {
@@ -13268,6 +13292,48 @@ export default function AdminPanel() {
                   <input type="number" inputMode="decimal" min="1" max="100" step="0.5" value={newInterestRate} onChange={e => setNewInterestRate(e.target.value)} placeholder="Naya rate daalo" className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base sm:text-sm" />
                   <span className="flex items-center text-gray-500 font-bold">%</span>
                   <button onClick={updateInterestRate} className="px-5 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition cursor-pointer">Update</button>
+                </div>
+              </div>
+
+              {/* Loan Department Profit Settings */}
+              <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-lg font-bold font-display flex items-center gap-2 text-slate-900">
+                    <span>💰</span> Loan Department Profit Rate (%)
+                  </h3>
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    Staff Desk Sync
+                  </span>
+                </div>
+                <p className="text-sm text-slate-500 mb-4">
+                  Customer dwara pay ki gayi collected EMI amount par Loan Department ko milne wala profit percentage yahan se control hota hai. Yeh Staff Desk (<code>/desk</code>) ke Loan Overview card par turant sync hota hai.
+                </p>
+                <div className="flex items-center gap-6 mb-4 flex-wrap">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-6 py-4 text-center">
+                    <p className="text-xs text-slate-500">Current Profit Share</p>
+                    <p className="text-3xl font-black font-display text-emerald-600">{loanDeptProfitRate}%</p>
+                    <p className="text-xs text-slate-400">on collected EMI</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 max-w-sm">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    max="50"
+                    step="0.5"
+                    value={newLoanDeptProfitRate}
+                    onChange={e => setNewLoanDeptProfitRate(e.target.value)}
+                    placeholder="e.g. 5"
+                    className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-base sm:text-sm font-bold"
+                  />
+                  <span className="flex items-center text-gray-500 font-bold">%</span>
+                  <button
+                    onClick={updateLoanDeptProfitRate}
+                    className="px-5 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition cursor-pointer"
+                  >
+                    Update
+                  </button>
                 </div>
               </div>
 

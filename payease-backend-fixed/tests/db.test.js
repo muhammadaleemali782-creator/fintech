@@ -111,3 +111,25 @@ test('acquireLock: of 20 simultaneous callers exactly one wins', async () => {
   const res = await Promise.all(Array.from({ length: 20 }, () => acquireLock(key, 5000)));
   assert.strictEqual(res.filter(Boolean).length, 1);
 });
+
+test('creditAgentCommission: 25 parallel credits are all applied, rounded to 2 decimals', async () => {
+  const { creditAgentCommission } = require('../utils/agentCommission');
+  const agent = await makeUser({ role: 'agent', balance: 100.1, profitBalance: 0, referralEarnings: 0 });
+  // 0.1 + 0.2 style float drift must not accumulate in the DB
+  const results = await Promise.all(Array.from({ length: 25 }, () => creditAgentCommission(agent._id, 0.2, 'loan')));
+  assert.ok(results.every(Boolean), 'every credit must report an update');
+  const after = await User.findById(agent._id);
+  assert.strictEqual(after.balance, 105.1);
+  assert.strictEqual(after.profitBalance, 5);
+  assert.strictEqual(after.referralEarnings, 5);
+  assert.strictEqual(after.agentProfile.earningsBreakdown.loan, 5);
+});
+
+test('creditAgentCommission: rejects bad category, ignores zero/negative/NaN amounts', async () => {
+  const { creditAgentCommission } = require('../utils/agentCommission');
+  const agent = await makeUser({ role: 'agent', balance: 10 });
+  await assert.rejects(() => creditAgentCommission(agent._id, 5, 'bogus'));
+  for (const bad of [0, -5, NaN, 'abc']) assert.strictEqual(await creditAgentCommission(agent._id, bad, 'bond'), false);
+  assert.strictEqual((await User.findById(agent._id)).balance, 10);
+});
+

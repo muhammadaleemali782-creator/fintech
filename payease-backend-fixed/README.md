@@ -15,9 +15,12 @@ Requires Node 18+.
 ## Tests
 ```bash
 npm test                                   # crypto tests (no DB needed)
-TEST_MONGO_URI="mongodb://127.0.0.1:27017/educa_test" npm test   # + race-condition / lockout tests
+TEST_MONGO_URI="mongodb://127.0.0.1:27017/educa_test?replicaSet=rs0" npm test   # + race-condition / lockout / transfer / yield tests
 ```
 `TEST_MONGO_URI` must point to a throw-away database whose name contains `test`.
+The transfer tests use multi-document transactions, so the test MongoDB must be a **replica set**
+(a free Atlas test cluster, or locally `mongod --replSet rs0` then `mongosh --eval 'rs.initiate()'`).
+Without `TEST_MONGO_URI` only the crypto and token tests run; the DB tests are skipped.
 
 ## Important environment variables
 | Variable | Notes |

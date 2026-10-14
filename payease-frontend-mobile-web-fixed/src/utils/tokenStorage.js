@@ -5,6 +5,7 @@
  */
 
 import { API } from "../config";
+import { CacheManager } from "./CacheManager";
 
 let inMemoryToken = null;
 
@@ -50,6 +51,8 @@ export const tokenStorage = {
 
   removeToken: () => {
     inMemoryToken = null;
+    // Every logout and expired-session path goes through here, so wipe the on-device cached data too
+    try { CacheManager.clearSession().catch(() => {}); } catch (_) {}
     if (typeof window === "undefined") return;
     try {
       localStorage.removeItem("token");

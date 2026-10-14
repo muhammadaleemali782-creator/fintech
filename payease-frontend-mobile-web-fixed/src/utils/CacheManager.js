@@ -387,15 +387,18 @@ export const CacheManager = {
     } catch {}
   },
 
-  // Clear ALL Saved Data (Triggered ONLY via manual user "Clear saved data" button)
+  // Clear ALL Saved Data (manual "Clear saved data" button, and via clearSession() on logout)
   async clearAll() {
+    // Drop writes still waiting in the idle-flush queue, otherwise they would be written back right after the wipe
+    pendingRecords.clear();
+    pendingLegacy.clear();
     memoryCache.clear();
     if (typeof window !== "undefined" && window.localStorage) {
       try {
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
-          if (k && (k.includes(":") || k.startsWith("educa_cached_") || k.startsWith("educa_admin_") || k.startsWith("educa_custom_"))) {
+          if (k && (k.includes(":") || k.startsWith("educa_cached_") || k.startsWith("educa_admin_") || k.startsWith("educa_custom_") || k.startsWith("educa_staff_desk_") || k.startsWith("educa_last_"))) {
             keysToRemove.push(k);
           }
         }
@@ -409,6 +412,19 @@ export const CacheManager = {
         tx.objectStore(STORE_NAME).clear();
       }
     } catch {}
+  },
+
+  // Explicit LOGOUT / expired session: remove everything tied to the signed-in person from this device
+  // (cached balances, admin totals, staff queues, profile copy). Device-level preferences such as language,
+  // app mode and tour-completed are kept. Normal app close / reopen never calls this.
+  async clearSession() {
+    // Synchronous part first: the page may navigate away right after logout, before any await resumes
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        ["user", "role", "hasWalletPin"].forEach((k) => localStorage.removeItem(k));
+      } catch {}
+    }
+    await CacheManager.clearAll(); // its localStorage + memory + queue wipe is also synchronous up to its first await
   },
 
   evictTemporaryStorage() {

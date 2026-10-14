@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Bond = require('../models/Bond');
 const User = require('../models/User');
+const { creditAgentCommission } = require('../utils/agentCommission');
 const Transaction = require('../models/Transaction');
 const AuditLog = require('../models/AuditLog');
 const { protect, admin, staffOrAdmin, requirePermission } = require('../middleware/auth');
@@ -366,15 +367,8 @@ router.post('/create', protect, async (req, res) => {
             if (commRate > 0) {
               const commAmount = Number(((terms.principalAmount * commRate) / 100).toFixed(2));
               if (commAmount > 0) {
-                agentUser.balance = Number(((agentUser.balance || 0) + commAmount).toFixed(2));
-                agentUser.profitBalance = Number(((agentUser.profitBalance || 0) + commAmount).toFixed(2));
-                agentUser.referralEarnings = Number(((agentUser.referralEarnings || 0) + commAmount).toFixed(2));
-                if (!agentUser.agentProfile) agentUser.agentProfile = {};
-                if (!agentUser.agentProfile.earningsBreakdown) {
-                  agentUser.agentProfile.earningsBreakdown = { loan: 0, lending: 0, investment: 0, bond: 0 };
-                }
-                agentUser.agentProfile.earningsBreakdown[cat] = Number(((agentUser.agentProfile.earningsBreakdown[cat] || 0) + commAmount).toFixed(2));
-                await agentUser.save({ session });
+                // Atomic credit (one DB update inside the transaction) - no read-modify-write
+                await creditAgentCommission(agentUser._id, commAmount, cat, session);
 
                 await Transaction.create([{
                   userId: agentUser._id,

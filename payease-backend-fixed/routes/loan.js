@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Loan = require('../models/Loan');
 const User = require('../models/User');
+const { creditAgentCommission } = require('../utils/agentCommission');
 const Transaction = require('../models/Transaction');
 const Settings = require('../models/Settings');
 const AuditLog = require('../models/AuditLog');
@@ -1853,15 +1854,8 @@ router.post('/:id/approve', protect, requirePermission('loan.process', 'loan.dis
           if (commissionRate > 0) {
             const commissionAmount = Number(((loan.amount * commissionRate) / 100).toFixed(2));
             if (commissionAmount > 0) {
-              agentUser.balance = Number(((agentUser.balance || 0) + commissionAmount).toFixed(2));
-              agentUser.profitBalance = Number(((agentUser.profitBalance || 0) + commissionAmount).toFixed(2));
-              agentUser.referralEarnings = Number(((agentUser.referralEarnings || 0) + commissionAmount).toFixed(2));
-              if (!agentUser.agentProfile) agentUser.agentProfile = {};
-              if (!agentUser.agentProfile.earningsBreakdown) {
-                agentUser.agentProfile.earningsBreakdown = { loan: 0, lending: 0, investment: 0, bond: 0 };
-              }
-              agentUser.agentProfile.earningsBreakdown.loan = Number(((agentUser.agentProfile.earningsBreakdown.loan || 0) + commissionAmount).toFixed(2));
-              await agentUser.save({ session });
+              // Atomic credit (one DB update inside the transaction) - no read-modify-write
+              await creditAgentCommission(agentUser._id, commissionAmount, 'loan', session);
 
               loan.referralCommissionPaid = true;
               loan.referralCommissionAmount = commissionAmount;

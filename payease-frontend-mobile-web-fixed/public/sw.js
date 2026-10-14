@@ -1,5 +1,7 @@
 // Service Worker for Educa Fintech PWA
-const CACHE_NAME = 'educa-fintech-v9';
+// v10: app-shell navigation is now stale-while-revalidate (opens instantly from cache, refreshes in background).
+const CACHE_NAME = 'educa-fintech-v10';
+const SHELL_URL = '/index.html';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -15,6 +17,50 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// SPA routes (/login, /dashboard ...) have no file extension and are all served by index.html (see vercel.json).
+// Real files such as /sitemap.xml or /prototypes/bond-25k.html must NOT get the app shell.
+function isAppRouteNavigation(request) {
+  if (request.mode !== 'navigate') return false;
+  try {
+    return !/\.[a-z0-9]+$/i.test(new URL(request.url).pathname);
+  } catch (_) {
+    return false;
+  }
+}
+
+function isHtmlOk(response) {
+  return Boolean(
+    response &&
+    response.status === 200 &&
+    (response.headers.get('content-type') || '').includes('text/html')
+  );
+}
+
+// Stale-while-revalidate for the app shell:
+//  - cached shell exists  -> return it IMMEDIATELY (no waiting on a slow / sleeping network),
+//                            and refresh the cached copy in the background for the next open
+//  - nothing cached yet   -> normal network request (first ever visit)
+async function handleAppNavigation(event) {
+  const cache = await caches.open(CACHE_NAME);
+  const cachedShell = await cache.match(SHELL_URL);
+
+  const refresh = fetch(event.request).then((response) => {
+    if (isHtmlOk(response)) cache.put(SHELL_URL, response.clone());
+    return response;
+  });
+
+  if (cachedShell) {
+    event.waitUntil(refresh.catch(() => {})); // keep the worker alive until the background refresh ends
+    return cachedShell;
+  }
+
+  try {
+    return await refresh;
+  } catch (_) {
+    return new Response('Offline', { status: 503, statusText: 'Offline' });
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
 
@@ -29,6 +75,12 @@ self.addEventListener('fetch', (event) => {
     url.includes('/admin/notifications/stream') ||
     event.request.method !== 'GET'
   ) {
+    return;
+  }
+
+  // App routes: instant cached shell + background refresh
+  if (isAppRouteNavigation(event.request)) {
+    event.respondWith(handleAppNavigation(event));
     return;
   }
 
@@ -49,7 +101,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML / Navigation: Network-first with cache fallback
+  // Everything else (real .html / .xml / .txt files): Network-first with cache fallback
   event.respondWith(
     fetch(event.request)
       .then((response) => {

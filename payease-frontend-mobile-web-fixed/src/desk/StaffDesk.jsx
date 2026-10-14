@@ -80,40 +80,7 @@ export default function StaffDesk() {
     setStatusFilter("all");
   }, [activeTab]);
 
-  // Loan Department Stats & Profit Percentage
-  const [loanProfitRate, setLoanProfitRate] = useState(() => {
-    try {
-      const saved = localStorage.getItem("educa_loan_dept_profit_rate");
-      if (saved) return Number(saved);
-    } catch (_) {}
-    return 5;
-  });
-  const [showProfitConfigModal, setShowProfitConfigModal] = useState(false);
-  const [tempProfitRate, setTempProfitRate] = useState(loanProfitRate);
 
-  const handleSaveProfitRate = async () => {
-    const rateNum = Number(tempProfitRate);
-    if (isNaN(rateNum) || rateNum < 0 || rateNum > 50) {
-      showToast("Please enter a valid rate between 0% and 50%", true);
-      return;
-    }
-    setLoanProfitRate(rateNum);
-    try {
-      localStorage.setItem("educa_loan_dept_profit_rate", String(rateNum));
-      if (token && isAdmin) {
-        await fetch(`${API}/settings/loan-dept-profit`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ rate: rateNum })
-        });
-      }
-    } catch (_) {}
-    setShowProfitConfigModal(false);
-    showToast(`Loan Department Profit updated to ${rateNum}%`);
-  };
 
   const loanStats = useMemo(() => {
     const list = queues.loan || [];
@@ -801,31 +768,23 @@ export default function StaffDesk() {
           </div>
         </div>
 
-        {/* Loan Department Overview & Profit Card */}
+        {/* Loan Department Overview */}
         {activeTab === "loan" && (
           <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-gray-100 flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-base">📊</span>
                 <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                  Loan Department Overview & Profit
+                  Loan Department Overview
                 </h4>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setTempProfitRate(loanProfitRate);
-                  setShowProfitConfigModal(true);
-                }}
-                className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 cursor-pointer bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition"
-                title="Admin: Click to customise loan profit percentage"
-              >
-                <span>⚙️ Customise Profit ({loanProfitRate}%)</span>
-              </button>
+              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                {loanStats.totalCount} Total Loans Active/Processed
+              </span>
             </div>
 
-            {/* 4 Stat Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {/* 3 Stat Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {/* 1. Total Disbursed (Gaye Paise) */}
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
                 <span className="text-[10px] font-bold text-gray-500 uppercase block">Total Loan Diya (Gaye)</span>
@@ -856,30 +815,6 @@ export default function StaffDesk() {
                 </span>
                 <span className="text-[10px] text-amber-600 mt-0.5 block font-medium">
                   {loanStats.activeCount} Active EMIs
-                </span>
-              </div>
-
-              {/* 4. Dept Profit on Collected EMIs */}
-              <div
-                onClick={() => {
-                  setTempProfitRate(loanProfitRate);
-                  setShowProfitConfigModal(true);
-                }}
-                className="bg-blue-50/60 hover:bg-blue-50 p-3 rounded-xl border border-blue-200 hover:border-blue-400 cursor-pointer transition group shadow-2xs"
-                title="Click to customise loan profit percentage"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-blue-700 uppercase block">Dept Profit ({loanProfitRate}%)</span>
-                  <span className="text-[10px] text-blue-700 group-hover:text-blue-900 font-bold bg-blue-100 group-hover:bg-blue-200 px-1.5 py-0.5 rounded transition flex items-center gap-0.5">
-                    <span>⚙️</span>
-                    <span>Edit</span>
-                  </span>
-                </div>
-                <span className="text-base sm:text-lg font-black text-blue-800 mt-0.5 block">
-                  ₹{Math.round(loanStats.totalCollected * (loanProfitRate / 100)).toLocaleString("en-IN")}
-                </span>
-                <span className="text-[10px] text-blue-600 mt-0.5 block font-medium">
-                  Expected: ₹{Math.round(loanStats.totalDisbursed * (loanProfitRate / 100)).toLocaleString("en-IN")}
                 </span>
               </div>
             </div>
@@ -1949,107 +1884,7 @@ export default function StaffDesk() {
         </div>
       )}
 
-      {/* Loan Department Profit Customizer Modal */}
-      {showProfitConfigModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center text-lg font-black">
-                  %
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-gray-900">Customise Loan Profit %</h3>
-                  <p className="text-xs text-gray-500">Collected EMI payments per department percentage</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowProfitConfigModal(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold flex items-center justify-center text-sm transition"
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="bg-emerald-50/60 border border-emerald-200/60 rounded-2xl p-3.5 text-xs text-emerald-900">
-              <p className="font-semibold mb-1">ℹ️ Department Profit Rule</p>
-              <p className="text-emerald-800 text-[11px] leading-relaxed">
-                Customer dwara pay ki gayi collected EMI amount par Loan Department ko profit percentage credit hota hai. Admin ise custom set kar sakta hai.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                Department Profit Percentage (%):
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="100"
-                  value={tempProfitRate}
-                  onChange={(e) => setTempProfitRate(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 focus:bg-white focus:border-emerald-500 rounded-2xl px-4 py-3 text-lg font-black text-gray-900 outline-none transition"
-                  placeholder="e.g. 5"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-black text-sm">%</span>
-              </div>
-
-              {/* Quick Preset Chips */}
-              <div className="flex items-center gap-2 mt-2.5">
-                {[1, 2, 3, 5, 8, 10].map((rate) => (
-                  <button
-                    key={rate}
-                    type="button"
-                    onClick={() => setTempProfitRate(rate)}
-                    className={`px-2.5 py-1 text-xs font-black rounded-xl border transition ${
-                      Number(tempProfitRate) === rate
-                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                        : "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200"
-                    }`}
-                  >
-                    {rate}%
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Live Preview */}
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3.5 text-xs flex justify-between items-center">
-              <div>
-                <div className="text-gray-500 text-[11px]">Calculated Department Profit:</div>
-                <div className="text-base font-black text-emerald-700">
-                  ₹{Math.round((loanStats.totalCollected * (Number(tempProfitRate) || 0)) / 100).toLocaleString("en-IN")}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-gray-500 text-[11px]">From Collected EMI:</div>
-                <div className="font-bold text-gray-800">
-                  ₹{loanStats.totalCollected.toLocaleString("en-IN")}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowProfitConfigModal(false)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveProfitRate}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition"
-              >
-                Save Profit Rate ✓
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Enlarged Image Lightbox */}
       {enlargedImage && (

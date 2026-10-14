@@ -1222,14 +1222,15 @@ export default function AdminPanel() {
   const [newCommissionRate, setNewCommissionRate] = useState("");
   const [googleDriveUrl, setGoogleDriveUrl] = useState("");
   const [newGoogleDriveUrl, setNewGoogleDriveUrl] = useState("");
-  const [loanDeptProfitRate, setLoanDeptProfitRate] = useState(() => {
-    try {
-      const saved = localStorage.getItem("educa_loan_dept_profit_rate");
-      if (saved) return Number(saved);
-    } catch (_) {}
-    return 5;
+  const [deptCommissions, setDeptCommissions] = useState({
+    loan: { name: 'Loan Department', rate: 5, unit: '%', type: 'percentage', basis: 'Collected EMI Repayments', description: 'Commission on EMIs recovered from borrowers' },
+    deposit: { name: 'Deposit Department', rate: 1, unit: '%', type: 'percentage', basis: 'Approved Inflow Deposits', description: 'Commission on verified external deposits added to fintech' },
+    withdrawal: { name: 'Withdrawal Department', rate: 1, unit: '%', type: 'percentage', basis: 'Approved Payouts', description: 'Processing commission on user cash-out transactions' },
+    kyc: { name: 'KYC Verification', rate: 20, unit: '₹', type: 'flat', basis: 'Verified User Accounts', description: 'Flat incentive reward per verified KYC profile' },
+    lending: { name: 'Lending & P2P', rate: 2, unit: '%', type: 'percentage', basis: 'Lending Capital Returns', description: 'Commission on lending allocations and yield distributions' },
+    bond: { name: 'Bonds & FD Desk', rate: 2, unit: '%', type: 'percentage', basis: 'Bond Investment Subscriptions', description: 'Commission on bond placements and fixed deposits' }
   });
-  const [newLoanDeptProfitRate, setNewLoanDeptProfitRate] = useState("");
+  const [loadingCommissions, setLoadingCommissions] = useState(false);
   const [analytics, setAnalytics] = useState(() => {
     const cached = appCache.get("educa_admin_cached_analytics", null);
     if (cached && typeof cached === "object" && cached.stats) {
@@ -1827,7 +1828,6 @@ export default function AdminPanel() {
       const data = await res.json();
       setInterestRate(data.loanInterestRate || 12);
       setCommissionRate(data.referralCommissionRate || 2);
-      setLoanDeptProfitRate(data.loanDeptProfitRate !== undefined ? data.loanDeptProfitRate : 5);
       setGoogleDriveUrl(data.googleDriveUrl || "");
       setNewGoogleDriveUrl(data.googleDriveUrl || "");
     } catch {}
@@ -2584,6 +2584,8 @@ export default function AdminPanel() {
       loadCapitalMetrics(true);
     } else if (tab === "devices") {
       loadDevices(true);
+    } else if (tab === "dept-commission") {
+      loadDeptCommissions();
     } else if (tab === "settings") {
       loadSettings(true);
       loadDepositDetails(true);
@@ -3303,18 +3305,48 @@ export default function AdminPanel() {
     if (res.ok) { setCommissionRate(rate); setNewCommissionRate(""); }
   };
 
-  const updateLoanDeptProfitRate = async () => {
-    const rate = parseFloat(newLoanDeptProfitRate);
-    if (isNaN(rate) || rate < 0 || rate > 50) return showToast("0% se 50% ke beech dalo", "error");
-    const res = await fetch(`${API}/settings/loan-dept-profit`, { method: "POST", headers, body: JSON.stringify({ rate }) });
-    const data = await res.json();
-    showToast(data.message || `Loan Department Profit set to ${rate}%`, res.ok ? "success" : "error");
-    if (res.ok) {
-      setLoanDeptProfitRate(rate);
-      setNewLoanDeptProfitRate("");
-      try {
-        localStorage.setItem("educa_loan_dept_profit_rate", String(rate));
-      } catch (_) {}
+  const loadDeptCommissions = useCallback(async () => {
+    try {
+      setLoadingCommissions(true);
+      const res = await fetch(`${API}/settings/dept-commissions`, { headers });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.commissions) setDeptCommissions(d.commissions);
+      }
+    } catch {} finally {
+      setLoadingCommissions(false);
+    }
+  }, []); // eslint-disable-line
+
+  const handleUpdateDeptCommission = async (deptKey, newRate) => {
+    const rateNum = Number(newRate);
+    if (isNaN(rateNum) || rateNum < 0) {
+      showToast("Please enter a valid rate/amount", "error");
+      return;
+    }
+    const currentDept = deptCommissions[deptKey] || {};
+    const updated = {
+      ...deptCommissions,
+      [deptKey]: {
+        ...currentDept,
+        rate: rateNum
+      }
+    };
+    setDeptCommissions(updated);
+    try {
+      const res = await fetch(`${API}/settings/dept-commissions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ commissions: updated })
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast(`✅ ${currentDept.name || deptKey} commission updated to ${rateNum}${currentDept.unit || '%'}`);
+      } else {
+        showToast(d.message || "Failed to update commission", "error");
+      }
+    } catch (err) {
+      showToast(err.message, "error");
     }
   };
 
@@ -3444,6 +3476,7 @@ export default function AdminPanel() {
     { key: "capital", label: "Capital & Fund Hub", icon: "📊" },
     { key: "analytics", label: "Profit & Reserves", icon: "📈" },
     { key: "staff", label: "Staff & Desks", icon: "👥" },
+    { key: "dept-commission", label: "Department Commission", icon: "💼" },
     { key: "activity-log", label: "Audit Activity Log", icon: "🛡️" },
     { key: "pending", label: "Pending", icon: "⏳", badge: totalPendingDeskCount },
     { key: "kyc", label: "KYC Requests", icon: "📄", badge: pendingKycCount },
@@ -13295,47 +13328,7 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Loan Department Profit Settings */}
-              <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-lg font-bold font-display flex items-center gap-2 text-slate-900">
-                    <span>💰</span> Loan Department Profit Rate (%)
-                  </h3>
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                    Staff Desk Sync
-                  </span>
-                </div>
-                <p className="text-sm text-slate-500 mb-4">
-                  Customer dwara pay ki gayi collected EMI amount par Loan Department ko milne wala profit percentage yahan se control hota hai. Yeh Staff Desk (<code>/desk</code>) ke Loan Overview card par turant sync hota hai.
-                </p>
-                <div className="flex items-center gap-6 mb-4 flex-wrap">
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-6 py-4 text-center">
-                    <p className="text-xs text-slate-500">Current Profit Share</p>
-                    <p className="text-3xl font-black font-display text-emerald-600">{loanDeptProfitRate}%</p>
-                    <p className="text-xs text-slate-400">on collected EMI</p>
-                  </div>
-                </div>
-                <div className="flex gap-3 max-w-sm">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    max="50"
-                    step="0.5"
-                    value={newLoanDeptProfitRate}
-                    onChange={e => setNewLoanDeptProfitRate(e.target.value)}
-                    placeholder="e.g. 5"
-                    className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-base sm:text-sm font-bold"
-                  />
-                  <span className="flex items-center text-gray-500 font-bold">%</span>
-                  <button
-                    onClick={updateLoanDeptProfitRate}
-                    className="px-5 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition cursor-pointer"
-                  >
-                    Update
-                  </button>
-                </div>
-              </div>
+
 
 
               {/* Google Drive Integration */}
@@ -13475,6 +13468,130 @@ export default function AdminPanel() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* DEPARTMENT COMMISSION & MARGIN MASTER TAB */}
+          {tab === "dept-commission" && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-7 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-blue-800/50">
+                <div>
+                  <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                    <span className="text-2xl p-2 rounded-2xl bg-white/10 backdrop-blur-xs">💼</span>
+                    <h2 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white">
+                      Department Commission Master
+                    </h2>
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                      Admin Control Only
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-blue-200/80 max-w-2xl leading-relaxed">
+                    Fintech ke sabhi 6 departments (Loan, Deposit, Withdrawal, KYC, Lending, Bonds) ke commissions, staff margins aur rewards ko yahan ek hi jagah se set karein.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadDeptCommissions}
+                  disabled={loadingCommissions}
+                  className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold border border-white/20 transition active:scale-95 flex items-center gap-2 cursor-pointer self-start sm:self-auto disabled:opacity-50 shrink-0"
+                >
+                  <span className={loadingCommissions ? "animate-spin" : ""}>🔄</span>
+                  <span>{loadingCommissions ? "Loading..." : "Sync Fresh"}</span>
+                </button>
+              </div>
+
+              {/* Department Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {Object.entries(deptCommissions).map(([key, dept]) => (
+                  <div
+                    key={key}
+                    className="bg-white rounded-3xl border border-gray-200/80 p-5 sm:p-6 shadow-xs flex flex-col justify-between gap-4 hover:shadow-md hover:border-blue-300 transition"
+                  >
+                    <div>
+                      {/* Top identity */}
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center text-lg font-black shrink-0">
+                            {key === "loan" ? "🏦" : key === "deposit" ? "💳" : key === "withdrawal" ? "💸" : key === "kyc" ? "🪪" : key === "lending" ? "📈" : "📜"}
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-black text-gray-900 leading-tight">{dept.name}</h4>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mt-0.5">
+                              Basis: {dept.basis}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                          {dept.rate}{dept.unit || '%'}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-gray-500 leading-relaxed mb-4 min-h-[32px]">
+                        {dept.description}
+                      </p>
+
+                      {/* Edit box */}
+                      <div className="bg-gray-50 rounded-2xl p-3.5 border border-gray-200 space-y-2">
+                        <label className="text-[11px] font-bold text-gray-700 block">
+                          Set Commission / Margin ({dept.unit || '%'}):
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0"
+                            max={dept.unit === '%' ? 50 : 10000}
+                            value={dept.rate}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setDeptCommissions(prev => ({
+                                ...prev,
+                                [key]: { ...prev[key], rate: val }
+                              }));
+                            }}
+                            className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-black text-gray-900 focus:outline-none focus:border-blue-500"
+                            placeholder="e.g. 5"
+                          />
+                          <span className="text-xs font-black text-gray-500 shrink-0">{dept.unit || '%'}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateDeptCommission(key, dept.rate)}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer shrink-0"
+                          >
+                            Save
+                          </button>
+                        </div>
+
+                        {/* Quick Presets for percentage items */}
+                        {dept.unit === '%' && (
+                          <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                            {[1, 2, 3, 5, 8, 10].map(p => (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => handleUpdateDeptCommission(key, p)}
+                                className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border transition ${
+                                  Number(dept.rate) === p
+                                    ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"
+                                }`}
+                              >
+                                {p}%
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
+                      <span>Type: <strong className="text-gray-700 capitalize">{dept.type}</strong></span>
+                      <span className="text-emerald-700 font-bold">● Active in System</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

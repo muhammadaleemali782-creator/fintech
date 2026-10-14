@@ -70,6 +70,88 @@ router.post('/referral-commission', protect, admin, async (req, res) => {
   }
 });
 
+const DEFAULT_DEPT_COMMISSIONS = {
+  loan: {
+    name: 'Loan Department',
+    rate: 5,
+    unit: '%',
+    type: 'percentage',
+    basis: 'Collected EMI Repayments',
+    description: 'Commission on EMIs recovered from borrowers'
+  },
+  deposit: {
+    name: 'Deposit Department',
+    rate: 1,
+    unit: '%',
+    type: 'percentage',
+    basis: 'Approved Inflow Deposits',
+    description: 'Commission on verified external deposits added to fintech'
+  },
+  withdrawal: {
+    name: 'Withdrawal Department',
+    rate: 1,
+    unit: '%',
+    type: 'percentage',
+    basis: 'Approved Payouts',
+    description: 'Processing commission on user cash-out transactions'
+  },
+  kyc: {
+    name: 'KYC Verification',
+    rate: 20,
+    unit: '₹',
+    type: 'flat',
+    basis: 'Verified User Accounts',
+    description: 'Flat incentive reward per verified KYC profile'
+  },
+  lending: {
+    name: 'Lending & P2P',
+    rate: 2,
+    unit: '%',
+    type: 'percentage',
+    basis: 'Lending Capital Returns',
+    description: 'Commission on lending allocations and yield distributions'
+  },
+  bond: {
+    name: 'Bonds & FD Desk',
+    rate: 2,
+    unit: '%',
+    type: 'percentage',
+    basis: 'Bond Investment Subscriptions',
+    description: 'Commission on bond placements and fixed deposits'
+  }
+};
+
+// Get All Department Commissions
+router.get('/dept-commissions', protect, admin, async (req, res) => {
+  try {
+    const doc = await Settings.findOne({ key: 'departmentCommissions' }).lean();
+    const commissions = doc?.value ? { ...DEFAULT_DEPT_COMMISSIONS, ...doc.value } : DEFAULT_DEPT_COMMISSIONS;
+    res.json({ success: true, commissions });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch department commissions' });
+  }
+});
+
+// Update All Department Commissions
+router.post('/dept-commissions', protect, admin, async (req, res) => {
+  try {
+    const { commissions } = req.body;
+    if (!commissions || typeof commissions !== 'object') {
+      return res.status(400).json({ success: false, message: 'Invalid commissions payload' });
+    }
+    await Settings.findOneAndUpdate(
+      { key: 'departmentCommissions' },
+      { key: 'departmentCommissions', value: commissions, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    memoryCache.del('admin_settings');
+    memoryCache.del('dept_commissions');
+    res.json({ success: true, message: '✅ All department commissions updated successfully', commissions });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to update department commissions' });
+  }
+});
+
 // Update Loan Department Profit Rate (%)
 router.post('/loan-dept-profit', protect, admin, async (req, res) => {
   try {

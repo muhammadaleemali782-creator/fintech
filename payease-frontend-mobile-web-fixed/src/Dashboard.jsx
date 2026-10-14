@@ -5812,6 +5812,169 @@ export default function Dashboard() {
         </div>
 
         {/* ══════════════════════════════════════════════════════
+            6 MODULAR ACCOUNTS SECTION (RESTORED CLEAN TILES)
+        ══════════════════════════════════════════════════════ */}
+        <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-gray-100 mb-6 sm:mb-8">
+          <div className="flex justify-between items-center mb-5">
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
+                <span>📑</span> {txt.accountsHubTitle || "Modular Accounts Hub"}
+              </h3>
+              <p className="text-xs text-gray-500">{txt.accountsHubSub || "Click on any account to view data and apply"}</p>
+            </div>
+            <span className="hidden sm:inline-block px-3 py-1 bg-blue-50 text-[#1D6AE5] rounded-full text-xs font-bold">
+              {txt.openAccount || "Open Account"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* 1. Wallet Account */}
+            <div
+              onClick={handleOpenWalletAccount}
+              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-blue-500 bg-white hover:bg-blue-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl">
+                    💰
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-blue-100 text-blue-800">
+                    {userProfile.accountNumber || "EFS0000001"}
+                  </span>
+                </div>
+                <h4 className="font-extrabold text-base text-gray-900">Wallet Account</h4>
+              </div>
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-end text-xs mt-3">
+                <span className="text-[#1D6AE5] font-bold">Open Account →</span>
+              </div>
+            </div>
+
+            {/* 2. Debt Account (Dues & 365-Day 1 Lakh Bond) */}
+            <div
+              onClick={() => setAccountModal("debt")}
+              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-rose-500 bg-white hover:bg-rose-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-xl">
+                    📑
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-100 text-rose-800">
+                    365-Day Bond
+                  </span>
+                </div>
+                <h4 className="font-extrabold text-base text-gray-900">Debt & Bond Account</h4>
+              </div>
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-end text-xs mt-3">
+                <span className="text-rose-600 font-bold">Open Bonds & Dues →</span>
+              </div>
+            </div>
+
+            {/* 3. Lending Account (40 & 80 Months Monthly Return Bonds) */}
+            <div
+              onClick={openLendingSheet}
+              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-indigo-500 bg-white hover:bg-indigo-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xl">
+                    🤝
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-100 text-indigo-800">
+                    Monthly Payouts
+                  </span>
+                </div>
+                <h4 className="font-extrabold text-base text-gray-900">Lending Account</h4>
+              </div>
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-end text-xs mt-3">
+                <span className="text-indigo-600 font-bold">Open Lending →</span>
+              </div>
+            </div>
+
+            {/* 4. Personal Loan Account (5k-50k, 10-day cycle, Cheque facility) */}
+            <div
+              onClick={() => {
+                triggerHeroFly("card_personal");
+                openLoanSheet("personal_loan");
+              }}
+              className="relative overflow-visible p-5 rounded-2xl border-2 border-emerald-500/50 bg-emerald-50/20 hover:border-emerald-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
+            >
+              {heroFlyId === "card_personal" && <LoanHeroFlyBadge />}
+              <div>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl">
+                    🏦
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-emerald-100 text-emerald-800">
+                    {activePersonalLoan ? (activePersonalLoan.accountNumber || "EFS0000001") : "10-Day Cycle"}
+                  </span>
+                </div>
+                <h4 className="font-extrabold text-base text-gray-900">Personal Loan Account</h4>
+              </div>
+              <div className="pt-3 border-t border-emerald-200/60 flex items-center justify-end text-xs mt-3">
+                <span className="text-emerald-700 font-bold">
+                  {activePersonalLoan ? "View Loan Data →" : "Apply Loan →"}
+                </span>
+              </div>
+            </div>
+
+            {/* 5. Student Loan Account */}
+            <div
+              onClick={() => {
+                triggerHeroFly("card_student");
+                openLoanSheet("student_loan");
+              }}
+              className="relative overflow-visible p-5 rounded-2xl border-2 border-cyan-500/50 bg-cyan-50/20 hover:border-cyan-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
+            >
+              {heroFlyId === "card_student" && <LoanHeroFlyBadge />}
+              <div>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center text-xl">
+                    🎓
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-cyan-100 text-cyan-800">
+                    {activeStudentLoan ? (activeStudentLoan.accountNumber || "EFS0000001") : "8% p.a."}
+                  </span>
+                </div>
+                <h4 className="font-extrabold text-base text-gray-900">Student Loan Account</h4>
+              </div>
+              <div className="pt-3 border-t border-cyan-200/60 flex items-center justify-end text-xs mt-3">
+                <span className="text-cyan-700 font-bold">
+                  {activeStudentLoan ? "View Loan Data →" : "Apply Student Loan →"}
+                </span>
+              </div>
+            </div>
+
+            {/* 6. Micro Business Loan Account (Daily Collection) */}
+            <div
+              onClick={() => {
+                triggerHeroFly("card_business");
+                openLoanSheet("business_loan");
+              }}
+              className="relative overflow-visible p-5 rounded-2xl border-2 border-amber-500/50 bg-amber-50/20 hover:border-amber-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
+            >
+              {heroFlyId === "card_business" && <LoanHeroFlyBadge />}
+              <div>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl">
+                    🏬
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-800">
+                    {activeBusinessLoan ? "Daily Active" : "Daily Collection"}
+                  </span>
+                </div>
+                <h4 className="font-extrabold text-base text-gray-900">Micro Business Loan Account</h4>
+              </div>
+              <div className="pt-3 border-t border-amber-200/60 flex items-center justify-end text-xs mt-3">
+                <span className="text-amber-700 font-bold">
+                  {activeBusinessLoan ? "View Daily Loan →" : "Apply Daily Loan →"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════
             MY LOANS SECTION (STRICTLY 'EASY INSTALLMENTS' & EARLY CLOSURE)
         ══════════════════════════════════════════════════════ */}
         {showLoans && (

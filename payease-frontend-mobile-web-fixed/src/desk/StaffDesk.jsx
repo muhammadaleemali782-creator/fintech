@@ -320,6 +320,31 @@ export default function StaffDesk() {
     };
   }, [token, fetchQueues, showToast]);
 
+  // On-demand fetch proof for inspected transaction (keeps queue payload <15KB)
+  useEffect(() => {
+    if (!selectedItem || !selectedItem._id || !token) return;
+    if (activeTab !== "deposit" && activeTab !== "withdrawal") return;
+    if (selectedItem.proofUrl || selectedItem.screenshotUrl) return;
+
+    let active = true;
+    fetch(`${API}/admin/transaction/${selectedItem._id}/proof`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (active && d.success && (d.proofUrl || d.screenshotUrl)) {
+          setSelectedItem(prev => (prev && prev._id === selectedItem._id ? {
+            ...prev,
+            proofUrl: d.proofUrl || "",
+            screenshotUrl: d.screenshotUrl || ""
+          } : prev));
+        }
+      })
+      .catch(() => {});
+
+    return () => { active = false; };
+  }, [selectedItem?._id, activeTab, token]);
+
   // Claim item lock
   const handleClaim = async (item, itemType) => {
     try {

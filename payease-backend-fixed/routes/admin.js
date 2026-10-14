@@ -2402,7 +2402,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
 
       promises.push(
         Transaction.find(txQuery)
-          .select('userId type amount status isHold sourceWallet referenceId utrNumber method proofUrl screenshotUrl upiId accountNumber remarks createdAt claim')
+          .select('userId type amount status isHold sourceWallet referenceId utrNumber method upiId accountNumber remarks createdAt claim')
           .populate('userId', 'name email phone accountNumber')
           .sort({ createdAt: -1 })
           .limit(80)
@@ -2418,6 +2418,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
             });
 
             sortedTxns.forEach(t => {
+              t.hasProof = Boolean(t.utrNumber || t.referenceId);
               if (t.type === 'deposit' && (allowedDepts.includes('deposit') || !isStaff)) {
                 queues.deposit.push(t);
               } else if (t.type === 'withdrawal' && (allowedDepts.includes('withdrawal') || !isStaff)) {
@@ -2515,6 +2516,23 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: 'Failed to load desk queues: ' + err.message });
+  }
+});
+
+// On-demand proof fetching (zero queue bloat, instant response)
+router.get('/transaction/:id/proof', protect, staffOrAdmin, async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+    const tx = await Transaction.findById(req.params.id).select('proofUrl screenshotUrl adminEvidenceUrl');
+    if (!tx) return res.status(404).json({ success: false, message: 'Transaction not found' });
+    res.json({
+      success: true,
+      proofUrl: tx.proofUrl || tx.screenshotUrl || '',
+      screenshotUrl: tx.screenshotUrl || tx.proofUrl || '',
+      adminEvidenceUrl: tx.adminEvidenceUrl || ''
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

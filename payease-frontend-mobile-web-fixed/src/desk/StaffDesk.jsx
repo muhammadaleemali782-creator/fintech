@@ -926,6 +926,8 @@ export default function StaffDesk() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {currentItems.map((item) => {
               const amount = item.amount || item.principalAmount || 0;
+              const itemStatus = String(item.status || item.kycStatus || "pending").toLowerCase();
+              const isPendingItem = ["pending", "hold"].includes(itemStatus);
               const isOverLimit = maxApprovalAmount > 0 && amount > maxApprovalAmount;
               const isSelfAction = String(item.userId?._id || item.userId || "") === String(user?._id || user?.id || "");
               const canProcess = hasPermission(DEPT_CONFIG[activeTab]?.processPerm) && !isSelfAction;
@@ -1047,13 +1049,13 @@ export default function StaffDesk() {
                       </div>
                     </div>
 
-                    {/* Warning Badges */}
-                    {isSelfAction && (
+                    {/* Warning Badges - Only for actionable/pending items */}
+                    {isPendingItem && isSelfAction && (
                       <div className="mt-2 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-bold">
                         ⚠️ Self-action is forbidden
                       </div>
                     )}
-                    {isOverLimit && (
+                    {isPendingItem && isOverLimit && (
                       <div className="mt-2 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold">
                         ⚠️ Exceeds approval limit (₹{maxApprovalAmount})
                       </div>
@@ -1069,7 +1071,7 @@ export default function StaffDesk() {
                       Inspect 🔍
                     </button>
 
-                    {canProcess && ["pending", "hold"].includes(item.status || item.kycStatus || "pending") && (
+                    {canProcess && isPendingItem && (
                       <>
                         <button
                           disabled={isOverLimit}

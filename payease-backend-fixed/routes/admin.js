@@ -4,6 +4,7 @@ const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const Loan = require('../models/Loan');
 const Bond = require('../models/Bond');
+const Settings = require('../models/Settings');
 const AuditLog = require('../models/AuditLog');
 const { protect, admin, staffOrAdmin, requirePermission } = require('../middleware/auth');
 const { sendNotification, notifyPermissionsChanged } = require('../utils/notifier');
@@ -1570,6 +1571,12 @@ const jwt = require('jsonwebtoken');
 
 // SSE stream for Admin
 router.get('/notifications/stream', (req, res) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
   // Extract token from query or auth header
   const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
   if (!token) return res.status(401).json({ message: 'Authentication required' });

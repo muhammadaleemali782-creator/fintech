@@ -2364,6 +2364,9 @@ export default function AdminPanel() {
               });
               localStorage.setItem("educa_last_hourly_backup_time", String(now));
             }
+          } else {
+            // Cooldown on failure (5 min) to prevent repeated hammering
+            localStorage.setItem("educa_last_hourly_backup_time", String(now - 3600000 + 300000));
           }
         }
       } catch {}

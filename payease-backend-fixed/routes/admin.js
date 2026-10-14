@@ -2398,14 +2398,15 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
         typeConditions.push({ type: /lending/i });
       }
 
-      const txQuery = typeConditions.length > 0 ? { $or: typeConditions } : {};
+      const txQuery = typeConditions.length === 1 ? typeConditions[0] : (typeConditions.length > 1 ? { $or: typeConditions } : {});
 
       promises.push(
         Transaction.find(txQuery)
           .select('userId type amount status isHold sourceWallet referenceId utrNumber method proofUrl screenshotUrl upiId accountNumber remarks createdAt claim')
-          .populate('userId', 'name email phone accountNumber upiId aadharNumber panNumber bankAccount kycStatus avatar photoUrl')
+          .populate('userId', 'name email phone accountNumber')
           .sort({ createdAt: -1 })
-          .limit(120)
+          .limit(80)
+          .maxTimeMS(8000)
           .lean()
           .then(txns => {
             // Sort: pending & hold on top, followed by recent approved/completed/rejected
@@ -2429,6 +2430,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
             queues.counts.withdrawal = queues.withdrawal.filter(t => ['pending', 'hold'].includes(t.status)).length;
             queues.counts.lending = queues.lending.filter(t => ['pending', 'hold'].includes(t.status)).length;
           })
+          .catch(err => console.warn('Desk tx queue notice:', err.message))
       );
     }
 
@@ -2437,14 +2439,16 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
       promises.push(
         Loan.find({ status: { $in: ['pending', 'active'] } })
           .select('-installmentSchedule -emiSchedule -history')
-          .populate('userId', 'name email phone accountNumber aadharNumber panNumber address bankAccount kycStatus kycDocuments avatar photoUrl')
+          .populate('userId', 'name email phone accountNumber aadharNumber panNumber address bankAccount kycStatus')
           .sort({ createdAt: -1 })
           .limit(60)
+          .maxTimeMS(8000)
           .lean()
           .then(loans => {
             queues.loan = loans;
             queues.counts.loan = loans.filter(l => l.status === 'pending').length;
           })
+          .catch(err => console.warn('Desk loan queue notice:', err.message))
       );
     }
 
@@ -2455,11 +2459,13 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
           .select('name email phone aadharNumber panNumber address bankAccount kycStatus kycDocuments.submittedAt kycDocuments.doc1Url kycDocuments.doc1BackUrl kycDocuments.doc2Url kycDocuments.doc2BackUrl kycDocuments.chequeUrl createdAt accountNumber upiId cardStatus avatar photoUrl')
           .sort({ 'kycDocuments.submittedAt': -1, createdAt: -1 })
           .limit(60)
+          .maxTimeMS(8000)
           .lean()
           .then(users => {
             queues.kyc = users;
             queues.counts.kyc = users.length;
           })
+          .catch(err => console.warn('Desk kyc queue notice:', err.message))
       );
     }
 
@@ -2468,9 +2474,10 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
       promises.push(
         Bond.find({ status: 'pending' })
           .select('userId bondType amount tenure interestRate status createdAt')
-          .populate('userId', 'name email phone accountNumber aadharNumber panNumber bankAccount kycStatus avatar photoUrl')
+          .populate('userId', 'name email phone accountNumber')
           .sort({ createdAt: -1 })
           .limit(60)
+          .maxTimeMS(8000)
           .lean()
           .then(bonds => {
             bonds.forEach(b => {
@@ -2487,6 +2494,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
               }
             });
           })
+          .catch(err => console.warn('Desk bond queue notice:', err.message))
       );
     }
 

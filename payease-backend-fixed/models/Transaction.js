@@ -92,6 +92,7 @@ const transactionSchema = new mongoose.Schema({
 transactionSchema.index({ userId: 1, createdAt: -1 });
 transactionSchema.index({ status: 1, createdAt: -1 });
 transactionSchema.index({ type: 1, status: 1 });
+transactionSchema.index({ type: 1, createdAt: -1 });
 transactionSchema.index({ referenceId: 1 }, { sparse: true });
 transactionSchema.index({ utrNumber: 1 }, { sparse: true });
 transactionSchema.index({ isHold: 1, createdAt: -1 });

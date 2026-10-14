@@ -224,8 +224,8 @@ export default function StaffDesk() {
     }
   }, []);
 
-  // Fetch queues (Stale-While-Revalidate with localStorage persistence)
-  const fetchQueues = useCallback(async (silent = false) => {
+  // Fetch queues (Stale-While-Revalidate with localStorage persistence & cold-start retry)
+  const fetchQueues = useCallback(async (silent = false, retryCount = 0) => {
     if (!silent && !hasCachedData) setLoading(true);
     setIsSyncing(true);
     try {
@@ -250,9 +250,18 @@ export default function StaffDesk() {
           localStorage.setItem("educa_staff_desk_counts", JSON.stringify(data.counts || {}));
         } catch (_) {}
       } else {
+        // Cold-start timeout recovery: retry silently once before showing red banner
+        if (retryCount < 2 && (data.message || "").toLowerCase().includes("timed out")) {
+          setTimeout(() => fetchQueues(true, retryCount + 1), 2000);
+          return;
+        }
         if (!silent) setErrorMsg(data.message || "Failed to load desk queues");
       }
     } catch (err) {
+      if (retryCount < 2) {
+        setTimeout(() => fetchQueues(true, retryCount + 1), 2000);
+        return;
+      }
       if (!silent) setErrorMsg("Connection error: " + err.message);
     } finally {
       setLoading(false);

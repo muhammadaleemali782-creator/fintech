@@ -350,11 +350,12 @@ app.use((err, req, res, next) => {
 
 // ------------------ DB CONNECTION (CONNECTION POOLING OPTIMIZED) ------------------
 mongoose.connect(process.env.MONGO_URI, {
-  maxPoolSize: 50,
-  minPoolSize: 5,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 25000,
-  maxIdleTimeMS: 30000
+  maxPoolSize: 25,
+  minPoolSize: 2,
+  serverSelectionTimeoutMS: 30000,
+  socketTimeoutMS: 60000,
+  connectTimeoutMS: 30000,
+  maxIdleTimeMS: 60000
 })
   .then(() => {
     console.log('✅ MongoDB Connected with Connection Pooling');

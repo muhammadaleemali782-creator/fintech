@@ -2661,33 +2661,63 @@ export default function AdminPanel() {
     if (!token || user.role !== "admin") return;
 
     let eventSource = null;
-    try {
-      eventSource = new EventSource(`${API}/admin/notifications/stream?token=${encodeURIComponent(token)}`);
+    let cancelled = false;
 
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === "connected" || data.type === "heartbeat") return;
+    const handleMessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "connected" || data.type === "heartbeat") return;
 
-          // Sound alert on chrome / mobile!
-          playSoundRef.current?.();
+        // Sound alert on chrome / mobile!
+        playSoundRef.current?.();
 
-          // Instant toast notification
-          showToast(`🔔 ${data.title || "New Alert"}: ${data.message}`);
+        // Instant toast notification
+        showToast(`🔔 ${data.title || "New Alert"}: ${data.message}`);
 
-          // Add to notification list
-          setNotifications((prev) => [data, ...prev]);
-          setUnreadNotifs((prev) => prev + 1);
+        // Add to notification list
+        setNotifications((prev) => [data, ...prev]);
+        setUnreadNotifs((prev) => prev + 1);
 
-          // Refresh data lists
-          loadAllRef.current?.();
-        } catch (e) {}
-      };
-    } catch (e) {
-      console.warn("SSE stream not supported or failed:", e);
-    }
+        // Refresh data lists
+        loadAllRef.current?.();
+      } catch (e) {}
+    };
+
+    // Short-lived SSE ticket (60s) instead of putting the login token in the URL.
+    // A ticket can only be used once to OPEN the stream, so on any disconnect we fetch a
+    // fresh ticket and reconnect (EventSource's built-in reconnect would reuse the old, expired one).
+    let retryTimer = null;
+    const connect = async () => {
+      if (cancelled) return;
+      try {
+        const r = await fetch(`${API}/admin/notifications/ticket`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include"
+        });
+        if (!r.ok) {
+          // 401/403 => session is invalid, don't hammer the server; other errors => retry
+          if (r.status !== 401 && r.status !== 403 && !cancelled) retryTimer = setTimeout(connect, 10000);
+          return;
+        }
+        const { ticket } = await r.json();
+        if (cancelled || !ticket) return;
+        eventSource = new EventSource(`${API}/admin/notifications/stream?ticket=${encodeURIComponent(ticket)}`);
+        eventSource.onmessage = handleMessage;
+        eventSource.onerror = () => {
+          if (eventSource) eventSource.close();
+          eventSource = null;
+          if (!cancelled) retryTimer = setTimeout(connect, 4000);
+        };
+      } catch (e) {
+        if (!cancelled) retryTimer = setTimeout(connect, 10000);
+      }
+    };
+    connect();
 
     return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
       if (eventSource) eventSource.close();
     };
   }, [token, user.role]);

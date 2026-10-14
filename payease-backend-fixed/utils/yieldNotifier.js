@@ -108,8 +108,9 @@ async function distribute24hYieldAndNotifyAll() {
       await processDailyYield(user);
       const updatedUser = await User.findById(user._id);
       const earned = Number(((updatedUser?.profitBalance || 0) - oldProfit).toFixed(2));
-      const estimated24h = Number(((user.balance * (user.interestRate || 12) / 100) / 365).toFixed(2));
-      const amountToNotify = earned > 0 ? earned : (estimated24h > 0 ? estimated24h : 0);
+      // Notify only about profit that was REALLY credited. (Old code fell back to an "estimated"
+      // amount and told users they earned money that was never added to their wallet.)
+      const amountToNotify = earned > 0 ? earned : 0;
 
       // ONLY notify when 24 hours have actually completed (at least 23 hours since last notification)
       if (amountToNotify > 0 && hoursSinceLastNotif >= 23) {

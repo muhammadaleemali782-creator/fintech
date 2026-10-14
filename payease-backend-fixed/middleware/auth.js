@@ -26,11 +26,13 @@ exports.protect = async (req, res, next) => {
       return res.status(403).json({ message: 'Account is blocked by administrator' });
     }
 
-    // Token version check for instantaneous session invalidation
-    if (typeof decoded.tv === 'number' && typeof req.user.tokenVersion === 'number') {
-      if (decoded.tv !== req.user.tokenVersion) {
-        return res.status(401).json({ message: 'Session invalidated. Please log in again.' });
-      }
+    // Token version check for instantaneous session invalidation.
+    // Strict: a token without `tv` counts as version 0, so a legacy token can no longer
+    // survive a force-logout / password change (which bump tokenVersion).
+    const tokenTv = typeof decoded.tv === 'number' ? decoded.tv : 0;
+    const currentTv = typeof req.user.tokenVersion === 'number' ? req.user.tokenVersion : 0;
+    if (tokenTv !== currentTv) {
+      return res.status(401).json({ message: 'Session invalidated. Please log in again.' });
     }
 
     // Deactivated staff account check

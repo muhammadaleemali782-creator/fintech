@@ -10,6 +10,7 @@ const { validateBase64Upload } = require('../utils/validateUpload');
 const { getEducaMailUser, updateEducaMailPassword, sendEducaMailMessage } = require('../utils/educaMail');
 const memoryCache = require('../utils/cache');
 const { encryptData, decryptData } = require('../utils/cryptoHelper');
+const { lockedMinutes, registerFailure, registerSuccess } = require('../utils/lockout');
 const router = express.Router();
 
 // Helper to evaluate and credit daily profit on primary Savings Account balance (IST Calendar)
@@ -34,10 +35,21 @@ async function processDailyYield(user) {
   if (elapsedMs >= 100) {
     const totalEarned = Number((baseBal * perMsRate * elapsedMs).toFixed(8));
     if (totalEarned > 0) {
-      user.profitBalance = Number(((user.profitBalance || 0) + totalEarned).toFixed(8));
-      user.lastYieldCalculatedAt = now;
-      user.lowestBalance24h = user.balance;
-      await user.save();
+      // ATOMIC compare-and-set on lastYieldCalculatedAt: if two requests (or the midnight cron
+      // and a /me call) try to settle the same period, only ONE wins. The loser re-reads and
+      // returns without crediting - this removes the double-credit / lost-update race.
+      const claimed = await User.findOneAndUpdate(
+        { _id: user._id, lastYieldCalculatedAt: user.lastYieldCalculatedAt || null },
+        {
+          $inc: { profitBalance: totalEarned },
+          $set: { lastYieldCalculatedAt: now, lowestBalance24h: user.balance }
+        },
+        { new: true }
+      );
+      if (!claimed) {
+        return (await User.findById(user._id)) || user;
+      }
+      user = claimed;
 
       // IST calendar date boundaries (Asia/Kolkata)
       const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -190,10 +202,20 @@ router.post('/pin/verify', protect, async (req, res) => {
       return res.status(400).json({ message: 'Please set your 6-digit PIN first', needsSetup: true });
     }
 
+    const lockMins = lockedMinutes(user, 'pin');
+    if (lockMins > 0) {
+      return res.status(429).json({ message: `Bahut zyada galat PIN attempts. ${lockMins} minute baad dobara try karein.`, locked: true });
+    }
+
     const isMatch = await bcrypt.compare(String(pin), user.walletPin);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Incorrect 6-digit PIN' });
+      const r = await registerFailure(user._id, 'pin');
+      if (r.locked) {
+        return res.status(429).json({ message: `Bahut zyada galat PIN attempts. Account PIN ${r.minutes} minute ke liye lock hai.`, locked: true });
+      }
+      return res.status(400).json({ message: `Incorrect 6-digit PIN (${r.attemptsLeft} attempts bache hain)` });
     }
+    await registerSuccess(user._id, 'pin');
 
     return res.json({ success: true, balance: user.balance });
   } catch (err) {
@@ -221,20 +243,36 @@ router.post('/pin/reset', protect, async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Validate phone matches
-    const cleanUserPhone = (user.phone || '').replace(/\D/g, '');
-    const cleanReqPhone = String(phone).replace(/\D/g, '');
-    if (!cleanUserPhone.endsWith(cleanReqPhone) && !cleanReqPhone.endsWith(cleanUserPhone)) {
-      return res.status(400).json({ message: 'Phone number does not match registered account' });
+    const lockMins = lockedMinutes(user, 'pin');
+    if (lockMins > 0) {
+      return res.status(429).json({ message: `Bahut zyada galat attempts. ${lockMins} minute baad dobara try karein.`, locked: true });
     }
 
-    // Validate Aadhar if previously stored, or save new
-    if (user.aadharNumber && user.aadharNumber !== cleanAadhar) {
-      return res.status(400).json({ message: 'Aadhar number does not match records' });
+    // The Aadhaar on record (from KYC) is the proof of identity. If none is on file, a stolen
+    // session could otherwise "set" any number and reset the PIN - so refuse.
+    const storedAadhar = String(user.aadharNumber || user.kycDocuments?.aadharNumber || '').replace(/\s+/g, '');
+    if (!/^\d{12}$/.test(storedAadhar)) {
+      return res.status(400).json({ message: 'PIN reset ke liye pehle KYC submit karna zaroori hai (Aadhaar record par hona chahiye).' });
     }
 
-    user.aadharNumber = cleanAadhar;
+    // Phone must match on the last 10 digits (old check accepted any 1-digit suffix)
+    const last10 = (v) => String(v || '').replace(/\D/g, '').slice(-10);
+    const phoneOk = last10(phone).length === 10 && last10(phone) === last10(user.phone);
+    const aadharOk = storedAadhar === cleanAadhar;
+
+    if (!phoneOk || !aadharOk) {
+      const r = await registerFailure(user._id, 'pin');
+      if (r.locked) {
+        return res.status(429).json({ message: `Bahut zyada galat attempts. ${r.minutes} minute ke liye lock.`, locked: true });
+      }
+      return res.status(400).json({
+        message: !phoneOk ? 'Phone number does not match registered account' : 'Aadhar number does not match records'
+      });
+    }
+
     user.walletPin = await bcrypt.hash(String(newPin), 10);
+    user.pinFailCount = 0;
+    user.pinLockedUntil = null;
     await user.save();
 
     res.json({ message: 'Wallet PIN successfully updated!', hasWalletPin: true });
@@ -688,30 +726,42 @@ router.get('/kyc', protect, async (req, res) => {
 // Transfer accrued profit to Primary Wallet for 12% compounding
 router.post('/transfer-profit-to-wallet', protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    let user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Settle accrued yield first so the profit we are moving is fully up to date
+    user = await processDailyYield(user);
 
     memoryCache.del(`user_me_${user._id}`);
     memoryCache.delPrefix('user_me_' + user._id);
 
-    const currentProfit = Number((user.profitBalance || 0).toFixed(2));
+    // Round DOWN to paise so we can never ask for more than the real balance
+    const floor2 = (n) => Math.floor(n * 100 + 1e-9) / 100;
+    const currentProfit = floor2(user.profitBalance || 0);
     if (currentProfit <= 0) {
       return res.status(400).json({ message: 'Transfer karne ke liye koi profit balance uplabdh nahi hai (₹0).' });
     }
 
     let transferAmount = req.body && req.body.amount ? Number(req.body.amount) : currentProfit;
-    if (isNaN(transferAmount) || transferAmount <= 0 || transferAmount > currentProfit) {
+    if (!Number.isFinite(transferAmount) || transferAmount <= 0 || transferAmount > currentProfit) {
       transferAmount = currentProfit;
     }
-    transferAmount = Number(transferAmount.toFixed(2));
-
-    user.balance = Number(((user.balance || 0) + transferAmount).toFixed(2));
-    user.profitBalance = Math.max(0, Number(((user.profitBalance || 0) - transferAmount).toFixed(2)));
-    user.lastYieldCalculatedAt = new Date();
-    if (user.wallets?.savings) {
-      user.wallets.savings.balance = Number(((user.wallets.savings.balance || 0) + transferAmount).toFixed(2));
+    transferAmount = floor2(transferAmount);
+    if (transferAmount <= 0) {
+      return res.status(400).json({ message: 'Transfer karne ke liye koi profit balance uplabdh nahi hai (₹0).' });
     }
-    await user.save();
+
+    // ATOMIC move. The guard (profitBalance >= amount) and the $inc happen in ONE database
+    // operation, so 10 parallel requests can move the money only once.
+    const moved = await User.findOneAndUpdate(
+      { _id: user._id, profitBalance: { $gte: transferAmount } },
+      { $inc: { profitBalance: -transferAmount, balance: transferAmount, 'wallets.savings.balance': transferAmount } },
+      { new: true }
+    );
+    if (!moved) {
+      return res.status(409).json({ message: 'Profit balance abhi change ho gaya hai. Kripya dobara try karein.' });
+    }
+    user = moved;
 
     memoryCache.del(`user_me_${user._id}`);
     memoryCache.delPrefix('user_me_' + user._id);

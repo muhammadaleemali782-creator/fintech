@@ -38,7 +38,7 @@ function setAuthCookie(res, token, days = 30) {
 }
 
 function verifyAuthToken(token) {
-  return jwt.verify(token, process.env.JWT_SECRET);
+  return jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
 }
 
 module.exports = {

@@ -1,14 +1,20 @@
 require('dotenv').config();
 
-// ------------------ GLOBAL CRASH SAFETY NET ------------------
-// Agar kisi route me galti se try/catch chhoot bhi jaye, to bhi
-// poora server crash NAHI hoga -- sirf error log hoga.
-// (Isse pehle ek chhoti si bug poori site ko sabke liye down kar sakti thi)
+// Forward errors thrown/rejected inside async route handlers to the Express error middleware
+// (Express 4 does not do this by itself -> the request used to hang until timeout).
+require('express-async-errors');
+
+// ------------------ GLOBAL CRASH HANDLING ------------------
+// uncaughtException = the process is in an unknown state. For a payments app it is SAFER to log
+// and restart (Render/PM2 restarts automatically) than to keep serving with possibly broken state.
+// All money moves use atomic DB operations/transactions, so a restart can never leave half-done transfers.
+process.on('uncaughtException', (err) => {
+  console.error('💥 Uncaught Exception - shutting down so the platform can restart cleanly:', err);
+  setTimeout(() => process.exit(1), 500);
+});
+// An unhandled rejection from a fire-and-forget task (mail sync, notifications...) is logged, not fatal.
 process.on('unhandledRejection', (reason) => {
   console.error('⚠️ Unhandled Promise Rejection:', reason);
-});
-process.on('uncaughtException', (err) => {
-  console.error('⚠️ Uncaught Exception:', err);
 });
 
 const express = require('express');
@@ -20,6 +26,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 const hpp = require('hpp');
 const rateLimit = require('express-rate-limit');
 const slowDown = require('express-slow-down');
+const { acquireLock } = require('./utils/lock');
 
 // ------------------ REQUIRED ENV VAR CHECK ------------------
 // Production me agar koi zaroori .env value missing hui, to server
@@ -35,6 +42,15 @@ if (missingVars.length > 0) {
 if (process.env.JWT_SECRET.length < 32) {
   console.error('❌ JWT_SECRET kam se kam 32 characters ki honi chahiye (production security ke liye)');
   console.error('   Generate karo: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+  process.exit(1);
+}
+
+// KYC documents are encrypted with ENCRYPTION_KEY. In production the server refuses to start
+// without it (instead of silently using a weak/hardcoded fallback key).
+if (process.env.NODE_ENV === 'production' && !process.env.ENCRYPTION_KEY) {
+  console.error('❌ ENCRYPTION_KEY is required in production (used to encrypt KYC documents).');
+  console.error('   Generate: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+  console.error('   Existing encrypted documents stay readable (old JWT_SECRET is tried automatically).');
   process.exit(1);
 }
 
@@ -150,8 +166,23 @@ app.use((req, res, next) => {
 });
 
 // ------------------ BODY PARSER ------------------
-app.use(express.json({ limit: '25mb' }));
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+// Body size limits: 1 MB everywhere by default (stops unauthenticated 25 MB request floods).
+// The 25 MB limit (base64 KYC / proof / QR images) applies only to the upload endpoints below
+// AND only when the request carries credentials.
+const BIG_BODY_PREFIXES = [
+  '/api/user/kyc', '/api/user/update', '/api/user/custom-qr',
+  '/api/loan', '/api/bond',
+  '/api/transaction/deposit', '/api/transaction/withdraw',
+  '/api/settings', '/api/admin'
+];
+const smallJson = express.json({ limit: '1mb' });
+const bigJson = express.json({ limit: '25mb' });
+app.use((req, res, next) => {
+  const hasCredentials = Boolean(req.headers.authorization || (req.cookies && req.cookies.token));
+  const isUploadRoute = BIG_BODY_PREFIXES.some(p => req.path.startsWith(p));
+  return (hasCredentials && isUploadRoute) ? bigJson(req, res, next) : smallJson(req, res, next);
+});
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // ------------------ NoSQL INJECTION PROTECTION ------------------
 // Request body/query/params me se $ aur . operators sanitize karta hai
@@ -242,6 +273,16 @@ app.use('/api/transaction/transfer', txLimiter);
 app.use('/api/transaction/withdraw', txLimiter);
 app.use('/api/transaction/deposit', txLimiter);
 
+// Recipient lookup limiter: stops harvesting of names/accounts by trying many identifiers
+const lookupLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many lookups. Please slow down.' }
+});
+app.use('/api/transaction/lookup', lookupLimiter);
+
 // Root redirect to live frontend
 app.get('/', (req, res) => {
   res.redirect('https://educafintech.vercel.app');
@@ -320,6 +361,14 @@ function scheduleDailyYield() {
   const { processDailyYield } = require('./routes/user');
 
   async function runYieldForAllUsers() {
+    // Cluster-safe: with several instances (or a restart at midnight) only ONE runs the job per IST day
+    const istDay = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    let gotLock = false;
+    try { gotLock = await acquireLock(`yield-cron:${istDay}`, 20 * 60 * 60 * 1000); } catch (_) {}
+    if (!gotLock) {
+      console.log(`⏰ Daily yield for ${istDay} already handled by another run - skipping`);
+      return;
+    }
     console.log('⏰ Daily 24h yield & phone notification run started:', new Date().toISOString());
     try {
       const { distribute24hYieldAndNotifyAll } = require('./utils/yieldNotifier');
@@ -360,7 +409,7 @@ const server = app.listen(process.env.PORT, () => {
 // Free-tier quota protection: Only keep alive between 10:00 AM and 10:00 PM IST.
 // Raat bhar (10:00 PM se 10:00 AM IST) ping band rahega taaki Render monthly hours na khtm hon.
 const PING_BASE_URL = process.env.RENDER_EXTERNAL_URL || 'https://educafintech.onrender.com';
-setInterval(() => {
+if (process.env.NODE_ENV === 'production') setInterval(() => {
   const now = new Date();
   const istHours = new Date(now.getTime() + (5.5 * 60 * 60 * 1000)).getUTCHours();
   if (istHours >= 10 && istHours < 22) {

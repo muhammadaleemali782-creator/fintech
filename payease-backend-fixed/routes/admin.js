@@ -1569,20 +1569,38 @@ const Notification = require('../models/Notification');
 const { registerClient, removeClient } = require('../utils/notifier');
 const jwt = require('jsonwebtoken');
 
-// SSE stream for Admin
-router.get('/notifications/stream', (req, res) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
+// ---- SSE authentication -----------------------------------------------------------------
+// The browser's EventSource cannot send headers, so the old code put the long-lived login
+// token in the URL (?token=...) where it leaks into server logs, proxies and browser history.
+// Now the client first calls POST /notifications/ticket (normal Bearer auth) and gets a
+// 60-second, single-purpose ticket (signed with a DIFFERENT secret, so it can never be used
+// as a normal login token) and opens the stream with ?ticket=...
+const sseSecret = () => `${process.env.JWT_SECRET}::sse-ticket`;
 
-  // Extract token from query or auth header
-  const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-  if (!token) return res.status(401).json({ message: 'Authentication required' });
+router.post('/notifications/ticket', protect, staffOrAdmin, (req, res) => {
+  const ticket = jwt.sign(
+    { id: String(req.user._id), tv: req.user.tokenVersion || 0, purpose: 'sse' },
+    sseSecret(),
+    { expiresIn: '60s', algorithm: 'HS256' }
+  );
+  res.json({ ticket });
+});
+
+// SSE stream for Admin / Staff
+router.get('/notifications/stream', (req, res) => {
+  // CORS is already handled (with a strict whitelist) by the app-level cors() middleware.
+  // The old code re-added Access-Control-Allow-Origin for ANY origin here - removed.
+  const ticket = typeof req.query.ticket === 'string' ? req.query.ticket : null;
+  const bearer = req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
+    ? req.headers.authorization.split(' ')[1]
+    : null;
+  if (!ticket && !bearer) return res.status(401).json({ message: 'Authentication required' });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    const decoded = ticket
+      ? jwt.verify(ticket, sseSecret(), { algorithms: ['HS256'] })
+      : jwt.verify(bearer, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    if (ticket && decoded.purpose !== 'sse') return res.status(401).json({ message: 'Invalid ticket' });
     User.findById(decoded.id).then(user => {
       if (!user || (user.role !== 'admin' && user.role !== 'staff')) {
         return res.status(403).end();
@@ -1592,7 +1610,7 @@ router.get('/notifications/stream', (req, res) => {
         return res.status(403).end();
       }
 
-      if (typeof decoded.tv === 'number' && typeof user.tokenVersion === 'number' && decoded.tv !== user.tokenVersion) {
+      if ((typeof decoded.tv === 'number' ? decoded.tv : 0) !== (typeof user.tokenVersion === 'number' ? user.tokenVersion : 0)) {
         return res.status(401).end();
       }
 

@@ -14,6 +14,7 @@ const { syncToGoogleDrive } = require('../utils/drive');
 const { encryptData, decryptData } = require('../utils/cryptoHelper');
 const memoryCache = require('../utils/cache');
 const { sendNotification } = require('../utils/notifier');
+const { acquireLock, releaseLock } = require('../utils/lock');
 const router = express.Router();
 
 // Helper to notify borrower on loan events
@@ -175,8 +176,16 @@ const syncLoanOverdueAndPenalties = (loan) => {
  */
 const autoDeductDueLoanEmis = async (userId) => {
   if (!userId) return false;
+
+  // Only ONE auto-deduct run per user at a time, across ALL server instances. Without this,
+  // two simultaneous /me calls both saw the same "pending" installment and debited it twice.
+  const lockKey = `emi:${userId}`;
+  let gotLock = false;
+  try { gotLock = await acquireLock(lockKey, 20000); } catch (_) { gotLock = false; }
+  if (!gotLock) return false;
+
   try {
-    const user = await User.findById(userId);
+    let user = await User.findById(userId);
     if (!user || (user.balance || 0) <= 0) return false;
 
     const activeLoans = await Loan.find({ userId: user._id, status: 'active' });
@@ -199,12 +208,24 @@ const autoDeductDueLoanEmis = async (userId) => {
 
       for (const item of dueInstallments) {
         const penaltyAmt = (loan.penaltyDue || 0);
-        const totalRequired = installmentAmt + penaltyAmt;
+        const totalRequired = Number((installmentAmt + penaltyAmt).toFixed(2));
+        if (!(totalRequired > 0)) break;
 
-        if (user.balance >= totalRequired) {
-          user.balance = Number((user.balance - totalRequired).toFixed(2));
-          user.duesBalance = Math.max(0, Number(((user.duesBalance || 0) - totalRequired).toFixed(2)));
+        // ATOMIC debit: balance check + deduction in one database operation (no read-modify-save).
+        const debited = await User.findOneAndUpdate(
+          { _id: user._id, balance: { $gte: totalRequired } },
+          { $inc: { balance: -totalRequired, duesBalance: -totalRequired } },
+          { new: true }
+        );
+        if (!debited) break; // not enough balance for this (and therefore later) installment
 
+        if ((debited.duesBalance || 0) < 0) {
+          await User.updateOne({ _id: user._id, duesBalance: { $lt: 0 } }, { $set: { duesBalance: 0 } });
+          debited.duesBalance = 0;
+        }
+        user = debited;
+
+        try {
           if (penaltyAmt > 0) {
             loan.penaltyPaid = (loan.penaltyPaid || 0) + penaltyAmt;
             loan.penaltyDue = 0;
@@ -222,33 +243,36 @@ const autoDeductDueLoanEmis = async (userId) => {
           if (loan.paidAmount >= loan.totalPayable || loan.remainingAmount === 0) {
             loan.status = 'closed';
             const newLimit = Math.min((user.loanLimit || 10000) * 2, 50000);
+            await User.updateOne({ _id: user._id }, { $set: { loanLimit: newLimit } });
             user.loanLimit = newLimit;
           }
 
           syncLoanOverdueAndPenalties(loan);
           await loan.save();
-
-          await Transaction.create({
-            userId: user._id,
-            type: 'loan_installment',
-            amount: totalRequired,
-            method: 'wallet',
-            sourceWallet: 'main',
-            status: 'completed',
-            referenceId: loan._id.toString(),
-            remarks: `Auto-debited Easy Installment #${item.installmentNo} for ${loan.accountNumber || 'Loan'} from Primary Wallet`,
-            adminEvidenceNote: 'Auto-debited from Primary Wallet balance on due date'
-          });
-
-          anyDeducted = true;
-        } else {
-          break;
+        } catch (saveErr) {
+          // Loan could not be marked paid -> give the money back so the user is never charged
+          // for an installment that stays "pending".
+          await User.updateOne({ _id: user._id }, { $inc: { balance: totalRequired, duesBalance: totalRequired } });
+          throw saveErr;
         }
+
+        await Transaction.create({
+          userId: user._id,
+          type: 'loan_installment',
+          amount: totalRequired,
+          method: 'wallet',
+          sourceWallet: 'main',
+          status: 'completed',
+          referenceId: loan._id.toString(),
+          remarks: `Auto-debited Easy Installment #${item.installmentNo} for ${loan.accountNumber || 'Loan'} from Primary Wallet`,
+          adminEvidenceNote: 'Auto-debited from Primary Wallet balance on due date'
+        });
+
+        anyDeducted = true;
       }
     }
 
     if (anyDeducted) {
-      await user.save();
       memoryCache.del(`user_me_${user._id}`);
       memoryCache.delPrefix('user_me_' + user._id);
     }
@@ -256,6 +280,8 @@ const autoDeductDueLoanEmis = async (userId) => {
   } catch (err) {
     console.error('autoDeductDueLoanEmis error:', err);
     return false;
+  } finally {
+    await releaseLock(lockKey);
   }
 };
 

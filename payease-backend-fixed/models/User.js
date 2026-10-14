@@ -91,6 +91,10 @@ const userSchema = new mongoose.Schema({
   passwordResetNonce: { type: String, default: null },
   passwordResetExpires: { type: Date, default: null },
   walletPin: { type: String, default: null },
+  pinFailCount: { type: Number, default: 0 },
+  pinLockedUntil: { type: Date, default: null },
+  loginFailCount: { type: Number, default: 0 },
+  loginLockedUntil: { type: Date, default: null },
   aadharNumber: { type: String, default: null },
   address: { type: String, default: '' },
 

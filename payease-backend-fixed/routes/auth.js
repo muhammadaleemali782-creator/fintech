@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { sendNotification } = require('../utils/notifier');
+const { lockedMinutes, registerFailure, registerSuccess } = require('../utils/lockout');
 const router = express.Router();
 
 const { protect } = require('../middleware/auth');
@@ -180,18 +181,23 @@ router.post('/login', async (req, res) => {
       user = await User.findOne({ email: rawId.toLowerCase() });
     }
 
+    if (user) {
+      const lockMins = lockedMinutes(user, 'login');
+      if (lockMins > 0) {
+        return res.status(429).json({ message: `Bahut zyada galat attempts. ${lockMins} minute baad dobara try karein.` });
+      }
+    }
+
     let ok = user ? await bcrypt.compare(password, user.password) : false;
 
-    // Fallback: Verify directly against Educa Mail server (SSO login for Educa Mail users)
-    if (!ok) {
+    // SSO fallback is ONLY used to create a brand-new account. It must never overwrite the
+    // password of an existing account (a compromised/squatted mail account could otherwise
+    // take over a fintech account that holds money).
+    if (!ok && !user) {
       const mailUser = await verifyEducaMailUser(rawId, password);
       if (mailUser) {
         const officialEmail = mailUser.identifier.includes('@') ? mailUser.identifier : `${mailUser.identifier}@educa.com`;
-        if (user) {
-          user.password = mailUser.passwordHash;
-          await user.save();
-          ok = true;
-        } else {
+        if (!user) {
           // Auto-provision user into Fintech
           const username = mailUser.displayName || officialEmail.split('@')[0];
           user = await User.create({
@@ -207,6 +213,12 @@ router.post('/login', async (req, res) => {
       }
     }
 
+    if (user && !ok) {
+      const r = await registerFailure(user._id, 'login');
+      if (r.locked) {
+        return res.status(429).json({ message: `Bahut zyada galat attempts. Account ${r.minutes} minute ke liye lock hai.` });
+      }
+    }
     if (!user || !ok)
       return res.status(400).json({ message: 'Invalid credentials' });
 
@@ -239,6 +251,7 @@ router.post('/login', async (req, res) => {
 
     if (user.isBlocked) return res.status(403).json({ message: 'Account blocked' });
 
+    await registerSuccess(user._id, 'login');
     const token = signAuthToken(user, { rememberMe });
     setAuthCookie(res, token, rememberMe ? 30 : (user.role === 'staff' ? 1 : 7));
 
@@ -280,16 +293,20 @@ router.post('/mail-login', async (req, res) => {
 
     // Check if user exists in Fintech database
     let user = await User.findOne({ email: normalizedEmail });
+    if (user) {
+      const lockMins = lockedMinutes(user, 'login');
+      if (lockMins > 0) {
+        return res.status(429).json({ message: `Bahut zyada galat attempts. ${lockMins} minute baad dobara try karein.` });
+      }
+    }
+
     let ok = user ? await bcrypt.compare(password, user.password) : false;
 
-    if (!ok) {
+    // Create-only: never overwrite the password of an existing account from the mail server.
+    if (!ok && !user) {
       const mailUser = await verifyEducaMailUser(normalizedEmail, password);
       if (mailUser) {
-        if (user) {
-          user.password = mailUser.passwordHash;
-          await user.save();
-          ok = true;
-        } else {
+        if (!user) {
           // Auto-provision fintech account if registered on Educa Mail
           const username = mailUser.displayName || normalizedEmail.split('@')[0];
           user = await User.create({
@@ -312,6 +329,12 @@ router.post('/mail-login', async (req, res) => {
       }
     }
 
+    if (user && !ok) {
+      const r = await registerFailure(user._id, 'login');
+      if (r.locked) {
+        return res.status(429).json({ message: `Bahut zyada galat attempts. Account ${r.minutes} minute ke liye lock hai.` });
+      }
+    }
     if (!user || !ok) return res.status(400).json({ message: 'Invalid Educa Mail credentials' });
 
     // Auto-sync real phone number & name from Educa Mail if missing or placeholder (EM...)
@@ -343,6 +366,7 @@ router.post('/mail-login', async (req, res) => {
 
     if (user.isBlocked) return res.status(403).json({ message: 'Account blocked' });
 
+    await registerSuccess(user._id, 'login');
     const token = signAuthToken(user, { loginMethod: 'educa-mail' });
     setAuthCookie(res, token, user.role === 'staff' ? 1 : 30);
 

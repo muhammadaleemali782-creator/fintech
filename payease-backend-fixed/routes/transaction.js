@@ -9,7 +9,15 @@ const { validateBase64Upload } = require('../utils/validateUpload');
 const bcrypt = require('bcryptjs');
 const memoryCache = require('../utils/cache');
 const { syncToGoogleDrive } = require('../utils/drive');
+const { acquireLock } = require('../utils/lock');
+const { lockedMinutes, registerFailure, registerSuccess } = require('../utils/lockout');
 const router = express.Router();
+
+// Show only the last 4 digits so lookup can't be used to harvest full phone numbers
+const maskPhone = (p) => {
+  const d = String(p || '').replace(/\D/g, '');
+  return d.length > 4 ? `${'•'.repeat(d.length - 4)}${d.slice(-4)}` : '';
+};
 
 // 1. Lookup Recipient by Phone, Email, or Unique ID / Referral Code
 router.get('/lookup/:identifier', protect, async (req, res) => {
@@ -42,7 +50,7 @@ router.get('/lookup/:identifier', protect, async (req, res) => {
     res.json({
       name: recipient.name,
       uniqueId,
-      phone: recipient.phone,
+      phone: maskPhone(recipient.phone),
       accountNumber: recipient.accountNumber,
       upiId: recipient.upiId,
       id: recipient._id
@@ -53,9 +61,6 @@ router.get('/lookup/:identifier', protect, async (req, res) => {
 });
 
 // 2. Instant App-to-App P2P Wallet Transfer (Anti-Burp / Anti-Tamper Security)
-// In-memory transfer lock to prevent double transfers from double-clicks or rapid retransmissions
-const transferLocks = new Map();
-
 router.post('/transfer', protect, async (req, res) => {
   const { recipient: rawRecipient, amount: rawAmount, notes, pin, sourceWallet = 'main' } = req.body;
 
@@ -80,10 +85,26 @@ router.post('/transfer', protect, async (req, res) => {
     return res.status(400).json({ message: 'Transfer ke liye 6-digit UPI PIN daalna anivarya hai.' });
   }
 
+  const pinLockMins = lockedMinutes(senderUser, 'pin');
+  if (pinLockMins > 0) {
+    return res.status(429).json({
+      message: `Bahut zyada galat PIN attempts. ${pinLockMins} minute baad dobara try karein.`,
+      locked: true
+    });
+  }
+
   const isPinValid = await bcrypt.compare(String(pin), senderUser.walletPin);
   if (!isPinValid) {
-    return res.status(400).json({ message: 'Galat 6-digit UPI PIN enter kiya gaya hai.' });
+    const r = await registerFailure(senderUser._id, 'pin');
+    if (r.locked) {
+      return res.status(429).json({
+        message: `Bahut zyada galat PIN attempts. PIN ${r.minutes} minute ke liye lock hai.`,
+        locked: true
+      });
+    }
+    return res.status(400).json({ message: `Galat 6-digit UPI PIN enter kiya gaya hai. (${r.attemptsLeft} attempts bache hain)` });
   }
+  await registerSuccess(senderUser._id, 'pin');
 
   const amount = Number(rawAmount);
   // Strict Positive Finite Integer Validation
@@ -116,14 +137,13 @@ router.post('/transfer', protect, async (req, res) => {
 
   // Duplicate transfer / rapid tap prevention (6-second idempotency window)
   const transferLockKey = `${req.user._id}_${recipientUser._id}_${amount}_${sourceWallet}`;
-  const lastTransferTime = transferLocks.get(transferLockKey);
-  if (lastTransferTime && (Date.now() - lastTransferTime < 6000)) {
+  // Stored in MongoDB (not process memory) so it also works with several server instances / restarts
+  const freshTransfer = await acquireLock(`transfer:${transferLockKey}`, 6000);
+  if (!freshTransfer) {
     return res.status(429).json({
       message: 'Yeh transfer pehle se process ho raha hai. Kripya thoda intezar karein.'
     });
   }
-  transferLocks.set(transferLockKey, Date.now());
-  setTimeout(() => transferLocks.delete(transferLockKey), 10000);
 
   const isProfitSource = sourceWallet === 'profit';
   const session = await mongoose.startSession();

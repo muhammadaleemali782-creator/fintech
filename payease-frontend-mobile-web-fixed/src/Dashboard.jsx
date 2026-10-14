@@ -6660,24 +6660,6 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Live Real-Time Ticker Stream */}
-          <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border border-emerald-500/30 rounded-3xl p-4 sm:p-5 text-white shadow-xl relative overflow-hidden">
-            {/* Live Accruing Counter Box */}
-            <div className="bg-black/40 rounded-2xl p-3.5 border border-emerald-500/20 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Aaj Ka Real-Time Accrued Profit:</span>
-                <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tracking-tight flex items-baseline gap-1">
-                  <LiveTodayAccrued activeCapital={activeCapital} isAdmin={isAdmin} />
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Added Every Second:</span>
-                <div className="text-xs sm:text-sm font-black font-mono text-emerald-200 bg-emerald-900/60 px-2.5 py-1.5 rounded-xl border border-emerald-500/30 inline-block">
-                  ⚡ +₹{perSecondYield >= 0.0001 ? perSecondYield.toFixed(4) : perSecondYield.toFixed(6)}/sec
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Collapsible Profit Rules & Lending/Loan Returns Explanation */}
           <details className="group bg-indigo-50/80 border border-indigo-200/80 rounded-2xl p-3.5 text-xs text-indigo-950 transition shadow-xs">

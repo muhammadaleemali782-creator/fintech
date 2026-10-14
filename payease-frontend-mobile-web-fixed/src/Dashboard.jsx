@@ -5585,41 +5585,30 @@ export default function Dashboard() {
                   isAdmin={isAdmin}
                 />
               </h3>
-              <p className="text-emerald-100/90 text-[11px] hidden sm:block mt-1">1% Monthly Daily Yield & 365d Bonds</p>
             </div>
             <div className="pt-2 border-t border-emerald-500/40 flex justify-end items-center text-[11px] text-emerald-100 relative z-10 mt-2">
               <span className="font-bold underline">History & Transfer →</span>
             </div>
           </div>
 
-          {/* Right: Dues Wallet Balance Card - CLEAN & UNLOCKED */}
+          {/* Right: Dues Wallet Balance Card - PREMIUM VIBRANT RED */}
           <div
             onClick={openLoansHub}
-            className={`relative overflow-visible rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col justify-between cursor-pointer active:scale-95 transition hover:shadow-xl ${
-              (userProfile.duesBalance || 0) > 0
-                ? "bg-gradient-to-br from-red-600 via-rose-600 to-red-800 text-white shadow-red-500/25"
-                : "bg-white border-2 border-slate-200 text-slate-900 shadow-sm"
-            }`}
+            className="relative overflow-visible rounded-3xl p-4 sm:p-5 shadow-xl shadow-red-600/20 bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white border border-red-500/30 flex flex-col justify-between cursor-pointer active:scale-95 transition hover:shadow-2xl"
           >
             {heroFlyId === "loans_hub" && <LoanHeroFlyBadge />}
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-1">
-                <span className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider ${
-                  (userProfile.duesBalance || 0) > 0 ? "text-red-100" : "text-slate-500"
-                }`}>{txt.duesWallet}</span>
+                <span className="text-red-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.duesWallet}</span>
                 <span className="text-base sm:text-lg">
                   {(userProfile.duesBalance || 0) > 0 ? "📅" : "✅"}
                 </span>
               </div>
-              <h3 className={`text-2xl sm:text-3xl font-black font-display mb-1 truncate ${
-                (userProfile.duesBalance || 0) > 0 ? "text-white" : "text-slate-900"
-              }`}>
+              <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate text-white">
                 {`₹${(userProfile.duesBalance || 0).toLocaleString("en-IN")}`}
               </h3>
-              <p className={`text-[11px] hidden sm:block ${
-                (userProfile.duesBalance || 0) > 0 ? "text-red-100/90" : "text-emerald-600 font-semibold"
-              }`}>
+              <p className="text-red-100/90 text-[11px] hidden sm:block">
                 {(userProfile.duesBalance || 0) > 0
                   ? "Pending Easy Installments & upcoming collections"
                   : "No Active Dues • All Clear (₹0)"}
@@ -5637,11 +5626,9 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            <div className={`pt-2 border-t flex justify-between items-center text-[11px] relative z-10 mt-2 ${
-              (userProfile.duesBalance || 0) > 0 ? "border-red-400/30 text-red-100" : "border-slate-100 text-slate-600"
-            }`}>
+            <div className="pt-2 border-t border-red-400/30 flex justify-between items-center text-[11px] text-red-100 relative z-10 mt-2">
               <span>{(userProfile.duesBalance || 0) > 0 ? "10-Day Cycle (1st, 11th, 21st)" : "All Clear"}</span>
-              <span className="font-bold underline">
+              <span className="font-bold underline text-white">
                 {(userProfile.duesBalance || 0) > 0 ? "Pay Installment →" : "View Details →"}
               </span>
             </div>

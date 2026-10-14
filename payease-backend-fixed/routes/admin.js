@@ -505,6 +505,20 @@ router.post('/transaction/:id/reject', protect, staffOrAdmin, async (req, res) =
   }
 });
 
+// Cheap change-detector for the KYC tab (a few bytes instead of re-sending every user)
+router.get('/users/kyc-fingerprint', protect, admin, async (req, res) => {
+  try {
+    const groups = await User.aggregate([
+      { $match: { role: { $ne: 'admin' } } },
+      { $group: { _id: '$kycStatus', n: { $sum: 1 }, latest: { $max: '$updatedAt' } } },
+      { $sort: { _id: 1 } }
+    ]);
+    res.json({ groups });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to compute KYC fingerprint' });
+  }
+});
+
 // All users (With in-memory decrypted KYC documents for 0ms instant display)
 router.get('/users', protect, admin, async (req, res) => {
   try {

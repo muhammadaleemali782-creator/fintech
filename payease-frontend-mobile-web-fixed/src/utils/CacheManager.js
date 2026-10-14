@@ -9,6 +9,64 @@ const DB_NAME = "EducaFintechDB";
 const DB_VERSION = 1;
 const STORE_NAME = "app_cache";
 
+// -------------------------------------------------------------------------
+// PERF: persistence must never block taps / scrolling.
+//  - Huge base64 strings (KYC photos etc.) are NOT mirrored to localStorage/IndexedDB (they are re-fetched anyway).
+//  - Writes are queued and flushed when the browser is idle (or when the page is hidden), one write per key.
+// -------------------------------------------------------------------------
+const HEAVY_STRING_LIMIT = 20000;
+export function slimStringify(value) {
+  return JSON.stringify(value, (k, v) =>
+    (typeof v === "string" && v.length > HEAVY_STRING_LIMIT && v.startsWith("data:")) ? "" : v
+  );
+}
+
+const pendingRecords = new Map(); // cache key -> record  (localStorage mirror + IndexedDB)
+const pendingLegacy = new Map();  // raw localStorage key -> value (stringified at flush time)
+let flushScheduled = false;
+
+function flushPersistQueue() {
+  flushScheduled = false;
+  if (typeof window === "undefined") return;
+  const records = Array.from(pendingRecords.values());
+  const legacy = Array.from(pendingLegacy.entries());
+  pendingRecords.clear();
+  pendingLegacy.clear();
+
+  for (const [k, v] of legacy) {
+    try { localStorage.setItem(k, slimStringify(v)); } catch {}
+  }
+  for (const rec of records) {
+    let json;
+    try { json = slimStringify(rec); } catch { continue; }
+    try { localStorage.setItem(rec.key, json); } catch { try { CacheManager.evictTemporaryStorage(); } catch {} }
+    // IndexedDB gets the same slim copy
+    getIndexedDB().then((db) => {
+      if (!db) return;
+      try { db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).put(JSON.parse(json)); } catch {}
+    }).catch(() => {});
+  }
+}
+
+function schedulePersistFlush() {
+  if (typeof window === "undefined") return;
+  // App already hidden/closing: write NOW (no idle time will come)
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") { flushPersistQueue(); return; }
+  if (flushScheduled) return;
+  flushScheduled = true;
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(flushPersistQueue, { timeout: 2500 });
+  } else {
+    setTimeout(flushPersistQueue, 400);
+  }
+}
+
+if (typeof window !== "undefined") {
+  // Don't lose the last writes when the app is backgrounded / closed
+  window.addEventListener("pagehide", flushPersistQueue);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushPersistQueue(); });
+}
+
 // Synchronous L1 in-memory cache for 0ms immediate React component rendering
 const memoryCache = new Map();
 const inFlightRequests = new Map();
@@ -40,6 +98,10 @@ if (typeof window !== "undefined" && window.localStorage) {
           try {
             const parsed = JSON.parse(raw);
             memoryCache.set(key, parsed);
+            // one-time cleanup: older builds stored multi-MB base64 inside these entries
+            if (raw.length > 300000) {
+              try { localStorage.setItem(key, slimStringify(parsed)); } catch {}
+            }
           } catch {
             memoryCache.set(key, raw);
           }
@@ -234,25 +296,24 @@ export const CacheManager = {
       ...meta
     };
 
-    // 1. Update L1 Memory Cache immediately
+    // 1. Update L1 Memory Cache immediately (UI reads from here)
     memoryCache.set(key, record);
 
-    // 2. Mirror to localStorage
-    try {
-      storage.set(key, JSON.stringify(record));
-    } catch {
-      // Storage quota safety: clear obsolete temporary keys if localStorage full
-      this.evictTemporaryStorage();
-    }
+    // 2. Persist (localStorage mirror + IndexedDB) later, off the interaction path, one write per key
+    pendingRecords.set(key, record);
+    schedulePersistFlush();
+  },
 
-    // 3. Write to IndexedDB for unlimited, persistent disk storage
-    try {
-      const db = await getIndexedDB();
-      if (db) {
-        const tx = db.transaction(STORE_NAME, "readwrite");
-        tx.objectStore(STORE_NAME).put(record);
-      }
-    } catch {}
+  // Deferred, slimmed replacement for localStorage.setItem(key, JSON.stringify(value))
+  persistLegacy(key, value) {
+    if (!key) return;
+    pendingLegacy.set(key, value);
+    schedulePersistFlush();
+  },
+
+  // JSON string without huge base64 blobs (use for the small "user" session object)
+  slim(value) {
+    return slimStringify(value);
   },
 
   has(key) {
@@ -388,16 +449,8 @@ export async function smartFetch(url, options = {}, config = {}) {
       const timer = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
-        const reqHeaders = {
-          ...(options.headers || {}),
-          "Cache-Control": "no-cache",
-          "Pragma": "no-cache"
-        };
-        const sep = url.includes("?") ? "&" : "?";
-        const fetchUrl = url.includes("_t=") ? url : `${url}${sep}_t=${Date.now()}`;
-        const res = await fetch(fetchUrl, {
+        const res = await fetch(url, {
           ...options,
-          headers: reqHeaders,
           signal: controller.signal
         });
         clearTimeout(timer);

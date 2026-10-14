@@ -588,27 +588,41 @@ function LiveLedgerDailyAdded({ baseAmount = 0, deposits = 0, className = "" }) 
   return <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>+₹{Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
 }
 
+// ONE shared 250ms clock for every live profit cell. Before, each user row ran its own timer
+// (e.g. 300 rows = thousands of React renders per second -> frozen buttons / lag).
+const __liveClockSubs = new Set();
+let __liveClockTimer = null;
+function useSharedLiveClock(enabled) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const sub = () => setNow(Date.now());
+    __liveClockSubs.add(sub);
+    if (!__liveClockTimer) {
+      __liveClockTimer = setInterval(() => {
+        if (typeof document !== "undefined" && document.hidden) return;
+        __liveClockSubs.forEach((fn) => fn());
+      }, 250);
+    }
+    return () => {
+      __liveClockSubs.delete(sub);
+      if (!__liveClockSubs.size && __liveClockTimer) { clearInterval(__liveClockTimer); __liveClockTimer = null; }
+    };
+  }, [enabled]);
+  return now;
+}
+
 function LiveUserProfitCell({ user }) {
   const base = Number(user?.profitBalance || 0);
   const bal = Number(user?.balance || 0);
-  const [liveVal, setLiveVal] = useState(base);
   const mountRef = useRef(Date.now());
+  const lastBaseRef = useRef(base);
+  if (lastBaseRef.current !== base) { lastBaseRef.current = base; mountRef.current = Date.now(); }
 
-  useEffect(() => {
-    setLiveVal(base);
-    mountRef.current = Date.now();
-  }, [base]);
-
-  useEffect(() => {
-    if (bal <= 0) return;
-    const rate = Number(user?.interestRate || 12);
-    const perMs = (bal * rate) / (36500 * 86400000);
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - mountRef.current;
-      setLiveVal(base + (elapsed * perMs));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [base, bal, user?.interestRate]);
+  const now = useSharedLiveClock(bal > 0);
+  const rate = Number(user?.interestRate || 12);
+  const perMs = (bal * rate) / (36500 * 86400000);
+  const liveVal = bal > 0 ? base + Math.max(0, now - mountRef.current) * perMs : base;
 
   if (bal <= 0 && base <= 0) return <span className="text-gray-400 text-xs font-mono tabular-nums">₹0.0000</span>;
   const decimals = bal < 100 ? 8 : (bal < 50000 ? 7 : 6);
@@ -2200,7 +2214,7 @@ export default function AdminPanel() {
       if (data && data.success) {
         setAnalytics(data);
         appCache.set("educa_admin_cached_analytics", data);
-        try { localStorage.setItem("educa_admin_cached_analytics", JSON.stringify(data)); } catch {}
+        try { CacheManager.persistLegacy("educa_admin_cached_analytics", data); } catch {}
         if (data.stats?.netFintechReserve !== undefined) {
           appCache.set("educa_admin_cached_reserves", data.stats.netFintechReserve);
           try { localStorage.setItem("educa_admin_cached_reserves", String(data.stats.netFintechReserve)); } catch {}
@@ -2489,7 +2503,7 @@ export default function AdminPanel() {
         setStats(statsPayload);
         appCache.set("educa_admin_cached_stats", statsPayload);
         try {
-          localStorage.setItem("educa_admin_cached_stats", JSON.stringify(statsPayload));
+          CacheManager.persistLegacy("educa_admin_cached_stats", statsPayload);
           localStorage.setItem("educa_admin_cached_reserves", String(statsPayload.netFintechReserve));
           localStorage.setItem("educa_admin_cached_deposits", String(statsPayload.totalDeposits));
           localStorage.setItem("educa_admin_cached_profit", String(statsPayload.totalYield));
@@ -2577,6 +2591,27 @@ export default function AdminPanel() {
       if (analyticsInterval) clearInterval(analyticsInterval);
     };
   }, [tab]); // eslint-disable-line
+
+  // KYC TAB: Poll lightweight fingerprint every 8s, reload full users list only when fingerprint changes
+  useEffect(() => {
+    if (tab !== "kyc") return;
+    let lastFingerprint = null;
+    const check = async () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch(`${API}/admin/users/kyc-fingerprint`, { headers });
+        if (!res.ok) return;
+        const fp = JSON.stringify(await res.json());
+        if (lastFingerprint !== null && fp !== lastFingerprint) {
+          loadUsers(true); // reload only when KYC data changed
+        }
+        lastFingerprint = fp;
+      } catch {}
+    };
+    check();
+    const kycPoll = setInterval(check, 8000);
+    return () => clearInterval(kycPoll);
+  }, [tab, loadUsers, headers]); // eslint-disable-line
 
   // LIVE BACKGROUND SYNC (Quiet, non-blocking 45s interval on active operational tabs)
   useEffect(() => {

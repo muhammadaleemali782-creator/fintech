@@ -73,40 +73,40 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
   }
 };
 
-// Real-time ticking profit balance display component (High-FPS, strictly monotonic when capital > 0)
+// Shared 100ms ticker for the live yield counters. Pauses while the app is hidden (battery + no wasted renders).
+function useLiveNow(enabled) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!enabled || typeof document === "undefined") return undefined;
+    let timer = null;
+    const start = () => { if (!timer) { setNow(Date.now()); timer = setInterval(() => setNow(Date.now()), 100); } };
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    const onVis = () => (document.hidden ? stop() : start());
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVis);
+    return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
+  }, [enabled]);
+  return now;
+}
+
+// Real-time ticking profit balance display component (strictly monotonic when capital > 0)
+// NOTE: all hooks run on every render. The old version returned early *before* its hooks, which crashes React
+// ("Rendered more hooks than during the previous render") the moment capital goes 0 -> >0 after data arrives.
 function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false, className = "" }) {
   const cap = Math.max(Number(activeCapital || 0), 0);
-  const parsedBase = parseCachedNumber(baseProfit, 0);
-  if (isAdmin || parsedBase <= 0) {
-    return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹0.00</span>;
-  }
-  if (cap <= 0) {
-    const formatted = parsedBase > 0 ? parsedBase.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
-    return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
-  }
-
-  const [liveMs, setLiveMs] = useState(Date.now());
-  const dailyYieldEst = (cap * 0.12) / 365;
-  const perSecondYield = dailyYieldEst / 86400;
-  const perMsYield = perSecondYield / 1000;
+  const inactive = isAdmin || cap <= 0;
+  const liveMs = useLiveNow(!inactive);
   const lastSaveRef = useRef(0);
+  const latestRef = useRef(0);
 
-  useEffect(() => {
-    let timer = null;
-    if (typeof document !== "undefined" && !document.hidden) {
-      timer = setInterval(() => setLiveMs(Date.now()), 50); // 50ms
-    }
-    return () => { if (timer) clearInterval(timer); };
-  }, []);
-
+  const perMsYield = ((cap * 0.12) / 365) / 86400 / 1000;
   const startOfToday = new Date().setHours(0, 0, 0, 0);
-  const msElapsedToday = Math.max(0, liveMs - startOfToday);
-  const liveTodayEarned = parsedBase <= 0 ? 0 : (msElapsedToday * perMsYield);
-
+  const liveTodayEarned = Math.max(0, liveMs - startOfToday) * perMsYield;
   // Total profit = database base balance + today's real-time accrued yield
-  const totalProfit = parsedBase <= 0 ? 0 : (parsedBase + liveTodayEarned);
+  const totalProfit = inactive ? 0 : parseCachedNumber(baseProfit) + liveTodayEarned;
+  latestRef.current = totalProfit;
 
-  // Persist rolled profit every 3s and on phone cut/lock/background
+  // Persist rolled profit every 3s (cheap string write)
   useEffect(() => {
     const now = Date.now();
     if (totalProfit > 0 && now - lastSaveRef.current > 3000) {
@@ -115,11 +115,10 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
     }
   }, [totalProfit]);
 
+  // ...and when the phone locks / app goes to background. Registered ONCE (previously re-registered on every tick).
   useEffect(() => {
     const handleSave = () => {
-      try {
-        if (totalProfit > 0) localStorage.setItem("educa_cached_profit_rolled", String(totalProfit));
-      } catch {}
+      try { if (latestRef.current > 0) localStorage.setItem("educa_cached_profit_rolled", String(latestRef.current)); } catch {}
     };
     window.addEventListener("pagehide", handleSave);
     window.addEventListener("beforeunload", handleSave);
@@ -129,7 +128,14 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
       window.removeEventListener("beforeunload", handleSave);
       document.removeEventListener("visibilitychange", handleSave);
     };
-  }, [totalProfit]);
+  }, []);
+
+  if (inactive) {
+    const rolled = typeof localStorage !== "undefined" ? parseCachedNumber(localStorage.getItem("educa_cached_profit_rolled"), 0) : 0;
+    const num = isAdmin ? 0 : (parseCachedNumber(baseProfit) || rolled);
+    const formatted = num > 0 ? num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
+    return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
+  }
 
   const decimals = cap >= 100000 ? 6 : (cap >= 10000 ? 7 : 8);
   const formatted = totalProfit.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
@@ -140,30 +146,13 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
 // Live Today's Accrued Yield Counter (Accrues in real time since midnight)
 function LiveTodayAccrued({ activeCapital = 0, isAdmin = false }) {
   const cap = Math.max(Number(activeCapital || 0), 0);
-  if (isAdmin || cap <= 0) {
-    const saved = typeof localStorage !== "undefined" ? parseCachedNumber(localStorage.getItem("educa_cached_today_accrued"), 0) : 0;
-    if (saved > 0) {
-      return <span className="font-mono tabular-nums tracking-tight">₹{saved.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
-    }
-    return <span className="font-mono tabular-nums tracking-tight">₹0.00</span>;
-  }
-  const [liveMs, setLiveMs] = useState(Date.now());
-  const dailyYieldEst = (cap * 0.12) / 365;
-  const perSecondYield = dailyYieldEst / 86400;
-  const perMsYield = perSecondYield / 1000;
+  const inactive = isAdmin || cap <= 0;
+  const liveMs = useLiveNow(!inactive);
   const lastSaveRef = useRef(0);
 
-  useEffect(() => {
-    let timer = null;
-    if (typeof document !== "undefined" && !document.hidden) {
-      timer = setInterval(() => setLiveMs(Date.now()), 50); // 50ms
-    }
-    return () => { if (timer) clearInterval(timer); };
-  }, []);
-
+  const perMsYield = ((cap * 0.12) / 365) / 86400 / 1000;
   const startOfToday = new Date().setHours(0, 0, 0, 0);
-  const msElapsedToday = Math.max(0, liveMs - startOfToday);
-  const liveTodayEarned = msElapsedToday * perMsYield;
+  const liveTodayEarned = inactive ? 0 : Math.max(0, liveMs - startOfToday) * perMsYield;
 
   useEffect(() => {
     const now = Date.now();
@@ -172,6 +161,14 @@ function LiveTodayAccrued({ activeCapital = 0, isAdmin = false }) {
       try { localStorage.setItem("educa_cached_today_accrued", String(liveTodayEarned)); } catch {}
     }
   }, [liveTodayEarned]);
+
+  if (inactive) {
+    const saved = typeof localStorage !== "undefined" ? parseCachedNumber(localStorage.getItem("educa_cached_today_accrued"), 0) : 0;
+    if (saved > 0) {
+      return <span className="font-mono tabular-nums tracking-tight">₹{saved.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
+    }
+    return <span className="font-mono tabular-nums tracking-tight">₹0.00</span>;
+  }
 
   const decimals = cap >= 100000 ? 4 : (cap >= 10000 ? 5 : 6);
   return <span className="font-mono tabular-nums tracking-tight">₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</span>;
@@ -448,12 +445,10 @@ export default function Dashboard() {
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
-  const pickCandidateNumber = (...candidates) => {
+  const pickPositiveNumber = (...candidates) => {
     for (const c of candidates) {
-      if (c !== null && c !== undefined && c !== "") {
-        const n = parseCachedNumber(c, null);
-        if (n !== null && isFinite(n)) return n;
-      }
+      const n = parseCachedNumber(c, null);
+      if (n !== null && isFinite(n) && n > 0) return n;
     }
     return 0;
   };
@@ -463,7 +458,7 @@ export default function Dashboard() {
     const globalCached = appCache.get("educa_cached_balance", null);
     const profBal = cachedProf?.balance;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_balance") : null;
-    return pickCandidateNumber(userScoped, globalCached, profBal, rawLocal, userStored?.balance);
+    return pickPositiveNumber(userScoped, globalCached, profBal, rawLocal, userStored?.balance);
   });
   const [cachedProfitBalance, setCachedProfitBalance] = useState(() => {
     if (userRole === "admin") return 0;
@@ -471,7 +466,8 @@ export default function Dashboard() {
     const globalCached = appCache.get("educa_cached_profit_balance", null);
     const profPb = cachedProf?.profitBalance;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_balance") : null;
-    return pickCandidateNumber(userScoped, globalCached, profPb, rawLocal, userStored?.profitBalance);
+    const rolledLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_rolled") : null;
+    return pickPositiveNumber(userScoped, globalCached, profPb, rawLocal, rolledLocal, userStored?.profitBalance);
   });
   const [loadingDashboard, setLoadingDashboard] = useState(!appCache.has("educa_cached_profile"));
   const [txns, setTxns] = useState(() => {
@@ -2228,11 +2224,11 @@ export default function Dashboard() {
         });
         appCache.set("educa_cached_profile", data);
         CacheManager.set(CacheManager.createKey(role, uId, "profile"), data);
-        try { localStorage.setItem("educa_cached_profile", JSON.stringify(data)); } catch {}
+        try { CacheManager.persistLegacy("educa_cached_profile", data); } catch {}
 
         // Keep user object in localStorage fresh and strictly preserve role
         const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-        localStorage.setItem("user", JSON.stringify({ ...currentUser, ...data, role: data.role || currentUser.role }));
+        localStorage.setItem("user", CacheManager.slim({ ...currentUser, ...data, role: data.role || currentUser.role }));
         
         if (data.balance !== undefined) {
           setBalance(prev => (prev === data.balance ? prev : data.balance));
@@ -2245,20 +2241,18 @@ export default function Dashboard() {
           setCachedProfitBalance(pb);
           appCache.set("educa_cached_profit_balance", pb);
           CacheManager.set(CacheManager.createKey(role, uId, "profit_balance"), pb);
-          try {
-            localStorage.setItem("educa_cached_profit_balance", String(pb));
-            if (pb <= 0) {
-              localStorage.removeItem("educa_cached_profit_rolled");
-              localStorage.removeItem("educa_cached_today_accrued");
-            }
-          } catch {}
+          try { localStorage.setItem("educa_cached_profit_balance", String(pb)); } catch {}
         }
 
         // Native Android App: Register device silently in background without intrusive prompts
         if (window.AndroidDevice) {
           try {
             if (data._id && window.AndroidDevice.registerDeviceUser) {
-              window.AndroidDevice.registerDeviceUser(data._id, data.email || "", data.name || "");
+              try {
+                window.AndroidDevice.registerDeviceUser(data._id, data.email || "", data.name || "", tokenStorage.getToken() || "");
+              } catch (_) {
+                window.AndroidDevice.registerDeviceUser(data._id, data.email || "", data.name || "");
+              }
             }
           } catch (nativeErr) {
             console.warn("Android native bridge notice:", nativeErr);
@@ -2569,8 +2563,8 @@ export default function Dashboard() {
           try {
             const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
             const updatedUser = { ...currentUser, ...freshProf, balance: freshBal, profitBalance: freshPb, role: freshProf.role || currentUser.role };
-            localStorage.setItem("user", JSON.stringify(updatedUser));
-            localStorage.setItem("educa_cached_profile", JSON.stringify(freshProf));
+            localStorage.setItem("user", CacheManager.slim(updatedUser));
+            CacheManager.persistLegacy("educa_cached_profile", freshProf);
             localStorage.setItem("educa_cached_balance", String(freshBal));
             localStorage.setItem("educa_cached_profit_balance", String(freshPb));
           } catch {}
@@ -2586,38 +2580,38 @@ export default function Dashboard() {
           setTxns(prev => (isDataEqual(prev, d.transactions) ? prev : d.transactions));
           CacheManager.set(CacheManager.createKey(role, uId, "transactions"), d.transactions);
           appCache.set("educa_cached_txns", d.transactions);
-          try { localStorage.setItem("educa_cached_txns", JSON.stringify(d.transactions)); } catch {}
+          try { CacheManager.persistLegacy("educa_cached_txns", d.transactions); } catch {}
         }
         if (Array.isArray(d.loans)) {
           setLoans(prev => (isDataEqual(prev, d.loans) ? prev : d.loans));
           CacheManager.set(CacheManager.createKey(role, uId, "loans"), d.loans);
           appCache.set("educa_cached_loans", d.loans);
-          try { localStorage.setItem("educa_cached_loans", JSON.stringify(d.loans)); } catch {}
+          try { CacheManager.persistLegacy("educa_cached_loans", d.loans); } catch {}
           setShowLoans(true);
         }
         if (d.activeLoan) {
           setActiveLoanDetails(prev => (isDataEqual(prev, d.activeLoan) ? prev : d.activeLoan));
           CacheManager.set(CacheManager.createKey(role, uId, "active_loan"), d.activeLoan);
           appCache.set("educa_cached_active_loan", d.activeLoan);
-          try { localStorage.setItem("educa_cached_active_loan", JSON.stringify(d.activeLoan)); } catch {}
+          try { CacheManager.persistLegacy("educa_cached_active_loan", d.activeLoan); } catch {}
         }
         if (Array.isArray(d.bonds)) {
           setBonds(prev => (isDataEqual(prev, d.bonds) ? prev : d.bonds));
           CacheManager.set(CacheManager.createKey(role, uId, "bonds"), d.bonds);
           appCache.set("educa_cached_bonds", d.bonds);
-          try { localStorage.setItem("educa_cached_bonds", JSON.stringify(d.bonds)); } catch {}
+          try { CacheManager.persistLegacy("educa_cached_bonds", d.bonds); } catch {}
         }
         if (Array.isArray(d.profitHistory)) {
           setProfitHistory(prev => (isDataEqual(prev, d.profitHistory) ? prev : d.profitHistory));
           CacheManager.set(CacheManager.createKey(role, uId, "profit_history"), d.profitHistory);
           appCache.set("educa_cached_profit_history", d.profitHistory);
-          try { localStorage.setItem("educa_cached_profit_history", JSON.stringify(d.profitHistory)); } catch {}
+          try { CacheManager.persistLegacy("educa_cached_profit_history", d.profitHistory); } catch {}
         }
         if (d.depositDetails) {
           setDepositDetails(prev => (isDataEqual(prev, d.depositDetails) ? prev : d.depositDetails));
           CacheManager.set(CacheManager.createKey(role, uId, "deposit_details"), d.depositDetails);
           appCache.set("educa_cached_deposit_details", d.depositDetails);
-          try { localStorage.setItem("educa_cached_deposit_details", JSON.stringify(d.depositDetails)); } catch {}
+          try { CacheManager.persistLegacy("educa_cached_deposit_details", d.depositDetails); } catch {}
         }
         if (d.currentRate) {
           setCurrentRate(prev => (prev === d.currentRate ? prev : d.currentRate));
@@ -2629,7 +2623,7 @@ export default function Dashboard() {
           setAgentMetrics(prev => (isDataEqual(prev, d.agentStats) ? prev : d.agentStats));
           CacheManager.set(CacheManager.createKey(role, uId, "agent_stats"), d.agentStats);
           appCache.set("educa_cached_agent_metrics", d.agentStats);
-          try { localStorage.setItem("educa_cached_agent_metrics", JSON.stringify(d.agentStats)); } catch {}
+          try { CacheManager.persistLegacy("educa_cached_agent_metrics", d.agentStats); } catch {}
         }
         setLastSyncedAt(Date.now());
         return true;
@@ -2740,23 +2734,23 @@ export default function Dashboard() {
           }
         }
         if (userProfile && (userProfile._id || userProfile.id)) {
-          localStorage.setItem("educa_cached_profile", JSON.stringify(userProfile));
+          CacheManager.persistLegacy("educa_cached_profile", userProfile);
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profile"), userProfile);
         }
         if (Array.isArray(txns) && txns.length > 0) {
-          localStorage.setItem("educa_cached_txns", JSON.stringify(txns));
+          CacheManager.persistLegacy("educa_cached_txns", txns);
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "transactions"), txns);
         }
         if (Array.isArray(loans) && loans.length > 0) {
-          localStorage.setItem("educa_cached_loans", JSON.stringify(loans));
+          CacheManager.persistLegacy("educa_cached_loans", loans);
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "loans"), loans);
         }
         if (Array.isArray(bonds) && bonds.length > 0) {
-          localStorage.setItem("educa_cached_bonds", JSON.stringify(bonds));
+          CacheManager.persistLegacy("educa_cached_bonds", bonds);
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "bonds"), bonds);
         }
         if (Array.isArray(profitHistory) && profitHistory.length > 0) {
-          localStorage.setItem("educa_cached_profit_history", JSON.stringify(profitHistory));
+          CacheManager.persistLegacy("educa_cached_profit_history", profitHistory);
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profit_history"), profitHistory);
         }
       } catch {}

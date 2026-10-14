@@ -5,7 +5,7 @@
  */
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE_BYTES = 500 * 1024; // 500 KB strict upload limit
 
 const MAGIC_SIGNATURES = {
   'image/jpeg': [0xff, 0xd8, 0xff],
@@ -50,7 +50,10 @@ function validateBase64Upload(dataUri, maxBytes = MAX_FILE_SIZE_BYTES) {
   const byteLength = (base64Data.length * 3) / 4 - padding;
 
   if (byteLength > maxBytes) {
-    return { valid: false, error: `File size exceeds ${(maxBytes / (1024 * 1024)).toFixed(0)}MB limit.` };
+    const limitDisplay = maxBytes < 1024 * 1024
+      ? `${Math.round(maxBytes / 1024)} KB`
+      : `${(maxBytes / (1024 * 1024)).toFixed(0)} MB`;
+    return { valid: false, error: `File size exceeds ${limitDisplay} limit. Kripya 500 KB se choti file upload karein.` };
   }
 
   // Verify binary magic numbers

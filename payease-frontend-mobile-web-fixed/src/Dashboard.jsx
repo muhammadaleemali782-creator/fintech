@@ -2894,11 +2894,11 @@ export default function Dashboard() {
   const studentDisbursal = Math.max(0, studentAmount - (studentFee + studentUpi));
   const studentPreviewDates = getUpcomingDates(Math.min(studentCount, 6));
 
-  // Client-side Native Image Compression for Loan Documents (Photos only, unlimited MB support)
+  // Client-side Native Image Compression for Loan Documents & Receipts (Strict <= 500 KB)
   const handleLoanDocFile = (file, setter, field) => {
     if (!file) return;
-    if (file.type && !file.type.startsWith("image/")) {
-      showToast("Kripya sirf photo / image file upload karein", "error");
+    if (file.size > 500 * 1024 && file.type && !file.type.startsWith("image/")) {
+      showToast("File size 500 KB se zyada hai. Maximum 500 KB allow hai.", "error");
       return;
     }
     const reader = new FileReader();
@@ -2906,7 +2906,7 @@ export default function Dashboard() {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const maxDim = 1600;
+        const maxDim = 1200;
         let w = img.width, h = img.height;
         if (w > maxDim || h > maxDim) {
           if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
@@ -2915,9 +2915,17 @@ export default function Dashboard() {
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, w, h);
-        setter(prev => ({ ...prev, [field]: canvas.toDataURL("image/jpeg", 0.85) }));
+        let compressed = canvas.toDataURL("image/jpeg", 0.75);
+        if (compressed.length > 650000) {
+          compressed = canvas.toDataURL("image/jpeg", 0.5);
+        }
+        setter(prev => ({ ...prev, [field]: compressed }));
       };
       img.onerror = () => {
+        if (event.target.result.length > 650000) {
+          showToast("File size 500 KB se zyada hai. Kripya choti file upload karein.", "error");
+          return;
+        }
         setter(prev => ({ ...prev, [field]: event.target.result }));
       };
       img.src = event.target.result;
@@ -3510,13 +3518,20 @@ export default function Dashboard() {
       canvas.height = h;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, w, h);
-      const compressed = canvas.toDataURL("image/jpeg", 0.75);
+      let compressed = canvas.toDataURL("image/jpeg", 0.75);
+      if (compressed.length > 650000) {
+        compressed = canvas.toDataURL("image/jpeg", 0.5);
+      }
       setKycForm(prev => ({ ...prev, [nameKey]: file.name, [urlKey]: compressed }));
     };
     img.onerror = () => {
       URL.revokeObjectURL(blobUrl);
       const reader = new FileReader();
       reader.onload = (event) => {
+        if (event.target.result.length > 650000) {
+          setKycError("File size 500 KB se zyada hai. Kripya choti file upload karein.");
+          return;
+        }
         setKycForm(prev => ({ ...prev, [nameKey]: file.name, [urlKey]: event.target.result }));
       };
       reader.readAsDataURL(file);

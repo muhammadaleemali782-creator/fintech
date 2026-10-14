@@ -147,6 +147,7 @@ export default function StaffDesk() {
   const [adminEvidenceUrl, setAdminEvidenceUrl] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState(null);
+  const [loadingProof, setLoadingProof] = useState(false);
 
   // Issue Loan Modal States
   const [showIssueLoanModal, setShowIssueLoanModal] = useState(false);
@@ -322,25 +323,40 @@ export default function StaffDesk() {
 
   // On-demand fetch proof for inspected transaction (keeps queue payload <15KB)
   useEffect(() => {
-    if (!selectedItem || !selectedItem._id || !token) return;
-    if (activeTab !== "deposit" && activeTab !== "withdrawal") return;
-    if (selectedItem.proofUrl || selectedItem.screenshotUrl) return;
+    if (!selectedItem || !selectedItem._id || !token) {
+      setLoadingProof(false);
+      return;
+    }
+    if (activeTab !== "deposit" && activeTab !== "withdrawal") {
+      setLoadingProof(false);
+      return;
+    }
+    if (selectedItem.proofUrl || selectedItem.screenshotUrl) {
+      setLoadingProof(false);
+      return;
+    }
 
     let active = true;
+    setLoadingProof(true);
     fetch(`${API}/admin/transaction/${selectedItem._id}/proof`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.json())
       .then(d => {
-        if (active && d.success && (d.proofUrl || d.screenshotUrl)) {
-          setSelectedItem(prev => (prev && prev._id === selectedItem._id ? {
-            ...prev,
-            proofUrl: d.proofUrl || "",
-            screenshotUrl: d.screenshotUrl || ""
-          } : prev));
+        if (active) {
+          setLoadingProof(false);
+          if (d.success && (d.proofUrl || d.screenshotUrl)) {
+            setSelectedItem(prev => (prev && prev._id === selectedItem._id ? {
+              ...prev,
+              proofUrl: d.proofUrl || "",
+              screenshotUrl: d.screenshotUrl || ""
+            } : prev));
+          }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setLoadingProof(false);
+      });
 
     return () => { active = false; };
   }, [selectedItem?._id, activeTab, token]);
@@ -1222,7 +1238,13 @@ export default function StaffDesk() {
                 </div>
               </div>
 
-              {/* Attached Photos & Verification Documents Gallery */}
+              {/* Attached Photos & Verification Documents Gallery (Loaded & shown ONLY on Inspect) */}
+              {loadingProof && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-center gap-2.5 text-xs font-bold text-blue-800">
+                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  <span>Loading payment proof / receipt...</span>
+                </div>
+              )}
               {(() => {
                 const photos = [
                   { label: "Customer Photo", url: selectedItem.documents?.photoUrl || selectedItem.avatar || selectedItem.photoUrl || selectedItem.userId?.avatar || selectedItem.userId?.photoUrl },

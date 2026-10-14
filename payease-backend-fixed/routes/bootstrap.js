@@ -180,6 +180,12 @@ router.get('/agent', protect, async (req, res) => {
 // -------------------------------------------------------------
 router.get('/admin', protect, staffOrAdmin, async (req, res) => {
   try {
+    const cacheKey = `bootstrap_admin_${req.user.role}_${req.user._id}`;
+    if (!req.query.force) {
+      const cached = memoryCache.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
+
     const [
       usersRes,
       pendingTxnsRes,
@@ -192,8 +198,9 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
       depositDetailsRes
     ] = await Promise.allSettled([
       User.find({ role: { $ne: 'admin' } })
-        .select('-password -walletPin')
+        .select('-password -walletPin -kycDocuments.doc1Url -kycDocuments.doc1BackUrl -kycDocuments.doc2Url -kycDocuments.doc2BackUrl -kycDocuments.chequeUrl -kycDocuments.chequeBackUrl -kycDocuments.docUrl')
         .sort({ createdAt: -1 })
+        .limit(100)
         .lean(),
       Transaction.find({ status: 'pending' })
         .populate('userId', 'name email phone accountNumber upiId')
@@ -206,7 +213,8 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
         .limit(30)
         .lean(),
       Loan.find()
-        .populate('userId', 'name email phone kycDocuments')
+        .select('-installmentSchedule -emiSchedule -history')
+        .populate('userId', 'name email phone accountNumber kycStatus')
         .sort({ createdAt: -1 })
         .limit(60)
         .lean(),
@@ -317,7 +325,7 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
       });
       const filteredUsers = allowedDepts.includes('kyc') ? cleanUsers.filter(u => u.kycStatus === 'pending') : [];
 
-      return res.json({
+      const staffPayload = {
         success: true,
         allowedDepartments: allowedDepts,
         analytics: {
@@ -335,7 +343,9 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
         settings: { depositDetails: settingsMap.depositDetails },
         depositDetails: depositDetailsRes.status === 'fulfilled' ? depositDetailsRes.value : null,
         timestamp: Date.now()
-      });
+      };
+      memoryCache.set(cacheKey, staffPayload, 8);
+      return res.json(staffPayload);
     }
 
     const payload = {
@@ -360,7 +370,9 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
       timestamp: Date.now()
     };
 
-    res.json({ success: true, ...payload });
+    const finalPayload = { success: true, ...payload };
+    memoryCache.set(cacheKey, finalPayload, 8);
+    res.json(finalPayload);
   } catch (err) {
     console.error('Bootstrap admin error:', err);
     res.status(500).json({ success: false, message: 'Admin bootstrap failed' });

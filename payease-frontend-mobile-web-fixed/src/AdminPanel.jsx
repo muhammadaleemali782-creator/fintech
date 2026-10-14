@@ -469,7 +469,7 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
           return next;
         });
       }
-    }, 50);
+    }, 1000);
     return () => clearInterval(timer);
   }, [deposits]);
 
@@ -536,7 +536,7 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
           return next;
         });
       }
-    }, 50);
+    }, 1000);
     return () => clearInterval(timer);
   }, [deposits, baseProfit]);
 
@@ -581,7 +581,7 @@ function LiveLedgerDailyAdded({ baseAmount = 0, deposits = 0, className = "" }) 
       if (dt > 0 && perMsAdminYield > 0) {
         setAmount((prev) => prev + dt * perMsAdminYield);
       }
-    }, 50); // 50ms: Khoob tez ultra-fast speed, bina mixup ke
+    }, 1000);
     return () => clearInterval(timer);
   }, [deposits]);
 
@@ -606,7 +606,7 @@ function LiveUserProfitCell({ user }) {
     const interval = setInterval(() => {
       const elapsed = Date.now() - mountRef.current;
       setLiveVal(base + (elapsed * perMs));
-    }, 50); // 50ms: Khoob tez ultra-fast speed (20 ticks/sec), bilkul smooth
+    }, 1000);
     return () => clearInterval(interval);
   }, [base, bal, user?.interestRate]);
 
@@ -2578,38 +2578,29 @@ export default function AdminPanel() {
     };
   }, [tab]); // eslint-disable-line
 
-  // 30-SECOND LIVE SYNC TICKER & COUNTDOWN: Guarantees 100% fresh data on all desks
+  // LIVE BACKGROUND SYNC (Quiet, non-blocking 45s interval on active operational tabs)
   useEffect(() => {
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
-      setAdminCountdown((prev) => {
-        if (prev <= 1) {
-          loadBootstrapAdmin(true);
-          if (tab === "analytics" || tab === "capital") {
-            loadAnalytics(true);
-          } else if (tab === "pending") {
-            loadPending(true);
-            loadLoans(true);
-          }
-          return 30;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      if (tab === "pending") {
+        loadPending(true);
+        loadLoans(true);
+      } else if (tab === "analytics" || tab === "capital") {
+        loadAnalytics(true);
+      }
+    }, 45 * 1000);
     return () => clearInterval(timer);
-  }, [loadBootstrapAdmin, loadAnalytics, loadPending, loadLoans, tab]);
+  }, [loadPending, loadLoans, loadAnalytics, tab]);
 
   // INSTANT SYNC ON RESUME / TAB FOCUS (Web & Native Mobile App)
   useEffect(() => {
     const handleResume = () => {
       if (typeof document !== "undefined" && !document.hidden) {
-        setAdminCountdown(30);
-        loadBootstrapAdmin(true);
-        if (tab === "analytics" || tab === "capital") {
-          loadAnalytics(true);
-        } else if (tab === "pending") {
+        if (tab === "pending") {
           loadPending(true);
           loadLoans(true);
+        } else if (tab === "analytics" || tab === "capital") {
+          loadAnalytics(true);
         }
       }
     };
@@ -2619,7 +2610,7 @@ export default function AdminPanel() {
       document.removeEventListener("visibilitychange", handleResume);
       window.removeEventListener("focus", handleResume);
     };
-  }, [loadBootstrapAdmin, loadAnalytics, loadPending, loadLoans, tab]);
+  }, [loadPending, loadLoans, loadAnalytics, tab]);
 
 
   // REAL-TIME SSE CONNECTION FOR LIVE ALERTS & SOUND
@@ -14788,7 +14779,7 @@ Login karke apna naya personal password turant set karein.`}
                     <div
                       key={item.id}
                       onClick={() => toggleAssignStaffDept(item.id)}
-                      className={`p-3 rounded-2xl border cursor-pointer select-none transition flex items-start gap-3 ${
+                      className={`p-3 rounded-2xl border cursor-pointer select-none transition flex items-start gap-3 active:scale-[0.99] ${
                         isChecked
                           ? "bg-purple-50/90 border-purple-500 ring-2 ring-purple-400/50 shadow-xs"
                           : "bg-white border-gray-200 hover:border-purple-300 hover:bg-gray-50/60"
@@ -14797,8 +14788,9 @@ Login karke apna naya personal password turant set karein.`}
                       <input
                         type="checkbox"
                         checked={isChecked}
-                        onChange={() => toggleAssignStaffDept(item.id)}
-                        className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        readOnly
+                        tabIndex={-1}
+                        className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 pointer-events-none"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">

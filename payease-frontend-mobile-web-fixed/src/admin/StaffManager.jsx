@@ -284,14 +284,13 @@ export default function StaffManager() {
               email: "",
               phone: "",
               password: "",
-              preset: "loan_desk",
               departments: ["loan"],
-              permissions: PRESETS.loan_desk.permissions,
+              permissions: DEPT_PERMISSIONS.loan,
               maxApprovalAmount: 50000
             });
             setShowCreateModal(true);
           }}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center gap-1.5"
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center gap-1.5 cursor-pointer"
         >
           <span>➕</span>
           <span>Create Staff Account</span>

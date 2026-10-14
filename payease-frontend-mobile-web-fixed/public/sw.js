@@ -1,5 +1,5 @@
 // Service Worker for Educa Fintech PWA
-const CACHE_NAME = 'educa-fintech-v8';
+const CACHE_NAME = 'educa-fintech-v9';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -17,6 +17,11 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
+
+  // Ignore unsupported schemes (e.g. chrome-extension://, moz-extension://)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return;
+  }
 
   // Pass-through for all API, WebSocket, SSE requests
   if (

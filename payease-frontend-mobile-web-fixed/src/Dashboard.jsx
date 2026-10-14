@@ -73,132 +73,158 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
   }
 };
 
-// Shared high-speed live ticker for yield counters. Runs at 10ms (~100 updates/sec) with
-// requestAnimationFrame fallback so rupee digits roll at lightning speed without stuttering. Pauses when app is hidden.
-function useLiveNow(enabled) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!enabled || typeof window === "undefined") return undefined;
-    let timer = null;
-    let raf = null;
-    let last = 0;
-    const tick = () => {
-      const t = Date.now();
-      if (t - last >= 10) {
-        last = t;
-        setNow(t);
-      }
-      if (typeof requestAnimationFrame !== "undefined") {
-        raf = requestAnimationFrame(tick);
-      }
-    };
-    const start = () => {
-      if (!timer && !raf) {
-        last = Date.now();
-        setNow(last);
-        if (typeof requestAnimationFrame !== "undefined") {
-          raf = requestAnimationFrame(tick);
-        } else {
-          timer = setInterval(() => setNow(Date.now()), 10);
-        }
-      }
-    };
-    const stop = () => {
-      if (raf) { cancelAnimationFrame(raf); raf = null; }
-      if (timer) { clearInterval(timer); timer = null; }
-    };
-    const onVis = () => (document.hidden ? stop() : start());
-    if (!document.hidden) start();
-    document.addEventListener("visibilitychange", onVis);
-    return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
-  }, [enabled]);
-  return now;
-}
-
-// Real-time ticking profit balance display component (strictly monotonic when capital > 0)
-// NOTE: all hooks run on every render. The old version returned early *before* its hooks, which crashes React
-// ("Rendered more hooks than during the previous render") the moment capital goes 0 -> >0 after data arrives.
+// Real-time ticking profit balance display component (High-FPS DOM direct update - ZERO React re-render lag)
 function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false, className = "" }) {
+  const spanRef = useRef(null);
   const cap = Math.max(Number(activeCapital || 0), 0);
   const inactive = isAdmin || cap <= 0;
-  const liveMs = useLiveNow(!inactive);
   const lastSaveRef = useRef(0);
   const latestRef = useRef(0);
 
-  const perMsYield = ((cap * 0.12) / 365) / 86400 / 1000;
-  const startOfToday = new Date().setHours(0, 0, 0, 0);
-  const liveTodayEarned = Math.max(0, liveMs - startOfToday) * perMsYield;
-  // Total profit = database base balance + today's real-time accrued yield
-  const totalProfit = inactive ? 0 : parseCachedNumber(baseProfit) + liveTodayEarned;
-  latestRef.current = totalProfit;
-
-  // Persist rolled profit every 3s (cheap string write)
   useEffect(() => {
-    const now = Date.now();
-    if (totalProfit > 0 && now - lastSaveRef.current > 3000) {
-      lastSaveRef.current = now;
-      try { localStorage.setItem("educa_cached_profit_rolled", String(totalProfit)); } catch {}
-    }
-  }, [totalProfit]);
+    if (inactive || typeof window === "undefined") return undefined;
 
-  // ...and when the phone locks / app goes to background. Registered ONCE (previously re-registered on every tick).
-  useEffect(() => {
-    const handleSave = () => {
-      try { if (latestRef.current > 0) localStorage.setItem("educa_cached_profit_rolled", String(latestRef.current)); } catch {}
+    const perMsYield = ((cap * 0.12) / 365) / 86400 / 1000;
+    const startOfToday = new Date().setHours(0, 0, 0, 0);
+    const parsedBase = parseCachedNumber(baseProfit);
+    const decimals = cap >= 100000 ? 6 : (cap >= 10000 ? 8 : 10);
+
+    let rafId = null;
+    let lastTick = 0;
+
+    const update = () => {
+      const now = Date.now();
+      // Tick at ~33ms (30 fps) directly in DOM - zero React re-render lag across forms/modals
+      if (now - lastTick >= 33) {
+        lastTick = now;
+        const liveTodayEarned = Math.max(0, now - startOfToday) * perMsYield;
+        const totalProfit = parsedBase + liveTodayEarned;
+        latestRef.current = totalProfit;
+
+        if (spanRef.current) {
+          spanRef.current.textContent = `₹${totalProfit.toLocaleString("en-IN", {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+          })}`;
+        }
+
+        if (totalProfit > 0 && now - lastSaveRef.current > 4000) {
+          lastSaveRef.current = now;
+          try { localStorage.setItem("educa_cached_profit_rolled", String(totalProfit)); } catch {}
+        }
+      }
+
+      if (typeof document !== "undefined" && !document.hidden) {
+        rafId = requestAnimationFrame(update);
+      }
     };
-    window.addEventListener("pagehide", handleSave);
-    window.addEventListener("beforeunload", handleSave);
-    document.addEventListener("visibilitychange", handleSave);
+
+    const onVis = () => {
+      if (document.hidden) {
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        if (latestRef.current > 0) {
+          try { localStorage.setItem("educa_cached_profit_rolled", String(latestRef.current)); } catch {}
+        }
+      } else {
+        if (!rafId) {
+          lastTick = Date.now();
+          rafId = requestAnimationFrame(update);
+        }
+      }
+    };
+
+    rafId = requestAnimationFrame(update);
+    document.addEventListener("visibilitychange", onVis);
+
     return () => {
-      window.removeEventListener("pagehide", handleSave);
-      window.removeEventListener("beforeunload", handleSave);
-      document.removeEventListener("visibilitychange", handleSave);
+      if (rafId) cancelAnimationFrame(rafId);
+      document.removeEventListener("visibilitychange", onVis);
     };
-  }, []);
+  }, [cap, baseProfit, inactive]);
 
-  if (inactive) {
-    const rolled = typeof localStorage !== "undefined" ? parseCachedNumber(localStorage.getItem("educa_cached_profit_rolled"), 0) : 0;
-    const num = isAdmin ? 0 : (parseCachedNumber(baseProfit) || rolled);
-    const formatted = num > 0 ? num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
-    return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
-  }
+  const initialText = (() => {
+    if (inactive) {
+      const rolled = typeof localStorage !== "undefined" ? parseCachedNumber(localStorage.getItem("educa_cached_profit_rolled"), 0) : 0;
+      const num = isAdmin ? 0 : (parseCachedNumber(baseProfit) || rolled);
+      return `₹${num > 0 ? num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}`;
+    }
+    const perMsYield = ((cap * 0.12) / 365) / 86400 / 1000;
+    const startOfToday = new Date().setHours(0, 0, 0, 0);
+    const parsedBase = parseCachedNumber(baseProfit);
+    const totalProfit = parsedBase + Math.max(0, Date.now() - startOfToday) * perMsYield;
+    const decimals = cap >= 100000 ? 6 : (cap >= 10000 ? 8 : 10);
+    return `₹${totalProfit.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+  })();
 
-  // 10 decimals for small/demo balances (< ₹10,000) so nano-rupee digits spin rapidly at 100fps
-  const decimals = cap >= 100000 ? 6 : (cap >= 10000 ? 8 : 10);
-  const formatted = totalProfit.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-
-  return <span className={`font-mono tabular-nums tracking-tight ${className}`}>₹{formatted}</span>;
+  return (
+    <span ref={spanRef} className={`font-mono tabular-nums tracking-tight ${className}`}>
+      {initialText}
+    </span>
+  );
 }
 
-// Live Today's Accrued Yield Counter (Accrues in real time since midnight)
+// Live Today's Accrued Yield Counter (Accrues in real time since midnight - DOM direct update)
 function LiveTodayAccrued({ activeCapital = 0, isAdmin = false }) {
+  const spanRef = useRef(null);
   const cap = Math.max(Number(activeCapital || 0), 0);
   const inactive = isAdmin || cap <= 0;
-  const liveMs = useLiveNow(!inactive);
-  const lastSaveRef = useRef(0);
-
-  const perMsYield = ((cap * 0.12) / 365) / 86400 / 1000;
-  const startOfToday = new Date().setHours(0, 0, 0, 0);
-  const liveTodayEarned = inactive ? 0 : Math.max(0, liveMs - startOfToday) * perMsYield;
 
   useEffect(() => {
-    const now = Date.now();
-    if (liveTodayEarned > 0 && now - lastSaveRef.current > 3000) {
-      lastSaveRef.current = now;
-      try { localStorage.setItem("educa_cached_today_accrued", String(liveTodayEarned)); } catch {}
-    }
-  }, [liveTodayEarned]);
+    if (inactive || typeof window === "undefined") return undefined;
 
-  if (inactive) {
-    const saved = typeof localStorage !== "undefined" ? parseCachedNumber(localStorage.getItem("educa_cached_today_accrued"), 0) : 0;
-    if (saved > 0) {
-      return <span className="font-mono tabular-nums tracking-tight">₹{saved.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
-    }
-    return <span className="font-mono tabular-nums tracking-tight">₹0.00</span>;
-  }
+    const perMsYield = ((cap * 0.12) / 365) / 86400 / 1000;
+    const startOfToday = new Date().setHours(0, 0, 0, 0);
+    const decimals = cap >= 100000 ? 4 : (cap >= 10000 ? 6 : 8);
 
-  const decimals = cap >= 100000 ? 4 : (cap >= 10000 ? 6 : 8);
-  return <span className="font-mono tabular-nums tracking-tight">₹{liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</span>;
+    let rafId = null;
+    let lastTick = 0;
+
+    const update = () => {
+      const now = Date.now();
+      if (now - lastTick >= 50) {
+        lastTick = now;
+        const liveTodayEarned = Math.max(0, now - startOfToday) * perMsYield;
+        if (spanRef.current) {
+          spanRef.current.textContent = `₹${liveTodayEarned.toLocaleString("en-IN", {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+          })}`;
+        }
+      }
+      if (typeof document !== "undefined" && !document.hidden) {
+        rafId = requestAnimationFrame(update);
+      }
+    };
+
+    const onVis = () => {
+      if (document.hidden) {
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      } else {
+        if (!rafId) {
+          lastTick = Date.now();
+          rafId = requestAnimationFrame(update);
+        }
+      }
+    };
+
+    rafId = requestAnimationFrame(update);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [cap, inactive]);
+
+  const initialText = (() => {
+    if (inactive) return "₹0.00";
+    const perMsYield = ((cap * 0.12) / 365) / 86400 / 1000;
+    const startOfToday = new Date().setHours(0, 0, 0, 0);
+    const liveTodayEarned = Math.max(0, Date.now() - startOfToday) * perMsYield;
+    const decimals = cap >= 100000 ? 4 : (cap >= 10000 ? 6 : 8);
+    return `₹${liveTodayEarned.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+  })();
+
+  return <span ref={spanRef} className="font-mono tabular-nums tracking-tight">{initialText}</span>;
 }
 
 // UI Localization Dictionary (Hinglish, Hindi, English)
@@ -6020,151 +6046,6 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-
-        {/* ══════════════════════════════════════════════════════
-            MY LOANS SECTION (STRICTLY 'EASY INSTALLMENTS' & EARLY CLOSURE)
-        ══════════════════════════════════════════════════════ */}
-        {showLoans && (
-          <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6 sm:mb-8 border border-gray-100">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold font-display">My Active Loans</h3>
-              <button onClick={() => setShowLoans(false)} className="text-xs text-gray-400 hover:text-gray-600">Hide</button>
-            </div>
-            {loans.length === 0 ? <p className="text-gray-400 text-center py-8 text-sm">No active loans found</p> : (
-              <div className="space-y-4">
-                {loans.map(l => {
-                  const progress = l.totalPayable ? (l.paidAmount / l.totalPayable) * 100 : 0;
-                  const instAmt = l.installmentAmount || l.emiAmount || 0;
-                  const isDaily = l.collectionFrequency === "daily" || l.loanType === "micro_business";
-                  const schedule = (l.installmentSchedule && l.installmentSchedule.length > 0) ? l.installmentSchedule : (l.emiSchedule || []);
-                  const paidCount = schedule.filter(s => s.status === "paid").length;
-                  const totalCount = schedule.length || l.installmentsCount || l.dailyTenureDays || l.tenure || 15;
-                  const penaltyAmt = l.penaltyDue || 0;
-                  const isPrecloseEligible = !isDaily && paidCount < 9 && totalCount > 15;
-                  const xPercent = isPrecloseEligible ? Math.max(0, totalCount - 15) : 0;
-                  const totalPool = (l.amount * xPercent) / 100;
-                  const userDiscount = isPrecloseEligible ? Math.round(totalPool / 3) : 0;
-                  const basePayoff = (!isDaily && paidCount < 15
-                    ? (Math.min(15, totalCount) - paidCount) * instAmt
-                    : (l.remainingAmount || (l.totalPayable - l.paidAmount)));
-                  const payoffAmt = Math.max(0, basePayoff - userDiscount) + penaltyAmt;
-                  const nextDueAmt = instAmt + penaltyAmt;
-                  return (
-                    <div key={l._id} className="border border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-md transition">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-lg sm:text-xl font-bold">₹{l.amount.toLocaleString("en-IN")}</h4>
-                            {l.accountNumber && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800">
-                                {l.accountNumber}
-                              </span>
-                            )}
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700">
-                              {isDaily ? "Daily Collection" : "10-Day Cycle"}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {l.purpose || "Loan"} • {isDaily ? `${l.dailyTenureDays || l.installmentsCount} Days @ ${l.interestRate}%` : `${l.installmentsCount} Easy Installments @ 1.34%/kist`}
-                          </p>
-                        </div>
-                        <StatusBadge status={l.status} />
-                      </div>
-                      {penaltyAmt > 0 && (
-                        <div className="mb-3 p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
-                          ⚠️ Overdue Penalty Due: <strong>₹{penaltyAmt}</strong> (Pehle penalty clear hogi, phir installment)
-                        </div>
-                      )}
-                      {userDiscount > 0 && (
-                        <div className="mb-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium flex items-center justify-between">
-                          <span>🎉 Early Settlement Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} ki Chhoot (Fayda)</strong></span>
-                          <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">Fayda Active</span>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-3 gap-2 sm:gap-3 text-sm mb-3">
-                        <div><p className="text-gray-400 text-xs">{isDaily ? "Daily Kist" : "Easy Installment"}</p><p className="font-bold">₹{instAmt}</p></div>
-                        <div><p className="text-gray-400 text-xs">Total Duration</p><p className="font-bold">{l.installmentsCount || l.tenure} {isDaily ? "Days" : "Installments"}</p></div>
-                        <div><p className="text-gray-400 text-xs">Remaining Dues</p><p className="font-bold text-rose-600">₹{payoffAmt}</p></div>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
-                        <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
-                      </div>
-                      {l.status === "active" && (
-                        <div className="flex gap-2">
-                          <button onClick={() => payInstallment(l._id, nextDueAmt)} className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-xs hover:shadow-lg active:scale-[0.98] transition">
-                            Pay Kist ₹{nextDueAmt}{penaltyAmt > 0 ? ` (incl ₹${penaltyAmt} penalty)` : ""}
-                          </button>
-                          <button onClick={() => closeLoanEarly(l._id, payoffAmt, userDiscount, xPercent)} className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs border border-emerald-300 transition active:scale-[0.98]">
-                            ⚡ 15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Fayda]` : ""}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TRANSACTIONS SECTION */}
-        <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-          <div className="flex justify-between items-center mb-4 sm:mb-5">
-            <h3 className="text-lg font-bold font-display">Recent Transactions</h3>
-            <span className="text-xs text-gray-400">{txns.length} records</span>
-          </div>
-
-          {txns.length === 0 ? (
-            <p className="py-8 text-center text-gray-300 text-sm">No transactions yet</p>
-          ) : (
-            <div className="space-y-3">
-              {txns.slice(0, 10).map(t => {
-                const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal", "daily_yield", "referral_bonus"].includes(t.type);
-                let title = t.type.replace(/_/g, " ");
-                let details = t.remarks || t.recipientIdentifier || "";
-                if (t.type === "daily_yield") {
-                  title = "Daily Profit";
-                  details = "Daily Profit";
-                } else if (t.type === "referral_bonus") {
-                  title = "Referral Bonus";
-                }
-                const formattedAmt = (() => {
-                  const num = Number(t.amount || 0);
-                  if (t.type === "daily_yield") {
-                    const effective = num > 0 ? num : (parseCachedNumber(userProfile?.profitBalance, 0) || 0.000329);
-                    if (effective >= 1) return effective.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-                    if (effective >= 0.01) return effective.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-                    return effective.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
-                  }
-                  return num.toLocaleString("en-IN");
-                })();
-                return (
-                  <div key={t._id} className="flex items-center justify-between border border-gray-100 rounded-xl p-3.5 hover:bg-gray-50/50 transition">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0 ${isCredit ? "bg-green-50" : "bg-red-50"}`}>
-                        {isCredit ? "🟢" : "🔴"}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm capitalize">
-                          {title} <span className="text-gray-400 font-normal uppercase text-[10px]">{t.method}</span>
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {new Date(t.createdAt).toLocaleDateString("en-IN")} • {details}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`font-bold text-sm ${isCredit ? "text-green-600" : "text-red-500"}`}>
-                        {isCredit ? "+" : "-"}₹{formattedAmt}
-                      </p>
-                      <StatusBadge status={t.status} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════
@@ -10389,6 +10270,157 @@ export default function Dashboard() {
               </div>
             </div>
           ) : null}
+
+          {/* ══════════════════════════════════════════════════════
+              MY LOANS SECTION (IN PROFILE)
+          ══════════════════════════════════════════════════════ */}
+          <div className="bg-white rounded-2xl shadow-xs p-4 sm:p-5 border border-gray-200/90">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-bold font-display flex items-center gap-1.5 text-gray-900">
+                <span>📑</span> <span>My Active Loans</span>
+              </h3>
+              <span className="text-[11px] text-gray-400 font-semibold">{loans.length} active</span>
+            </div>
+            {loans.length === 0 ? (
+              <p className="text-gray-400 text-center py-4 text-xs">No active loans found</p>
+            ) : (
+              <div className="space-y-3">
+                {loans.map(l => {
+                  const progress = l.totalPayable ? (l.paidAmount / l.totalPayable) * 100 : 0;
+                  const instAmt = l.installmentAmount || l.emiAmount || 0;
+                  const isDaily = l.collectionFrequency === "daily" || l.loanType === "micro_business";
+                  const schedule = (l.installmentSchedule && l.installmentSchedule.length > 0) ? l.installmentSchedule : (l.emiSchedule || []);
+                  const paidCount = schedule.filter(s => s.status === "paid").length;
+                  const totalCount = schedule.length || l.installmentsCount || l.dailyTenureDays || l.tenure || 15;
+                  const penaltyAmt = l.penaltyDue || 0;
+                  const isPrecloseEligible = !isDaily && paidCount < 9 && totalCount > 15;
+                  const xPercent = isPrecloseEligible ? Math.max(0, totalCount - 15) : 0;
+                  const totalPool = (l.amount * xPercent) / 100;
+                  const userDiscount = isPrecloseEligible ? Math.round(totalPool / 3) : 0;
+                  const basePayoff = (!isDaily && paidCount < 15
+                    ? (Math.min(15, totalCount) - paidCount) * instAmt
+                    : (l.remainingAmount || (l.totalPayable - l.paidAmount)));
+                  const payoffAmt = Math.max(0, basePayoff - userDiscount) + penaltyAmt;
+                  const nextDueAmt = instAmt + penaltyAmt;
+                  return (
+                    <div key={l._id} className="border border-gray-200 rounded-xl p-3 sm:p-3.5 hover:shadow-xs transition">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-base font-bold text-gray-900">₹{l.amount.toLocaleString("en-IN")}</h4>
+                            {l.accountNumber && (
+                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800">
+                                {l.accountNumber}
+                              </span>
+                            )}
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700">
+                              {isDaily ? "Daily Collection" : "10-Day Cycle"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            {l.purpose || "Loan"} • {isDaily ? `${l.dailyTenureDays || l.installmentsCount} Days @ ${l.interestRate}%` : `${l.installmentsCount} Easy Installments @ 1.34%/kist`}
+                          </p>
+                        </div>
+                        <StatusBadge status={l.status} />
+                      </div>
+                      {penaltyAmt > 0 && (
+                        <div className="mb-2 p-2 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-700 font-medium">
+                          ⚠️ Overdue Penalty Due: <strong>₹{penaltyAmt}</strong> (Pehle penalty clear hogi, phir installment)
+                        </div>
+                      )}
+                      {userDiscount > 0 && (
+                        <div className="mb-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 font-medium flex items-center justify-between">
+                          <span>🎉 Early Settlement Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} ki Chhoot</strong></span>
+                          <span className="text-[9px] font-bold bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-full">Fayda Active</span>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+                        <div><p className="text-gray-400 text-[10px]">{isDaily ? "Daily Kist" : "Easy Installment"}</p><p className="font-bold text-gray-900">₹{instAmt}</p></div>
+                        <div><p className="text-gray-400 text-[10px]">Total Duration</p><p className="font-bold text-gray-900">{l.installmentsCount || l.tenure} {isDaily ? "Days" : "Installments"}</p></div>
+                        <div><p className="text-gray-400 text-[10px]">Remaining Dues</p><p className="font-bold text-rose-600">₹{payoffAmt}</p></div>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-1.5 mb-2.5">
+                        <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                      </div>
+                      {l.status === "active" && (
+                        <div className="flex gap-2">
+                          <button onClick={() => payInstallment(l._id, nextDueAmt)} className="flex-1 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold text-xs hover:shadow-md active:scale-[0.98] transition">
+                            Pay Kist ₹{nextDueAmt}{penaltyAmt > 0 ? ` (incl ₹${penaltyAmt} penalty)` : ""}
+                          </button>
+                          <button onClick={() => closeLoanEarly(l._id, payoffAmt, userDiscount, xPercent)} className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs border border-emerald-300 transition active:scale-[0.98]">
+                            ⚡ 15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Fayda]` : ""}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ══════════════════════════════════════════════════════
+              TRANSACTIONS SECTION (IN PROFILE)
+          ══════════════════════════════════════════════════════ */}
+          <div className="bg-white rounded-2xl shadow-xs p-4 sm:p-5 border border-gray-200/90">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-bold font-display flex items-center gap-1.5 text-gray-900">
+                <span>📊</span> <span>Recent Transactions</span>
+              </h3>
+              <span className="text-[11px] text-gray-400 font-semibold">{txns.length} records</span>
+            </div>
+
+            {txns.length === 0 ? (
+              <p className="py-4 text-center text-gray-300 text-xs">No transactions yet</p>
+            ) : (
+              <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                {txns.slice(0, 10).map(t => {
+                  const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal", "daily_yield", "referral_bonus"].includes(t.type);
+                  let title = t.type.replace(/_/g, " ");
+                  let details = t.remarks || t.recipientIdentifier || "";
+                  if (t.type === "daily_yield") {
+                    title = "Daily Profit";
+                    details = "Daily Profit";
+                  } else if (t.type === "referral_bonus") {
+                    title = "Referral Bonus";
+                  }
+                  const formattedAmt = (() => {
+                    const num = Number(t.amount || 0);
+                    if (t.type === "daily_yield") {
+                      const effective = num > 0 ? num : (parseCachedNumber(userProfile?.profitBalance, 0) || 0.000329);
+                      if (effective >= 1) return effective.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                      if (effective >= 0.01) return effective.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                      return effective.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+                    }
+                    return num.toLocaleString("en-IN");
+                  })();
+                  return (
+                    <div key={t._id} className="flex items-center justify-between border border-gray-100 rounded-xl p-2.5 hover:bg-gray-50/50 transition">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${isCredit ? "bg-green-50" : "bg-red-50"}`}>
+                          {isCredit ? "🟢" : "🔴"}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-xs capitalize text-gray-900">
+                            {title} <span className="text-gray-400 font-normal uppercase text-[9px]">{t.method}</span>
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            {new Date(t.createdAt).toLocaleDateString("en-IN")} • {details}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold text-xs ${isCredit ? "text-green-600" : "text-red-500"}`}>
+                          {isCredit ? "+" : "-"}₹{formattedAmt}
+                        </p>
+                        <StatusBadge status={t.status} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Quick Actions in Profile */}
           <div className="space-y-2">

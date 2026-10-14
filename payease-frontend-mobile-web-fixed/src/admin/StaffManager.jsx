@@ -140,7 +140,10 @@ export default function StaffManager() {
           password: createForm.password.trim(),
           departments: createForm.departments,
           permissions: createForm.permissions,
-          maxApprovalAmount: Number(createForm.maxApprovalAmount) || 0
+          maxApprovalAmount: Number(createForm.maxApprovalAmount) || 0,
+          limits: {
+            maxApprovalAmount: Number(createForm.maxApprovalAmount) || 0
+          }
         })
       });
       const data = await res.json();
@@ -172,7 +175,7 @@ export default function StaffManager() {
     setEditForm({
       departments: staff.staffProfile?.departments || [],
       permissions: staff.staffProfile?.permissions || [],
-      maxApprovalAmount: staff.staffProfile?.limits?.maxApprovalAmount || 0
+      maxApprovalAmount: staff.staffProfile?.limits?.maxApprovalAmount ?? staff.staffProfile?.maxApprovalAmount ?? 0
     });
   };
 
@@ -189,7 +192,10 @@ export default function StaffManager() {
         body: JSON.stringify({
           departments: editForm.departments,
           permissions: editForm.permissions,
-          maxApprovalAmount: Number(editForm.maxApprovalAmount) || 0
+          maxApprovalAmount: Number(editForm.maxApprovalAmount) || 0,
+          limits: {
+            maxApprovalAmount: Number(editForm.maxApprovalAmount) || 0
+          }
         })
       });
       const data = await res.json();

@@ -27,6 +27,18 @@ export default function Header() {
   const token = tokenStorage.getToken();
   const user = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user") || "{}") : {};
 
+  const handleLogout = () => {
+    tokenStorage.removeToken();
+    try {
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      sessionStorage.clear();
+    } catch {}
+    setMenuOpen(false);
+    navigate("/login");
+  };
+
   useEffect(() => {
     const handleLangChange = () => {
       try {
@@ -204,10 +216,10 @@ export default function Header() {
           )}
         </div>
 
-        {/* MOBILE MENU TOGGLE */}
+        {/* MOBILE MENU TOGGLE (CLEAN WHITE HAMBURGER) */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 text-base transition cursor-pointer"
+          className="lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white hover:bg-gray-50 border border-gray-200 shadow-2xs active:scale-95 text-gray-800 text-lg transition cursor-pointer"
           aria-label="Toggle menu"
         >
           {menuOpen ? "✕" : "☰"}
@@ -268,37 +280,50 @@ export default function Header() {
               )}
             </div>
           ))}
-          <div className="pt-3 flex flex-col gap-2">
+
+          {/* User Navigation, Department Desk & Logout in Drawer */}
+          <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
             {token ? (
-              user.role === "admin" ? (
-                <>
-                  <button
-                    onClick={() => { setMenuOpen(false); navigate("/admin"); }}
-                    className="w-full py-2.5 rounded-xl text-sm font-black text-white bg-indigo-600 flex items-center justify-center gap-1.5"
+              <>
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMenuOpen(false)}
+                  className="w-full py-2.5 px-4 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2 shadow-xs transition"
+                >
+                  <span>📊</span> Customer Dashboard
+                </Link>
+                {(user.role === "admin" || user.role === "staff") && (
+                  <Link
+                    to="/desk"
+                    onClick={() => setMenuOpen(false)}
+                    className="w-full py-2.5 px-4 rounded-xl text-sm font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 flex items-center justify-center gap-2 transition"
+                  >
+                    <span>🏢</span> Department Desk
+                  </Link>
+                )}
+                {user.role === "admin" && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMenuOpen(false)}
+                    className="w-full py-2.5 px-4 rounded-xl text-sm font-black text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center justify-center gap-2 transition"
                   >
                     <span>🛡️</span> Admin Panel
-                  </button>
-                  <button
-                    onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
-                    className="w-full py-2.5 rounded-xl text-sm font-bold text-[#1D6AE5] border border-[#1D6AE5]"
-                  >
-                    Customer Dashboard
-                  </button>
-                </>
-              ) : (
+                  </Link>
+                )}
                 <button
-                  onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}
-                  className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-[#1D6AE5]"
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full py-2.5 px-4 rounded-xl text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
                 >
-                  Go to Dashboard
+                  <span>🚪</span> Logout
                 </button>
-              )
+              </>
             ) : (
               <button
                 onClick={() => { setMenuOpen(false); navigate("/login"); }}
-                className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-[#1D6AE5] flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
               >
-                <span>👤</span> Account
+                <span>👤</span> Login / Account
               </button>
             )}
           </div>

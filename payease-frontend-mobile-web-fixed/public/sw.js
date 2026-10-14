@@ -38,7 +38,7 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
           return response;
-        }).catch(() => cached);
+        }).catch(() => cached || new Response('', { status: 408, statusText: 'Offline Asset' }));
       })
     );
     return;
@@ -54,6 +54,6 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => caches.match(event.request).then((cached) => cached || new Response('', { status: 408, statusText: 'Offline' })))
   );
 });

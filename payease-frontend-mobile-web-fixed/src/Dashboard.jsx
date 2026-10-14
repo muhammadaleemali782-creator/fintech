@@ -73,16 +73,15 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 7000) => {
   }
 };
 
-// Shared live ticker for the yield counters. Runs on requestAnimationFrame (~60 updates/sec instead of 10),
-// so the rupee digits roll smoothly. Pauses while the app is hidden (battery + no wasted renders).
+// Shared live ticker for the yield counters. Runs at 25ms interval (40 updates/sec),
+// so the rupee digits roll smoothly while maintaining ultra-low CPU on mobile. Pauses while the app is hidden.
 function useLiveNow(enabled) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!enabled || typeof document === "undefined") return undefined;
-    let raf = null;
-    const loop = () => { setNow(Date.now()); raf = requestAnimationFrame(loop); };
-    const start = () => { if (!raf) { setNow(Date.now()); raf = requestAnimationFrame(loop); } };
-    const stop = () => { if (raf) { cancelAnimationFrame(raf); raf = null; } };
+    let timer = null;
+    const start = () => { if (!timer) { setNow(Date.now()); timer = setInterval(() => setNow(Date.now()), 25); } };
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
     const onVis = () => (document.hidden ? stop() : start());
     if (!document.hidden) start();
     document.addEventListener("visibilitychange", onVis);
@@ -198,7 +197,7 @@ const UI_TEXT = {
     sendMoney: "Send Money",
     myQrCode: "My QR Code",
     addMoney: "Add Money",
-    cashOut: "Cash Out",
+    cashOut: "Withdrawal",
     primaryBalance: "Primary Wallet Balance",
     checkBalance: "Check Balance",
     hide: "Hide",
@@ -264,7 +263,7 @@ const UI_TEXT = {
     sendMoney: "पैसे भेजें",
     myQrCode: "मेरा QR कोड",
     addMoney: "पैसे जोड़ें",
-    cashOut: "निकासी करें",
+    cashOut: "निकासी (Withdrawal)",
     primaryBalance: "प्राइमरी वॉलेट बैलेंस",
     checkBalance: "बैलेंस देखें",
     hide: "छिपाएं",
@@ -330,7 +329,7 @@ const UI_TEXT = {
     sendMoney: "Send Money",
     myQrCode: "My QR Code",
     addMoney: "Add Money",
-    cashOut: "Cash Out",
+    cashOut: "Withdrawal",
     primaryBalance: "Primary Wallet Balance",
     checkBalance: "Check Balance",
     hide: "Hide",
@@ -1477,7 +1476,7 @@ export default function Dashboard() {
       setPendingPinAction({ type: "wallet" });
       setPinSetupMode(true);
       setModal("wallet_pin");
-    } else if (!balanceRevealed) {
+    } else {
       setPendingPinAction({ type: "wallet" });
       setPinSetupMode(false);
       setModal("wallet_pin");
@@ -1486,8 +1485,6 @@ export default function Dashboard() {
           triggerBiometricAuth();
         }, 200);
       }
-    } else {
-      setAccountModal("wallet");
     }
   };
 
@@ -4896,41 +4893,14 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-2.5">
-            <LiveRefreshBadge
-              isRefreshing={isRefreshing}
-              lastUpdated={lastSyncedAt}
-              secondsToNext={secondsToNext}
-              onRefresh={() => {
-                setSecondsToNext(30);
-                silentSyncAll();
-              }}
-            />
-            {(userStored.role === "staff" || userProfile?.role === "staff") && (
-              <a
-                href="/desk"
-                className="px-2.5 sm:px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
-                title="Open Staff Desk"
-              >
-                <span>🏢</span> <span>Desk</span>
-              </a>
-            )}
             {(userStored.role === "admin" || userProfile?.role === "admin") && (
-              <>
-                <a
-                  href="/desk"
-                  className="px-2.5 sm:px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
-                  title="Open Department Desks"
-                >
-                  <span>🏢</span> <span>Desk</span>
-                </a>
-                <a
-                  href="/admin"
-                  className="px-2.5 sm:px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
-                  title="Return to Admin Panel"
-                >
-                  <span>🛡️</span> <span>Admin</span>
-                </a>
-              </>
+              <a
+                href="/admin"
+                className="px-2.5 sm:px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
+                title="Return to Admin Panel"
+              >
+                <span>🛡️</span> <span>Admin</span>
+              </a>
             )}
 
             {/* Collapsible Language Selector - Ultra Compact (EN / HI / HN) */}
@@ -5617,49 +5587,39 @@ export default function Dashboard() {
               </h3>
               <p className="text-emerald-100/90 text-[11px] hidden sm:block mt-1">1% Monthly Daily Yield & 365d Bonds</p>
             </div>
-            <div className="pt-2 border-t border-emerald-500/40 flex flex-wrap justify-between items-center gap-1 text-[11px] text-emerald-100 relative z-10 mt-2">
-              <span>{userProfile.interestRate || currentRate}% APY</span>
-              <div className="flex items-center gap-2">
-                {(userProfile.profitBalance || 0) > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTransferProfitToWallet();
-                    }}
-                    disabled={transferringProfit}
-                    className="px-2 py-0.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold text-[10px] transition active:scale-95 cursor-pointer"
-                  >
-                    {transferringProfit ? "Transferring..." : "🔄 Main Wallet"}
-                  </button>
-                )}
-                <span className="font-bold underline">History →</span>
-              </div>
+            <div className="pt-2 border-t border-emerald-500/40 flex justify-end items-center text-[11px] text-emerald-100 relative z-10 mt-2">
+              <span className="font-bold underline">History & Transfer →</span>
             </div>
           </div>
 
           {/* Right: Dues Wallet Balance Card - CLEAN & UNLOCKED */}
           <div
             onClick={openLoansHub}
-            className={`relative overflow-visible rounded-3xl p-4 sm:p-5 text-white shadow-lg flex flex-col justify-between cursor-pointer active:scale-95 transition hover:shadow-xl ${
+            className={`relative overflow-visible rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col justify-between cursor-pointer active:scale-95 transition hover:shadow-xl ${
               (userProfile.duesBalance || 0) > 0
-                ? "bg-gradient-to-br from-red-600 via-rose-600 to-red-800 shadow-red-500/25"
-                : "bg-gradient-to-br from-slate-900 via-rose-950 to-neutral-900 border border-red-900/40 shadow-red-950/20"
+                ? "bg-gradient-to-br from-red-600 via-rose-600 to-red-800 text-white shadow-red-500/25"
+                : "bg-white border-2 border-slate-200 text-slate-900 shadow-sm"
             }`}
           >
             {heroFlyId === "loans_hub" && <LoanHeroFlyBadge />}
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-red-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.duesWallet}</span>
+                <span className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider ${
+                  (userProfile.duesBalance || 0) > 0 ? "text-red-100" : "text-slate-500"
+                }`}>{txt.duesWallet}</span>
                 <span className="text-base sm:text-lg">
                   {(userProfile.duesBalance || 0) > 0 ? "📅" : "✅"}
                 </span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate text-white">
+              <h3 className={`text-2xl sm:text-3xl font-black font-display mb-1 truncate ${
+                (userProfile.duesBalance || 0) > 0 ? "text-white" : "text-slate-900"
+              }`}>
                 {`₹${(userProfile.duesBalance || 0).toLocaleString("en-IN")}`}
               </h3>
-              <p className="text-red-100/90 text-[11px] hidden sm:block">
+              <p className={`text-[11px] hidden sm:block ${
+                (userProfile.duesBalance || 0) > 0 ? "text-red-100/90" : "text-emerald-600 font-semibold"
+              }`}>
                 {(userProfile.duesBalance || 0) > 0
                   ? "Pending Easy Installments & upcoming collections"
                   : "No Active Dues • All Clear (₹0)"}
@@ -5677,7 +5637,9 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            <div className="pt-2 border-t border-red-400/30 flex justify-between items-center text-[11px] text-red-100 relative z-10 mt-2">
+            <div className={`pt-2 border-t flex justify-between items-center text-[11px] relative z-10 mt-2 ${
+              (userProfile.duesBalance || 0) > 0 ? "border-red-400/30 text-red-100" : "border-slate-100 text-slate-600"
+            }`}>
               <span>{(userProfile.duesBalance || 0) > 0 ? "10-Day Cycle (1st, 11th, 21st)" : "All Clear"}</span>
               <span className="font-bold underline">
                 {(userProfile.duesBalance || 0) > 0 ? "Pay Installment →" : "View Details →"}
@@ -5697,7 +5659,7 @@ export default function Dashboard() {
             {/* Center Big QR Button */}
             <button
               onClick={() => setModal("scan_qr")}
-              className="group relative flex flex-col items-center justify-center p-5 sm:p-6 bg-white rounded-3xl shadow-2xl hover:shadow-cyan-500/25 active:scale-95 transition-all duration-300 w-full max-w-xs mx-auto border-2 border-white/60"
+              className="group relative flex flex-col items-center justify-center p-5 sm:p-6 bg-white rounded-3xl shadow-2xl hover:shadow-cyan-500/25 active:scale-95 transition-all duration-300 w-full max-w-xs mx-auto border-2 border-white/60 cursor-pointer"
             >
               <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 mb-3 group-hover:scale-105 transition-transform">
                 <ScannerIcon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
@@ -5713,29 +5675,29 @@ export default function Dashboard() {
               </div>
             </button>
 
-            {/* Quick Action Pill Buttons */}
+            {/* Quick Action Pill Buttons with 4 distinct vibrant colors */}
             <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-5 w-full">
               <button
                 onClick={handleOpenSendMoney}
-                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                className="py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl font-bold text-xs border border-amber-300/40 shadow-md shadow-amber-500/25 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>⚡</span> {txt.sendMoney}
               </button>
               <button
                 onClick={() => setModal("my_qr")}
-                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                className="py-2.5 px-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl font-bold text-xs border border-indigo-300/40 shadow-md shadow-indigo-500/25 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>📱</span> {txt.myQrCode}
               </button>
               <button
                 onClick={() => setModal("deposit")}
-                className="py-2 px-4 bg-white/20 hover:bg-white/30 backdrop-blur text-white rounded-xl font-bold text-xs border border-white/30 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                className="py-2.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl font-bold text-xs border border-emerald-300/40 shadow-md shadow-emerald-500/25 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>➕</span> {txt.addMoney}
               </button>
               <button
                 onClick={() => requireKyc(() => setModal("withdraw"))}
-                className="py-2 px-4 bg-white/10 hover:bg-white/20 backdrop-blur text-white/90 rounded-xl font-bold text-xs border border-white/20 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
+                className="py-2.5 px-4 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white rounded-xl font-bold text-xs border border-rose-300/40 shadow-md shadow-rose-500/25 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>↓</span> {txt.cashOut}
               </button>
@@ -5743,52 +5705,46 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* QUICK ACTIONS ROW */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          {quickActions.map(({ icon, label, sub, color, action }) => (
-            <div key={label} onClick={action} className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm hover:shadow-xl active:scale-[0.98] cursor-pointer transition-all sm:hover:-translate-y-1 border border-gray-100">
-              <div className={`w-11 h-11 sm:w-12 sm:h-12 ${color} rounded-xl flex items-center justify-center text-xl sm:text-2xl mb-2.5 sm:mb-3`}>{icon}</div>
-              <h3 className="font-bold text-sm text-gray-800">{label}</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
-            </div>
-          ))}
-        </div>
-
         {/* ══════════════════════════════════════════════════════
-            OFFICIAL DIGITAL BANK ACCOUNT & UPI PASSBOOK CARD
+            OFFICIAL DIGITAL BANK ACCOUNT & UPI PASSBOOK CARD (CLEAN WHITE THEME)
         ══════════════════════════════════════════════════════ */}
-        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-7 text-white shadow-xl border border-indigo-500/30 mb-6 sm:mb-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-
+        <div className="bg-white rounded-3xl p-5 sm:p-7 text-slate-800 shadow-md border border-slate-200/90 mb-6 sm:mb-8 relative overflow-hidden">
           {/* Header Row */}
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-2xl shadow-md border border-white/20 shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-2xl text-blue-600 shadow-xs shrink-0">
                 🏛️
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-base sm:text-lg font-black tracking-tight text-white font-display">
+                  <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 font-display">
                     {txt.bankCardTitle}
                   </h3>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     {lang === "hindi" ? "सक्रिय खाता" : "Verified Account"}
                   </span>
                 </div>
-                <p className="text-xs text-indigo-200/80 font-medium mt-0.5 flex items-center gap-1.5">
+                <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1.5">
                   <span>📍</span>
-                  <strong>{txt.branchName}</strong> • IFSC: <span className="font-mono font-bold text-amber-300">EFS0000JHAL</span>
+                  <strong>{txt.branchName}</strong> • IFSC: <span className="font-mono font-bold text-blue-600">EFS0000JHAL</span>
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <button
+                type="button"
+                onClick={handleOpenWalletAccount}
+                className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+              >
+                <span>💰</span>
+                <span>{lang === "hindi" ? "वॉलेट खाता खोलें" : "Open Wallet Account"}</span>
+              </button>
               <button
                 type="button"
                 onClick={shareFullBankDetails}
-                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
               >
                 <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -5801,266 +5757,69 @@ export default function Dashboard() {
           {/* Details Grid */}
           <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-4">
             {/* Account Number */}
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs flex flex-col justify-between hover:bg-white/10 transition">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between hover:bg-blue-50/30 transition">
               <div className="flex justify-between items-center mb-1.5">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   {txt.accountNumberLabel}
                 </span>
                 <button
                   type="button"
                   onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "acc")}
-                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
+                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white border border-slate-200 hover:bg-slate-100 text-blue-600 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
                 >
                   {copiedField === "acc" ? "✓ " + txt.copied : "📋 " + txt.copy}
                 </button>
               </div>
-              <div className="font-mono font-black text-xl sm:text-2xl text-white tracking-widest my-1">
+              <div className="font-mono font-black text-xl sm:text-2xl text-slate-900 tracking-widest my-1">
                 {userProfile.accountNumber || "EFS0000001"}
               </div>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                {lang === "hindi" ? "खाता धारक:" : "Holder:"} <span className="text-white font-semibold">{userProfile.name || userStored.name || "Customer"}</span>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {lang === "hindi" ? "खाता धारक:" : "Holder:"} <span className="text-slate-900 font-bold">{userProfile.name || userStored.name || "Customer"}</span>
               </p>
             </div>
 
             {/* IFSC Code & Branch */}
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs flex flex-col justify-between hover:bg-white/10 transition">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between hover:bg-blue-50/30 transition">
               <div className="flex justify-between items-center mb-1.5">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   {txt.ifscLabel}
                 </span>
                 <button
                   type="button"
                   onClick={() => copyToClipboard("EFS0000JHAL", "ifsc")}
-                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
+                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white border border-slate-200 hover:bg-slate-100 text-blue-600 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
                 >
                   {copiedField === "ifsc" ? "✓ " + txt.copied : "📋 " + txt.copy}
                 </button>
               </div>
-              <div className="font-mono font-black text-xl sm:text-2xl text-amber-300 tracking-wider my-1">
+              <div className="font-mono font-black text-xl sm:text-2xl text-blue-600 tracking-wider my-1">
                 EFS0000JHAL
               </div>
-              <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+              <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                 {txt.branchName} - 211012
               </p>
             </div>
 
             {/* App UPI ID */}
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs flex flex-col justify-between hover:bg-white/10 transition">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between hover:bg-blue-50/30 transition">
               <div className="flex justify-between items-center mb-1.5">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   {txt.upiIdLabel}
                 </span>
                 <button
                   type="button"
                   onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "upi")}
-                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
+                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white border border-slate-200 hover:bg-slate-100 text-blue-600 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
                 >
                   {copiedField === "upi" ? "✓ " + txt.copied : "📋 " + txt.copy}
                 </button>
               </div>
-              <div className="font-mono font-black text-lg sm:text-xl text-emerald-300 tracking-wide truncate my-1">
+              <div className="font-mono font-black text-lg sm:text-xl text-emerald-700 tracking-wide truncate my-1">
                 {userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa")}
               </div>
-              <p className="text-[11px] text-gray-400 mt-0.5">
+              <p className="text-[11px] text-slate-500 mt-0.5">
                 {lang === "hindi" ? "पैसे भेजने हेतु यह UPI ID दें" : "Virtual UPI ID for receiving payments"}
               </p>
-            </div>
-          </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════
-            6 MODULAR ACCOUNTS SECTION (CLICK TO VIEW FULL DATA)
-        ══════════════════════════════════════════════════════ */}
-        <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-gray-100 mb-6 sm:mb-8">
-          <div className="flex justify-between items-center mb-5">
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
-                <span>📑</span> {txt.accountsHubTitle}
-              </h3>
-              <p className="text-xs text-gray-500">{txt.accountsHubSub}</p>
-            </div>
-            <span className="hidden sm:inline-block px-3 py-1 bg-blue-50 text-[#1D6AE5] rounded-full text-xs font-bold">
-              {txt.openAccount}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* 1. Wallet Account */}
-            <div
-              onClick={handleOpenWalletAccount}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-blue-500 bg-white hover:bg-blue-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl">
-                    💰
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-blue-100 text-blue-800">
-                    {userProfile.accountNumber || "EFS0000001"}
-                  </span>
-                </div>
-                <h4 className="font-extrabold text-base text-gray-900">Wallet Account</h4>
-                <p className="text-xs text-gray-500 mt-1 mb-3">
-                  Available cash balance, QR payments, instant app-to-app transfer aur statement.
-                </p>
-              </div>
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-gray-900">₹{(balance || 0).toLocaleString("en-IN")}</span>
-                <span className="text-[#1D6AE5] font-bold">Open Account →</span>
-              </div>
-            </div>
-
-            {/* 2. Debt Account (Dues & 365-Day 1 Lakh Bond) */}
-            <div
-              onClick={() => setAccountModal("debt")}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-rose-500 bg-white hover:bg-rose-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-xl">
-                    📑
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-100 text-rose-800">
-                    365-Day Bond
-                  </span>
-                </div>
-                <h4 className="font-extrabold text-base text-gray-900">Debt & Bond Account</h4>
-                <p className="text-xs text-gray-500 mt-1 mb-3">
-                  1 Lakh ka 365-Day Bond (₹1,18,000 profit return) aur pending loan dues.
-                </p>
-              </div>
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-rose-600">₹{(userProfile.duesBalance || 0).toLocaleString("en-IN")} Due</span>
-                <span className="text-rose-600 font-bold">Open Bonds & Dues →</span>
-              </div>
-            </div>
-
-            {/* 3. Lending Account (40 & 80 Months Monthly Return Bonds) */}
-            <div
-              onClick={openLendingSheet}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-indigo-500 bg-white hover:bg-indigo-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xl">
-                    🤝
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-100 text-indigo-800">
-                    Monthly Payouts
-                  </span>
-                </div>
-                <h4 className="font-extrabold text-base text-gray-900">Lending Account</h4>
-                <p className="text-xs text-gray-500 mt-1 mb-3">
-                  1 Lakh par ₹1,40,000 (₹3,500/mo x 40m) ya ₹2,00,000 (₹2,500/mo x 80m) monthly payouts.
-                </p>
-              </div>
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-indigo-700">₹3,500/mo or ₹2,500/mo</span>
-                <span className="text-indigo-600 font-bold">Open Lending →</span>
-              </div>
-            </div>
-
-            {/* 4. Personal Loan Account (5k-50k, 10-day cycle, Cheque facility) */}
-            <div
-              onClick={() => {
-                triggerHeroFly("card_personal");
-                openLoanSheet("personal_loan");
-              }}
-              className="relative overflow-visible p-5 rounded-2xl border-2 border-emerald-500/50 bg-emerald-50/20 hover:border-emerald-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
-            >
-              {heroFlyId === "card_personal" && <LoanHeroFlyBadge />}
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl">
-                    🏦
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-emerald-100 text-emerald-800">
-                    {activePersonalLoan ? (activePersonalLoan.accountNumber || "EFS0000001") : "10-Day Cycle"}
-                  </span>
-                </div>
-                <h4 className="font-extrabold text-base text-gray-900">Personal Loan Account</h4>
-                <p className="text-xs text-gray-500 mt-1 mb-3">
-                  {activePersonalLoan
-                    ? `Active: ${activePersonalLoan.accountNumber || "EFS0000001"} • Early payoff option available.`
-                    : `1st time limit: ₹5k. Min 15 Easy Installments on 1st, 11th & 21st.`}
-                </p>
-              </div>
-              <div className="pt-3 border-t border-emerald-200/60 flex items-center justify-between text-xs">
-                <span className="font-bold text-emerald-800">
-                  {activePersonalLoan ? `₹${activePersonalLoan.amount.toLocaleString("en-IN")}` : `Limit ₹${maxLimit.toLocaleString("en-IN")}`}
-                </span>
-                <span className="text-emerald-700 font-bold">
-                  {activePersonalLoan ? "View Loan Data →" : "Apply Loan →"}
-                </span>
-              </div>
-            </div>
-
-            {/* 5. Student Loan Account */}
-            <div
-              onClick={() => {
-                triggerHeroFly("card_student");
-                openLoanSheet("student_loan");
-              }}
-              className="relative overflow-visible p-5 rounded-2xl border-2 border-cyan-500/50 bg-cyan-50/20 hover:border-cyan-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
-            >
-              {heroFlyId === "card_student" && <LoanHeroFlyBadge />}
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center text-xl">
-                    🎓
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-cyan-100 text-cyan-800">
-                    {activeStudentLoan ? (activeStudentLoan.accountNumber || "EFS0000001") : "8% p.a."}
-                  </span>
-                </div>
-                <h4 className="font-extrabold text-base text-gray-900">Student Loan Account</h4>
-                <p className="text-xs text-gray-500 mt-1 mb-3">
-                  {activeStudentLoan
-                    ? `Active: ${activeStudentLoan.accountNumber || "EFS0000001"} • Subsidized student fee support.`
-                    : "School, college aur coaching fee direct transfer. Subsidized interest aur 15-30 Easy Installments."}
-                </p>
-              </div>
-              <div className="pt-3 border-t border-cyan-200/60 flex items-center justify-between text-xs">
-                <span className="font-bold text-cyan-800">
-                  {activeStudentLoan ? `₹${activeStudentLoan.amount.toLocaleString("en-IN")}` : `Limit ₹${maxLimit.toLocaleString("en-IN")}`}
-                </span>
-                <span className="text-cyan-700 font-bold">
-                  {activeStudentLoan ? "View Loan Data →" : "Apply Student Loan →"}
-                </span>
-              </div>
-            </div>
-
-            {/* 6. Micro Business Loan Account (Daily Collection) */}
-            <div
-              onClick={() => {
-                triggerHeroFly("card_business");
-                openLoanSheet("business_loan");
-              }}
-              className="relative overflow-visible p-5 rounded-2xl border-2 border-amber-500/50 bg-amber-50/20 hover:border-amber-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
-            >
-              {heroFlyId === "card_business" && <LoanHeroFlyBadge />}
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl">
-                    🏬
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-800">
-                    {activeBusinessLoan ? "Daily Active" : "Daily Collection"}
-                  </span>
-                </div>
-                <h4 className="font-extrabold text-base text-gray-900">Micro Business Loan Account</h4>
-                <p className="text-xs text-gray-500 mt-1 mb-3">
-                  Daily collection mode: 60d (18%), 80d (24%), 100d (30%), 120d (36%) interest tiers.
-                </p>
-              </div>
-              <div className="pt-3 border-t border-amber-200/60 flex items-center justify-between text-xs">
-                <span className="font-bold text-amber-800">
-                  {activeBusinessLoan ? `₹${activeBusinessLoan.installmentAmount}/day` : `Limit ₹${maxLimit.toLocaleString("en-IN")}`}
-                </span>
-                <span className="text-amber-700 font-bold">
-                  {activeBusinessLoan ? "View Daily Loan →" : "Apply Daily Loan →"}
-                </span>
-              </div>
             </div>
           </div>
         </div>
@@ -6902,48 +6661,48 @@ export default function Dashboard() {
             {lookupError && <p className="text-[11px] text-red-500 mt-1">{lookupError}</p>}
           </div>
 
-          {/* Source Wallet Picker (Main Account vs Profit Account) */}
+          {/* Source Wallet Picker (Wallet Pay vs Profit Pay) */}
           <div>
             <label className="text-xs font-bold text-gray-700 mb-1.5 block">
-              {lang === "hindi" ? "पैसे कहाँ से भेजें? (Wallet चुनें):" : "Send From (Source Wallet):"}
+              {lang === "hindi" ? "पेमेंट का माध्यम चुनें (Payment Option):" : "Choose Payment Option:"}
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setSendForm({ ...sendForm, sourceWallet: "main" })}
-                className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer ${
                   (sendForm.sourceWallet || "main") === "main"
-                    ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-950 font-bold"
-                    : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                    ? "bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/30 text-blue-950 font-bold shadow-xs"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                <div className="flex items-center justify-between text-xs font-bold">
-                  <span>🏛️ {lang === "hindi" ? "प्राइमरी वॉलेट" : "Main Wallet"}</span>
-                  {(sendForm.sourceWallet || "main") === "main" && <span className="text-emerald-600 text-xs">✓</span>}
+                <div className="flex items-center justify-between text-xs font-black">
+                  <span className="flex items-center gap-1.5 text-sm text-blue-700">💳 Wallet Pay</span>
+                  {(sendForm.sourceWallet || "main") === "main" && <span className="text-blue-600 text-sm font-black">✓</span>}
                 </div>
-                <div className="text-sm font-black mt-1 text-emerald-700">
+                <div className="text-base font-black mt-2 text-slate-900">
                   ₹{balance.toLocaleString("en-IN")}
                 </div>
-                <span className="text-[10px] text-gray-500">{lang === "hindi" ? "मुख्य बैलेंस" : "Primary Balance"}</span>
+                <span className="text-[10px] text-slate-500 mt-0.5">{lang === "hindi" ? "प्राइमरी वॉलेट बैलेंस" : "Primary Wallet Balance"}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setSendForm({ ...sendForm, sourceWallet: "profit" })}
-                className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer ${
                   sendForm.sourceWallet === "profit"
-                    ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-950 font-bold"
-                    : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                    ? "bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-950 font-bold shadow-xs"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                <div className="flex items-center justify-between text-xs font-bold">
-                  <span>📈 {lang === "hindi" ? "प्रॉफ़िट वॉलेट" : "Profit Wallet"}</span>
-                  {sendForm.sourceWallet === "profit" && <span className="text-emerald-600 text-xs">✓</span>}
+                <div className="flex items-center justify-between text-xs font-black">
+                  <span className="flex items-center gap-1.5 text-sm text-emerald-700">📈 Profit Pay</span>
+                  {sendForm.sourceWallet === "profit" && <span className="text-emerald-600 text-sm font-black">✓</span>}
                 </div>
-                <div className="text-sm font-black mt-1 text-emerald-700">
+                <div className="text-base font-black mt-2 text-emerald-700">
                   ₹{Number(userProfile.profitBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </div>
-                <span className="text-[10px] text-gray-500">{lang === "hindi" ? "जमा मुनाफ़ा" : "Accrued Profit"}</span>
+                <span className="text-[10px] text-slate-500 mt-0.5">{lang === "hindi" ? "मुनाफ़ा वॉलेट बैलेंस" : "Accrued Profit Balance"}</span>
               </button>
             </div>
           </div>
@@ -9389,27 +9148,38 @@ export default function Dashboard() {
 
       {/* DEPOSIT SHEET */}
       <Sheet open={modal === "deposit"} onClose={closeModal} title="Add Money" icon="💸">
-        <div className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl p-4 mb-4 shadow-lg border border-indigo-800/40 space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-white/10">
+        <div className="bg-white text-slate-800 rounded-2xl p-4 mb-4 shadow-sm border border-slate-200 space-y-3.5">
+          {/* Professional English Fintech Clarity Notice */}
+          <div className="p-3.5 bg-blue-50/90 border border-blue-200/90 rounded-xl text-xs text-blue-950">
+            <div className="flex items-center gap-2 font-bold mb-1 text-blue-900">
+              <span className="text-base">🛡️</span>
+              <span className="font-extrabold">Official Educa Fintech Wallet Deposit</span>
+            </div>
+            <p className="text-[11px] text-blue-800 leading-relaxed font-medium">
+              You are adding funds directly into your verified <strong>Educa Fintech Digital Wallet</strong>. Please complete the transfer using the official settlement account or UPI ID below, then provide your 12-digit UTR/Ref number for immediate verification and credit.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <div className="flex items-center gap-2">
-              <span className="text-lg">🏦</span>
+              <span className="text-lg">🏛️</span>
               <div>
-                <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Official Deposit Account</p>
-                <p className="text-xs font-black">{depositDetails.bankName || "Bank of Baroda"}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Official Settlement Bank</p>
+                <p className="text-xs font-black text-slate-900">{depositDetails.bankName || "Bank of Baroda"}</p>
               </div>
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
+            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
               Verified Self-Deposit
             </span>
           </div>
 
           {depForm.method === "upi" ? (
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 space-y-2 border border-white/10">
+            <div className="bg-slate-50 rounded-xl p-3.5 space-y-2.5 border border-slate-200/80">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] text-gray-300 uppercase font-semibold">Admin UPI ID</p>
-                  <p className="font-mono font-bold text-sm text-cyan-300 select-all">{depositDetails.upiId}</p>
-                  <p className="text-[10px] text-gray-400 font-medium">{depositDetails.upiName}</p>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Official Admin UPI ID</p>
+                  <p className="font-mono font-black text-base text-blue-700 select-all">{depositDetails.upiId}</p>
+                  <p className="text-[11px] text-slate-600 font-medium">{depositDetails.upiName}</p>
                 </div>
                 <button
                   type="button"
@@ -9419,26 +9189,26 @@ export default function Dashboard() {
                     showToast(`Copied UPI ID: ${depositDetails.upiId}`, "success");
                     setTimeout(() => setCopiedDepField(""), 2000);
                   }}
-                  className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs rounded-lg shadow-sm transition active:scale-95 flex items-center gap-1"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-lg shadow-xs transition active:scale-95 flex items-center gap-1 cursor-pointer"
                 >
-                  {copiedDepField === "UPI ID" ? "✓ Copied" : "Copy UPI"}
+                  {copiedDepField === "UPI ID" ? "✓ Copied" : "📋 Copy UPI"}
                 </button>
               </div>
               {depForm.amount && Number(depForm.amount) >= 100 && (
                 <a
                   href={`upi://pay?pa=${encodeURIComponent(depositDetails.upiId)}&pn=${encodeURIComponent(depositDetails.upiName || "Educa")}&am=${depForm.amount}&cu=INR`}
-                  className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-lg flex items-center justify-center gap-1 shadow transition"
+                  className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95"
                 >
                   ⚡ Open GPay / PhonePe / Paytm to Pay ₹{depForm.amount}
                 </a>
               )}
             </div>
           ) : (
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 space-y-2.5 border border-white/10 text-xs">
+            <div className="bg-slate-50 rounded-xl p-3.5 space-y-2.5 border border-slate-200/80 text-xs">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] text-gray-300 uppercase font-semibold">Account Number</p>
-                  <p className="font-mono font-bold text-sm text-cyan-300 select-all">{depositDetails.accountNumber}</p>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Account Number</p>
+                  <p className="font-mono font-black text-base text-blue-700 select-all">{depositDetails.accountNumber}</p>
                 </div>
                 <button
                   type="button"
@@ -9448,15 +9218,15 @@ export default function Dashboard() {
                     showToast(`Copied Account No: ${depositDetails.accountNumber}`, "success");
                     setTimeout(() => setCopiedDepField(""), 2000);
                   }}
-                  className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[11px] rounded-lg transition"
+                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] rounded-lg transition active:scale-95 cursor-pointer"
                 >
-                  {copiedDepField === "Account No" ? "✓ Copied" : "Copy A/C"}
+                  {copiedDepField === "Account No" ? "✓ Copied" : "📋 Copy A/C"}
                 </button>
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] text-gray-300 uppercase font-semibold">IFSC Code</p>
-                  <p className="font-mono font-bold text-xs text-white">{depositDetails.ifsc}</p>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">IFSC Code</p>
+                  <p className="font-mono font-bold text-xs text-slate-900">{depositDetails.ifsc}</p>
                 </div>
                 <button
                   type="button"
@@ -9466,25 +9236,25 @@ export default function Dashboard() {
                     showToast(`Copied IFSC: ${depositDetails.ifsc}`, "success");
                     setTimeout(() => setCopiedDepField(""), 2000);
                   }}
-                  className="px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white font-bold text-[11px] rounded-lg transition"
+                  className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-[11px] rounded-lg transition active:scale-95 cursor-pointer"
                 >
-                  {copiedDepField === "IFSC" ? "✓ Copied" : "Copy IFSC"}
+                  {copiedDepField === "IFSC" ? "✓ Copied" : "📋 Copy IFSC"}
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-300 pt-1 border-t border-white/10">
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 pt-2 border-t border-slate-200">
                 <div>
-                  <span className="text-[10px] text-gray-400 block">Branch:</span>
-                  <span className="font-medium text-white">{depositDetails.branch || "Jhalwa Branch"}</span>
+                  <span className="text-[10px] text-slate-400 block font-bold uppercase">Branch:</span>
+                  <span className="font-medium text-slate-900">{depositDetails.branch || "Jhalwa Branch"}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-gray-400 block">Beneficiary:</span>
-                  <span className="font-medium text-white">{depositDetails.accountHolder || "Educa Admin"}</span>
+                  <span className="text-[10px] text-slate-400 block font-bold uppercase">Beneficiary:</span>
+                  <span className="font-medium text-slate-900">{depositDetails.accountHolder || "Educa Admin"}</span>
                 </div>
               </div>
             </div>
           )}
 
-          <p className="text-[11px] text-indigo-200">
+          <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
             ℹ️ {depositDetails.instructions || "Payment karne ke baad apna 12-digit UTR number enter karein."}
           </p>
         </div>

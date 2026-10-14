@@ -2685,7 +2685,7 @@ router.post('/staff', protect, admin, async (req, res) => {
         createdBy: req.user._id,
         createdAt: new Date(),
         limits: {
-          maxApprovalAmount: Number(limits?.maxApprovalAmount) || 0
+          maxApprovalAmount: Number(limits?.maxApprovalAmount ?? req.body.maxApprovalAmount) || 0
         },
         lastActiveAt: null
       }
@@ -2744,7 +2744,7 @@ router.post('/user/:id/assign-role', protect, admin, async (req, res) => {
         createdBy: req.user._id,
         createdAt: user.staffProfile?.createdAt || new Date(),
         limits: {
-          maxApprovalAmount: Number(limits?.maxApprovalAmount) || 0
+          maxApprovalAmount: Number(limits?.maxApprovalAmount ?? req.body.maxApprovalAmount) || 0
         },
         lastActiveAt: new Date()
       };
@@ -2798,7 +2798,7 @@ router.post('/user/:id/assign-role', protect, admin, async (req, res) => {
 router.patch('/staff/:id/permissions', protect, admin, async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid staff ID' });
-    const { departments, permissions, limits } = req.body;
+    const { departments, permissions, limits, maxApprovalAmount } = req.body;
 
     const staffUser = await User.findOne({ _id: req.params.id, role: 'staff' });
     if (!staffUser) return res.status(404).json({ message: 'Staff member not found' });
@@ -2806,10 +2806,14 @@ router.patch('/staff/:id/permissions', protect, admin, async (req, res) => {
     if (!staffUser.staffProfile) staffUser.staffProfile = {};
     if (Array.isArray(departments)) staffUser.staffProfile.departments = departments;
     if (Array.isArray(permissions)) staffUser.staffProfile.permissions = permissions;
-    if (limits && typeof limits === 'object') {
-      staffUser.staffProfile.limits = {
-        maxApprovalAmount: Number(limits.maxApprovalAmount) || 0
-      };
+    
+    const resolvedLimit = limits?.maxApprovalAmount !== undefined
+      ? limits.maxApprovalAmount
+      : (maxApprovalAmount !== undefined ? maxApprovalAmount : undefined);
+
+    if (resolvedLimit !== undefined) {
+      if (!staffUser.staffProfile.limits) staffUser.staffProfile.limits = {};
+      staffUser.staffProfile.limits.maxApprovalAmount = Number(resolvedLimit) || 0;
     }
 
     memoryCache.del(`user_me_${staffUser._id}`);

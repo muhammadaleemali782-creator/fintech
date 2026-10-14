@@ -1591,15 +1591,17 @@ router.get('/notifications/stream', (req, res) => {
   // CORS is already handled (with a strict whitelist) by the app-level cors() middleware.
   // The old code re-added Access-Control-Allow-Origin for ANY origin here - removed.
   const ticket = typeof req.query.ticket === 'string' ? req.query.ticket : null;
+  const rawToken = typeof req.query.token === 'string' ? req.query.token : null;
   const bearer = req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
     ? req.headers.authorization.split(' ')[1]
     : null;
-  if (!ticket && !bearer) return res.status(401).json({ message: 'Authentication required' });
+  const tokenCandidate = rawToken || bearer;
+  if (!ticket && !tokenCandidate) return res.status(401).json({ message: 'Authentication required' });
 
   try {
     const decoded = ticket
       ? jwt.verify(ticket, sseSecret(), { algorithms: ['HS256'] })
-      : jwt.verify(bearer, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+      : jwt.verify(tokenCandidate, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     if (ticket && decoded.purpose !== 'sse') return res.status(401).json({ message: 'Invalid ticket' });
     User.findById(decoded.id).then(user => {
       if (!user || (user.role !== 'admin' && user.role !== 'staff')) {

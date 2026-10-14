@@ -222,31 +222,17 @@ export default function StaffDesk() {
       }
     };
 
-    // Short-lived SSE ticket (60s) instead of putting the login token in the URL.
-    // A ticket can only be used once to OPEN the stream, so on any disconnect we fetch a
-    // fresh ticket and reconnect (EventSource's built-in reconnect would reuse the old, expired one).
+    // Direct SSE stream connection with token
     let retryTimer = null;
-    const connect = async () => {
-      if (cancelled) return;
+    const connect = () => {
+      if (cancelled || !token) return;
       try {
-        const r = await fetch(`${API}/admin/notifications/ticket`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: "include"
-        });
-        if (!r.ok) {
-          // 401/403 => session is invalid, don't hammer the server; other errors => retry
-          if (r.status !== 401 && r.status !== 403 && !cancelled) retryTimer = setTimeout(connect, 10000);
-          return;
-        }
-        const { ticket } = await r.json();
-        if (cancelled || !ticket) return;
-        eventSource = new EventSource(`${API}/admin/notifications/stream?ticket=${encodeURIComponent(ticket)}`);
+        eventSource = new EventSource(`${API}/admin/notifications/stream?token=${encodeURIComponent(token)}`);
         eventSource.onmessage = handleMessage;
         eventSource.onerror = () => {
           if (eventSource) eventSource.close();
           eventSource = null;
-          if (!cancelled) retryTimer = setTimeout(connect, 4000);
+          if (!cancelled) retryTimer = setTimeout(connect, 10000);
         };
       } catch (e) {
         if (!cancelled) retryTimer = setTimeout(connect, 10000);

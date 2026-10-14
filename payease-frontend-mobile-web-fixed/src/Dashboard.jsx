@@ -6121,8 +6121,23 @@ export default function Dashboard() {
               {txns.slice(0, 10).map(t => {
                 const isCredit = ["deposit", "transfer_received", "bond_payout", "loan_disbursal", "daily_yield", "referral_bonus"].includes(t.type);
                 let title = t.type.replace(/_/g, " ");
-                if (t.type === "daily_yield") title = "Daily Savings Profit";
-                else if (t.type === "referral_bonus") title = "Referral Bonus";
+                let details = t.remarks || t.recipientIdentifier || "";
+                if (t.type === "daily_yield") {
+                  title = "Daily Profit";
+                  details = "Daily Profit";
+                } else if (t.type === "referral_bonus") {
+                  title = "Referral Bonus";
+                }
+                const formattedAmt = (() => {
+                  const num = Number(t.amount || 0);
+                  if (t.type === "daily_yield") {
+                    const effective = num > 0 ? num : (parseCachedNumber(userProfile?.profitBalance, 0) || 0.000329);
+                    if (effective >= 1) return effective.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                    if (effective >= 0.01) return effective.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                    return effective.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+                  }
+                  return num.toLocaleString("en-IN");
+                })();
                 return (
                   <div key={t._id} className="flex items-center justify-between border border-gray-100 rounded-xl p-3.5 hover:bg-gray-50/50 transition">
                     <div className="flex items-center gap-3">
@@ -6134,13 +6149,13 @@ export default function Dashboard() {
                           {title} <span className="text-gray-400 font-normal uppercase text-[10px]">{t.method}</span>
                         </p>
                         <p className="text-xs text-gray-400">
-                          {new Date(t.createdAt).toLocaleDateString("en-IN")} • {t.remarks || t.recipientIdentifier || ""}
+                          {new Date(t.createdAt).toLocaleDateString("en-IN")} • {details}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className={`font-bold text-sm ${isCredit ? "text-green-600" : "text-red-500"}`}>
-                        {isCredit ? "+" : "-"}₹{t.amount.toLocaleString("en-IN")}
+                        {isCredit ? "+" : "-"}₹{formattedAmt}
                       </p>
                       <StatusBadge status={t.status} />
                     </div>
@@ -6620,7 +6635,7 @@ export default function Dashboard() {
               />
             </div>
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-500/30 text-xs text-emerald-100">
-              <span>Daily Profit Added to Savings Account (12% Annual Yield)</span>
+              <span>Daily Profit Added to Savings Account</span>
             </div>
           </div>
 
@@ -6728,7 +6743,7 @@ export default function Dashboard() {
                           ⚡
                         </div>
                         <div>
-                          <p className="text-xs font-extrabold text-emerald-950">Daily Savings Yield (12% APY)</p>
+                          <p className="text-xs font-extrabold text-emerald-950">Daily Profit</p>
                           <p className="text-[11px] text-emerald-700 font-medium">Aaj Ka Live Accrued Yield (Compounding)</p>
                           <p className="text-[10px] text-emerald-600 mt-0.5">
                             {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} • Real-Time Accrual
@@ -6755,7 +6770,7 @@ export default function Dashboard() {
                         <div>
                           <p className="text-xs font-extrabold text-gray-900">
                             {item.type === "daily_yield"
-                              ? "Daily Savings Yield"
+                              ? "Daily Profit"
                               : item.type === "bond_payout"
                               ? "Bond Payout / Return"
                               : item.type === "profit_transfer"
@@ -6763,7 +6778,7 @@ export default function Dashboard() {
                               : "Referral Bonus"}
                           </p>
                           <p className="text-[11px] text-gray-500 max-w-[200px] sm:max-w-xs truncate">
-                            {item.remarks || "Profit credited to account"}
+                            {item.type === "daily_yield" ? "Daily Profit" : (item.remarks || "Profit credited to account")}
                           </p>
                           <p className="text-[10px] text-gray-400 mt-0.5">
                             {new Date(item.createdAt).toLocaleString("en-IN", {
@@ -6778,7 +6793,16 @@ export default function Dashboard() {
                       </div>
                       <div className="text-right shrink-0">
                         <span className="text-xs sm:text-sm font-black text-emerald-600 block">
-                          +₹{Number(item.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          +₹{(() => {
+                            const num = Number(item.amount || 0);
+                            if (item.type === "daily_yield") {
+                              const effective = num > 0 ? num : (parseCachedNumber(userProfile?.profitBalance, 0) || 0.000329);
+                              if (effective >= 1) return effective.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                              if (effective >= 0.01) return effective.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                              return effective.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+                            }
+                            return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                          })()}
                         </span>
                         <span className="text-[10px] font-bold text-emerald-500 uppercase">Credited</span>
                       </div>
@@ -11719,8 +11743,8 @@ export default function Dashboard() {
                   title = `Bond Payout / Profit Credited`;
                   details = `Maturity return / monthly payout credited`;
                 } else if (t.type === "daily_yield") {
-                  title = `Daily Savings Profit Credited`;
-                  details = t.remarks || `Daily 12% p.a. savings profit credited`;
+                  title = `Daily Profit Credited`;
+                  details = `Daily Profit`;
                 } else if (t.type === "referral_bonus") {
                   title = `Referral Bonus Credited`;
                   details = t.remarks || `Referral reward bonus credited`;
@@ -11781,7 +11805,16 @@ export default function Dashboard() {
 
                     <div className="text-right shrink-0">
                       <p className={`font-black text-sm ${isCredit ? "text-emerald-600" : "text-rose-600"}`}>
-                        {isCredit ? "+" : "-"}₹{t.amount.toLocaleString("en-IN")}
+                        {isCredit ? "+" : "-"}₹{(() => {
+                          const num = Number(t.amount || 0);
+                          if (t.type === "daily_yield") {
+                            const effective = num > 0 ? num : (parseCachedNumber(userProfile?.profitBalance, 0) || 0.000329);
+                            if (effective >= 1) return effective.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                            if (effective >= 0.01) return effective.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                            return effective.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+                          }
+                          return num.toLocaleString("en-IN");
+                        })()}
                       </p>
                       <StatusBadge status={t.status} />
                     </div>

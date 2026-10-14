@@ -72,7 +72,7 @@ async function processDailyYield(user) {
                 type: 'daily_yield',
                 method: 'internal',
                 status: 'completed',
-                remarks: `Daily Savings Yield (${user.interestRate || 12}% p.a. on ₹${baseBal.toLocaleString('en-IN')})`,
+                remarks: "Daily Profit",
                 createdAt: txnDate
               }
             },

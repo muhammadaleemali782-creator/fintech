@@ -4958,6 +4958,26 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* AGENT PERSISTENCE BANNER */}
+      {isAgent && (
+        <div className="bg-white border-b border-gray-200 text-gray-900 px-3.5 sm:px-6 py-2.5 flex items-center justify-between text-xs sticky top-0 z-50 shadow-xs">
+          <div className="flex items-center gap-2 font-bold min-w-0">
+            <span className="text-base shrink-0">🏢</span>
+            <span className="truncate text-gray-900 font-extrabold">Agent Desk Active</span>
+            <span className="hidden sm:inline text-gray-500 font-normal">
+              | {agentMetrics?.agentInfo?.businessName || userProfile.name} • {agentMetrics?.stats?.customerCount ?? 0} Customers
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAgentDesk(true)}
+            className="shrink-0 px-3 py-1 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black rounded-lg shadow-xs flex items-center gap-1 transition cursor-pointer"
+          >
+            <span>⚡</span> Open Agent Desk →
+          </button>
+        </div>
+      )}
+
       {/* NAVBAR */}
       <nav className="bg-white shadow-sm sticky top-0 z-30 border-b border-gray-100 safe-top w-full">
         <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
@@ -4970,6 +4990,17 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-2.5">
+            {isAgent && (
+              <button
+                type="button"
+                onClick={() => setShowAgentDesk(true)}
+                className="px-2.5 sm:px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
+                title="Open Agent Desk"
+              >
+                <span>🏢</span> <span>Agent Desk</span>
+              </button>
+            )}
+
             {(userStored.role === "admin" || userProfile?.role === "admin") && (
               <a
                 href="/admin"
@@ -5050,64 +5081,25 @@ export default function Dashboard() {
       <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-4 sm:py-8 overflow-x-hidden">
 
         {/* ══════════════════════════════════════════════════════
-        {/* ══════════════════════════════════════════════════════
-            0.1 COMPACT AGENT DESK TILE (FOR AGENTS ON DASHBOARD HOME)
-        ══════════════════════════════════════════════════════ */}
-        {isAgent && (
-          <div className="mb-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 rounded-2xl p-3.5 sm:p-4 text-white shadow-xl border border-indigo-400/30 flex items-center justify-between gap-3 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-10 -mt-10 pointer-events-none" />
-            <div className="flex items-center gap-3 min-w-0 z-10">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-xl shrink-0 shadow-inner">
-                🏢
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <h3 className="font-extrabold text-sm sm:text-base text-white tracking-tight">Agent Desk</h3>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase tracking-wider">
-                    Agent Portal
-                  </span>
-                </div>
-                <p className="text-[11px] text-indigo-200 mt-0.5 truncate">
-                  {agentMetrics?.agentInfo?.businessName || userProfile.name || "Agent Executive"} • {agentMetrics?.stats?.customerCount ?? 0} Customers
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0 z-10">
-              <button
-                type="button"
-                onClick={() => setShowAgentDesk(true)}
-                className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-blue-600 hover:from-indigo-600 hover:to-blue-700 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-indigo-500/30 transition cursor-pointer flex items-center gap-1.5"
-              >
-                <span>Agent Desk</span>
-                <span className="text-sm font-bold">↗</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════
-            0.1.1 FULL AGENT DESK MODAL / SHEET
+            0.1 AGENT DESK FULL MODAL (CLEAN WHITE THEME)
         ══════════════════════════════════════════════════════ */}
         {isAgent && showAgentDesk && (
-          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 animate-in fade-in duration-200">
-            <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col text-white shadow-2xl border border-indigo-400/30 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-44 h-44 bg-blue-500/10 rounded-full -mr-16 -mt-16 pointer-events-none" />
-
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col text-gray-900 shadow-2xl border border-gray-200 relative overflow-hidden">
               {/* Modal Header */}
-              <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5 sm:py-3.5 bg-black/40 backdrop-blur-md sticky top-0 z-20 shrink-0">
+              <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-3.5 bg-white sticky top-0 z-20 shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-lg shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center text-lg shrink-0 shadow-2xs">
                     🏢
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-extrabold text-sm sm:text-base text-white">Agent Desk</h3>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase">
+                      <h3 className="font-extrabold text-sm sm:text-base text-gray-900">Agent Desk</h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200 uppercase">
                         Agent Account
                       </span>
                     </div>
-                    <p className="text-[11px] text-indigo-200 truncate mt-0.5">
+                    <p className="text-[11px] text-gray-500 truncate mt-0.5">
                       {agentMetrics?.agentInfo?.businessName || userProfile.name} • {agentMetrics?.stats?.customerCount ?? 0} Onboarded Customers
                     </p>
                   </div>
@@ -5118,7 +5110,7 @@ export default function Dashboard() {
                     type="button"
                     onClick={loadAgentMetrics}
                     title="Refresh Stats"
-                    className="text-[11px] font-bold text-indigo-300 hover:text-white flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-1.5 rounded-xl transition cursor-pointer"
+                    className="text-[11px] font-bold text-gray-700 hover:text-gray-900 flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-xl transition cursor-pointer"
                   >
                     <span>🔄</span>
                     <span className="hidden sm:inline">{loadingAgentMetrics ? "Updating..." : "Refresh"}</span>
@@ -5126,7 +5118,7 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => setShowAgentDesk(false)}
-                    className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-indigo-200 hover:text-white flex items-center justify-center text-base font-bold transition active:scale-95 cursor-pointer ml-1"
+                    className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 flex items-center justify-center text-base font-bold transition active:scale-95 cursor-pointer ml-1"
                     title="Close Agent Desk"
                   >
                     ✕
@@ -5137,504 +5129,507 @@ export default function Dashboard() {
               {/* Modal Scrollable Body */}
               <div className="p-3.5 sm:p-5 overflow-y-auto space-y-4">
                 {/* 4 Product Commission Badges */}
-                <div className="flex flex-wrap items-center gap-1.5 bg-black/20 p-2.5 rounded-2xl border border-white/5">
-                  <span className="text-[11px] font-bold text-indigo-200 mr-1">Commissions:</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/20 text-blue-200 border border-blue-400/30">
+                <div className="flex flex-wrap items-center gap-1.5 bg-gray-50 p-2.5 rounded-2xl border border-gray-200">
+                  <span className="text-[11px] font-bold text-gray-700 mr-1">Commissions:</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
                     Loan: {agentMetrics?.agentInfo?.commissions?.loan ?? userProfile.agentProfile?.commissions?.loan ?? 1}%
                   </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                     Lend: {agentMetrics?.agentInfo?.commissions?.lending ?? userProfile.agentProfile?.commissions?.lending ?? 4}%
                   </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-200 border border-amber-400/30">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
                     Debt: {agentMetrics?.agentInfo?.commissions?.investment ?? userProfile.agentProfile?.commissions?.investment ?? 1}%
                   </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/20 text-purple-200 border border-purple-400/30">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200">
                     Bond: {agentMetrics?.agentInfo?.commissions?.bond ?? userProfile.agentProfile?.commissions?.bond ?? 4}%
                   </span>
                 </div>
 
-            {/* 3 Dedicated Agent Sub-Tabs */}
-            <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-2xl mb-4 border border-white/10">
-              <button
-                type="button"
-                onClick={() => setAgentTab("overview")}
-                className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                  agentTab === "overview"
-                    ? "bg-white text-indigo-950 shadow-md"
-                    : "text-indigo-200 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <span>📊</span> Overview & Dues
-              </button>
-              <button
-                type="button"
-                onClick={() => setAgentTab("commissions")}
-                className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                  agentTab === "commissions"
-                    ? "bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-md font-black"
-                    : "text-indigo-200 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <span>💰</span> Commission Rates (4 Products)
-              </button>
-              <button
-                type="button"
-                onClick={() => setAgentTab("customers")}
-                className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                  agentTab === "customers"
-                    ? "bg-white text-indigo-950 shadow-md"
-                    : "text-indigo-200 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <span>👥</span> Customers ({agentMetrics?.customers?.length || 0})
-              </button>
-            </div>
-
-            {/* TAB 1: OVERVIEW & DUES */}
-            {agentTab === "overview" && (
-              <div className="space-y-4">
-                {/* 5 Core Agent Metrics */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                    <span className="text-[10px] text-indigo-200 uppercase font-bold block mb-1">💰 Total Deposit</span>
-                    <div className="text-lg sm:text-xl font-black font-mono text-emerald-400">
-                      ₹{(agentMetrics?.stats?.totalDeposits || 0).toLocaleString("en-IN")}
-                    </div>
-                    <span className="text-[9px] text-gray-400">Customer Deposits</span>
-                  </div>
-
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                    <span className="text-[10px] text-indigo-200 uppercase font-bold block mb-1">📤 Total Disbursal</span>
-                    <div className="text-lg sm:text-xl font-black font-mono text-blue-400">
-                      ₹{(agentMetrics?.stats?.totalDisbursal || 0).toLocaleString("en-IN")}
-                    </div>
-                    <span className="text-[9px] text-gray-400">Loans Disbursed</span>
-                  </div>
-
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                    <span className="text-[10px] text-indigo-200 uppercase font-bold block mb-1">📥 Total Collection</span>
-                    <div className="text-lg sm:text-xl font-black font-mono text-cyan-400">
-                      ₹{(agentMetrics?.stats?.totalCollection || 0).toLocaleString("en-IN")}
-                    </div>
-                    <span className="text-[9px] text-gray-400">Repayments Received</span>
-                  </div>
-
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                    <span className="text-[10px] text-indigo-200 uppercase font-bold block mb-1">⚠️ Total Due</span>
-                    <div className="text-lg sm:text-xl font-black font-mono text-rose-400">
-                      ₹{(agentMetrics?.stats?.totalDue || 0).toLocaleString("en-IN")}
-                    </div>
-                    <span className="text-[9px] text-gray-400">Pending Customer Dues</span>
-                  </div>
-
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3 col-span-2 sm:col-span-1">
-                    <span className="text-[10px] text-indigo-200 uppercase font-bold block mb-1">🔄 Pre-Closing</span>
-                    <div className="text-lg sm:text-xl font-black font-mono text-amber-300">
-                      {agentMetrics?.stats?.preClosingCount || 0}
-                    </div>
-                    <span className="text-[9px] text-amber-200/80">₹{(agentMetrics?.stats?.preClosingAmount || 0).toLocaleString("en-IN")} Closed Early</span>
-                  </div>
+                {/* 3 Dedicated Agent Sub-Tabs */}
+                <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-2xl border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setAgentTab("overview")}
+                    className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      agentTab === "overview"
+                        ? "bg-white text-gray-900 shadow-xs"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                    }`}
+                  >
+                    <span>📊</span> Overview & Dues
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAgentTab("commissions")}
+                    className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      agentTab === "commissions"
+                        ? "bg-white text-amber-800 shadow-xs"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                    }`}
+                  >
+                    <span>💰</span> Rates (4 Products)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAgentTab("customers")}
+                    className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      agentTab === "customers"
+                        ? "bg-white text-gray-900 shadow-xs"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                    }`}
+                  >
+                    <span>👥</span> Customers ({agentMetrics?.customers?.length || 0})
+                  </button>
                 </div>
 
-                {/* Early Settlement Commission Benefit Guide */}
-                <div className="p-3.5 bg-white/5 border border-amber-400/25 rounded-2xl text-xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                      <span>⚡</span> Early Loan Pre-Closure Benefits
-                    </span>
-                    <span className="text-[10px] bg-amber-400/20 text-amber-200 border border-amber-400/30 px-2 py-0.5 rounded-full font-bold">
-                      Extra Commission
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-amber-100/90 leading-relaxed">
-                    Agar aapka referred borrower loan ko <strong>samay se pehle (9 kiston se pehle)</strong> close karta hai, to borrower ko loan me vishesh chhoot (fayda) milta hai aur aapko bhi instant early settlement bonus credit hota hai!
-                  </p>
-                  <div className="p-2.5 bg-black/40 rounded-xl border border-amber-400/30 text-[11px] text-amber-200 flex items-center justify-between">
-                    <span>💡 Jitna jaldi pre-close hoga, borrower aur aap dono ko utna fayda milega!</span>
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">Auto Payout</span>
-                  </div>
-                </div>
+                {/* TAB 1: OVERVIEW & DUES */}
+                {agentTab === "overview" && (
+                  <div className="space-y-4">
+                    {/* 5 Core Agent Metrics */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
+                        <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">💰 Total Deposit</span>
+                        <div className="text-lg sm:text-xl font-black font-mono text-emerald-600">
+                          ₹{(agentMetrics?.stats?.totalDeposits || 0).toLocaleString("en-IN")}
+                        </div>
+                        <span className="text-[9px] text-gray-500">Customer Deposits</span>
+                      </div>
 
-                {/* Quick Referral Bar */}
-                <div className="p-3 bg-white/5 border border-white/10 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-indigo-200 font-bold">Your Referral Code:</span>
-                    <span className="font-mono font-black text-amber-300 bg-black/40 px-2 py-0.5 rounded border border-amber-400/30">
-                      {agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode || "AGENT"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAgentTab("commissions")}
-                      className="px-3 py-1.5 bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
-                    >
-                      <span>💰</span> View 4 Commission Rates
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAgentTab("customers")}
-                      className="px-3 py-1.5 bg-indigo-500/30 hover:bg-indigo-500/40 text-indigo-200 border border-indigo-400/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
-                    >
-                      <span>👥</span> View Customers ({agentMetrics?.customers?.length || 0})
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+                      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
+                        <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">📤 Total Disbursal</span>
+                        <div className="text-lg sm:text-xl font-black font-mono text-blue-600">
+                          ₹{(agentMetrics?.stats?.totalDisbursal || 0).toLocaleString("en-IN")}
+                        </div>
+                        <span className="text-[9px] text-gray-500">Loans Disbursed</span>
+                      </div>
 
-            {/* TAB 2: 4-PRODUCT COMMISSION RATES */}
-            {agentTab === "commissions" && (
-              <div className="space-y-4">
-                <div className="p-4 bg-white/5 border border-amber-400/30 rounded-3xl backdrop-blur-sm space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">💰</span>
-                      <div>
-                        <h4 className="font-extrabold text-xs sm:text-sm text-white">4-Product Commission Portfolio (Aapka Commission Vivran)</h4>
-                        <p className="text-[10px] text-indigo-200">Admin dwara tay ki gayi 4 alag-alag product commission dar</p>
+                      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
+                        <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">📥 Total Collection</span>
+                        <div className="text-lg sm:text-xl font-black font-mono text-cyan-700">
+                          ₹{(agentMetrics?.stats?.totalCollection || 0).toLocaleString("en-IN")}
+                        </div>
+                        <span className="text-[9px] text-gray-500">Repayments Received</span>
+                      </div>
+
+                      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
+                        <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">⚠️ Total Due</span>
+                        <div className="text-lg sm:text-xl font-black font-mono text-rose-600">
+                          ₹{(agentMetrics?.stats?.totalDue || 0).toLocaleString("en-IN")}
+                        </div>
+                        <span className="text-[9px] text-gray-500">Pending Customer Dues</span>
+                      </div>
+
+                      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 col-span-2 sm:col-span-1">
+                        <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">🔄 Pre-Closing</span>
+                        <div className="text-lg sm:text-xl font-black font-mono text-amber-700">
+                          {agentMetrics?.stats?.preClosingCount || 0}
+                        </div>
+                        <span className="text-[9px] text-amber-800">₹{(agentMetrics?.stats?.preClosingAmount || 0).toLocaleString("en-IN")} Closed Early</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-gray-400 block">Kul Kamai (Total Commission)</span>
-                      <span className="text-sm sm:text-base font-black font-mono text-emerald-400">
-                        ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.total || userProfile.referralEarnings || 0).toLocaleString("en-IN")}
-                      </span>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    {/* 1. Loan Commission */}
-                    <div className="bg-gradient-to-br from-blue-950/60 to-slate-900/80 border border-blue-500/30 rounded-2xl p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] text-blue-300 font-bold uppercase">🏦 Loan</span>
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                          {agentMetrics?.agentInfo?.commissions?.loan ?? 1}% Rate
+                    {/* Early Settlement Commission Benefit Guide */}
+                    <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs space-y-2 text-amber-950">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                          <span>⚡</span> Early Loan Pre-Closure Benefits
+                        </span>
+                        <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full font-bold">
+                          Extra Commission
                         </span>
                       </div>
-                      <div className="text-base sm:text-lg font-black font-mono text-blue-400">
-                        ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.loan || 0).toLocaleString("en-IN")}
-                      </div>
-                      <span className="text-[9px] text-gray-400">Customer Loans</span>
-                    </div>
-
-                    {/* 2. Lending Account Commission */}
-                    <div className="bg-gradient-to-br from-emerald-950/60 to-slate-900/80 border border-emerald-500/30 rounded-2xl p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] text-emerald-300 font-bold uppercase">🤝 Lending Account</span>
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                          {agentMetrics?.agentInfo?.commissions?.lending ?? 4}% Rate
-                        </span>
-                      </div>
-                      <div className="text-base sm:text-lg font-black font-mono text-emerald-400">
-                        ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.lending || 0).toLocaleString("en-IN")}
-                      </div>
-                      <span className="text-[9px] text-gray-400">Lending Account</span>
-                    </div>
-
-                    {/* 3. Debt Account Commission */}
-                    <div className="bg-gradient-to-br from-amber-950/60 to-slate-900/80 border border-amber-500/30 rounded-2xl p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] text-amber-300 font-bold uppercase">📈 Debt Account</span>
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30">
-                          {agentMetrics?.agentInfo?.commissions?.investment ?? 1}% Rate
-                        </span>
-                      </div>
-                      <div className="text-base sm:text-lg font-black font-mono text-amber-300">
-                        ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.investment || 0).toLocaleString("en-IN")}
-                      </div>
-                      <span className="text-[9px] text-gray-400">Debt Account</span>
-                    </div>
-
-                    {/* 4. Bond Commission */}
-                    <div className="bg-gradient-to-br from-purple-950/60 to-slate-900/80 border border-purple-500/30 rounded-2xl p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] text-purple-300 font-bold uppercase">📜 Bonds</span>
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30">
-                          {agentMetrics?.agentInfo?.commissions?.bond ?? 4}% Rate
-                        </span>
-                      </div>
-                      <div className="text-base sm:text-lg font-black font-mono text-purple-300">
-                        ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.bond || 0).toLocaleString("en-IN")}
-                      </div>
-                      <span className="text-[9px] text-gray-400">365-Day Fixed Bonds</span>
-                    </div>
-                  </div>
-
-                  {/* 0% Wallet Note */}
-                  <div className="p-2.5 bg-black/40 rounded-xl border border-white/10 text-xs text-gray-300 flex items-center justify-between">
-                    <span>💳 P2P Wallet Transfer: <strong className="text-white">0% (Direct User-to-User Transfer par koi commission nahi)</strong></span>
-                    <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400">Direct Only</span>
-                  </div>
-
-                  {/* Recent Commission Payouts History */}
-                  {agentMetrics?.commissionHistory && agentMetrics.commissionHistory.length > 0 && (
-                    <div className="pt-2 border-t border-white/10 space-y-1.5">
-                      <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider block">
-                        📜 Halia Commission Credits (Recent Payouts)
-                      </span>
-                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                        {agentMetrics.commissionHistory.map((ch, idx) => (
-                          <div
-                            key={ch.id || idx}
-                            className="bg-black/30 border border-white/10 rounded-xl p-2 flex items-center justify-between text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
-                                ch.source === 'loan' ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30' :
-                                ch.source === 'lending' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30' :
-                                ch.source === 'bond' ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30' :
-                                'bg-amber-500/20 text-amber-300 border border-amber-400/30'
-                              }`}>
-                                {ch.source === 'loan' ? 'Loan' : ch.source === 'lending' ? 'Lending' : ch.source === 'bond' ? 'Bond' : 'Investment'}
-                              </span>
-                              <span className="text-[11px] text-gray-200 line-clamp-1">{ch.remarks || 'Referral Bonus'}</span>
-                            </div>
-                            <span className="font-mono font-black text-emerald-400 text-xs shrink-0 ml-2">
-                              +₹{Number(ch.amount || 0).toLocaleString('en-IN')}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* TAB 3: CUSTOMERS PORTFOLIO */}
-            {agentTab === "customers" && (
-              <div className="space-y-4">
-                {/* Agent Referral Onboarding Section */}
-                <div className="p-3 bg-white/5 border border-white/10 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-indigo-200 font-bold">Your Referral Code:</span>
-                    <span className="font-mono font-black text-amber-300 bg-black/40 px-2 py-0.5 rounded border border-amber-400/30">
-                      {agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode || "AGENT"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setAddCustomerModalOpen(true)}
-                      className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black rounded-xl transition active:scale-95 text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span>➕</span> Add Customer
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const isTeam = agentMetrics?.agentInfo?.isTeamModel || agentMetrics?.isTeamModel || userProfile.agentProfile?.commissionModel === "team_1" || userProfile.agentProfile?.commissionModel === "team";
-                        if (!isTeam) {
-                          setToast({ text: "Sub-Agent nomination sirf Team Model me available hai. Admin se Team Model activate karwayen.", type: "error" });
-                          return;
-                        }
-                        setNominateSubAgentModalOpen(true);
-                      }}
-                      className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white font-black rounded-xl transition active:scale-95 text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span>👥</span> Nominate Sub-Agent
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAgentBroadcastModalOpen(true)}
-                      className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black rounded-xl transition active:scale-95 text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span>📢</span> Send Mass Message
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const code = agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode;
-                        copyText(`${window.location.origin}/register?ref=${code}`);
-                      }}
-                      className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold transition active:scale-95 text-xs shadow-xs cursor-pointer"
-                    >
-                      {copied ? "✓ Copied" : "📋 Copy Link"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Team Model Sub-Agents & Pending Nominations Banner */}
-                {Boolean(agentMetrics?.agentInfo?.isTeamModel || agentMetrics?.isTeamModel || userProfile.agentProfile?.commissionModel === "team_1" || userProfile.agentProfile?.commissionModel === "team") && (
-                  <div className="p-3 bg-purple-950/40 border border-purple-500/30 rounded-2xl text-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-purple-300 flex items-center gap-1.5">
-                        <span>👥</span> My Sub-Agent Network ({agentMetrics?.subAgents?.length || agentMetrics?.stats?.teamMembersCount || 0})
-                      </span>
-                      <span className="text-[10px] bg-purple-500/20 text-purple-200 border border-purple-500/30 px-2 py-0.5 rounded-full font-bold">
-                        Team Model
-                      </span>
-                    </div>
-                    {agentMetrics?.pendingSubAgents && agentMetrics.pendingSubAgents.length > 0 && (
-                      <div className="p-2 bg-amber-500/15 border border-amber-400/30 rounded-xl text-[11px] text-amber-200 space-y-1">
-                        <span className="font-bold block">⏳ Pending Admin Review ({agentMetrics.pendingSubAgents.length}):</span>
-                        {agentMetrics.pendingSubAgents.map((p, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-[10px] bg-black/40 px-2 py-1 rounded">
-                            <span>{p.name} ({p.phone})</span>
-                            <span className="text-amber-300 font-semibold">Under Review by Admin</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {agentMetrics?.subAgents && agentMetrics.subAgents.length > 0 ? (
-                      <div className="space-y-1">
-                        {agentMetrics.subAgents.map((sa, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-[11px] bg-black/30 border border-white/5 px-2.5 py-1.5 rounded-xl">
-                            <span className="font-bold text-white">{sa.name} <span className="font-mono text-gray-400 text-[10px]">({sa.phone})</span></span>
-                            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded font-bold font-mono">Code: {sa.referralCode}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[11px] text-purple-200/70">
-                        Aapke team me abhi koi sub-agent active nahi hai. Upar <strong>Nominate Sub-Agent</strong> button se naye sub-agent ke liye nomination bhej sakte hain.
+                      <p className="text-[11px] text-amber-900 leading-relaxed">
+                        Agar aapka referred borrower loan ko <strong>samay se pehle (9 kiston se pehle)</strong> close karta hai, to borrower ko loan me vishesh chhoot (fayda) milta hai aur aapko bhi instant early settlement bonus credit hota hai!
                       </p>
-                    )}
+                      <div className="p-2.5 bg-white rounded-xl border border-amber-200 text-[11px] text-amber-900 flex items-center justify-between">
+                        <span>💡 Jitna jaldi pre-close hoga, borrower aur aap dono ko utna fayda milega!</span>
+                        <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md font-bold">Auto Payout</span>
+                      </div>
+                    </div>
+
+                    {/* Quick Referral Bar */}
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-700 font-bold">Your Referral Code:</span>
+                        <span className="font-mono font-black text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          {agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode || "AGENT"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAgentTab("commissions")}
+                          className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>💰</span> View 4 Commission Rates
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAgentTab("customers")}
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>👥</span> View Customers ({agentMetrics?.customers?.length || 0})
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* Agent Referred Customers Breakdown Section */}
-                <div className="pt-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5">
-                        <span>👥</span> Referred Customers Portfolio ({agentMetrics?.customers?.length || 0})
-                      </span>
-                      <span className="text-[10px] text-indigo-300 bg-white/10 px-2 py-0.5 rounded-full font-medium">
-                        Individual Breakdown
-                      </span>
-                    </div>
-                    {agentMetrics?.customers && agentMetrics.customers.length > 2 && (
-                      <input
-                        type="text"
-                        value={agentCustomerSearch}
-                        onChange={(e) => setAgentCustomerSearch(e.target.value)}
-                        placeholder="Search name or phone..."
-                        className="bg-black/30 border border-white/15 rounded-xl px-2.5 py-1 text-xs text-white placeholder-gray-400 focus:outline-hidden focus:border-indigo-400 w-full sm:w-48"
-                      />
-                    )}
-                  </div>
-
-                  {/* Customer Cards List */}
-                  {agentMetrics?.customers && agentMetrics.customers.length > 0 ? (
-                    <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-                      {agentMetrics.customers
-                        .filter((c) => {
-                          if (!agentCustomerSearch) return true;
-                          const q = agentCustomerSearch.toLowerCase();
-                          return (
-                            (c.name && c.name.toLowerCase().includes(q)) ||
-                            (c.phone && c.phone.includes(q))
-                          );
-                        })
-                        .map((c, idx) => (
-                          <div
-                            key={c.id || idx}
-                            className="bg-white/5 hover:bg-white/[0.08] border border-white/10 rounded-2xl p-3 transition"
-                          >
-                            {/* Customer Header */}
-                            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2.5 border-b border-white/5">
-                              <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-blue-500 text-white font-extrabold flex items-center justify-center text-xs shadow-xs">
-                                  {c.name ? c.name[0].toUpperCase() : "U"}
-                                </div>
-                                <div>
-                                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                                    <span>{c.name}</span>
-                                    {c.phone && (
-                                      <span className="text-[10px] text-gray-300 font-mono">({c.phone})</span>
-                                    )}
-                                  </div>
-                                  <div className="text-[9px] text-indigo-200/80">
-                                    Joined: {c.joinedAt ? new Date(c.joinedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "-"}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold font-mono">
-                                  Wallet: ₹{Number(c.balance || 0).toLocaleString("en-IN")}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Customer's 5 Metrics Breakdown */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-[11px]">
-                              {/* 1. Deposit */}
-                              <div className="bg-black/25 rounded-xl p-2 border border-white/5">
-                                <span className="text-[9px] text-indigo-200 uppercase font-bold block mb-0.5">💰 Total Deposit</span>
-                                <span className="font-mono font-bold text-emerald-400">
-                                  ₹{(c.totalDeposit || 0).toLocaleString("en-IN")}
-                                </span>
-                              </div>
-
-                              {/* 2. Disbursal */}
-                              <div className="bg-black/25 rounded-xl p-2 border border-white/5">
-                                <span className="text-[9px] text-indigo-200 uppercase font-bold block mb-0.5">📤 Total Disbursal</span>
-                                <span className="font-mono font-bold text-blue-400">
-                                  ₹{(c.totalDisbursal || 0).toLocaleString("en-IN")}
-                                </span>
-                              </div>
-
-                              {/* 3. Collection */}
-                              <div className="bg-black/25 rounded-xl p-2 border border-white/5">
-                                <span className="text-[9px] text-indigo-200 uppercase font-bold block mb-0.5">📥 Total Collection</span>
-                                <span className="font-mono font-bold text-cyan-400">
-                                  ₹{(c.totalCollection || 0).toLocaleString("en-IN")}
-                                </span>
-                              </div>
-
-                              {/* 4. Due */}
-                              <div className="bg-black/25 rounded-xl p-2 border border-white/5">
-                                <span className="text-[9px] text-indigo-200 uppercase font-bold block mb-0.5">⚠️ Total Due</span>
-                                <span className="font-mono font-bold text-rose-400">
-                                  ₹{(c.totalDue || 0).toLocaleString("en-IN")}
-                                </span>
-                              </div>
-
-                              {/* 5. Pre-Closing */}
-                              <div className="bg-black/25 rounded-xl p-2 border border-white/5 col-span-2 sm:col-span-1">
-                                <span className="text-[9px] text-indigo-200 uppercase font-bold block mb-0.5">🔄 Pre-Closing</span>
-                                <span className="font-mono font-bold text-amber-300">
-                                  {c.preClosingCount || 0}
-                                </span>
-                                <span className="text-[9px] text-amber-200/80 block">
-                                  ₹{(c.preClosingAmount || 0).toLocaleString("en-IN")}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Loan Limit & Agent Limit Increase */}
-                            <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-gray-300">Eligible Loan Limit:</span>
-                                <span className="font-mono font-bold text-amber-300">₹{Number(c.loanLimit || 5000).toLocaleString("en-IN")}</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditLoanLimitCustomer({ customerId: c.id || c._id, name: c.name, currentLimit: c.loanLimit || 5000 });
-                                  setEditLimitVal(String(c.loanLimit || 5000));
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[10px] font-bold transition active:scale-95 cursor-pointer flex items-center gap-1"
-                              >
-                                <span>✏️</span> Limit Badhayein
-                              </button>
-                            </div>
+                {/* TAB 2: 4-PRODUCT COMMISSION RATES */}
+                {agentTab === "commissions" && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-3xl space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">💰</span>
+                          <div>
+                            <h4 className="font-extrabold text-xs sm:text-sm text-gray-900">4-Product Commission Portfolio (Aapka Commission Vivran)</h4>
+                            <p className="text-[10px] text-gray-500">Admin dwara tay ki gayi 4 alag-alag product commission dar</p>
                           </div>
-                        ))}
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-gray-500 block">Kul Kamai (Total Commission)</span>
+                          <span className="text-sm sm:text-base font-black font-mono text-emerald-600">
+                            ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.total || userProfile.referralEarnings || 0).toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {/* 1. Loan Commission */}
+                        <div className="bg-white border border-blue-200 rounded-2xl p-3 shadow-2xs">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] text-blue-700 font-bold uppercase">🏦 Loan</span>
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                              {agentMetrics?.agentInfo?.commissions?.loan ?? 1}% Rate
+                            </span>
+                          </div>
+                          <div className="text-base sm:text-lg font-black font-mono text-blue-600">
+                            ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.loan || 0).toLocaleString("en-IN")}
+                          </div>
+                          <span className="text-[9px] text-gray-500">Customer Loans</span>
+                        </div>
+
+                        {/* 2. Lending Account Commission */}
+                        <div className="bg-white border border-emerald-200 rounded-2xl p-3 shadow-2xs">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] text-emerald-700 font-bold uppercase">🤝 Lending</span>
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              {agentMetrics?.agentInfo?.commissions?.lending ?? 4}% Rate
+                            </span>
+                          </div>
+                          <div className="text-base sm:text-lg font-black font-mono text-emerald-600">
+                            ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.lending || 0).toLocaleString("en-IN")}
+                          </div>
+                          <span className="text-[9px] text-gray-500">Lending Account</span>
+                        </div>
+
+                        {/* 3. Debt Account Commission */}
+                        <div className="bg-white border border-amber-200 rounded-2xl p-3 shadow-2xs">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] text-amber-700 font-bold uppercase">📈 Debt</span>
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                              {agentMetrics?.agentInfo?.commissions?.investment ?? 1}% Rate
+                            </span>
+                          </div>
+                          <div className="text-base sm:text-lg font-black font-mono text-amber-600">
+                            ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.investment || 0).toLocaleString("en-IN")}
+                          </div>
+                          <span className="text-[9px] text-gray-500">Debt Account</span>
+                        </div>
+
+                        {/* 4. Bond Commission */}
+                        <div className="bg-white border border-purple-200 rounded-2xl p-3 shadow-2xs">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] text-purple-700 font-bold uppercase">📜 Bonds</span>
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                              {agentMetrics?.agentInfo?.commissions?.bond ?? 4}% Rate
+                            </span>
+                          </div>
+                          <div className="text-base sm:text-lg font-black font-mono text-purple-600">
+                            ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.bond || 0).toLocaleString("en-IN")}
+                          </div>
+                          <span className="text-[9px] text-gray-500">365-Day Fixed Bonds</span>
+                        </div>
+                      </div>
+
+                      {/* 0% Wallet Note */}
+                      <div className="p-2.5 bg-white rounded-xl border border-gray-200 text-xs text-gray-600 flex items-center justify-between">
+                        <span>💳 P2P Wallet Transfer: <strong className="text-gray-900">0% (Direct Transfer par koi commission nahi)</strong></span>
+                        <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded text-gray-500">Direct Only</span>
+                      </div>
+
+                      {/* Recent Commission Payouts History */}
+                      {agentMetrics?.commissionHistory && agentMetrics.commissionHistory.length > 0 && (
+                        <div className="pt-2 border-t border-gray-200 space-y-1.5">
+                          <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                            📜 Halia Commission Credits (Recent Payouts)
+                          </span>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            {agentMetrics.commissionHistory.map((ch, idx) => (
+                              <div
+                                key={ch.id || idx}
+                                className="bg-white border border-gray-200 rounded-xl p-2 flex items-center justify-between text-xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                                    ch.source === 'loan' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                    ch.source === 'lending' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                    ch.source === 'bond' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                                    'bg-amber-50 text-amber-800 border border-amber-200'
+                                  }`}>
+                                    {ch.source === 'loan' ? 'Loan' : ch.source === 'lending' ? 'Lending' : ch.source === 'bond' ? 'Bond' : 'Investment'}
+                                  </span>
+                                  <span className="text-[11px] text-gray-700 line-clamp-1">{ch.remarks || 'Referral Bonus'}</span>
+                                </div>
+                                <span className="font-mono font-black text-emerald-600 text-xs shrink-0 ml-2">
+                                  +₹{Number(ch.amount || 0).toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="text-center py-4 px-3 bg-white/5 rounded-2xl border border-white/10 text-xs text-indigo-200/90">
-                      {loadingAgentMetrics && !agentMetrics
-                        ? "Customer data load ho raha hai..."
-                        : "Abhi tak koi referred customer onboard nahi hua hai. Upar diye gaye link se customers ko onboard karein."}
+                  </div>
+                )}
+
+                {/* TAB 3: CUSTOMERS PORTFOLIO */}
+                {agentTab === "customers" && (
+                  <div className="space-y-4">
+                    {/* Agent Referral Onboarding Section */}
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-700 font-bold">Your Referral Code:</span>
+                        <span className="font-mono font-black text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          {agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode || "AGENT"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setAddCustomerModalOpen(true)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition active:scale-95 text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>➕</span> Add Customer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const isTeam = agentMetrics?.agentInfo?.isTeamModel || agentMetrics?.isTeamModel || userProfile.agentProfile?.commissionModel === "team_1" || userProfile.agentProfile?.commissionModel === "team";
+                            if (!isTeam) {
+                              setToast({ text: "Sub-Agent nomination sirf Team Model me available hai. Admin se Team Model activate karwayen.", type: "error" });
+                              return;
+                            }
+                            setNominateSubAgentModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-black rounded-xl transition active:scale-95 text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>👥</span> Nominate Sub-Agent
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAgentBroadcastModalOpen(true)}
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl transition active:scale-95 text-xs shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>📢</span> Send Mass Message
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const code = agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || referralCode;
+                            copyText(`${window.location.origin}/register?ref=${code}`);
+                          }}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition active:scale-95 text-xs shadow-xs cursor-pointer"
+                        >
+                          {copied ? "✓ Copied" : "📋 Copy Link"}
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
+
+                    {/* Team Model Sub-Agents & Pending Nominations Banner */}
+                    {Boolean(agentMetrics?.agentInfo?.isTeamModel || agentMetrics?.isTeamModel || userProfile.agentProfile?.commissionModel === "team_1" || userProfile.agentProfile?.commissionModel === "team") && (
+                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl text-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-purple-900 flex items-center gap-1.5">
+                            <span>👥</span> My Sub-Agent Network ({agentMetrics?.subAgents?.length || agentMetrics?.stats?.teamMembersCount || 0})
+                          </span>
+                          <span className="text-[10px] bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-bold">
+                            Team Model
+                          </span>
+                        </div>
+                        {agentMetrics?.pendingSubAgents && agentMetrics.pendingSubAgents.length > 0 && (
+                          <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 space-y-1">
+                            <span className="font-bold block">⏳ Pending Admin Review ({agentMetrics.pendingSubAgents.length}):</span>
+                            {agentMetrics.pendingSubAgents.map((p, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-[10px] bg-white px-2 py-1 rounded border border-amber-100">
+                                <span>{p.name} ({p.phone})</span>
+                                <span className="text-amber-800 font-semibold">Under Review by Admin</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {agentMetrics?.subAgents && agentMetrics.subAgents.length > 0 ? (
+                          <div className="space-y-1">
+                            {agentMetrics.subAgents.map((sa, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-[11px] bg-white border border-gray-200 px-2.5 py-1.5 rounded-xl">
+                                <span className="font-bold text-gray-900">{sa.name} <span className="font-mono text-gray-500 text-[10px]">({sa.phone})</span></span>
+                                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-bold font-mono">Code: {sa.referralCode}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-purple-800">
+                            Aapke team me abhi koi sub-agent active nahi hai. Upar <strong>Nominate Sub-Agent</strong> button se naye sub-agent ke liye nomination bhej sakte hain.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Agent Referred Customers Breakdown Section */}
+                    <div className="pt-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs sm:text-sm font-extrabold text-gray-900 flex items-center gap-1.5">
+                            <span>👥</span> Referred Customers Portfolio ({agentMetrics?.customers?.length || 0})
+                          </span>
+                          <span className="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full font-medium border border-blue-200">
+                            Individual Breakdown
+                          </span>
+                        </div>
+                        {agentMetrics?.customers && agentMetrics.customers.length > 2 && (
+                          <input
+                            type="text"
+                            value={agentCustomerSearch}
+                            onChange={(e) => setAgentCustomerSearch(e.target.value)}
+                            placeholder="Search name or phone..."
+                            className="bg-white border border-gray-300 rounded-xl px-2.5 py-1 text-xs text-gray-900 placeholder-gray-400 focus:outline-hidden focus:border-blue-500 w-full sm:w-48"
+                          />
+                        )}
+                      </div>
+
+                      {/* Customer Cards List */}
+                      {agentMetrics?.customers && agentMetrics.customers.length > 0 ? (
+                        <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+                          {agentMetrics.customers
+                            .filter((c) => {
+                              if (!agentCustomerSearch) return true;
+                              const q = agentCustomerSearch.toLowerCase();
+                              return (
+                                (c.name && c.name.toLowerCase().includes(q)) ||
+                                (c.phone && c.phone.includes(q))
+                              );
+                            })
+                            .map((c, idx) => (
+                              <div
+                                key={c.id || idx}
+                                className="bg-white hover:bg-gray-50 border border-gray-200 rounded-2xl p-3 shadow-2xs transition"
+                              >
+                                {/* Customer Header */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2.5 border-b border-gray-100">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center text-xs shadow-2xs">
+                                      {c.name ? c.name[0].toUpperCase() : "U"}
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                                        <span>{c.name}</span>
+                                        {c.phone && (
+                                          <span className="text-[10px] text-gray-500 font-mono">({c.phone})</span>
+                                        )}
+                                      </div>
+                                      <div className="text-[9px] text-gray-500">
+                                        Joined: {c.joinedAt ? new Date(c.joinedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "-"}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold font-mono">
+                                      Wallet: ₹{Number(c.balance || 0).toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Customer's 5 Metrics Breakdown */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-[11px]">
+                                  {/* 1. Deposit */}
+                                  <div className="bg-gray-50 rounded-xl p-2 border border-gray-100">
+                                    <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">💰 Total Deposit</span>
+                                    <span className="font-mono font-bold text-emerald-600">
+                                      ₹{(c.totalDeposit || 0).toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+
+                                  {/* 2. Disbursal */}
+                                  <div className="bg-gray-50 rounded-xl p-2 border border-gray-100">
+                                    <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">📤 Total Disbursed</span>
+                                    <span className="font-mono font-bold text-blue-600">
+                                      ₹{(c.totalDisbursal || 0).toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+
+                                  {/* 3. Collection */}
+                                  <div className="bg-gray-50 rounded-xl p-2 border border-gray-100">
+                                    <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">📥 Total Collection</span>
+                                    <span className="font-mono font-bold text-cyan-700">
+                                      ₹{(c.totalCollection || 0).toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+
+                                  {/* 4. Total Due */}
+                                  <div className="bg-gray-50 rounded-xl p-2 border border-gray-100">
+                                    <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">⚠️ Total Due</span>
+                                    <span className="font-mono font-bold text-rose-600">
+                                      ₹{(c.totalDue || 0).toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+
+                                  {/* 5. Pre-Closing */}
+                                  <div className="bg-gray-50 rounded-xl p-2 border border-gray-100 col-span-2 sm:col-span-1">
+                                    <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">🔄 Pre-Closing</span>
+                                    <span className="font-mono font-bold text-amber-700">
+                                      {c.preClosingCount || 0}
+                                    </span>
+                                    <span className="text-[9px] text-gray-400 block font-normal">
+                                      ₹{(c.preClosingAmount || 0).toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Loan Limit & Action Buttons */}
+                                <div className="mt-2.5 pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-gray-500 font-bold">Loan Limit:</span>
+                                    <span className="text-[11px] font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                      ₹{(c.loanLimit || 5000).toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditLoanLimitCustomer({ customerId: c.id || c._id, name: c.name, currentLimit: c.loanLimit || 5000 });
+                                      setEditLimitVal(String(c.loanLimit || 5000));
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold transition active:scale-95 cursor-pointer flex items-center gap-1"
+                                  >
+                                    <span>✏️</span> Limit Badhayein
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 px-3 bg-gray-50 rounded-2xl border border-gray-200 text-xs text-gray-500">
+                          {loadingAgentMetrics && !agentMetrics
+                            ? "Customer data load ho raha hai..."
+                            : "Abhi tak koi referred customer onboard nahi hua hai. Upar diye gaye link se customers ko onboard karein."}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

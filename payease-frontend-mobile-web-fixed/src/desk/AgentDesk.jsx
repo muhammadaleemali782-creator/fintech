@@ -268,19 +268,21 @@ export default function AgentDesk() {
     }
   };
 
-  const commissions = agentMetrics?.agentInfo?.commissions || userProfile?.agentProfile?.commissions || {
-    loan: 1,
-    lending: 4,
-    investment: 1,
-    bond: 4
-  };
-
   const isTeamModel = Boolean(
     agentMetrics?.agentInfo?.isTeamModel ||
     agentMetrics?.isTeamModel ||
     userProfile?.agentProfile?.commissionModel === "team_1" ||
     userProfile?.agentProfile?.commissionModel === "team"
   );
+
+  const baseRate = isTeamModel ? 1 : 2;
+  const rawComms = agentMetrics?.agentInfo?.commissions || userProfile?.agentProfile?.commissions;
+  const commissions = {
+    loan: rawComms?.loan !== undefined && rawComms?.loan !== null ? rawComms.loan : baseRate,
+    lending: rawComms?.lending !== undefined && rawComms?.lending !== null ? rawComms.lending : baseRate,
+    investment: rawComms?.investment !== undefined && rawComms?.investment !== null ? rawComms.investment : baseRate,
+    bond: rawComms?.bond !== undefined && rawComms?.bond !== null ? rawComms.bond : baseRate
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans antialiased selection:bg-blue-600 selection:text-white">
@@ -338,7 +340,7 @@ export default function AgentDesk() {
                     Loan Products
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                    {commissions.loan ?? 1}% Commission
+                    {commissions.loan}% Commission
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-500 truncate mt-0.5">
@@ -361,7 +363,7 @@ export default function AgentDesk() {
                     <div className="text-[10px] text-gray-400">Padhai & Shiksha</div>
                   </div>
                   <span className="text-[11px] font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                    {commissions.loan ?? 1}%
+                    {commissions.loan}%
                   </span>
                 </div>
 
@@ -371,7 +373,7 @@ export default function AgentDesk() {
                     <div className="text-[10px] text-gray-400">Chota Vyapar</div>
                   </div>
                   <span className="text-[11px] font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                    {commissions.loan ?? 1}%
+                    {commissions.loan}%
                   </span>
                 </div>
 
@@ -381,7 +383,7 @@ export default function AgentDesk() {
                     <div className="text-[10px] text-gray-400">Vyaktigat Rin</div>
                   </div>
                   <span className="text-[11px] font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                    {commissions.loan ?? 1}%
+                    {commissions.loan}%
                   </span>
                 </div>
               </div>
@@ -401,11 +403,13 @@ export default function AgentDesk() {
                     Investment Products
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    {commissions.lending ?? 4}% / {commissions.bond ?? 4}% Commission
+                    {commissions.lending === commissions.bond
+                      ? `${commissions.lending}% Commission`
+                      : `${commissions.lending}% / ${commissions.bond}% Commission`}
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-500 truncate mt-0.5">
-                  P2P Lending • Fixed Bonds
+                  Lending • Fixed Bonds
                 </p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0 text-emerald-600 font-bold text-xs">
@@ -420,11 +424,11 @@ export default function AgentDesk() {
               <div className="p-3 border-t border-gray-100 bg-emerald-50/20 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs flex items-center justify-between">
                   <div>
-                    <div className="text-xs font-extrabold text-gray-900">P2P Lending</div>
-                    <div className="text-[10px] text-gray-400">Peer-to-Peer Pool</div>
+                    <div className="text-xs font-extrabold text-gray-900">Lending</div>
+                    <div className="text-[10px] text-gray-400">Monthly Return Bonds</div>
                   </div>
                   <span className="text-[11px] font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    {commissions.lending ?? 4}%
+                    {commissions.lending}%
                   </span>
                 </div>
 
@@ -434,7 +438,7 @@ export default function AgentDesk() {
                     <div className="text-[10px] text-gray-400">365-Day Lock-in Bond</div>
                   </div>
                   <span className="text-[11px] font-mono font-black text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                    {commissions.bond ?? 4}%
+                    {commissions.bond}%
                   </span>
                 </div>
               </div>
@@ -585,14 +589,11 @@ export default function AgentDesk() {
           <div className="space-y-4">
             <div className="p-4 sm:p-5 bg-white border border-gray-200 rounded-3xl space-y-4 shadow-2xs">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">💰</span>
-                  <div>
-                    <h2 className="font-extrabold text-sm sm:text-base text-gray-900">
-                      Product Commission & Earnings Portfolio
-                    </h2>
-                    <p className="text-xs text-gray-500">Loan aur Investment products par tay ki gayi commission dar aur kul kamai</p>
-                  </div>
+                <div>
+                  <h2 className="font-extrabold text-sm sm:text-base text-gray-900">
+                    Product Commission & Earnings Portfolio
+                  </h2>
+                  <p className="text-xs text-gray-500">Loan aur Investment products par tay ki gayi commission dar aur kul kamai</p>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] text-gray-500 block uppercase font-bold">Kul Kamai (Total Commission)</span>
@@ -605,11 +606,11 @@ export default function AgentDesk() {
               {/* 1. Loan Category */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase text-blue-900 flex items-center gap-1.5">
-                    <span>🏦</span> Loan Category (Student, Micro & Personal Loans)
+                  <span className="text-xs font-black uppercase text-blue-900">
+                    Loan Category (Student, Micro & Personal Loans)
                   </span>
                   <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
-                    {commissions.loan ?? 1}% Agent Rate
+                    {commissions.loan}% Agent Rate
                   </span>
                 </div>
 
@@ -621,9 +622,9 @@ export default function AgentDesk() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5 text-[11px] text-gray-600 font-semibold">
-                    <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">🎓 Student Loan</span>
-                    <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">🏪 Micro Loan</span>
-                    <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">💼 Personal Loan</span>
+                    <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">Student Loan</span>
+                    <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">Micro Loan</span>
+                    <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">Personal Loan</span>
                   </div>
                 </div>
               </div>
@@ -631,35 +632,37 @@ export default function AgentDesk() {
               {/* 2. Investment Category */}
               <div className="space-y-2 pt-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase text-emerald-900 flex items-center gap-1.5">
-                    <span>📈</span> Investment Category (Lending & Bonds)
+                  <span className="text-xs font-black uppercase text-emerald-900">
+                    Investment Category (Lending & Bonds)
                   </span>
                   <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
-                    Lending: {commissions.lending ?? 4}% | Bond: {commissions.bond ?? 4}%
+                    {commissions.lending === commissions.bond
+                      ? `Lending & Bonds: ${commissions.lending}%`
+                      : `Lending: ${commissions.lending}% | Bond: ${commissions.bond}%`}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* P2P Lending */}
+                  {/* Lending */}
                   <div className="bg-gradient-to-br from-emerald-50/60 to-white border border-emerald-200 rounded-2xl p-4 shadow-2xs">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-emerald-700 font-bold uppercase">🤝 P2P Lending</span>
+                      <span className="text-xs text-emerald-700 font-bold uppercase">Lending</span>
                       <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        {commissions.lending ?? 4}% Rate
+                        {commissions.lending}% Rate
                       </span>
                     </div>
                     <div className="text-lg sm:text-xl font-black font-mono text-emerald-700">
                       ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.lending || 0).toLocaleString("en-IN")}
                     </div>
-                    <span className="text-[10px] text-gray-500">Peer-to-Peer Investment Pool</span>
+                    <span className="text-[10px] text-gray-500">Monthly Return Bonds & Capital Allocation</span>
                   </div>
 
                   {/* Fixed Bonds */}
                   <div className="bg-gradient-to-br from-purple-50/60 to-white border border-purple-200 rounded-2xl p-4 shadow-2xs">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-purple-700 font-bold uppercase">📜 Fixed Bonds</span>
+                      <span className="text-xs text-purple-700 font-bold uppercase">Fixed Bonds</span>
                       <span className="text-[10px] font-black px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
-                        {commissions.bond ?? 4}% Rate
+                        {commissions.bond}% Rate
                       </span>
                     </div>
                     <div className="text-lg sm:text-xl font-black font-mono text-purple-700">
@@ -672,7 +675,7 @@ export default function AgentDesk() {
 
               {/* Note */}
               <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-600 flex items-center justify-between">
-                <span>💳 P2P Wallet Transfer: <strong className="text-gray-900">0% (Direct User-to-User par koi commission nahi)</strong></span>
+                <span>P2P Wallet Transfer: <strong className="text-gray-900">0% (Direct User-to-User par koi commission nahi)</strong></span>
                 <span className="text-[10px] bg-gray-200/80 px-2 py-0.5 rounded text-gray-700 font-bold">Direct Only</span>
               </div>
 
@@ -680,7 +683,7 @@ export default function AgentDesk() {
               {agentMetrics?.commissionHistory && agentMetrics.commissionHistory.length > 0 && (
                 <div className="pt-2 border-t border-gray-200 space-y-2">
                   <span className="text-xs font-bold text-gray-700 uppercase tracking-wider block">
-                    📜 Halia Commission Credits (Recent Payouts)
+                    Halia Commission Credits (Recent Payouts)
                   </span>
                   <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                     {agentMetrics.commissionHistory.map((ch, idx) => (

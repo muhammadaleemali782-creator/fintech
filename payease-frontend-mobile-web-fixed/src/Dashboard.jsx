@@ -9700,16 +9700,16 @@ export default function Dashboard() {
                 </div>
                 <div className="flex flex-wrap items-center gap-1 justify-end">
                   <span className="px-1.5 py-0.5 bg-blue-100 text-blue-900 rounded font-mono font-bold text-[9px]">
-                    Loan: {userProfile.agentProfile?.commissions?.loan ?? 1}%
+                    Loan: {userProfile.agentProfile?.commissions?.loan ?? (userProfile.agentProfile?.commissionModel === 'team_1' ? 1 : 2)}%
                   </span>
                   <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-900 rounded font-mono font-bold text-[9px]">
-                    Lend: {userProfile.agentProfile?.commissions?.lending ?? 4}%
+                    Lend: {userProfile.agentProfile?.commissions?.lending ?? (userProfile.agentProfile?.commissionModel === 'team_1' ? 1 : 2)}%
                   </span>
                   <span className="px-1.5 py-0.5 bg-amber-100 text-amber-900 rounded font-mono font-bold text-[9px]">
-                    Debt: {userProfile.agentProfile?.commissions?.investment ?? 1}%
+                    Debt: {userProfile.agentProfile?.commissions?.investment ?? (userProfile.agentProfile?.commissionModel === 'team_1' ? 1 : 2)}%
                   </span>
                   <span className="px-1.5 py-0.5 bg-purple-100 text-purple-900 rounded font-mono font-bold text-[9px]">
-                    Bond: {userProfile.agentProfile?.commissions?.bond ?? 4}%
+                    Bond: {userProfile.agentProfile?.commissions?.bond ?? (userProfile.agentProfile?.commissionModel === 'team_1' ? 1 : 2)}%
                   </span>
                 </div>
               </div>

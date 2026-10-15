@@ -37,6 +37,7 @@ const ResetPassword = lazyWithRetry(() => import("./ResetPassword"));
 const Dashboard = lazyWithRetry(() => import("./Dashboard"));
 const AdminPanel = lazyWithRetry(() => import("./AdminPanel"));
 const StaffDesk = lazyWithRetry(() => import("./desk/StaffDesk"));
+const AgentDesk = lazyWithRetry(() => import("./desk/AgentDesk"));
 
 // Product & Information Pages
 const AboutPage = lazyWithRetry(() => import("./pages/AboutPage"));
@@ -56,7 +57,7 @@ const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
 
 import TopProgressBar from "./components/ui/TopProgressBar";
 
-function PrivateRoute({ children, adminOnly = false, staffOrAdmin = false }) {
+function PrivateRoute({ children, adminOnly = false, staffOrAdmin = false, agentOnly = false }) {
   const token = tokenStorage.getToken();
   let user = {};
   try {
@@ -66,6 +67,9 @@ function PrivateRoute({ children, adminOnly = false, staffOrAdmin = false }) {
   if (!token) return <Navigate to="/login" replace />;
   if (adminOnly && user?.role !== "admin") return <Navigate to="/dashboard" replace />;
   if (staffOrAdmin && !["admin", "staff"].includes(user?.role)) return <Navigate to="/dashboard" replace />;
+  if (agentOnly && !["admin", "agent"].includes(user?.role) && user?.agentProfile?.status !== "approved") {
+    return <Navigate to="/dashboard" replace />;
+  }
   return children;
 }
 
@@ -255,6 +259,32 @@ export default function App() {
             element={
               <PrivateRoute staffOrAdmin>
                 <StaffDesk />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Agent Desk Dedicated Page */}
+          <Route
+            path="/agent-desk"
+            element={
+              <PrivateRoute agentOnly>
+                <AgentDesk />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/agent"
+            element={
+              <PrivateRoute agentOnly>
+                <AgentDesk />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/desk/agent"
+            element={
+              <PrivateRoute agentOnly>
+                <AgentDesk />
               </PrivateRoute>
             }
           />

@@ -416,4 +416,30 @@ router.post('/deposit-details', protect, admin, async (req, res) => {
   }
 });
 
+// GET /api/settings/premium (Cached, Lightweight)
+router.get('/premium', async (req, res) => {
+  try {
+    const { getPremiumSettings } = require('../utils/premium');
+    const settings = await getPremiumSettings();
+    res.json({ success: true, settings });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch premium settings' });
+  }
+});
+
+// POST /api/settings/premium (Admin only, Updates doc & Cache)
+router.post('/premium', protect, admin, async (req, res) => {
+  try {
+    const { updatePremiumSettings } = require('../utils/premium');
+    const settings = await updatePremiumSettings(req.body);
+    res.json({
+      success: true,
+      message: '✅ Premium Wallet & Referral Commission settings updated successfully!',
+      settings
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to update premium settings' });
+  }
+});
+
 module.exports = router;

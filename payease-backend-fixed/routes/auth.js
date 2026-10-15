@@ -145,6 +145,9 @@ router.post('/register', (req, res, next) => {
         referralCode: user.referralCode,
         accountNumber: user.accountNumber,
         upiId: user.upiId,
+        isPremium: !!user.isPremium,
+        holdSince: user.holdSince,
+        commissionPaid: !!user.commissionPaid,
         agentProfile: user.agentProfile,
         staffProfile: user.staffProfile
       }
@@ -252,6 +255,11 @@ router.post('/login', async (req, res) => {
     if (user.isBlocked) return res.status(403).json({ message: 'Account blocked' });
 
     await registerSuccess(user._id, 'login');
+    try {
+      const { checkAndUpdatePremiumStatus } = require('../utils/premium');
+      user = (await checkAndUpdatePremiumStatus(user)) || user;
+    } catch (_) {}
+
     const token = signAuthToken(user, { rememberMe });
     setAuthCookie(res, token, user.role === 'admin' || user.role === 'staff' ? 1 : (rememberMe ? 30 : 7));
 
@@ -270,6 +278,9 @@ router.post('/login', async (req, res) => {
         referralCode: user.referralCode,
         accountNumber: user.accountNumber,
         upiId: user.upiId,
+        isPremium: !!user.isPremium,
+        holdSince: user.holdSince,
+        commissionPaid: !!user.commissionPaid,
         agentProfile: user.agentProfile,
         staffProfile: user.staffProfile,
         mustChangePassword: !!user.mustChangePassword
@@ -367,6 +378,11 @@ router.post('/mail-login', async (req, res) => {
     if (user.isBlocked) return res.status(403).json({ message: 'Account blocked' });
 
     await registerSuccess(user._id, 'login');
+    try {
+      const { checkAndUpdatePremiumStatus } = require('../utils/premium');
+      user = (await checkAndUpdatePremiumStatus(user)) || user;
+    } catch (_) {}
+
     const token = signAuthToken(user, { loginMethod: 'educa-mail' });
     setAuthCookie(res, token, user.role === 'admin' || user.role === 'staff' ? 1 : 30);
 
@@ -378,6 +394,9 @@ router.post('/mail-login', async (req, res) => {
         email: user.email,
         role: user.role,
         balance: user.balance,
+        isPremium: !!user.isPremium,
+        holdSince: user.holdSince,
+        commissionPaid: !!user.commissionPaid,
         referralCode: user.referralCode,
         accountNumber: user.accountNumber,
         upiId: user.upiId,

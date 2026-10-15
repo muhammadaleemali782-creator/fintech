@@ -153,6 +153,10 @@ router.get('/me', protect, async (req, res) => {
     }
 
     user = await processDailyYield(user);
+    try {
+      const { checkAndUpdatePremiumStatus } = require('../utils/premium');
+      user = (await checkAndUpdatePremiumStatus(user)) || user;
+    } catch (_) {}
     const userObj = user.toObject();
     userObj.hasWalletPin = !!user.walletPin;
     userObj.serverTime = new Date().toISOString();
@@ -802,6 +806,11 @@ router.post('/transfer-profit-to-wallet', protect, async (req, res) => {
     try {
       const { autoDeductDueLoanEmis } = require('./loan');
       await autoDeductDueLoanEmis(user._id);
+    } catch (_) {}
+
+    try {
+      const { checkAndUpdatePremiumStatus } = require('../utils/premium');
+      await checkAndUpdatePremiumStatus(user._id);
     } catch (_) {}
 
     const freshUser = await User.findById(user._id);

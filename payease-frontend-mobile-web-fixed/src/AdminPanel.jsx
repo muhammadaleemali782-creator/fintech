@@ -1270,6 +1270,26 @@ export default function AdminPanel() {
     instructions: "Payment complete karne ke baad 12-digit UTR number enter karein."
   }));
   const [savingDepositDetails, setSavingDepositDetails] = useState(false);
+  const [premiumSettings, setPremiumSettings] = useState(() => appCache.get("educa_admin_premium_settings", {
+    commissionAmount: 30,
+    balanceThreshold: 5000,
+    holdDays: 30,
+    premiumInterestRate: 10,
+    normalInterestRate: 12,
+    offers: "Instant ₹10,000 Loan Access & 10% Special Interest Rate"
+  }));
+  const [savingPremiumSettings, setSavingPremiumSettings] = useState(false);
+  const [premiumSettingsSuccess, setPremiumSettingsSuccess] = useState("");
+
+  // Paginated Agents State (Rule 5: 10-20 per page)
+  const [agentDirectoryMode, setAgentDirectoryMode] = useState("paginated"); // "paginated" | "applications"
+  const [paginatedAgents, setPaginatedAgents] = useState([]);
+  const [paginatedAgentsTotal, setPaginatedAgentsTotal] = useState(0);
+  const [paginatedAgentsPage, setPaginatedAgentsPage] = useState(1);
+  const [paginatedAgentsLimit] = useState(15);
+  const [paginatedAgentsTotalPages, setPaginatedAgentsTotalPages] = useState(1);
+  const [paginatedAgentsSearch, setPaginatedAgentsSearch] = useState("");
+  const [loadingPaginatedAgents, setLoadingPaginatedAgents] = useState(false);
   const [approveTxnModal, setApproveTxnModal] = useState(null);
   const [adminUtrInput, setAdminUtrInput] = useState("");
   const [adminEvidenceInput, setAdminEvidenceInput] = useState("");
@@ -2289,6 +2309,69 @@ export default function AdminPanel() {
     }
   }, []);
 
+  const loadPremiumSettings = useCallback(async (force = false) => {
+    try {
+      const res = await cachedAdminFetch(`${API}/settings/premium`, { headers }, 60000, force);
+      if (res.status === 429) return;
+      const data = await res.json();
+      if (data && data.success && data.settings) {
+        setPremiumSettings(data.settings);
+        appCache.set("educa_admin_premium_settings", data.settings);
+      }
+    } catch (e) {
+      console.warn("Failed to load premium settings", e);
+    }
+  }, [headers]);
+
+  const savePremiumSettings = async (e) => {
+    if (e) e.preventDefault();
+    setSavingPremiumSettings(true);
+    setPremiumSettingsSuccess("");
+    try {
+      const res = await fetch(`${API}/settings/premium`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(premiumSettings)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast("✅ Premium Wallet & Referral Settings saved!", "success");
+        if (data.settings) setPremiumSettings(data.settings);
+        setPremiumSettingsSuccess("✅ Settings updated successfully!");
+        setTimeout(() => setPremiumSettingsSuccess(""), 4000);
+      } else {
+        showToast(data.message || "Failed to update premium settings", "error");
+      }
+    } catch (err) {
+      showToast("Network error updating premium settings", "error");
+    } finally {
+      setSavingPremiumSettings(false);
+    }
+  };
+
+  const loadPaginatedAgents = useCallback(async (page = 1, search = "") => {
+    setLoadingPaginatedAgents(true);
+    try {
+      const p = Math.max(1, page);
+      const q = new URLSearchParams({ page: String(p), limit: String(paginatedAgentsLimit) });
+      if (search && search.trim()) q.append("search", search.trim());
+      const res = await fetch(`${API}/admin/agents-paginated?${q.toString()}`, {
+        headers
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        setPaginatedAgents(data.agents || []);
+        setPaginatedAgentsTotal(data.total || 0);
+        setPaginatedAgentsPage(data.page || 1);
+        setPaginatedAgentsTotalPages(data.totalPages || 1);
+      }
+    } catch (err) {
+      console.warn("loadPaginatedAgents error:", err);
+    } finally {
+      setLoadingPaginatedAgents(false);
+    }
+  }, [headers, paginatedAgentsLimit]);
+
   const loadCapitalMetrics = useCallback(async (force = false) => {
     try {
       setCapitalLoading(true);
@@ -2599,6 +2682,7 @@ export default function AdminPanel() {
       }
     } else if (tab === "agents") {
       loadAgents(true);
+      loadPaginatedAgents(1, "");
     } else if (tab === "loans") {
       loadLoans(true);
       loadCapitalMetrics(true);
@@ -2616,6 +2700,7 @@ export default function AdminPanel() {
     } else if (tab === "settings") {
       loadSettings(true);
       loadDepositDetails(true);
+      loadPremiumSettings(true);
     } else if (tab === "issue-loan") {
       loadLoans(true);
       loadAgents(true);
@@ -8916,8 +9001,171 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Agent Foreclosure Commission Structure Guide Card */}
-              <div className="mb-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
+              {/* Agent Mode Switcher: Paginated Referral Directory vs Applications & Foreclosure */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-3 border-b border-gray-100">
+                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAgentDirectoryMode("paginated");
+                      loadPaginatedAgents(1, paginatedAgentsSearch);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      agentDirectoryMode === "paginated"
+                        ? "bg-white text-indigo-700 shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    ⚡ Referral & Earnings Directory (Paginated)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAgentDirectoryMode("applications")}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      agentDirectoryMode === "applications"
+                        ? "bg-white text-blue-700 shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    📋 Partner Applications & Approvals ({agents.length})
+                  </button>
+                </div>
+              </div>
+
+              {agentDirectoryMode === "paginated" ? (
+                <div className="space-y-4">
+                  {/* Search and info bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="relative flex-1 max-w-md">
+                      <input
+                        type="text"
+                        placeholder="Search agent by name, phone, or referral code..."
+                        value={paginatedAgentsSearch}
+                        onChange={e => setPaginatedAgentsSearch(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            loadPaginatedAgents(1, paginatedAgentsSearch);
+                          }
+                        }}
+                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                      />
+                      <span className="absolute left-3 top-2.5 text-gray-400 text-xs">🔍</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => loadPaginatedAgents(paginatedAgentsPage, paginatedAgentsSearch)}
+                        disabled={loadingPaginatedAgents}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <span>{loadingPaginatedAgents ? "⏳" : "🔄"}</span>
+                        <span>Refresh</span>
+                      </button>
+                      <span className="text-xs font-bold text-gray-500">
+                        Total: {paginatedAgentsTotal} Agents
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Table */}
+                  <div className="overflow-x-auto rounded-2xl border border-gray-200">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-700 uppercase font-black tracking-wider text-[10px] border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3">Agent Name</th>
+                          <th className="px-4 py-3">Referral Code</th>
+                          <th className="px-4 py-3 text-center">Referrals Count</th>
+                          <th className="px-4 py-3 text-right">Referral Earnings</th>
+                          <th className="px-4 py-3 text-center">Status</th>
+                          <th className="px-4 py-3">Business / City</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {loadingPaginatedAgents ? (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-10 text-center text-gray-400">
+                              <span className="inline-block w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mr-2" />
+                              Loading agents (paginated)...
+                            </td>
+                          </tr>
+                        ) : paginatedAgents.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-10 text-center text-gray-400">
+                              Koi agent record nahi mila.
+                            </td>
+                          </tr>
+                        ) : (
+                          paginatedAgents.map(ag => (
+                            <tr key={ag._id} className="hover:bg-slate-50/80 transition">
+                              <td className="px-4 py-3">
+                                <div className="font-bold text-gray-900">{ag.name}</div>
+                                <div className="text-[11px] text-gray-500 font-mono">{ag.phone}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[11px]">
+                                  {ag.referralCode || "-"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-50 text-indigo-700">
+                                  👥 {ag.referralCount || 0}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <span className="font-mono font-extrabold text-emerald-700 text-sm">
+                                  ₹{(ag.referralEarnings || 0).toLocaleString("en-IN")}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                  ag.role === "agent" || ag.agentProfile?.status === "approved"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-amber-100 text-amber-900"
+                                }`}>
+                                  {ag.role === "agent" || ag.agentProfile?.status === "approved" ? "Approved" : (ag.agentProfile?.status || "Pending")}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-gray-600">
+                                <div className="font-medium text-gray-800">{ag.agentProfile?.businessName || "-"}</div>
+                                <div className="text-[10px] text-gray-400">{ag.agentProfile?.commissionModel === "team_1" ? "Team Model" : "Solo Model"}</div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination Footer */}
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-xs text-gray-500">
+                      Page <strong>{paginatedAgentsPage}</strong> of <strong>{paginatedAgentsTotalPages}</strong> ({paginatedAgentsTotal} agents total)
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => loadPaginatedAgents(paginatedAgentsPage - 1, paginatedAgentsSearch)}
+                        disabled={paginatedAgentsPage <= 1 || loadingPaginatedAgents}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        ◀ Previous
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => loadPaginatedAgents(paginatedAgentsPage + 1, paginatedAgentsSearch)}
+                        disabled={paginatedAgentsPage >= paginatedAgentsTotalPages || loadingPaginatedAgents}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        Next ▶
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Agent Foreclosure Commission Structure Guide Card */}
+                  <div className="mb-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-base">⚡</span>
@@ -9554,6 +9802,8 @@ export default function AdminPanel() {
                   })}
                 </div>
               )}
+            </>
+          )}
             </div>
           )}
 
@@ -13341,6 +13591,153 @@ export default function AdminPanel() {
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* AGENT REFERRAL & PREMIUM WALLET SETTINGS (Rule 5: In-Memory Cached, Ultra-Lightweight) */}
+              <div className="bg-white rounded-3xl shadow-sm p-6 sm:p-7 border border-gray-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-2 mb-5">
+                  <div>
+                    <h3 className="text-lg font-black font-display text-gray-900 flex items-center gap-2">
+                      <span>⭐</span> Agent Referral & Premium Wallet Settings
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Commission amount, wallet maintenance threshold, hold duration, premium interest & benefits configure karein. (In-memory cached, lightweight)
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0 self-start sm:self-auto">
+                    In-Memory Cache (0ms DB Latency)
+                  </span>
+                </div>
+
+                <form onSubmit={savePremiumSettings} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1">
+                        Agent One-Time Commission (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        required
+                        value={premiumSettings.commissionAmount}
+                        onChange={e => setPremiumSettings({ ...premiumSettings, commissionAmount: Number(e.target.value) })}
+                        placeholder="30"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
+                      />
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">Referred user premium banne par agent ko milne wali one-time commission</span>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1">
+                        Wallet Balance Threshold (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="100"
+                        required
+                        value={premiumSettings.balanceThreshold}
+                        onChange={e => setPremiumSettings({ ...premiumSettings, balanceThreshold: Number(e.target.value) })}
+                        placeholder="5000"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
+                      />
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">Minimum wallet balance jo user ko maintain karna padega</span>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1">
+                        Hold Duration (Days) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        required
+                        value={premiumSettings.holdDays}
+                        onChange={e => setPremiumSettings({ ...premiumSettings, holdDays: Number(e.target.value) })}
+                        placeholder="30"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
+                      />
+                      <span className="text-[10px] text-amber-600 font-medium mt-0.5 block">Testing ke liye 0 set karein taaki instant premium ban sake</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1">
+                        Premium Member Interest Rate (% p.a.) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        step="0.5"
+                        required
+                        value={premiumSettings.premiumInterestRate}
+                        onChange={e => setPremiumSettings({ ...premiumSettings, premiumInterestRate: Number(e.target.value) })}
+                        placeholder="10"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
+                      />
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">Premium borrowers ke liye discounted loan interest rate</span>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1">
+                        Normal Member Interest Rate (% p.a.) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        step="0.5"
+                        required
+                        value={premiumSettings.normalInterestRate}
+                        onChange={e => setPremiumSettings({ ...premiumSettings, normalInterestRate: Number(e.target.value) })}
+                        placeholder="12"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
+                      />
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">Standard non-premium loan interest rate</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Premium Member Offers & Perks Notice
+                    </label>
+                    <input
+                      type="text"
+                      value={premiumSettings.offers || ""}
+                      onChange={e => setPremiumSettings({ ...premiumSettings, offers: e.target.value })}
+                      placeholder="Instant ₹10,000 Loan Access & 10% Special Interest Rate"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                    />
+                  </div>
+
+                  {premiumSettingsSuccess && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold">
+                      {premiumSettingsSuccess}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={savingPremiumSettings}
+                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <span>{savingPremiumSettings ? "⏳" : "💾"}</span>
+                      <span>{savingPremiumSettings ? "Saving Settings..." : "Save Premium Settings"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => loadPremiumSettings(true)}
+                      className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition cursor-pointer"
+                    >
+                      🔄 Reload
+                    </button>
+                  </div>
+                </form>
               </div>
 
               {/* Custom User APY Security Lock (5 Tap Unlock) */}

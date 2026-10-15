@@ -512,12 +512,17 @@ router.post('/apply', protect, async (req, res) => {
       }
     } else {
       const isFirstTimeBorrower = (userDoc.loansCount || 0) === 0;
-      // If user has higher loanLimit configured by Agent or Admin, respect it! (Capped at ₹50,000)
-      const currentLimit = Math.min(userDoc.loanLimit || (isFirstTimeBorrower ? 5000 : 10000), 50000);
+      // Premium members can apply up to ₹10,000 directly even without taking a ₹5,000 loan first
+      let baseLimit = isFirstTimeBorrower ? (userDoc.isPremium ? 10000 : 5000) : 10000;
+      if (userDoc.isPremium && (userDoc.loanLimit || 0) < 10000) {
+        baseLimit = 10000;
+      }
+      const currentLimit = Math.min(userDoc.loanLimit && userDoc.loanLimit > baseLimit ? userDoc.loanLimit : baseLimit, 50000);
       if (numAmount > currentLimit) {
-        return res.status(400).json({
-          message: `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai. Limit badhane ke liye apne Agent ya Admin se sampark karein.`
-        });
+        const msg = !userDoc.isPremium
+          ? `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai. ₹5000 wallet me 30 din rakho aur premium bano (₹10,000 instant loan unlock)!`
+          : `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai. Limit badhane ke liye apne Agent ya Admin se sampark karein.`;
+        return res.status(400).json({ message: msg });
       }
     }
 
@@ -804,7 +809,17 @@ router.post('/apply', protect, async (req, res) => {
         return res.status(400).json({ message: 'Easy Installments minimum 15 aur maximum 24 honi chahiye (10-din cycle).' });
       }
 
-      const quote = calculatePersonalLoanQuote(numAmount, count, interestRateOption);
+      let effectiveRate = interestRateOption;
+      if (userDoc.isPremium && !interestRateOption) {
+        try {
+          const { getPremiumSettings } = require('../utils/premium');
+          const pSettings = await getPremiumSettings();
+          if (pSettings && pSettings.premiumInterestRate) {
+            effectiveRate = Number((pSettings.premiumInterestRate / 36.5).toFixed(2));
+          }
+        } catch (_) {}
+      }
+      const quote = calculatePersonalLoanQuote(numAmount, count, effectiveRate);
       const accountNumber = await generateLoanAccountNumber('personal');
       const collectionDates = getCollectionDates(new Date(), count);
       const schedule = collectionDates.map((dueDate, idx) => ({

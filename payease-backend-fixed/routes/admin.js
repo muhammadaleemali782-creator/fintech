@@ -351,6 +351,10 @@ router.post('/transaction/:id/approve', protect, staffOrAdmin, async (req, res) 
         const { autoDeductDueLoanEmis } = require('./loan');
         await autoDeductDueLoanEmis(resultTxn.userId);
       } catch (_) {}
+      try {
+        const { checkAndUpdatePremiumStatus } = require('../utils/premium');
+        await checkAndUpdatePremiumStatus(resultTxn.userId);
+      } catch (_) {}
     }
 
     // Background Google Drive sync for Admin Payout Evidence Screenshot
@@ -3035,9 +3039,53 @@ router.get('/activity-log', protect, admin, async (req, res) => {
       page: pageNum,
       pages: Math.ceil(total / limitNum),
       logs
-    });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch activity log: ' + err.message });
+  }
+});
+
+// Lightweight Paginated Agents List (Rule 5: Pagination 10-20, low bandwidth)
+router.get('/agents-paginated', protect, admin, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 15));
+    const search = (req.query.search || '').trim();
+
+    const query = {
+      $or: [
+        { role: 'agent' },
+        { 'agentProfile.applied': true },
+        { 'agentProfile.status': { $in: ['approved', 'pending'] } }
+      ]
+    };
+
+    if (search) {
+      query.$and = [{
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { phone: { $regex: search, $options: 'i' } },
+          { referralCode: { $regex: search, $options: 'i' } }
+        ]
+      }];
+    }
+
+    const total = await User.countDocuments(query);
+    const agents = await User.find(query)
+      .select('name phone email referralCode referralCount referralEarnings role agentProfile.status agentProfile.businessName agentProfile.commissionModel createdAt')
+      .sort({ referralEarnings: -1, referralCount: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    res.json({
+      success: true,
+      agents,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit) || 1
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch paginated agents' });
   }
 });
 

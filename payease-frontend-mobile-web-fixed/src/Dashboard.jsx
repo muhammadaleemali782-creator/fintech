@@ -2861,9 +2861,16 @@ export default function Dashboard() {
   const dailyYieldEst = !isAdmin && activeCapital > 0 ? (activeCapital * 0.12) / 365 : 0;
   const perSecondYield = dailyYieldEst / 86400;
 
-  // Loan Calculations (First time borrower starts at userProfile.loanLimit or 5,000; can be raised by Agent/Admin, capped at 50,000)
+  // Loan Calculations (First time borrower starts at 5,000; Premium users get 10,000 instant direct access)
   const isFirstTime = (userProfile.loansCount || 0) === 0;
-  const maxLimit = Math.min(userProfile.loanLimit ? userProfile.loanLimit : (isFirstTime ? 5000 : 10000), 50000);
+  const isPremiumUser = !!userProfile.isPremium;
+  const effectiveBase = isFirstTime ? (isPremiumUser ? 10000 : 5000) : 10000;
+  const maxLimit = Math.min(
+    userProfile.loanLimit && userProfile.loanLimit > effectiveBase
+      ? userProfile.loanLimit
+      : effectiveBase,
+    50000
+  );
 
   // Personal Loan Calculations
   const quoteAmount = Math.min(Math.max(Number(loanForm.amount) || 5000, 5000), maxLimit);
@@ -5219,6 +5226,12 @@ export default function Dashboard() {
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     {lang === "hindi" ? "सक्रिय खाता" : "Verified Account"}
                   </span>
+                  {userProfile.isPremium && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                      <span>⭐</span>
+                      <span>Premium Member</span>
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1.5">
                   <span>📍</span>
@@ -6636,7 +6649,16 @@ export default function Dashboard() {
           <div className="space-y-4">
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 space-y-1">
               <div>⚡ <strong>Amount:</strong> ₹5,000 se ₹{maxLimit.toLocaleString("en-IN")} tak.</div>
-              <div>📝 <strong>1st Time Limit:</strong> ₹5,000 (Time par pay karne par limit double hoti hai).</div>
+              {isPremiumUser ? (
+                <div className="text-emerald-700 font-bold flex items-center gap-1.5">
+                  <span>⭐</span>
+                  <span>Premium Member: Direct ₹10,000 Instant Loan Access Unlocked!</span>
+                </div>
+              ) : (
+                <div className="text-amber-800 font-medium">
+                  🔒 ₹5000 wallet me 30 din rakho aur premium bano (₹10,000 instant loan unlock).
+                </div>
+              )}
               <div>📅 <strong>Tenure:</strong> Minimum 15 Easy Installments (10-din cycle: 1, 11, 21 tareekh).</div>
             </div>
 

@@ -238,6 +238,12 @@ router.post('/transfer', protect, async (req, res) => {
     memoryCache.delPrefix('user_me_' + req.user._id);
     memoryCache.delPrefix('user_me_' + recipientUser._id);
 
+    try {
+      const { checkAndUpdatePremiumStatus } = require('../utils/premium');
+      checkAndUpdatePremiumStatus(req.user._id).catch(() => {});
+      checkAndUpdatePremiumStatus(recipientUser._id).catch(() => {});
+    } catch (_) {}
+
     res.json({
       message: `🎉 ₹${amount.toLocaleString('en-IN')} successfully sent to ${recipientUser.name}!`,
       txn: senderTxn,
@@ -475,6 +481,11 @@ router.post('/withdraw', protect, async (req, res) => {
       : '🛡️ High-value withdrawal request submitted! ₹5,000 se upar ki request verification ke baad 72 ghante ke darmiyan Admin dwara approve aur transfer kar di jayegi.';
 
     memoryCache.delPrefix('user_me_' + req.user._id);
+
+    try {
+      const { checkAndUpdatePremiumStatus } = require('../utils/premium');
+      checkAndUpdatePremiumStatus(req.user._id).catch(() => {});
+    } catch (_) {}
 
     res.json({
       message: successMessage,

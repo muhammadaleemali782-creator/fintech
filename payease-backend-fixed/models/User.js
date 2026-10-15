@@ -143,10 +143,15 @@ const userSchema = new mongoose.Schema({
   referredByCode: { type: String, default: null },
   referralEarnings: { type: Number, default: 0 },
   referralCount: { type: Number, default: 0 },
+  holdSince: { type: Date, default: null },
+  isPremium: { type: Boolean, default: false },
+  commissionPaid: { type: Boolean, default: false },
   fcmToken: { type: String, default: null },
 
   createdAt: { type: Date, default: Date.now }
 });
+
+userSchema.index({ referredBy: 1 });
 
 // Auto-generate referral code ONLY for AGENTS before saving
 userSchema.pre('save', async function (next) {

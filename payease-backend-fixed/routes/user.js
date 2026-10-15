@@ -905,10 +905,10 @@ router.get('/agent/stats', protect, async (req, res) => {
         isTeamModel,
         commissionRate: agent.agentProfile?.commissionRate ?? 0,
         commissions: {
-          loan: agent.agentProfile?.commissions?.loan ?? 1,
-          lending: agent.agentProfile?.commissions?.lending ?? 4,
-          investment: agent.agentProfile?.commissions?.investment ?? 1,
-          bond: agent.agentProfile?.commissions?.bond ?? 4
+          loan: agent.agentProfile?.commissions?.loan ?? (isTeamModel ? 1 : 2),
+          lending: agent.agentProfile?.commissions?.lending ?? (isTeamModel ? 1 : 2),
+          investment: agent.agentProfile?.commissions?.investment ?? (isTeamModel ? 1 : 2),
+          bond: agent.agentProfile?.commissions?.bond ?? (isTeamModel ? 1 : 2)
         },
         earningsBreakdown: {
           loan: Number(loanEarnings.toFixed(2)),

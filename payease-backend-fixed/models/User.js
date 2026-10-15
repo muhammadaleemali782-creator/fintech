@@ -31,10 +31,10 @@ const userSchema = new mongoose.Schema({
     commissionModel: { type: String, enum: ['team_1', 'solo_2', 'team', 'solo'], default: 'solo_2' },
     commissionRate: { type: Number, default: 0 }, // Admin assigns commission percentage (legacy/fallback)
     commissions: {
-      loan: { type: Number, default: 1 },
-      lending: { type: Number, default: 4 },
-      investment: { type: Number, default: 1 },
-      bond: { type: Number, default: 4 }
+      loan: { type: Number, default: 2 },
+      lending: { type: Number, default: 2 },
+      investment: { type: Number, default: 2 },
+      bond: { type: Number, default: 2 }
     },
     earningsBreakdown: {
       loan: { type: Number, default: 0 },

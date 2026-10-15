@@ -670,11 +670,12 @@ router.get('/agent-applications', protect, admin, async (req, res) => {
       const totalEarnings = Number((loanEarnings + lendingEarnings + investmentEarnings + bondEarnings).toFixed(2));
 
       if (!aObj.agentProfile) aObj.agentProfile = {};
+      const defRate = (a.agentProfile?.commissionModel === 'team_1' || a.agentProfile?.commissionModel === 'team') ? 1 : 2;
       aObj.agentProfile.commissions = {
-        loan: a.agentProfile?.commissions?.loan ?? 1,
-        lending: a.agentProfile?.commissions?.lending ?? 4,
-        investment: a.agentProfile?.commissions?.investment ?? 1,
-        bond: a.agentProfile?.commissions?.bond ?? 4
+        loan: a.agentProfile?.commissions?.loan ?? defRate,
+        lending: a.agentProfile?.commissions?.lending ?? defRate,
+        investment: a.agentProfile?.commissions?.investment ?? defRate,
+        bond: a.agentProfile?.commissions?.bond ?? defRate
       };
 
       aObj.earningsBreakdown = {
@@ -741,7 +742,8 @@ router.post('/agent-applications/:id/approve', protect, admin, async (req, res) 
     }
 
     if (!user.agentProfile.commissions) {
-      user.agentProfile.commissions = { loan: 1, lending: 4, investment: 1, bond: 4 };
+      const defRate = (user.agentProfile?.commissionModel === 'team_1' || user.agentProfile?.commissionModel === 'team') ? 1 : 2;
+      user.agentProfile.commissions = { loan: defRate, lending: defRate, investment: defRate, bond: defRate };
     }
     if (commissions) {
       if (commissions.loan !== undefined && !isNaN(parseFloat(commissions.loan))) user.agentProfile.commissions.loan = Math.max(0, parseFloat(commissions.loan));
@@ -776,7 +778,8 @@ router.post('/agent-applications/:id/set-commission', protect, admin, async (req
 
     if (!user.agentProfile) user.agentProfile = {};
     if (!user.agentProfile.commissions) {
-      user.agentProfile.commissions = { loan: 1, lending: 4, investment: 1, bond: 4 };
+      const defRate = (user.agentProfile?.commissionModel === 'team_1' || user.agentProfile?.commissionModel === 'team') ? 1 : 2;
+      user.agentProfile.commissions = { loan: defRate, lending: defRate, investment: defRate, bond: defRate };
     }
 
     const { commissionRate, commissions, loanCommission, lendingCommission, investmentCommission, bondCommission } = req.body;

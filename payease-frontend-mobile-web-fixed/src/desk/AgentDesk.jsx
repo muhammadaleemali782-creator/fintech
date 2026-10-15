@@ -60,6 +60,10 @@ export default function AgentDesk() {
   const [editLimitVal, setEditLimitVal] = useState("");
   const [updatingLimit, setUpdatingLimit] = useState(false);
 
+  // Collapsible accordion states for Loan & Investment
+  const [openLoanCollapse, setOpenLoanCollapse] = useState(false);
+  const [openInvestCollapse, setOpenInvestCollapse] = useState(false);
+
   const headers = useMemo(() => ({
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json"
@@ -319,27 +323,147 @@ export default function AgentDesk() {
 
       {/* Main Page Body */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-8 py-5 space-y-5">
-        {/* 4 Product Commission Rates Bar */}
-        <div className="bg-white rounded-2xl p-3 border border-gray-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-600">Product Rates:</span>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                Loan: {commissions.loan ?? 1}%
-              </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Lending: {commissions.lending ?? 4}%
-              </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                Debt: {commissions.investment ?? 1}%
-              </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                Bond: {commissions.bond ?? 4}%
-              </span>
-            </div>
+        {/* 2 Collapsible Product Categories: Loan & Investment */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Option 1: Loan (Collapsible: Student, Micro, Personal) */}
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-2xs overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setOpenLoanCollapse(!openLoanCollapse)}
+              className="w-full p-3.5 flex items-center justify-between gap-2 text-left hover:bg-gray-50/80 transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-base shrink-0 font-bold">
+                  🏦
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-extrabold text-xs sm:text-sm text-gray-900">
+                      Loan
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      {commissions.loan ?? 1}% Commission
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 truncate">
+                    Student Loan • Micro Loan • Personal Loan
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 text-blue-600 font-bold text-xs">
+                <span className="text-[10px] bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100 hidden sm:inline">
+                  {openLoanCollapse ? "Band Karein" : "Kholein"}
+                </span>
+                <span>{openLoanCollapse ? "▲" : "▼"}</span>
+              </div>
+            </button>
+
+            {openLoanCollapse && (
+              <div className="p-3 border-t border-gray-100 bg-blue-50/20 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🎓</span>
+                    <div>
+                      <div className="text-xs font-extrabold text-gray-900">Student Loan</div>
+                      <div className="text-[10px] text-gray-400">Padhai & Shiksha</div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                    {commissions.loan ?? 1}%
+                  </span>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🏪</span>
+                    <div>
+                      <div className="text-xs font-extrabold text-gray-900">Micro Loan</div>
+                      <div className="text-[10px] text-gray-400">Chota Vyapar</div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                    {commissions.loan ?? 1}%
+                  </span>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">💼</span>
+                    <div>
+                      <div className="text-xs font-extrabold text-gray-900">Personal Loan</div>
+                      <div className="text-[10px] text-gray-400">Vyaktigat Rin</div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                    {commissions.loan ?? 1}%
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="text-xs font-bold text-gray-500">
-            Customers: <span className="text-gray-900 font-mono font-black">{agentMetrics?.stats?.customerCount ?? 0}</span>
+
+          {/* Option 2: Investment (Collapsible: Lending & Bonds) */}
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-2xs overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setOpenInvestCollapse(!openInvestCollapse)}
+              className="w-full p-3.5 flex items-center justify-between gap-2 text-left hover:bg-gray-50/80 transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center text-base shrink-0 font-bold">
+                  📈
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-extrabold text-xs sm:text-sm text-gray-900">
+                      Investment
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {commissions.lending ?? 4}% / {commissions.bond ?? 4}% Commission
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 truncate">
+                    P2P Lending • Fixed Bonds
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 text-emerald-600 font-bold text-xs">
+                <span className="text-[10px] bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 hidden sm:inline">
+                  {openInvestCollapse ? "Band Karein" : "Kholein"}
+                </span>
+                <span>{openInvestCollapse ? "▲" : "▼"}</span>
+              </div>
+            </button>
+
+            {openInvestCollapse && (
+              <div className="p-3 border-t border-gray-100 bg-emerald-50/20 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🤝</span>
+                    <div>
+                      <div className="text-xs font-extrabold text-gray-900">P2P Lending</div>
+                      <div className="text-[10px] text-gray-400">Peer-to-Peer Pool</div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    {commissions.lending ?? 4}%
+                  </span>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📜</span>
+                    <div>
+                      <div className="text-xs font-extrabold text-gray-900">Fixed Bonds</div>
+                      <div className="text-[10px] text-gray-400">365-Day Lock-in Bond</div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono font-black text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                    {commissions.bond ?? 4}%
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -365,7 +489,7 @@ export default function AgentDesk() {
                 : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
             }`}
           >
-            <span>💰</span> Rates (4 Products)
+            <span>💰</span> Rates & Commission
           </button>
           <button
             type="button"
@@ -465,7 +589,7 @@ export default function AgentDesk() {
                   onClick={() => setActiveTab("commissions")}
                   className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                 >
-                  <span>💰</span> View 4 Commission Rates
+                  <span>💰</span> View Rates & Commission
                 </button>
                 <button
                   type="button"
@@ -490,9 +614,9 @@ export default function AgentDesk() {
                   <span className="text-xl">💰</span>
                   <div>
                     <h2 className="font-extrabold text-sm sm:text-base text-gray-900">
-                      4-Product Commission Portfolio (Aapka Commission Vivran)
+                      Product Commission & Earnings Portfolio
                     </h2>
-                    <p className="text-xs text-gray-500">Admin dwara tay ki gayi 4 alag-alag product commission dar</p>
+                    <p className="text-xs text-gray-500">Loan aur Investment products par tay ki gayi commission dar aur kul kamai</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -503,62 +627,71 @@ export default function AgentDesk() {
                 </div>
               </div>
 
-              {/* 4 Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* 1. Loan */}
-                <div className="bg-gradient-to-br from-blue-50/60 to-white border border-blue-200 rounded-2xl p-4 shadow-2xs">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-blue-700 font-bold uppercase">🏦 Loan</span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
-                      {commissions.loan ?? 1}% Rate
-                    </span>
-                  </div>
-                  <div className="text-lg sm:text-xl font-black font-mono text-blue-700">
-                    ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.loan || 0).toLocaleString("en-IN")}
-                  </div>
-                  <span className="text-[10px] text-gray-500">Customer Loans</span>
+              {/* 1. Loan Category */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-blue-900 flex items-center gap-1.5">
+                    <span>🏦</span> Loan Category (Student, Micro & Personal Loans)
+                  </span>
+                  <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
+                    {commissions.loan ?? 1}% Agent Rate
+                  </span>
                 </div>
 
-                {/* 2. Lending */}
-                <div className="bg-gradient-to-br from-emerald-50/60 to-white border border-emerald-200 rounded-2xl p-4 shadow-2xs">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-emerald-700 font-bold uppercase">🤝 Lending</span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      {commissions.lending ?? 4}% Rate
-                    </span>
+                <div className="bg-gradient-to-br from-blue-50/60 to-white border border-blue-200 rounded-2xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] text-gray-500 font-bold block uppercase">Customer Loans Disbursal Commission</span>
+                    <div className="text-xl sm:text-2xl font-black font-mono text-blue-700">
+                      ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.loan || 0).toLocaleString("en-IN")}
+                    </div>
                   </div>
-                  <div className="text-lg sm:text-xl font-black font-mono text-emerald-700">
-                    ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.lending || 0).toLocaleString("en-IN")}
+                  <div className="flex flex-wrap gap-1.5 text-[11px] text-gray-600 font-semibold">
+                    <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">🎓 Student Loan</span>
+                    <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">🏪 Micro Loan</span>
+                    <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">💼 Personal Loan</span>
                   </div>
-                  <span className="text-[10px] text-gray-500">Lending Account</span>
+                </div>
+              </div>
+
+              {/* 2. Investment Category */}
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-emerald-900 flex items-center gap-1.5">
+                    <span>📈</span> Investment Category (Lending & Bonds)
+                  </span>
+                  <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    Lending: {commissions.lending ?? 4}% | Bond: {commissions.bond ?? 4}%
+                  </span>
                 </div>
 
-                {/* 3. Debt */}
-                <div className="bg-gradient-to-br from-amber-50/60 to-white border border-amber-200 rounded-2xl p-4 shadow-2xs">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-amber-700 font-bold uppercase">📈 Debt</span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
-                      {commissions.investment ?? 1}% Rate
-                    </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* P2P Lending */}
+                  <div className="bg-gradient-to-br from-emerald-50/60 to-white border border-emerald-200 rounded-2xl p-4 shadow-2xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-emerald-700 font-bold uppercase">🤝 P2P Lending</span>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        {commissions.lending ?? 4}% Rate
+                      </span>
+                    </div>
+                    <div className="text-lg sm:text-xl font-black font-mono text-emerald-700">
+                      ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.lending || 0).toLocaleString("en-IN")}
+                    </div>
+                    <span className="text-[10px] text-gray-500">Peer-to-Peer Investment Pool</span>
                   </div>
-                  <div className="text-lg sm:text-xl font-black font-mono text-amber-700">
-                    ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.investment || 0).toLocaleString("en-IN")}
-                  </div>
-                  <span className="text-[10px] text-gray-500">Debt Account</span>
-                </div>
 
-                {/* 4. Bonds */}
-                <div className="bg-gradient-to-br from-purple-50/60 to-white border border-purple-200 rounded-2xl p-4 shadow-2xs">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-purple-700 font-bold uppercase">📜 Bonds</span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
-                      {commissions.bond ?? 4}% Rate
-                    </span>
+                  {/* Fixed Bonds */}
+                  <div className="bg-gradient-to-br from-purple-50/60 to-white border border-purple-200 rounded-2xl p-4 shadow-2xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-purple-700 font-bold uppercase">📜 Fixed Bonds</span>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
+                        {commissions.bond ?? 4}% Rate
+                      </span>
+                    </div>
+                    <div className="text-lg sm:text-xl font-black font-mono text-purple-700">
+                      ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.bond || 0).toLocaleString("en-IN")}
+                    </div>
+                    <span className="text-[10px] text-gray-500">365-Day Fixed Bond Investment</span>
                   </div>
-                  <div className="text-lg sm:text-xl font-black font-mono text-purple-700">
-                    ₹{(agentMetrics?.agentInfo?.earningsBreakdown?.bond || 0).toLocaleString("en-IN")}
-                  </div>
-                  <span className="text-[10px] text-gray-500">365-Day Fixed Bonds</span>
                 </div>
               </div>
 

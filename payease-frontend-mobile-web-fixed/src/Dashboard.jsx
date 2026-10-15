@@ -580,6 +580,7 @@ export default function Dashboard() {
   const [copied, setCopied] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
   const [navTab, setNavTab] = useState("home");
+  const [showAgentDesk, setShowAgentDesk] = useState(false);
   const [agentTab, setAgentTab] = useState("overview"); // 'overview' | 'commissions' | 'customers'
   const [userProfile, setUserProfile] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "profile"), null) : null;
@@ -1177,6 +1178,12 @@ export default function Dashboard() {
         return true;
       }
 
+      // 4.1 If Agent Desk modal is open, step back to dashboard
+      if (showAgentDesk) {
+        setShowAgentDesk(false);
+        return true;
+      }
+
       // 5. If in QR custom tab, step back to fintech QR
       if (qrTab === "custom") {
         setQrTab("fintech");
@@ -1201,6 +1208,7 @@ export default function Dashboard() {
 
     window.forceDismissActiveModal = () => {
       closeModal();
+      setShowAgentDesk(false);
       setShowTour(false);
       setShowAiAdvisor(false);
       setActiveLoanDetails(null);
@@ -1221,6 +1229,7 @@ export default function Dashboard() {
     accountModal,
     showLoans,
     showTour,
+    showAgentDesk,
     lightboxImg,
     showAiAdvisor,
     activeLoanDetails,
@@ -1235,7 +1244,7 @@ export default function Dashboard() {
   ]);
 
   useEffect(() => {
-    const isOverlayOpen = Boolean(modal || accountModal || showLoans || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen || addCustomerModalOpen || nominateSubAgentModalOpen);
+    const isOverlayOpen = Boolean(modal || accountModal || showLoans || lightboxImg || submitInstallmentModal || agentBroadcastModalOpen || addCustomerModalOpen || nominateSubAgentModalOpen || showAgentDesk);
     if (isOverlayOpen) {
       window.history.pushState({ educaSheetOpen: true }, "");
       const onPopState = () => {
@@ -1259,13 +1268,14 @@ export default function Dashboard() {
         }
         closeModal();
         setNominateSubAgentModalOpen(false);
+        setShowAgentDesk(false);
       };
       window.addEventListener("popstate", onPopState);
       return () => {
         window.removeEventListener("popstate", onPopState);
       };
     }
-  }, [modal, accountModal, showLoans, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen, addCustomerModalOpen, nominateSubAgentModalOpen]);
+  }, [modal, accountModal, showLoans, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen, addCustomerModalOpen, nominateSubAgentModalOpen, showAgentDesk]);
 
   const [hasBiometric, setHasBiometric] = useState(false);
 
@@ -5040,50 +5050,108 @@ export default function Dashboard() {
       <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-4 sm:py-8 overflow-x-hidden">
 
         {/* ══════════════════════════════════════════════════════
-            0.1 AGENT EXECUTIVE PORTFOLIO (ONLY VISIBLE FOR AGENTS)
+        {/* ══════════════════════════════════════════════════════
+            0.1 COMPACT AGENT DESK TILE (FOR AGENTS ON DASHBOARD HOME)
         ══════════════════════════════════════════════════════ */}
         {isAgent && (
-          <div className="mb-4 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 rounded-3xl p-4 sm:p-5 text-white shadow-xl border border-indigo-400/30 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-36 h-36 bg-blue-500/10 rounded-full -mr-12 -mt-12 pointer-events-none" />
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3 mb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-xl">
-                  🏢
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-extrabold text-sm sm:text-base text-white">Agent Executive Portfolio</h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase">
-                      Agent Account
-                    </span>
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-blue-500/20 text-blue-200 border border-blue-400/30">
-                        Loan: {agentMetrics?.agentInfo?.commissions?.loan ?? userProfile.agentProfile?.commissions?.loan ?? 1}%
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
-                        Lend: {agentMetrics?.agentInfo?.commissions?.lending ?? userProfile.agentProfile?.commissions?.lending ?? 4}%
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-200 border border-amber-400/30">
-                        Debt: {agentMetrics?.agentInfo?.commissions?.investment ?? userProfile.agentProfile?.commissions?.investment ?? 1}%
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-200 border border-purple-400/30">
-                        Bond: {agentMetrics?.agentInfo?.commissions?.bond ?? userProfile.agentProfile?.commissions?.bond ?? 4}%
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-indigo-200 mt-0.5">
-                    {agentMetrics?.agentInfo?.businessName || userProfile.name} • {agentMetrics?.stats?.customerCount ?? 0} Onboarded Customers
-                  </p>
-                </div>
+          <div className="mb-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 rounded-2xl p-3.5 sm:p-4 text-white shadow-xl border border-indigo-400/30 flex items-center justify-between gap-3 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-10 -mt-10 pointer-events-none" />
+            <div className="flex items-center gap-3 min-w-0 z-10">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-xl shrink-0 shadow-inner">
+                🏢
               </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h3 className="font-extrabold text-sm sm:text-base text-white tracking-tight">Agent Desk</h3>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase tracking-wider">
+                    Agent Portal
+                  </span>
+                </div>
+                <p className="text-[11px] text-indigo-200 mt-0.5 truncate">
+                  {agentMetrics?.agentInfo?.businessName || userProfile.name || "Agent Executive"} • {agentMetrics?.stats?.customerCount ?? 0} Customers
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 z-10">
               <button
                 type="button"
-                onClick={loadAgentMetrics}
-                className="text-[11px] font-bold text-indigo-300 hover:text-white flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg transition"
+                onClick={() => setShowAgentDesk(true)}
+                className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-blue-600 hover:from-indigo-600 hover:to-blue-700 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-indigo-500/30 transition cursor-pointer flex items-center gap-1.5"
               >
-                <span>🔄</span> {loadingAgentMetrics ? "Updating..." : "Refresh Stats"}
+                <span>Agent Desk</span>
+                <span className="text-sm font-bold">↗</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════
+            0.1.1 FULL AGENT DESK MODAL / SHEET
+        ══════════════════════════════════════════════════════ */}
+        {isAgent && showAgentDesk && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 animate-in fade-in duration-200">
+            <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col text-white shadow-2xl border border-indigo-400/30 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-44 h-44 bg-blue-500/10 rounded-full -mr-16 -mt-16 pointer-events-none" />
+
+              {/* Modal Header */}
+              <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5 sm:py-3.5 bg-black/40 backdrop-blur-md sticky top-0 z-20 shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-lg shrink-0">
+                    🏢
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-extrabold text-sm sm:text-base text-white">Agent Desk</h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase">
+                        Agent Account
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-indigo-200 truncate mt-0.5">
+                      {agentMetrics?.agentInfo?.businessName || userProfile.name} • {agentMetrics?.stats?.customerCount ?? 0} Onboarded Customers
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={loadAgentMetrics}
+                    title="Refresh Stats"
+                    className="text-[11px] font-bold text-indigo-300 hover:text-white flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-1.5 rounded-xl transition cursor-pointer"
+                  >
+                    <span>🔄</span>
+                    <span className="hidden sm:inline">{loadingAgentMetrics ? "Updating..." : "Refresh"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAgentDesk(false)}
+                    className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-indigo-200 hover:text-white flex items-center justify-center text-base font-bold transition active:scale-95 cursor-pointer ml-1"
+                    title="Close Agent Desk"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Scrollable Body */}
+              <div className="p-3.5 sm:p-5 overflow-y-auto space-y-4">
+                {/* 4 Product Commission Badges */}
+                <div className="flex flex-wrap items-center gap-1.5 bg-black/20 p-2.5 rounded-2xl border border-white/5">
+                  <span className="text-[11px] font-bold text-indigo-200 mr-1">Commissions:</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/20 text-blue-200 border border-blue-400/30">
+                    Loan: {agentMetrics?.agentInfo?.commissions?.loan ?? userProfile.agentProfile?.commissions?.loan ?? 1}%
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                    Lend: {agentMetrics?.agentInfo?.commissions?.lending ?? userProfile.agentProfile?.commissions?.lending ?? 4}%
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-200 border border-amber-400/30">
+                    Debt: {agentMetrics?.agentInfo?.commissions?.investment ?? userProfile.agentProfile?.commissions?.investment ?? 1}%
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/20 text-purple-200 border border-purple-400/30">
+                    Bond: {agentMetrics?.agentInfo?.commissions?.bond ?? userProfile.agentProfile?.commissions?.bond ?? 4}%
+                  </span>
+                </div>
 
             {/* 3 Dedicated Agent Sub-Tabs */}
             <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-2xl mb-4 border border-white/10">
@@ -5567,6 +5635,8 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
+              </div>
+            </div>
           </div>
         )}
 

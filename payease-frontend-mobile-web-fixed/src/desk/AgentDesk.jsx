@@ -305,49 +305,14 @@ export default function AgentDesk() {
               <span className="hidden sm:inline">Dashboard</span>
             </button>
 
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg font-black shrink-0 shadow-xs">
-                🏢
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <h1 className="text-sm sm:text-base font-black tracking-tight text-gray-900 truncate">
-                    Educa Agent Desk
-                  </h1>
-                  <span className="px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
-                    {isTeamModel ? "Team Model" : "Direct Agent"}
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-500 truncate">
-                  {agentMetrics?.agentInfo?.businessName || userProfile.name || "Agent Executive"} • Ref Code:{" "}
-                  <strong className="font-mono text-gray-800">{agentMetrics?.agentInfo?.referralCode || userProfile.referralCode || "AGENT"}</strong>
-                </p>
-              </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-sm sm:text-base font-black tracking-tight text-gray-900 truncate">
+                Educa Agent Desk
+              </h1>
+              <span className="px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
+                {isTeamModel ? "Team Model" : "Direct Agent"}
+              </span>
             </div>
-          </div>
-
-          {/* Right Action Controls */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={copyReferralLink}
-              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold rounded-xl active:scale-95 transition flex items-center gap-1 cursor-pointer"
-              title="Referral link copy karein"
-            >
-              <span>📋</span>
-              <span className="hidden sm:inline">{copied ? "Copied" : "Copy Link"}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => loadAgentMetrics(false)}
-              disabled={refreshing}
-              className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 text-xs font-bold rounded-xl transition flex items-center gap-1 cursor-pointer disabled:opacity-60"
-              title="Refresh Stats"
-            >
-              <span className={refreshing ? "animate-spin" : ""}>🔄</span>
-              <span className="hidden sm:inline">{refreshing ? "Updating..." : "Refresh"}</span>
-            </button>
           </div>
         </div>
       </header>
@@ -659,19 +624,15 @@ export default function AgentDesk() {
                 >
                   <span>➕</span> Add Customer
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isTeamModel) {
-                      showToast("Sub-Agent nomination sirf Team Model me uplabdh hai", "error");
-                      return;
-                    }
-                    setNominateSubAgentModalOpen(true);
-                  }}
-                  className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-extrabold rounded-xl transition text-xs shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span>👥</span> Nominate Sub-Agent
-                </button>
+                {isTeamModel && (
+                  <button
+                    type="button"
+                    onClick={() => setNominateSubAgentModalOpen(true)}
+                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-extrabold rounded-xl transition text-xs shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>👥</span> Nominate Sub-Agent
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setBroadcastModalOpen(true)}

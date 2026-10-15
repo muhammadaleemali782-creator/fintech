@@ -332,23 +332,18 @@ export default function AgentDesk() {
               onClick={() => setOpenLoanCollapse(!openLoanCollapse)}
               className="w-full p-3.5 flex items-center justify-between gap-2 text-left hover:bg-gray-50/80 transition cursor-pointer"
             >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-base shrink-0 font-bold">
-                  🏦
-                </span>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-extrabold text-xs sm:text-sm text-gray-900">
-                      Loan
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                      {commissions.loan ?? 1}% Commission
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-gray-500 truncate">
-                    Student Loan • Micro Loan • Personal Loan
-                  </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-extrabold text-xs sm:text-sm text-gray-900">
+                    Loan Products
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                    {commissions.loan ?? 1}% Commission
+                  </span>
                 </div>
+                <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                  Student Loan • Micro Loan • Personal Loan
+                </p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0 text-blue-600 font-bold text-xs">
                 <span className="text-[10px] bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100 hidden sm:inline">
@@ -361,12 +356,9 @@ export default function AgentDesk() {
             {openLoanCollapse && (
               <div className="p-3 border-t border-gray-100 bg-blue-50/20 grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">🎓</span>
-                    <div>
-                      <div className="text-xs font-extrabold text-gray-900">Student Loan</div>
-                      <div className="text-[10px] text-gray-400">Padhai & Shiksha</div>
-                    </div>
+                  <div>
+                    <div className="text-xs font-extrabold text-gray-900">Student Loan</div>
+                    <div className="text-[10px] text-gray-400">Padhai & Shiksha</div>
                   </div>
                   <span className="text-[11px] font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                     {commissions.loan ?? 1}%
@@ -374,12 +366,9 @@ export default function AgentDesk() {
                 </div>
 
                 <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">🏪</span>
-                    <div>
-                      <div className="text-xs font-extrabold text-gray-900">Micro Loan</div>
-                      <div className="text-[10px] text-gray-400">Chota Vyapar</div>
-                    </div>
+                  <div>
+                    <div className="text-xs font-extrabold text-gray-900">Micro Loan</div>
+                    <div className="text-[10px] text-gray-400">Chota Vyapar</div>
                   </div>
                   <span className="text-[11px] font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                     {commissions.loan ?? 1}%
@@ -387,12 +376,9 @@ export default function AgentDesk() {
                 </div>
 
                 <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">💼</span>
-                    <div>
-                      <div className="text-xs font-extrabold text-gray-900">Personal Loan</div>
-                      <div className="text-[10px] text-gray-400">Vyaktigat Rin</div>
-                    </div>
+                  <div>
+                    <div className="text-xs font-extrabold text-gray-900">Personal Loan</div>
+                    <div className="text-[10px] text-gray-400">Vyaktigat Rin</div>
                   </div>
                   <span className="text-[11px] font-mono font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                     {commissions.loan ?? 1}%
@@ -409,23 +395,18 @@ export default function AgentDesk() {
               onClick={() => setOpenInvestCollapse(!openInvestCollapse)}
               className="w-full p-3.5 flex items-center justify-between gap-2 text-left hover:bg-gray-50/80 transition cursor-pointer"
             >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center text-base shrink-0 font-bold">
-                  📈
-                </span>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-extrabold text-xs sm:text-sm text-gray-900">
-                      Investment
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      {commissions.lending ?? 4}% / {commissions.bond ?? 4}% Commission
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-gray-500 truncate">
-                    P2P Lending • Fixed Bonds
-                  </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-extrabold text-xs sm:text-sm text-gray-900">
+                    Investment Products
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    {commissions.lending ?? 4}% / {commissions.bond ?? 4}% Commission
+                  </span>
                 </div>
+                <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                  P2P Lending • Fixed Bonds
+                </p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0 text-emerald-600 font-bold text-xs">
                 <span className="text-[10px] bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 hidden sm:inline">
@@ -438,12 +419,9 @@ export default function AgentDesk() {
             {openInvestCollapse && (
               <div className="p-3 border-t border-gray-100 bg-emerald-50/20 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">🤝</span>
-                    <div>
-                      <div className="text-xs font-extrabold text-gray-900">P2P Lending</div>
-                      <div className="text-[10px] text-gray-400">Peer-to-Peer Pool</div>
-                    </div>
+                  <div>
+                    <div className="text-xs font-extrabold text-gray-900">P2P Lending</div>
+                    <div className="text-[10px] text-gray-400">Peer-to-Peer Pool</div>
                   </div>
                   <span className="text-[11px] font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                     {commissions.lending ?? 4}%
@@ -451,12 +429,9 @@ export default function AgentDesk() {
                 </div>
 
                 <div className="bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">📜</span>
-                    <div>
-                      <div className="text-xs font-extrabold text-gray-900">Fixed Bonds</div>
-                      <div className="text-[10px] text-gray-400">365-Day Lock-in Bond</div>
-                    </div>
+                  <div>
+                    <div className="text-xs font-extrabold text-gray-900">Fixed Bonds</div>
+                    <div className="text-[10px] text-gray-400">365-Day Lock-in Bond</div>
                   </div>
                   <span className="text-[11px] font-mono font-black text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
                     {commissions.bond ?? 4}%
@@ -478,7 +453,7 @@ export default function AgentDesk() {
                 : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
             }`}
           >
-            <span>📊</span> Overview & Dues
+            Overview & Dues
           </button>
           <button
             type="button"
@@ -489,7 +464,7 @@ export default function AgentDesk() {
                 : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
             }`}
           >
-            <span>💰</span> Rates & Commission
+            Rates & Commission
           </button>
           <button
             type="button"
@@ -500,7 +475,7 @@ export default function AgentDesk() {
                 : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
             }`}
           >
-            <span>👥</span> Customer Portfolio ({agentMetrics?.customers?.length || 0})
+            Customer Portfolio ({agentMetrics?.customers?.length || 0})
           </button>
         </div>
 
@@ -587,16 +562,16 @@ export default function AgentDesk() {
                 <button
                   type="button"
                   onClick={() => setActiveTab("commissions")}
-                  className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition cursor-pointer"
                 >
-                  <span>💰</span> View Rates & Commission
+                  View Rates & Commission
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab("customers")}
-                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition cursor-pointer"
                 >
-                  <span>👥</span> View Customers ({agentMetrics?.customers?.length || 0})
+                  View Customers ({agentMetrics?.customers?.length || 0})
                 </button>
               </div>
             </div>
@@ -753,32 +728,32 @@ export default function AgentDesk() {
                 <button
                   type="button"
                   onClick={() => setAddCustomerModalOpen(true)}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold rounded-xl transition text-xs shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold rounded-xl transition text-xs shadow-2xs cursor-pointer"
                 >
-                  <span>➕</span> Add Customer
+                  Add Customer
                 </button>
                 {isTeamModel && (
                   <button
                     type="button"
                     onClick={() => setNominateSubAgentModalOpen(true)}
-                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-extrabold rounded-xl transition text-xs shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-extrabold rounded-xl transition text-xs shadow-2xs cursor-pointer"
                   >
-                    <span>👥</span> Nominate Sub-Agent
+                    Nominate Sub-Agent
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setBroadcastModalOpen(true)}
-                  className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-extrabold rounded-xl transition text-xs shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-extrabold rounded-xl transition text-xs shadow-2xs cursor-pointer"
                 >
-                  <span>📢</span> Send Mass Message
+                  Send Mass Message
                 </button>
                 <button
                   type="button"
                   onClick={copyReferralLink}
-                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl transition text-xs shadow-2xs flex items-center gap-1 cursor-pointer"
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl transition text-xs shadow-2xs cursor-pointer"
                 >
-                  <span>📋</span> {copied ? "Copied" : "Copy Link"}
+                  {copied ? "Copied" : "Copy Link"}
                 </button>
               </div>
             </div>

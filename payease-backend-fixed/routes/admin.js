@@ -1072,13 +1072,13 @@ router.post('/kyc/:id/approve', protect, requirePermission('kyc.process'), async
     user.kycDocuments.isNoteLocked = true;
 
     // Lock submitted bank details into permanent registered bank account
-    if (user.kycDocuments?.bankAccountNumber && !user.bankAccount?.accountNumber) {
+    if (user.kycDocuments?.bankAccountNumber) {
       user.bankAccount = {
         ...(user.bankAccount || {}),
         accountNumber: user.kycDocuments.bankAccountNumber,
-        ifsc: user.kycDocuments.bankIfsc || '',
-        bankName: user.kycDocuments.bankName || '',
-        holderName: user.kycDocuments.bankHolderName || user.name || '',
+        ifsc: user.kycDocuments.bankIfsc || user.bankAccount?.ifsc || '',
+        bankName: user.kycDocuments.bankName || user.bankAccount?.bankName || '',
+        holderName: user.kycDocuments.bankHolderName || user.bankAccount?.holderName || user.name || '',
         upiId: user.kycDocuments.bankUpiId || user.bankAccount?.upiId || ''
       };
       if (user.kycDocuments.bankUpiId) {

@@ -327,13 +327,13 @@ router.put('/update', protect, async (req, res) => {
     }
 
     // 4. Guard: Registered bank and UPI details are permanent once KYC is verified
-    if (user.kycStatus === 'verified' && user.bankAccount?.accountNumber) {
-      if (bankAccount && typeof bankAccount === 'object') {
-        const curAcc = String(user.bankAccount.accountNumber || '').trim();
-        const curIfsc = String(user.bankAccount.ifsc || '').trim().toUpperCase();
-        const curBank = String(user.bankAccount.bankName || '').trim();
-        const curUpi = String(user.bankAccount.upiId || '').trim();
+    if (user.kycStatus === 'verified') {
+      const curAcc = String(user.bankAccount?.accountNumber || user.kycDocuments?.bankAccountNumber || '').trim();
+      const curIfsc = String(user.bankAccount?.ifsc || user.kycDocuments?.bankIfsc || '').trim().toUpperCase();
+      const curBank = String(user.bankAccount?.bankName || user.kycDocuments?.bankName || '').trim();
+      const curUpi = String(user.bankAccount?.upiId || user.kycDocuments?.bankUpiId || user.upiId || '').trim();
 
+      if (curAcc && bankAccount && typeof bankAccount === 'object') {
         const newAcc = bankAccount.accountNumber !== undefined ? String(bankAccount.accountNumber).trim() : curAcc;
         const newIfsc = bankAccount.ifsc !== undefined ? String(bankAccount.ifsc).trim().toUpperCase() : curIfsc;
         const newBank = bankAccount.bankName !== undefined ? String(bankAccount.bankName).trim() : curBank;
@@ -345,7 +345,7 @@ router.put('/update', protect, async (req, res) => {
           });
         }
       }
-      if (upiId !== undefined && user.bankAccount?.upiId && String(upiId).trim() !== String(user.bankAccount.upiId).trim()) {
+      if (curUpi && upiId !== undefined && String(upiId).trim() !== curUpi) {
         return res.status(400).json({
           message: 'Aapka KYC verified hai. Registered UPI ID badalne ke liye Bank Change Request submit karein jo KYC Department review karega.'
         });

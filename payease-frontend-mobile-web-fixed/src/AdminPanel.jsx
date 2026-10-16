@@ -9454,6 +9454,65 @@ export default function AdminPanel() {
                 </div>
               </div>
 
+              {/* Loan Department Capital Pool & Agent Allocation Overview */}
+              {(() => {
+                const totalAssignedAgentQuota = agents.reduce((sum, a) => {
+                  const curVal = agentCategoryInputs[a._id]?.loanLimit !== undefined
+                    ? Number(agentCategoryInputs[a._id]?.loanLimit) || 0
+                    : Number(a.loanLimit ?? a.agentProfile?.loanLimit ?? 100000);
+                  return sum + curVal;
+                }, 0);
+                const deptPoolTotal = Number(loanDepartmentPool.totalPool || 1000000);
+                const unassignedDeptPool = Math.max(0, deptPoolTotal - totalAssignedAgentQuota);
+
+                return (
+                  <div className="mb-4 p-4 bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 text-white rounded-2xl border border-blue-800/60 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <div>
+                          <span className="text-[11px] font-black uppercase tracking-wider text-blue-200 block">
+                            Loan Department Capital & Agent Quota Pool
+                          </span>
+                          <span className="text-xs text-blue-300 font-medium">
+                            Admin dwara Loan Department ko diya gaya total paisa aur Agents me distribution
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs font-mono font-bold px-3 py-1 bg-white/10 rounded-lg border border-white/15 text-blue-100">
+                        {agents.length} Total Agents
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10">
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-blue-300 uppercase font-bold block">Dept Total Capital Pool</span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-white mt-0.5">
+                          ₹{deptPoolTotal.toLocaleString("en-IN")}
+                        </div>
+                        <span className="text-[9px] text-blue-300/80">Admin Sanctioned Dept Budget</span>
+                      </div>
+
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-indigo-300 uppercase font-bold block">Assigned to Agents</span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-indigo-200 mt-0.5">
+                          ₹{totalAssignedAgentQuota.toLocaleString("en-IN")}
+                        </div>
+                        <span className="text-[9px] text-indigo-200/80">Sum of All Assigned Quotas</span>
+                      </div>
+
+                      <div className="bg-emerald-500/10 p-3 rounded-xl border border-emerald-400/20">
+                        <span className="text-[10px] text-emerald-300 uppercase font-bold block">Unassigned Pool Balance</span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-emerald-300 mt-0.5">
+                          ₹{unassignedDeptPool.toLocaleString("en-IN")}
+                        </div>
+                        <span className="text-[9px] text-emerald-200/80">Available to Assign to Agents</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Agent Filter Pills */}
               <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-gray-100">
                 <button
@@ -9668,6 +9727,9 @@ export default function AdminPanel() {
                                     className="w-full px-2 py-1 text-xs font-black text-indigo-950 text-center bg-indigo-50/50 border border-indigo-300 rounded-lg outline-none"
                                   />
                                 </div>
+                                <span className="text-[9px] text-indigo-600 block mt-0.5 font-medium">
+                                  Dept Pool Baki: ₹{Math.max(0, Number(loanDepartmentPool.totalPool || 1000000) - agents.reduce((sum, ag) => sum + (agentCategoryInputs[ag._id]?.loanLimit !== undefined ? Number(agentCategoryInputs[ag._id]?.loanLimit) || 0 : Number(ag.loanLimit ?? ag.agentProfile?.loanLimit ?? 100000)), 0)).toLocaleString("en-IN")}
+                                </span>
                               </div>
                             </div>
                             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-amber-200">
@@ -9856,6 +9918,9 @@ export default function AdminPanel() {
                                   className="w-full px-2 py-1 text-xs font-black text-indigo-950 text-center bg-white border border-indigo-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                               </div>
+                              <span className="text-[9px] text-indigo-600 block mt-0.5 font-medium">
+                                Dept Pool Baki: ₹{Math.max(0, Number(loanDepartmentPool.totalPool || 1000000) - agents.reduce((sum, ag) => sum + (agentCategoryInputs[ag._id]?.loanLimit !== undefined ? Number(agentCategoryInputs[ag._id]?.loanLimit) || 0 : Number(ag.loanLimit ?? ag.agentProfile?.loanLimit ?? 100000)), 0)).toLocaleString("en-IN")}
+                              </span>
                             </div>
                           </div>
 

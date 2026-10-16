@@ -1207,13 +1207,95 @@ router.get('/department-pool', protect, async (req, res) => {
     const availablePool = Math.max(0, totalPool - marketDisbursed);
     const utilizationPercent = totalPool > 0 ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1))) : 0;
 
+    // Fetch all active agents and their quotas & live market portfolios
+    const agents = await User.find({
+      $or: [
+        { role: 'agent' },
+        { 'agentProfile.status': 'approved' }
+      ]
+    }).select('_id name phone referralCode agentProfile').lean();
+
+    const agentIds = agents.map(a => a._id);
+
+    // Find all customers referred by these agents
+    const referredCustomers = await User.find({
+      referredBy: { $in: agentIds }
+    }).select('_id referredBy duesBalance').lean();
+
+    const customerIds = referredCustomers.map(c => c._id);
+
+    // Fetch all loans for these customers
+    const allAgentLoans = await Loan.find({
+      userId: { $in: customerIds }
+    }).select('userId amount paidAmount collectedAmount status').lean();
+
+    const customerToAgentMap = {};
+    referredCustomers.forEach(c => {
+      customerToAgentMap[String(c._id)] = String(c.referredBy);
+    });
+
+    const agentLoanStats = {};
+    agentIds.forEach(id => {
+      agentLoanStats[String(id)] = {
+        disbursed: 0,
+        recovered: 0,
+        activeLoansCount: 0
+      };
+    });
+
+    allAgentLoans.forEach(l => {
+      const agentIdStr = customerToAgentMap[String(l.userId)];
+      if (agentIdStr && agentLoanStats[agentIdStr]) {
+        const amt = Number(l.amount || 0);
+        const recovered = Number(l.paidAmount || l.collectedAmount || 0);
+        if (['active', 'approved', 'closed'].includes(l.status)) {
+          agentLoanStats[agentIdStr].disbursed += amt;
+          agentLoanStats[agentIdStr].recovered += recovered;
+        }
+        if (['active', 'approved'].includes(l.status)) {
+          agentLoanStats[agentIdStr].activeLoansCount += 1;
+        }
+      }
+    });
+
+    let totalAssignedToAgents = 0;
+    const agentsSummary = agents.map(agent => {
+      const aId = String(agent._id);
+      const assignedLimit = Number(agent.agentProfile?.loanLimit !== undefined ? agent.agentProfile.loanLimit : 100000);
+      totalAssignedToAgents += assignedLimit;
+
+      const stats = agentLoanStats[aId] || { disbursed: 0, recovered: 0, activeLoansCount: 0 };
+      const disbursed = Number(stats.disbursed.toFixed(2));
+      const recovered = Number(stats.recovered.toFixed(2));
+      const outstanding = Math.max(0, Number((disbursed - recovered).toFixed(2)));
+      const remainingLimit = Math.max(0, Number((assignedLimit - disbursed).toFixed(2)));
+
+      return {
+        id: agent._id,
+        name: agent.name,
+        phone: agent.phone,
+        referralCode: agent.referralCode,
+        assignedLimit,
+        disbursedAmount: disbursed,
+        recoveredAmount: recovered,
+        outstandingAmount: outstanding,
+        remainingLimit,
+        activeLoansCount: stats.activeLoansCount
+      };
+    });
+
+    const unassignedPool = Math.max(0, totalPool - totalAssignedToAgents);
+
     res.json({
       success: true,
       totalPool,
       marketDisbursed,
       availablePool,
       activeLoansCount,
-      utilizationPercent
+      utilizationPercent,
+      totalAssignedToAgents,
+      unassignedPool,
+      agents: agentsSummary
     });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch loan department pool data' });

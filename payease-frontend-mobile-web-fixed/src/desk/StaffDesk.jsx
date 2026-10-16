@@ -1070,6 +1070,76 @@ export default function StaffDesk() {
                 </span>
               </div>
             </div>
+
+            {/* Agent Loan Quotas & Live Market Portfolio (Agents ke Paas Kitna Paisa Hai) */}
+            {Array.isArray(deptPool.agents) && deptPool.agents.length > 0 && (
+              <div className="pt-3 border-t border-gray-100 space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                    <div>
+                      <span className="text-xs font-black text-gray-900 uppercase tracking-wide block">
+                        Agents Loan Portfolios ({deptPool.agents.length} Registered Agents)
+                      </span>
+                      <span className="text-[10px] text-gray-500">
+                        Admin dwara har agent ko sanctioned limit, unhone kitna loan diya aur kitna wapas aaya
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">
+                    Total Assigned Quota: ₹{(deptPool.totalAssignedToAgents || 0).toLocaleString("en-IN")}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {deptPool.agents.map(ag => (
+                    <div
+                      key={ag.id}
+                      className="p-3 bg-gradient-to-br from-slate-50 to-indigo-50/40 rounded-xl border border-indigo-100 shadow-2xs space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-black text-gray-900">{ag.name}</div>
+                          <div className="text-[10px] text-gray-500 font-mono">
+                            {ag.phone} • EDUCA-{ag.referralCode || ag.phone}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100/90 text-blue-800 border border-blue-200">
+                          {ag.activeLoansCount || 0} Loans
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1.5 text-[11px] pt-1.5 border-t border-indigo-100/60">
+                        <div className="bg-white p-2 rounded-lg border border-gray-100">
+                          <span className="text-[9px] text-indigo-600 uppercase font-bold block">Assigned Quota</span>
+                          <span className="font-mono font-black text-indigo-900 text-xs">
+                            ₹{ag.assignedLimit.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                        <div className="bg-white p-2 rounded-lg border border-gray-100">
+                          <span className="text-[9px] text-rose-500 uppercase font-bold block">Market me Diya</span>
+                          <span className="font-mono font-black text-rose-600 text-xs">
+                            ₹{ag.disbursedAmount.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                        <div className="bg-white p-2 rounded-lg border border-gray-100">
+                          <span className="text-[9px] text-emerald-600 uppercase font-bold block">Wapas Aaya</span>
+                          <span className="font-mono font-black text-emerald-700 text-xs">
+                            ₹{ag.recoveredAmount.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                        <div className="bg-white p-2 rounded-lg border border-gray-100">
+                          <span className="text-[9px] text-blue-600 uppercase font-bold block">Bachi Limit</span>
+                          <span className="font-mono font-black text-blue-700 text-xs">
+                            ₹{ag.remainingLimit.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

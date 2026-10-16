@@ -30,8 +30,12 @@ export default function BottomNav({ items, active, onChange }) {
                 active === key ? "text-blue-600 font-bold" : "text-gray-400"
               }`}
             >
-              {icon && <span className={`text-xl leading-none transition-transform ${active === key ? "scale-110" : ""}`}>{icon}</span>}
-              <span>{label}</span>
+              {icon && (
+                <span className={`w-6 h-6 flex items-center justify-center transition-transform ${active === key ? "scale-110" : "opacity-75"}`}>
+                  {icon}
+                </span>
+              )}
+              <span className="leading-tight">{label}</span>
             </button>
           );
         })}

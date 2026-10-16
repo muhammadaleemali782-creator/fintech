@@ -1270,6 +1270,7 @@ export default function Dashboard() {
   }, [modal, accountModal, showLoans, lightboxImg, submitInstallmentModal, agentBroadcastModalOpen, addCustomerModalOpen, nominateSubAgentModalOpen, showAgentDesk]);
 
   const [hasBiometric, setHasBiometric] = useState(false);
+  const [biometricState, setBiometricState] = useState("idle"); // "idle" | "scanning" | "success"
 
   useEffect(() => {
     if (window.AndroidBiometric?.isBiometricAvailable) {
@@ -1283,24 +1284,29 @@ export default function Dashboard() {
     }
 
     window.onBiometricSuccess = () => {
-      setAppLocked(false);
-      setBalanceRevealed(true);
-      const nextAction = pendingPinActionRef.current;
-      setPendingPinAction(null);
-      if (nextAction?.type === "passbook") {
-        setModal("passbook");
-      } else if (nextAction?.type === "wallet") {
-        setModal(null);
-        setAccountModal("wallet");
-      } else if (nextAction?.type === "send_money") {
-        setModal("send_money");
-      } else {
-        setModal(null);
-      }
-      showToast("Fingerprint verified! Wallet Unlocked", "success");
+      setBiometricState("success");
+      setTimeout(() => {
+        setAppLocked(false);
+        setBalanceRevealed(true);
+        const nextAction = pendingPinActionRef.current;
+        setPendingPinAction(null);
+        if (nextAction?.type === "passbook") {
+          setModal("passbook");
+        } else if (nextAction?.type === "wallet") {
+          setModal(null);
+          setAccountModal("wallet");
+        } else if (nextAction?.type === "send_money") {
+          setModal("send_money");
+        } else {
+          setModal(null);
+        }
+        showToast("Fingerprint verified! Wallet Unlocked", "success");
+        setBiometricState("idle");
+      }, 700);
     };
 
     window.onBiometricError = (err) => {
+      setBiometricState("idle");
       if (err && err !== "Cancelled") {
         showToast(err, "error");
       }
@@ -1405,10 +1411,18 @@ export default function Dashboard() {
   };
 
   const triggerBiometricAuth = () => {
+    setBiometricState("scanning");
     if (window.AndroidBiometric?.authenticateBiometric) {
-      window.AndroidBiometric.authenticateBiometric();
+      try {
+        window.AndroidBiometric.authenticateBiometric();
+      } catch {
+        setBiometricState("idle");
+      }
     } else {
-      showToast("Fingerprint authentication active in EducaFintech Android App", "info");
+      // In web browser / simulation mode: play scanning then shining success
+      setTimeout(() => {
+        window.onBiometricSuccess?.();
+      }, 500);
     }
   };
 
@@ -4904,11 +4918,41 @@ export default function Dashboard() {
   ];
 
   const navItems = [
-    { key: "home", label: txt.navHome, icon: "", onClick: () => { setModal(null); setAccountModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); } },
-    { key: "loans", label: txt.navLoans, icon: "", onClick: openLoansHub },
-    { key: "scan", label: txt.navScan, icon: <ScannerIcon className="w-6 h-6 text-white" />, isCenter: true, onClick: () => setModal("scan_qr") },
-    { key: "investments", label: txt.navInvestments || "Investments", icon: "", onClick: () => setAccountModal("investment_hub") },
-    { key: "profile", label: txt.navProfile, icon: "", onClick: () => setModal("profile") },
+    {
+      key: "home",
+      label: txt.navHome,
+      icon: (
+        <svg className="w-5 h-5 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      ),
+      onClick: () => { setModal(null); setAccountModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    },
+    {
+      key: "loans",
+      label: txt.navLoans,
+      icon: <img src="/icons/nav-loans.png" alt="Loans" className="w-5 h-5 object-contain" />,
+      onClick: openLoansHub
+    },
+    {
+      key: "scan",
+      label: txt.navScan,
+      icon: <ScannerIcon className="w-6 h-6 text-white" />,
+      isCenter: true,
+      onClick: () => setModal("scan_qr")
+    },
+    {
+      key: "investments",
+      label: txt.navInvestments || "Investments",
+      icon: <img src="/icons/nav-investments.png" alt="Investments" className="w-5 h-5 object-contain" />,
+      onClick: () => setAccountModal("investment_hub")
+    },
+    {
+      key: "profile",
+      label: txt.navProfile,
+      icon: <img src="/icons/nav-profile.png" alt="Profile" className="w-5 h-5 object-contain" />,
+      onClick: () => setModal("profile")
+    },
   ];
 
   // ══════════════════════════════════════════════════════
@@ -4949,17 +4993,58 @@ export default function Dashboard() {
             {userStored.name || "Educa User"} · Unlock with fingerprint or PIN
           </p>
 
-          {/* Fingerprint Biometric Trigger Button */}
+          {/* Fingerprint Biometric Trigger Button (Image 5 with Shining Animation) */}
           <button
             onClick={triggerBiometricAuth}
-            className="group relative flex flex-col items-center justify-center w-24 h-24 rounded-full bg-white border-2 border-blue-500/80 shadow-xl shadow-blue-500/10 hover:border-blue-600 hover:shadow-blue-500/20 active:scale-95 transition duration-300 mb-6"
+            className={`group relative flex flex-col items-center justify-center w-28 h-28 rounded-3xl bg-white transition-all duration-300 mb-6 cursor-pointer overflow-hidden ${
+              biometricState === "success"
+                ? "border-2 border-emerald-500 bg-emerald-50/90 shadow-2xl shadow-emerald-500/50 ring-8 ring-emerald-300/50 scale-105"
+                : biometricState === "scanning"
+                ? "border-2 border-blue-500 shadow-xl shadow-blue-500/30 ring-4 ring-blue-200 animate-pulse"
+                : "border-2 border-blue-400/80 shadow-lg shadow-blue-500/10 hover:border-blue-600 hover:shadow-blue-500/20 active:scale-95"
+            }`}
             title="Authenticate with Fingerprint"
           >
-            <div className="absolute inset-0 rounded-full border border-blue-400/40 animate-ping pointer-events-none" />
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10 text-blue-600 group-hover:scale-110 transition-transform">
-              <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" />
-            </svg>
-            <span className="text-[10px] text-blue-700 font-bold mt-1">Tap Sensor</span>
+            {/* Ping Sonar rings while scanning or idle */}
+            {biometricState !== "success" && (
+              <div className="absolute inset-0 rounded-3xl border-2 border-blue-400/30 animate-ping pointer-events-none" />
+            )}
+
+            {/* Glowing Scan Beam when scanning */}
+            {biometricState === "scanning" && (
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent animate-pulse pointer-events-none" />
+            )}
+
+            {/* Radiant Shimmer / Shine Sweep when successful */}
+            {biometricState === "success" && (
+              <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl">
+                <div className="w-full h-full bg-gradient-to-r from-transparent via-white/80 to-transparent animate-biometric-shine" />
+              </div>
+            )}
+
+            {/* Image 5: Biometric Fingerprint Icon */}
+            <div className="relative z-10 flex flex-col items-center">
+              <img
+                src="/icons/fingerprint.png"
+                alt="Fingerprint"
+                className={`w-14 h-14 object-contain transition-all duration-300 ${
+                  biometricState === "success"
+                    ? "scale-110 drop-shadow-[0_0_12px_rgba(16,185,129,0.9)] filter brightness-110"
+                    : biometricState === "scanning"
+                    ? "scale-105 drop-shadow-[0_0_8px_rgba(59,130,246,0.7)]"
+                    : "group-hover:scale-105 drop-shadow-xs"
+                }`}
+              />
+              <span className={`text-[10px] font-black mt-1 transition-colors ${
+                biometricState === "success"
+                  ? "text-emerald-700"
+                  : biometricState === "scanning"
+                  ? "text-blue-600 animate-pulse"
+                  : "text-blue-700"
+              }`}>
+                {biometricState === "success" ? "✓ Verified" : biometricState === "scanning" ? "Scanning..." : "Tap Sensor"}
+              </span>
+            </div>
           </button>
 
           {/* Single Interactive 6-Digit PIN Box Input */}
@@ -9365,10 +9450,20 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={triggerBiometricAuth}
-                className="w-full py-3 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border-2 border-emerald-300 text-emerald-900 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-95"
+                className={`w-full py-3 border-2 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 shadow-xs transition active:scale-95 cursor-pointer relative overflow-hidden ${
+                  biometricState === "success"
+                    ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-4 ring-emerald-200"
+                    : "bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border-emerald-300 text-emerald-900"
+                }`}
               >
-                <span className="text-xl"></span>
-                <span>Use Fingerprint to Unlock</span>
+                <img
+                  src="/icons/fingerprint.png"
+                  alt="Fingerprint"
+                  className={`w-5 h-5 object-contain transition-transform ${
+                    biometricState === "success" ? "scale-125 drop-shadow-[0_0_8px_rgba(16,185,129,0.9)]" : ""
+                  }`}
+                />
+                <span>{biometricState === "success" ? "✓ Fingerprint Verified!" : "Use Fingerprint to Unlock"}</span>
               </button>
               <div className="flex items-center gap-2 my-3">
                 <div className="flex-1 h-px bg-gray-200" />

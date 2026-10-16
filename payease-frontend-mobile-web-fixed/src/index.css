@@ -227,4 +227,23 @@ textarea:disabled {
   transition: opacity 150ms ease, transform 150ms ease, background-color 150ms ease, color 150ms ease;
 }
 
+/* Biometric Fingerprint Shining Animation */
+@keyframes biometricShine {
+  0% {
+    transform: translateX(-160%) skewX(-25deg);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateX(200%) skewX(-25deg);
+    opacity: 0;
+  }
+}
+
+.animate-biometric-shine {
+  animation: biometricShine 0.75s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
 

@@ -226,6 +226,7 @@ export default function App() {
 
           {/* 13. Login / Register & Reset Password */}
           <Route path="/login" element={<Login isApp={checkIsAppClient()} />} />
+          <Route path="/register" element={<Login isApp={checkIsAppClient()} initialTab="register" />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* 14. Customer Dashboard */}

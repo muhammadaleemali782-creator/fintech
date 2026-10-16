@@ -4,10 +4,11 @@ import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
 import { appCache, CacheManager } from "./utils/dataCache";
 
-export default function Login({ isApp = false }) {
+export default function Login({ isApp = false, initialTab = "login" }) {
   const navigate = useNavigate();
   const isAppClient = isApp || (typeof window !== "undefined" && (new URLSearchParams(window.location.search).get("app") === "true" || localStorage.getItem("educa_app_mode") === "true" || (navigator.userAgent || "").toLowerCase().includes("wv") || (navigator.userAgent || "").toLowerCase().includes("educafintech") || !!window.AndroidBiometric));
-  const [tab, setTab] = useState("login"); // "login" | "mail-login" | "register" | "forgot"
+  const searchTab = typeof window !== "undefined" ? (new URLSearchParams(window.location.search).get("tab") || (window.location.pathname.includes("register") ? "register" : "")) : "";
+  const [tab, setTab] = useState(searchTab || initialTab || "login"); // "login" | "mail-login" | "register" | "forgot"
   const [msg, setMsg] = useState({ text: "", type: "" });
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -33,7 +34,6 @@ export default function Login({ isApp = false }) {
   const [forgotEmail, setForgotEmail] = useState("");
   const [regData, setRegData] = useState({
     name: "",
-    email: "",
     phone: "",
     password: "",
     referralCode: "",
@@ -153,18 +153,17 @@ export default function Login({ isApp = false }) {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
-    let cleanEmail = regData.email.trim().toLowerCase();
-    if (cleanEmail.endsWith('@gmail.com')) {
-      cleanEmail = cleanEmail.replace(/@gmail\.com$/, '@educa.com');
-    } else if (!cleanEmail.includes('@')) {
-      cleanEmail = `${cleanEmail}@educa.com`;
-    }
+
+    const cleanPhone = (regData.phone || '').replace(/[^0-9]/g, '');
+    const phoneSuffix = cleanPhone.slice(-4) || Math.floor(1000 + Math.random() * 9000).toString();
+    const firstName = (regData.name || 'user').trim().toLowerCase().split(/\s+/)[0].replace(/[^a-z0-9]/g, '') || 'user';
+    const autoEmail = `${firstName}${phoneSuffix}@educa.com`;
 
     try {
       const res = await fetch(`${API}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...regData, email: cleanEmail }),
+        body: JSON.stringify({ ...regData, email: autoEmail }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Registration failed");
@@ -180,10 +179,11 @@ export default function Login({ isApp = false }) {
         appCache.set("educa_cached_balance", 0);
         CacheManager.set(CacheManager.createKey(role, uId, "balance"), 0);
       }
+      const assignedMail = data.user?.email || autoEmail;
       showMsg(
         regData.isAgent
-          ? "Partner application submitted! Redirecting..."
-          : "Account & Educa Mail created! Redirecting...",
+          ? `Partner application submitted! Aapka Official Educa Mail: ${assignedMail}`
+          : `🎉 Welcome ${regData.name}! Aapka Educa Mail (${assignedMail}) create ho gaya hai!`,
         "success"
       );
       setTimeout(() => {
@@ -192,7 +192,7 @@ export default function Login({ isApp = false }) {
         } catch {
           window.location.replace("/dashboard");
         }
-      }, 400);
+      }, 700);
     } catch (err) {
       showMsg(err.message, "error");
     } finally {
@@ -463,13 +463,6 @@ export default function Login({ isApp = false }) {
           {/* 3. REGISTER */}
           {tab === "register" && (
             <form onSubmit={handleRegister} className="space-y-3.5">
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-start gap-2">
-                <span className="text-base"></span>
-                <div>
-                  <span className="font-bold text-emerald-900">Auto Educa Mail Provisioning:</span> Registration ke saath aapka official <strong>Educa Mail</strong> account automatically activate ho jayega.
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Full Legal Name</label>
                 <input
@@ -483,19 +476,7 @@ export default function Login({ isApp = false }) {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={regData.email}
-                  onChange={(e) => setRegData({ ...regData, email: e.target.value })}
-                  placeholder="rahul@educa.com"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Mobile Number (For Loans & OTP)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Mobile Number (For Loans, Login & OTP)</label>
                 <input
                   type="tel"
                   required
@@ -505,6 +486,35 @@ export default function Login({ isApp = false }) {
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 outline-none"
                 />
               </div>
+
+              {/* AUTO-GENERATED UNIQUE EDUCA MAIL PREVIEW (NO EMAIL INPUT NEEDED) */}
+              {(() => {
+                const cleanPhone = (regData.phone || '').replace(/[^0-9]/g, '');
+                const phoneSuffix = cleanPhone.slice(-4) || '••••';
+                const firstName = (regData.name || '').trim().toLowerCase().split(/\s+/)[0].replace(/[^a-z0-9]/g, '') || 'username';
+                const previewMail = `${firstName}${phoneSuffix}@educa.com`;
+
+                return (
+                  <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 rounded-2xl flex items-center justify-between gap-2 shadow-2xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow-xs">
+                        E
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">
+                          Unique Educa Mail (Auto Generated)
+                        </span>
+                        <span className="text-xs font-mono font-black text-slate-900 truncate block">
+                          {previewMail}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-lg shrink-0 border border-emerald-200">
+                      Auto Set
+                    </span>
+                  </div>
+                );
+              })()}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Create Password</label>

@@ -26,7 +26,7 @@ const {
 // Input validation rules
 const registerRules = [
   body('name').trim().isLength({ min: 2, max: 60 }).withMessage('Name must be 2-60 characters'),
-  body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
+  body('email').optional({ checkFalsy: true }).isEmail().withMessage('Valid email required').normalizeEmail(),
   body('phone').trim().isLength({ min: 10, max: 15 }).withMessage('Valid phone required'),
   body('password').isLength({ min: 8, max: 72 }).withMessage('Password must be 8-72 characters')
 ];
@@ -51,10 +51,30 @@ router.post('/register', (req, res, next) => {
     if (!errors.isEmpty()) return res.status(400).json({ message: errors.array()[0].msg });
 
     const { name, email, phone, password, referralCode, isAgent, agentCommissionModel, agentBusinessName, agentCity } = req.body;
-    const cleanEmail = (email || '').trim().toLowerCase();
+    
+    // Auto-generate unique Educa Mail if not provided by user
+    let cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+      const phoneSuffix = cleanPhone.slice(-4) || Math.floor(1000 + Math.random() * 9000).toString();
+      const firstName = (name || 'user').trim().toLowerCase().split(/\s+/)[0].replace(/[^a-z0-9]/g, '') || 'user';
+      let candidateEmail = `${firstName}${phoneSuffix}@educa.com`;
+      let count = 1;
+      while (await User.findOne({ email: candidateEmail })) {
+        candidateEmail = `${firstName}${phoneSuffix}${count}@educa.com`;
+        count++;
+      }
+      cleanEmail = candidateEmail;
+    } else {
+      if (cleanEmail.endsWith('@gmail.com')) {
+        cleanEmail = cleanEmail.replace(/@gmail\.com$/i, '@educa.com');
+      } else if (!cleanEmail.includes('@')) {
+        cleanEmail = `${cleanEmail}@educa.com`;
+      }
+    }
 
     const exists = await User.findOne({
-      $or: [{ email: cleanEmail }, { phone: phone.trim() }]
+      $or: [{ phone: phone.trim() }, { email: cleanEmail }]
     });
     if (exists) {
       return res.status(400).json({

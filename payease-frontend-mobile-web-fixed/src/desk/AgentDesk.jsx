@@ -538,12 +538,14 @@ export default function AgentDesk() {
         ══════════════════════════════════════════════════════ */}
         {activeTab === "overview" && (
           <div className="space-y-4">
-            {/* Agent Individual Loan Lending Quota Banner (Admin Set) */}
+            {/* Agent Individual Loan Quota Banner (Company Set) */}
             {(() => {
               const agentLoanLimit = agentMetrics?.agentInfo?.loanLimit ?? agentMetrics?.stats?.loanLimit ?? userProfile?.agentProfile?.loanLimit ?? 100000;
               const marketDisbursed = agentMetrics?.stats?.totalDisbursal || 0;
               const availableQuota = Math.max(0, agentLoanLimit - marketDisbursed);
               const quotaUtilization = agentLoanLimit > 0 ? Math.min(100, Math.round((marketDisbursed / agentLoanLimit) * 100)) : 0;
+              const currentLang = localStorage.getItem("educa_lang") || localStorage.getItem("educa_site_lang") || "hinglish";
+              const isEng = currentLang === "english" || currentLang === "en";
 
               return (
                 <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/90 shadow-2xs space-y-3">
@@ -552,10 +554,10 @@ export default function AgentDesk() {
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                       <div>
                         <div className="text-xs sm:text-sm font-black uppercase tracking-wider text-gray-900">
-                          Mera Loan Lending Quota (Admin Set)
+                          {isEng ? "My Loan Quota (Company Set)" : "Mera Loan Quota (Company Set)"}
                         </div>
                         <div className="text-xs text-gray-500 font-medium">
-                          Admin dwara aapke liye sanctioned kul lending limit (Business, Student sabhi loans ke liye)
+                          {isEng ? "Total sanctioned loan limit set by Company" : "Company dwara aapke liye sanctioned kul loan limit"}
                         </div>
                       </div>
                     </div>
@@ -575,11 +577,13 @@ export default function AgentDesk() {
                       <div className="text-xl sm:text-2xl font-black font-mono text-gray-900 mt-0.5">
                         ₹{agentLoanLimit.toLocaleString("en-IN")}
                       </div>
-                      <span className="text-[10px] text-gray-400">Admin Configured Quota</span>
+                      <span className="text-[10px] text-gray-400">Company Configured Quota</span>
                     </div>
 
                     <div className="bg-rose-50/60 p-3.5 rounded-xl border border-rose-200">
-                      <span className="text-[10px] text-rose-600 uppercase font-bold block">Market me Diya Loan</span>
+                      <span className="text-[10px] text-rose-600 uppercase font-bold block">
+                        {isEng ? "Market Disbursed Loan" : "Market me Diya Loan"}
+                      </span>
                       <div className="text-xl sm:text-2xl font-black font-mono text-rose-600 mt-0.5">
                         ₹{marketDisbursed.toLocaleString("en-IN")}
                       </div>
@@ -587,7 +591,9 @@ export default function AgentDesk() {
                     </div>
 
                     <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200">
-                      <span className="text-[10px] text-emerald-700 uppercase font-bold block">Available Sanctioned Quota</span>
+                      <span className="text-[10px] text-emerald-700 uppercase font-bold block">
+                        {isEng ? "Available Loan Quota" : "Uplabdh Loan Quota"}
+                      </span>
                       <div className="text-xl sm:text-2xl font-black font-mono text-emerald-700 mt-0.5">
                         ₹{availableQuota.toLocaleString("en-IN")}
                       </div>

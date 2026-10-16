@@ -9766,6 +9766,29 @@ export default function Dashboard() {
                   </span>
                 </div>
               </div>
+
+              {/* OFFICIAL EDUCA MAIL BADGE & 1-CLICK COPY */}
+              <div className="p-2.5 bg-white rounded-xl border border-blue-200/90 flex items-center justify-between gap-2 shadow-2xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0">
+                    ✉️
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider block">Official Educa Mail</span>
+                    <span className="font-mono font-bold text-gray-900 text-xs truncate block">{userProfile.email || userStored.email || "N/A"}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(userProfile.email || userStored.email || "");
+                    showToast("Educa Mail ID copied to clipboard!", "success");
+                  }}
+                  className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-lg text-xs font-extrabold transition active:scale-95 cursor-pointer shrink-0"
+                >
+                  Copy Mail
+                </button>
+              </div>
             </div>
           )}
 

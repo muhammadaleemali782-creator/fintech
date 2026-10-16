@@ -1479,6 +1479,28 @@ export default function Dashboard() {
     } catch { setIsSpeaking(false); }
   };
 
+  const formatTiming = (reqDate, procDate) => {
+    if (!reqDate) return null;
+    const start = new Date(reqDate);
+    if (isNaN(start.getTime())) return null;
+    const end = procDate ? new Date(procDate) : new Date();
+    const diffMs = Math.max(0, end.getTime() - start.getTime());
+    const diffMins = Math.floor(diffMs / 60000);
+    const days = Math.floor(diffMins / 1440);
+    const hours = Math.floor((diffMins % 1440) / 60);
+    const mins = diffMins % 60;
+
+    let durationStr = "";
+    if (days > 0) durationStr = `${days}d ${hours}h ${mins}m`;
+    else if (hours > 0) durationStr = `${hours}h ${mins}m`;
+    else durationStr = `${mins}m`;
+
+    return {
+      reqStr: start.toLocaleDateString("en-IN", { day: "numeric", month: "short" }) + ", " + start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      procStr: procDate ? (new Date(procDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) + ", " + new Date(procDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })) : null,
+      durationStr
+    };
+  };
 
   const handleCheckBalanceClick = () => {
     setPinError("");
@@ -5189,7 +5211,7 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-4 sm:py-8 overflow-x-hidden">
+      <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 pt-3.5 pb-2 sm:py-6 overflow-x-hidden">
 
 
         {/* ══════════════════════════════════════════════════════
@@ -5326,10 +5348,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-3xl p-5 sm:p-7 text-slate-800 shadow-md border border-slate-200/90 mb-6 sm:mb-8 relative overflow-hidden">
           {/* Header Row */}
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-2xl text-blue-600 shadow-xs shrink-0">
-                
-              </div>
+            <div className="flex items-center gap-2">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 font-display">
@@ -5347,7 +5366,6 @@ export default function Dashboard() {
                   )}
                 </div>
                 <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1.5">
-                  
                   <strong>{txt.branchName}</strong> • IFSC: <span className="font-mono font-bold text-blue-600">EFS0000JHAL</span>
                 </p>
               </div>
@@ -5359,7 +5377,6 @@ export default function Dashboard() {
                 onClick={handleOpenWalletAccount}
                 className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
               >
-                
                 <span>{lang === "hindi" ? "वॉलेट खाता खोलें" : "Open Wallet Account"}</span>
               </button>
               <button
@@ -5375,79 +5392,85 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Details Grid */}
+          {/* Details Grid (Directly Clickable to Copy) */}
           <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-4">
             {/* Account Number */}
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between hover:bg-blue-50/30 transition">
-              <div className="flex justify-between items-center mb-1.5">
+            <div
+              onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "acc")}
+              className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 hover:bg-blue-50/50 border border-slate-200 hover:border-blue-300 flex flex-col justify-between transition cursor-pointer active:scale-[0.99] select-none group"
+              title="Click to copy account number"
+            >
+              <div className="flex justify-between items-center mb-1">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   {txt.accountNumberLabel}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "acc")}
-                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white border border-slate-200 hover:bg-slate-100 text-blue-600 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-                >
-                  {copiedField === "acc" ? "✓ " + txt.copied : "" + txt.copy}
-                </button>
               </div>
-              <div className="font-mono font-black text-xl sm:text-2xl text-slate-900 tracking-widest my-1">
+              <div className="font-mono font-black text-xl sm:text-2xl text-slate-900 tracking-widest my-1 group-hover:text-blue-600 transition-colors">
                 {userProfile.accountNumber || "EFS0000001"}
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                {lang === "hindi" ? "खाता धारक:" : "Holder:"} <span className="text-slate-900 font-bold">{userProfile.name || userStored.name || "Customer"}</span>
-              </p>
+              <div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {lang === "hindi" ? "खाता धारक:" : "Holder:"} <span className="text-slate-900 font-bold">{userProfile.name || userStored.name || "Customer"}</span>
+                </p>
+                <p className="text-[10px] text-blue-600 font-semibold mt-1.5 pt-1.5 border-t border-slate-200/60 flex items-center gap-1">
+                  {copiedField === "acc" ? "✓ " + txt.copied : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                </p>
+              </div>
             </div>
 
             {/* IFSC Code & Branch */}
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between hover:bg-blue-50/30 transition">
-              <div className="flex justify-between items-center mb-1.5">
+            <div
+              onClick={() => copyToClipboard("EFS0000JHAL", "ifsc")}
+              className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 hover:bg-blue-50/50 border border-slate-200 hover:border-blue-300 flex flex-col justify-between transition cursor-pointer active:scale-[0.99] select-none group"
+              title="Click to copy IFSC code"
+            >
+              <div className="flex justify-between items-center mb-1">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   {txt.ifscLabel}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard("EFS0000JHAL", "ifsc")}
-                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white border border-slate-200 hover:bg-slate-100 text-blue-600 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-                >
-                  {copiedField === "ifsc" ? "✓ " + txt.copied : "" + txt.copy}
-                </button>
               </div>
               <div className="font-mono font-black text-xl sm:text-2xl text-blue-600 tracking-wider my-1">
                 EFS0000JHAL
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                {txt.branchName} - 211012
-              </p>
+              <div>
+                <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                  {txt.branchName} - 211012
+                </p>
+                <p className="text-[10px] text-blue-600 font-semibold mt-1.5 pt-1.5 border-t border-slate-200/60 flex items-center gap-1">
+                  {copiedField === "ifsc" ? "✓ " + txt.copied : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                </p>
+              </div>
             </div>
 
             {/* App UPI ID */}
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between hover:bg-blue-50/30 transition">
-              <div className="flex justify-between items-center mb-1.5">
+            <div
+              onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "upi")}
+              className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-300 flex flex-col justify-between transition cursor-pointer active:scale-[0.99] select-none group"
+              title="Click to copy UPI ID"
+            >
+              <div className="flex justify-between items-center mb-1">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   {txt.upiIdLabel}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "upi")}
-                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white border border-slate-200 hover:bg-slate-100 text-blue-600 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-                >
-                  {copiedField === "upi" ? "✓ " + txt.copied : "" + txt.copy}
-                </button>
               </div>
               <div className="font-mono font-black text-lg sm:text-xl text-emerald-700 tracking-wide truncate my-1">
                 {userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa")}
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                {lang === "hindi" ? "पैसे भेजने हेतु यह UPI ID दें" : "Virtual UPI ID for receiving payments"}
-              </p>
+              <div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {lang === "hindi" ? "पैसे भेजने हेतु यह UPI ID दें" : "Virtual UPI ID for receiving payments"}
+                </p>
+                <p className="text-[10px] text-emerald-700 font-semibold mt-1.5 pt-1.5 border-t border-slate-200/60 flex items-center gap-1">
+                  {copiedField === "upi" ? "✓ " + txt.copied : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                </p>
+              </div>
             </div>
           </div>
         </div>
         {/* ══════════════════════════════════════════════════════
             CORE HUBS: 1. LOAN & 2. INVESTMENT (2 CORE OPTIONS)
         ══════════════════════════════════════════════════════ */}
-        <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-gray-100 mb-6 sm:mb-8">
+        <div className="bg-white rounded-3xl p-3.5 sm:p-6 shadow-sm border border-gray-100 mb-1 sm:mb-2">
           <div className="flex justify-between items-center mb-5">
             <div>
               <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
@@ -5622,33 +5645,33 @@ export default function Dashboard() {
                 </div>
 
                 {/* App UPI ID Row */}
-                <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10">
-                  <div>
+                <div
+                  onClick={() => copyToClipboard(activeUpiId, "qr_upi")}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-400/50 transition cursor-pointer active:scale-[0.99] select-none"
+                  title="Click to copy UPI ID"
+                >
+                  <div className="flex items-center justify-between">
                     <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.upiIdLabel}</span>
                     <span className="font-mono font-black text-xs text-emerald-300">{activeUpiId}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(activeUpiId, "qr_upi")}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 transition active:scale-95 cursor-pointer"
-                  >
-                    {copiedField === "qr_upi" ? "✓ " + txt.copied : "" + txt.copy}
-                  </button>
+                  <p className="text-[10px] text-indigo-300 font-semibold mt-1">
+                    {copiedField === "qr_upi" ? "✓ " + txt.copied : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                  </p>
                 </div>
 
                 {/* Account Number Row */}
-                <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10">
-                  <div>
+                <div
+                  onClick={() => copyToClipboard(activeAccountNum, "qr_acc")}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-400/50 transition cursor-pointer active:scale-[0.99] select-none"
+                  title="Click to copy Account Number"
+                >
+                  <div className="flex items-center justify-between">
                     <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.accountNumberLabel}</span>
                     <span className="font-mono font-black text-xs text-white tracking-wider">{activeAccountNum}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(activeAccountNum, "qr_acc")}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 transition active:scale-95 cursor-pointer"
-                  >
-                    {copiedField === "qr_acc" ? "✓ " + txt.copied : "" + txt.copy}
-                  </button>
+                  <p className="text-[10px] text-indigo-300 font-semibold mt-1">
+                    {copiedField === "qr_acc" ? "✓ " + txt.copied : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                  </p>
                 </div>
               </div>
 
@@ -5936,8 +5959,11 @@ export default function Dashboard() {
             {/* Camera Error State */}
             {cameraError && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-200 gap-3 bg-slate-900/95 p-6 text-center">
-                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center text-2xl">
-                  
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+                  <svg className="w-6 h-6 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
                 </div>
                 <h4 className="text-sm font-bold text-white">Camera Access Required</h4>
                 <p className="text-xs text-slate-300 max-w-xs">{cameraError}</p>
@@ -6108,8 +6134,10 @@ export default function Dashboard() {
                   {activeCapital > 0 && (
                     <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl shadow-xs flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">
-                          
+                        <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                          </svg>
                         </div>
                         <div>
                           <p className="text-xs font-extrabold text-emerald-950">Daily Profit</p>
@@ -7989,46 +8017,46 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200">
-                <div>
+              <div
+                onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "w_acc")}
+                className="p-3 bg-white hover:bg-indigo-50/40 rounded-xl border border-gray-200 hover:border-indigo-300 transition cursor-pointer active:scale-[0.99] select-none"
+                title="Click to copy Account Number"
+              >
+                <div className="flex items-center justify-between">
                   <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.accountNumberLabel}</span>
                   <span className="font-mono font-bold text-sm text-gray-900">{userProfile.accountNumber || "EFS0000001"}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "w_acc")}
-                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer active:scale-95"
-                >
-                  {copiedField === "w_acc" ? "✓ " + txt.copied : "" + txt.copy}
-                </button>
+                <p className="text-[10px] text-indigo-600 font-semibold mt-1">
+                  {copiedField === "w_acc" ? "✓ " + txt.copied : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                </p>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200">
-                <div>
+              <div
+                onClick={() => copyToClipboard("EFS0000JHAL", "w_ifsc")}
+                className="p-3 bg-white hover:bg-indigo-50/40 rounded-xl border border-gray-200 hover:border-indigo-300 transition cursor-pointer active:scale-[0.99] select-none"
+                title="Click to copy IFSC Code"
+              >
+                <div className="flex items-center justify-between">
                   <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.ifscLabel}</span>
                   <span className="font-mono font-bold text-sm text-amber-700">EFS0000JHAL</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard("EFS0000JHAL", "w_ifsc")}
-                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer active:scale-95"
-                >
-                  {copiedField === "w_ifsc" ? "✓ " + txt.copied : "" + txt.copy}
-                </button>
+                <p className="text-[10px] text-indigo-600 font-semibold mt-1">
+                  {copiedField === "w_ifsc" ? "✓ " + txt.copied : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                </p>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200">
-                <div>
+              <div
+                onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "w_upi")}
+                className="p-3 bg-white hover:bg-emerald-50/40 rounded-xl border border-gray-200 hover:border-emerald-300 transition cursor-pointer active:scale-[0.99] select-none"
+                title="Click to copy UPI ID"
+              >
+                <div className="flex items-center justify-between">
                   <span className="text-[10px] text-gray-400 font-bold uppercase block">{txt.upiIdLabel}</span>
                   <span className="font-mono font-bold text-xs text-emerald-700">{userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa")}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "w_upi")}
-                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer active:scale-95"
-                >
-                  {copiedField === "w_upi" ? "✓ " + txt.copied : "" + txt.copy}
-                </button>
+                <p className="text-[10px] text-emerald-600 font-semibold mt-1">
+                  {copiedField === "w_upi" ? "✓ " + txt.copied : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                </p>
               </div>
             </div>
 
@@ -8597,6 +8625,31 @@ export default function Dashboard() {
                           <p className="text-[11px] text-gray-500">
                             {isDaily ? `${totalCount} Days @ ${l.interestRate}%` : isStudent ? `${totalCount} Easy Installments @ 8% p.a.` : `${totalCount} Easy Installments @ 1.34%/kist`}
                           </p>
+                          {(() => {
+                            const procDate = l.approvedAt || (['approved', 'active', 'completed', 'rejected'].includes(l.status) ? (l.handledBy?.at || l.updatedAt) : null);
+                            const timing = formatTiming(l.createdAt || l.appliedAt, procDate);
+                            if (!timing) return null;
+                            const isApprovedState = ["approved", "active", "completed"].includes(l.status);
+                            const isRejectedState = l.status === "rejected";
+                            return (
+                              <div className="mt-1 text-[10px] text-gray-500 space-y-0.5">
+                                <div>Applied: <span className="font-medium text-gray-700">{timing.reqStr}</span></div>
+                                {isApprovedState ? (
+                                  <div className="text-emerald-700 font-semibold">
+                                    Approved: {timing.procStr} <span className="text-emerald-500 font-normal">({timing.durationStr})</span>
+                                  </div>
+                                ) : isRejectedState ? (
+                                  <div className="text-rose-600 font-semibold">
+                                    Rejected: {timing.procStr}
+                                  </div>
+                                ) : (
+                                  <div className="text-amber-600 font-medium">
+                                    Waiting: {timing.durationStr} ago
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                           {l.documents?.offlineEvidenceUrl && (
                             <button
                               type="button"
@@ -8776,8 +8829,10 @@ export default function Dashboard() {
                 className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-emerald-100/60 transition active:scale-95"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shrink-0">
-                    
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
                   </div>
                   <div>
                     <h5 className="font-extrabold text-xs text-gray-900">Personal Loan Account</h5>
@@ -8793,8 +8848,11 @@ export default function Dashboard() {
                 className="p-3 bg-cyan-50/70 border border-cyan-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-cyan-100/60 transition active:scale-95"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center text-xl shrink-0">
-                    
+                  <div className="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-cyan-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                    </svg>
                   </div>
                   <div>
                     <h5 className="font-extrabold text-xs text-gray-900">Student Loan Account</h5>
@@ -8810,8 +8868,10 @@ export default function Dashboard() {
                 className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-amber-100/60 transition active:scale-95"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl shrink-0">
-                    
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-amber-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
                   </div>
                   <div>
                     <h5 className="font-extrabold text-xs text-gray-900">Micro Business Loan</h5>
@@ -8854,24 +8914,24 @@ export default function Dashboard() {
 
           {depForm.method === "upi" ? (
             <div className="bg-slate-50 rounded-xl p-3.5 space-y-2.5 border border-slate-200/80">
-              <div className="flex items-center justify-between">
+              <div
+                onClick={() => {
+                  copyToClipboard(depositDetails.upiId);
+                  setCopiedDepField("UPI ID");
+                  showToast(`Copied UPI ID: ${depositDetails.upiId}`, "success");
+                  setTimeout(() => setCopiedDepField(""), 2000);
+                }}
+                className="p-3 bg-white hover:bg-blue-50/40 rounded-xl border border-slate-200/80 hover:border-blue-300 transition cursor-pointer active:scale-[0.99] select-none"
+                title="Click to copy UPI ID"
+              >
                 <div>
                   <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Official Admin UPI ID</p>
                   <p className="font-mono font-black text-base text-blue-700 select-all">{depositDetails.upiId}</p>
                   <p className="text-[11px] text-slate-600 font-medium">{depositDetails.upiName}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    copyToClipboard(depositDetails.upiId);
-                    setCopiedDepField("UPI ID");
-                    showToast(`Copied UPI ID: ${depositDetails.upiId}`, "success");
-                    setTimeout(() => setCopiedDepField(""), 2000);
-                  }}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-lg shadow-xs transition active:scale-95 flex items-center gap-1 cursor-pointer"
-                >
-                  {copiedDepField === "UPI ID" ? "✓ Copied" : "Copy UPI"}
-                </button>
+                <p className="text-[10px] text-blue-600 font-semibold mt-1">
+                  {copiedDepField === "UPI ID" ? "✓ Copied!" : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                </p>
               </div>
               {depForm.amount && Number(depForm.amount) >= 100 && (
                 <a
@@ -8884,41 +8944,41 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="bg-slate-50 rounded-xl p-3.5 space-y-2.5 border border-slate-200/80 text-xs">
-              <div className="flex items-center justify-between">
+              <div
+                onClick={() => {
+                  copyToClipboard(depositDetails.accountNumber);
+                  setCopiedDepField("Account No");
+                  showToast(`Copied Account No: ${depositDetails.accountNumber}`, "success");
+                  setTimeout(() => setCopiedDepField(""), 2000);
+                }}
+                className="p-3 bg-white hover:bg-blue-50/40 rounded-xl border border-slate-200/80 hover:border-blue-300 transition cursor-pointer active:scale-[0.99] select-none"
+                title="Click to copy Account Number"
+              >
                 <div>
                   <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Account Number</p>
                   <p className="font-mono font-black text-base text-blue-700 select-all">{depositDetails.accountNumber}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    copyToClipboard(depositDetails.accountNumber);
-                    setCopiedDepField("Account No");
-                    showToast(`Copied Account No: ${depositDetails.accountNumber}`, "success");
-                    setTimeout(() => setCopiedDepField(""), 2000);
-                  }}
-                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] rounded-lg transition active:scale-95 cursor-pointer"
-                >
-                  {copiedDepField === "Account No" ? "✓ Copied" : "Copy A/C"}
-                </button>
+                <p className="text-[10px] text-blue-600 font-semibold mt-1">
+                  {copiedDepField === "Account No" ? "✓ Copied!" : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                </p>
               </div>
-              <div className="flex items-center justify-between">
+              <div
+                onClick={() => {
+                  copyToClipboard(depositDetails.ifsc);
+                  setCopiedDepField("IFSC");
+                  showToast(`Copied IFSC: ${depositDetails.ifsc}`, "success");
+                  setTimeout(() => setCopiedDepField(""), 2000);
+                }}
+                className="p-3 bg-white hover:bg-blue-50/40 rounded-xl border border-slate-200/80 hover:border-blue-300 transition cursor-pointer active:scale-[0.99] select-none"
+                title="Click to copy IFSC Code"
+              >
                 <div>
                   <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">IFSC Code</p>
                   <p className="font-mono font-bold text-xs text-slate-900">{depositDetails.ifsc}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    copyToClipboard(depositDetails.ifsc);
-                    setCopiedDepField("IFSC");
-                    showToast(`Copied IFSC: ${depositDetails.ifsc}`, "success");
-                    setTimeout(() => setCopiedDepField(""), 2000);
-                  }}
-                  className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-[11px] rounded-lg transition active:scale-95 cursor-pointer"
-                >
-                  {copiedDepField === "IFSC" ? "✓ Copied" : "Copy IFSC"}
-                </button>
+                <p className="text-[10px] text-blue-600 font-semibold mt-1">
+                  {copiedDepField === "IFSC" ? "✓ Copied!" : (lang === "hindi" ? "इस विवरण पर क्लिक करके कॉपी करें" : "Click details to copy")}
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 pt-2 border-t border-slate-200">
                 <div>
@@ -10168,8 +10228,10 @@ export default function Dashboard() {
               className="w-full p-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-bold text-xs flex items-center justify-between shadow-md shadow-blue-500/20 transition active:scale-95"
             >
               <div className="flex items-center gap-3 text-left">
-                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center text-lg shrink-0">
-                  
+                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
                 </div>
                 <div>
                   <span className="block font-black text-sm text-white">{txt.passbookHistory}</span>
@@ -10185,8 +10247,10 @@ export default function Dashboard() {
               className="w-full p-3.5 bg-gradient-to-r from-slate-900 via-zinc-900 to-amber-950 border border-amber-500/30 text-white rounded-2xl font-bold text-xs flex items-center justify-between shadow-lg active:scale-95 transition"
             >
               <div className="flex items-center gap-3 text-left">
-                <div className="w-9 h-9 bg-amber-400/20 border border-amber-400/40 rounded-xl flex items-center justify-center text-lg shrink-0">
-                  
+                <div className="w-9 h-9 bg-amber-400/20 border border-amber-400/40 rounded-xl flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
@@ -10374,8 +10438,10 @@ export default function Dashboard() {
                     {/* PHYSICAL FROSTED LOCK OVERLAY FOR SILVER CARD */}
                     {!isSilverUnlocked && (
                       <div className="absolute inset-0 z-20 bg-slate-900/65 backdrop-blur-[3px] rounded-3xl flex flex-col items-center justify-center p-4 text-center">
-                        <div className="w-12 h-12 rounded-2xl bg-white/20 border border-white/30 backdrop-blur-md flex items-center justify-center text-2xl shadow-lg mb-2">
-                          
+                        <div className="w-12 h-12 rounded-2xl bg-white/20 border border-white/30 backdrop-blur-md flex items-center justify-center text-white shadow-lg mb-2">
+                          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
                         </div>
                         <span className="text-white font-black text-xs uppercase tracking-wider">
                           Silver Debit Card Locked
@@ -10499,8 +10565,10 @@ export default function Dashboard() {
                     {/* PHYSICAL FROSTED GOLD LOCK OVERLAY FOR PLATINUM VIP CARD */}
                     {!isPlatinumUnlocked && (
                       <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-[3px] rounded-3xl flex flex-col items-center justify-center p-4 text-center">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 backdrop-blur-md flex items-center justify-center text-2xl shadow-lg mb-2">
-                          
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 backdrop-blur-md flex items-center justify-center text-amber-300 shadow-lg mb-2">
+                          <svg className="w-6 h-6 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
                         </div>
                         <span className="text-amber-300 font-black text-xs uppercase tracking-wider">
                           Platinum VIP Card Locked
@@ -11819,10 +11887,18 @@ export default function Dashboard() {
                     className="p-3.5 bg-white border border-gray-100 hover:border-gray-200 rounded-2xl transition shadow-xs flex items-center justify-between gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-base shrink-0 ${
-                        isCredit ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
+                        isCredit ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100"
                       }`}>
-                        {isCredit ? "" : ""}
+                        {isCredit ? (
+                          <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                          </svg>
+                        )}
                       </div>
                       <div className="min-w-0">
                         <p className="font-extrabold text-xs text-gray-900 truncate capitalize">
@@ -11850,9 +11926,31 @@ export default function Dashboard() {
                             View Payout Receipt 
                           </button>
                         )}
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          {timeStr}
-                        </p>
+                        {(() => {
+                          const procDate = t.approvedAt || (['approved', 'completed', 'active', 'rejected'].includes(t.status) ? (t.handledBy?.at || t.updatedAt) : null);
+                          const timing = formatTiming(t.createdAt, procDate);
+                          if (!timing) return <p className="text-[10px] text-gray-400 mt-0.5">{timeStr}</p>;
+                          const isApprovedState = ["approved", "completed", "active"].includes(t.status);
+                          const isRejectedState = t.status === "rejected";
+                          return (
+                            <div className="mt-1 pt-1 border-t border-gray-100 text-[10px] text-gray-500 space-y-0.5">
+                              <div>Requested: <span className="font-medium text-gray-700">{timing.reqStr}</span></div>
+                              {isApprovedState ? (
+                                <div className="text-emerald-700 font-semibold">
+                                  Approved: {timing.procStr} <span className="text-emerald-500 font-normal">({timing.durationStr})</span>
+                                </div>
+                              ) : isRejectedState ? (
+                                <div className="text-rose-600 font-semibold">
+                                  Rejected: {timing.procStr}
+                                </div>
+                              ) : (
+                                <div className="text-amber-600 font-medium">
+                                  Waiting: {timing.durationStr} ago
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -11934,9 +12032,12 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setTourStep((s) => s - 1)}
-                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition active:scale-95"
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition active:scale-95 flex items-center gap-1.5"
                 >
-                  {txt.back}
+                  <svg className="w-3.5 h-3.5 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  <span>{txt.back.replace(/^[←\s]+/, "")}</span>
                 </button>
               )}
               <button

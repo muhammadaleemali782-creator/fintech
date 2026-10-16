@@ -76,7 +76,7 @@ h1, h2, h3, .font-display {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
 }
 .pb-safe-nav {
-  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(1.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Touch targets: ensure interactive buttons meet mobile accessibility guidelines (min 44px height) */

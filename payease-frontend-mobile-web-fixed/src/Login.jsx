@@ -255,7 +255,9 @@ export default function Login({ isApp = false }) {
               to="/"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 hover:text-blue-600 transition shadow-2xs active:scale-95"
             >
-              <span>←</span>
+              <svg className="w-3.5 h-3.5 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
               <span>Back to Home</span>
             </Link>
           )}
@@ -656,8 +658,10 @@ export default function Login({ isApp = false }) {
           {tab === "forgot" && (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="text-center mb-3">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center text-xl mx-auto mb-2">
-                  
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 mx-auto mb-2 shadow-2xs">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
                 </div>
                 <h3 className="font-extrabold text-slate-900 text-base">Reset Password</h3>
                 <p className="text-xs text-slate-500 mt-1">
@@ -691,9 +695,12 @@ export default function Login({ isApp = false }) {
                 <button
                   type="button"
                   onClick={() => { setTab("login"); setMsg({ text: "", type: "" }); }}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
+                  className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold"
                 >
-                  ← Back to Sign In
+                  <svg className="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  <span>Back to Sign In</span>
                 </button>
               </div>
             </form>

@@ -17,7 +17,7 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
   if (isOpen) return null;
 
   return (
-    <div className="fixed bottom-24 sm:bottom-8 right-2 sm:right-5 z-40 select-none pointer-events-auto">
+    <div className="fixed bottom-16 sm:bottom-6 right-2 sm:right-5 z-40 select-none pointer-events-auto">
       {/* 1. FULL ROBOT (Visible when not tucked) */}
       <div
         className={`relative transition-all duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
@@ -27,6 +27,20 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
         }`}
         style={{ willChange: "transform, opacity" }}
       >
+        {/* Transparent Close 'X' Button on floating robot */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsPeek(true);
+          }}
+          aria-label="Close AI Advisor"
+          className="absolute -top-1 -right-1 z-20 w-5 h-5 flex items-center justify-center text-slate-400 hover:text-slate-800 bg-transparent border-0 shadow-none text-xs font-bold transition-all hover:scale-125 active:scale-90 cursor-pointer"
+          title="Chupayein (Hide)"
+        >
+          ✕
+        </button>
+
         {/* Robot Image (Click to open chat) */}
         <div
           onClick={onOpen}

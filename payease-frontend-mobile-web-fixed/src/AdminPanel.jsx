@@ -4246,16 +4246,20 @@ export default function AdminPanel() {
               title={isSidebarCollapsed ? "Department Desks" : undefined}
               className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
             >
-              
+              <svg className="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
               {!isSidebarCollapsed && <span className="truncate">Department Desks</span>}
             </Link>
             <Link
               to="/dashboard"
-              title={isSidebarCollapsed ? "Customer App View" : undefined}
+              title={isSidebarCollapsed ? "Back to Dashboard" : undefined}
               className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
             >
-              
-              {!isSidebarCollapsed && <span className="truncate">Customer App View</span>}
+              <svg className="w-4 h-4 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              {!isSidebarCollapsed && <span className="truncate">← Back to Dashboard</span>}
             </Link>
             {!isSidebarCollapsed && (
               <div className="flex items-center justify-between text-xs px-1 pt-0.5">
@@ -4292,7 +4296,7 @@ export default function AdminPanel() {
       <div className={`flex-1 min-w-0 max-w-full min-h-screen ${isSidebarCollapsed ? "lg:pl-20" : "lg:pl-64"} transition-all duration-200`}>
         {/* MOBILE / TABLET TOP NAV (SLIM WHITE EXECUTIVE BAR) */}
         <nav className="lg:hidden bg-white border-b border-slate-200/90 shadow-2xs sticky top-0 z-40 safe-top">
-          <div className="px-3 sm:px-5 py-2 flex items-center">
+          <div className="px-3 sm:px-5 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2.5 min-w-0">
               <button
                 type="button"
@@ -4309,6 +4313,16 @@ export default function AdminPanel() {
                 </p>
               </div>
             </div>
+
+            <Link
+              to="/dashboard"
+              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition flex items-center gap-1 active:scale-95 shadow-2xs"
+            >
+              <svg className="w-3.5 h-3.5 text-slate-700 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>Dashboard</span>
+            </Link>
           </div>
         </nav>
 
@@ -5470,8 +5484,10 @@ export default function AdminPanel() {
                     if (!data || data.length === 0) {
                       return (
                         <div className="py-14 flex flex-col items-center justify-center text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
-                          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-3 shadow-xs">
-                            
+                          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3 shadow-xs">
+                            <svg className="w-7 h-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
                           </div>
                           <p className="font-extrabold text-gray-800 text-sm">
                             {loadingAnalytics ? "Live Profit Data Sync Ho Raha Hai..." : "No Profit Yield History Yet"}
@@ -5883,8 +5899,10 @@ export default function AdminPanel() {
                           {/* Principal Deposits Row */}
                           <div className="p-4 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-gray-200 hover:shadow-xs transition-all flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center text-lg shrink-0">
-                                
+                              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                                <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                                </svg>
                               </div>
                               <div className="min-w-0">
                                 <p className="font-extrabold text-xs text-gray-900 truncate">Direct Customer Deposits</p>
@@ -5904,8 +5922,10 @@ export default function AdminPanel() {
                           {/* Accrued Profit Yield Row */}
                           <div className="p-4 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-gray-200 hover:shadow-xs transition-all flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center text-lg shrink-0">
-                                
+                              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                </svg>
                               </div>
                               <div className="min-w-0">
                                 <p className="font-extrabold text-xs text-gray-900 truncate">12% p.a. Savings Yield</p>
@@ -6845,8 +6865,10 @@ export default function AdminPanel() {
                   {/* Quick Action: Apply on Behalf / Issue Loan Shortcut */}
                   <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-xs shrink-0">
-                        
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                        </svg>
                       </div>
                       <div>
                         <h4 className="text-xs sm:text-sm font-black text-slate-900">
@@ -6896,8 +6918,8 @@ export default function AdminPanel() {
                             {/* Card Header */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
-                                  
+                                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-xs shrink-0">
+                                  {(l.userId?.name || "B")[0].toUpperCase()}
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2 flex-wrap">
@@ -7175,8 +7197,8 @@ export default function AdminPanel() {
                           <div key={b._id} className="border border-slate-200 rounded-2xl p-4 sm:p-5 bg-white shadow-xs space-y-4">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
-                                  
+                                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-black flex items-center justify-center text-sm shadow-xs shrink-0">
+                                  {(b.userId?.name || "I")[0].toUpperCase()}
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2 flex-wrap">
@@ -8320,8 +8342,10 @@ export default function AdminPanel() {
               {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center text-base shadow-xs shrink-0">
-                    
+                  <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
                   </div>
                   <div>
                     <h3 className="text-base sm:text-lg font-bold font-display text-slate-900 leading-tight">
@@ -10612,8 +10636,10 @@ export default function AdminPanel() {
               {/* PIN Card for Admin */}
               <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 rounded-2xl bg-blue-50/80 border border-blue-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-base sm:text-lg font-bold shadow-xs shrink-0">
-                    
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
                   </div>
                   <div>
                     <h4 className="text-xs sm:text-sm font-bold text-blue-950">Parent / Admin Secret Unlock PIN</h4>
@@ -11594,8 +11620,8 @@ export default function AdminPanel() {
                           <div className="space-y-3">
                             <div className="p-3.5 bg-emerald-50 border-2 border-emerald-400 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
-                                  
+                                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+                                  {(issueSelectedUser.name || "U")[0].toUpperCase()}
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2 flex-wrap">
@@ -11686,8 +11712,10 @@ export default function AdminPanel() {
                                   <div className="space-y-3 p-4 bg-emerald-50/80 border border-emerald-300 rounded-2xl">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/70 pb-2.5">
                                       <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shadow-2xs">
-                                          
+                                        <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-2xs shrink-0">
+                                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                          </svg>
                                         </div>
                                         <div>
                                           <div className="flex items-center gap-2">
@@ -11818,8 +11846,10 @@ export default function AdminPanel() {
                                   <div className="space-y-3 p-4 bg-amber-50/90 border-2 border-amber-300 rounded-2xl">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-2.5">
                                       <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-base shadow-2xs">
-                                          
+                                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-2xs shrink-0">
+                                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                          </svg>
                                         </div>
                                         <div>
                                           <div className="flex items-center gap-2">
@@ -13256,8 +13286,8 @@ export default function AdminPanel() {
                         {/* Header: User Info & Account Number */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
-                              
+                            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-xs shrink-0">
+                              {(b.userId?.name || "I")[0].toUpperCase()}
                             </div>
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
@@ -13986,8 +14016,10 @@ export default function AdminPanel() {
               <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-100 shadow-sm space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center text-lg">
-                      
+                    <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center shadow-2xs shrink-0">
+                      <svg className="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z" />
+                      </svg>
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-900 flex items-center gap-2">

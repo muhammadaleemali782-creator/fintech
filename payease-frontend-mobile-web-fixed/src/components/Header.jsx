@@ -82,19 +82,42 @@ export default function Header() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* LOGO */}
-        <Link to="/" className="flex items-center gap-2.5">
-          <img
-            src="/icon-192.png"
-            alt="Educa Fintech Logo"
-            className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-full shadow-xs shrink-0"
-          />
-          <div>
-            <span className="font-extrabold text-xl text-[#0C1B3A] tracking-tight">
-              Educa<span className="text-[#1D6AE5]">Fintech</span>
-            </span>
-          </div>
-        </Link>
+        {/* LOGO & BACK BUTTON */}
+        <div className="flex items-center gap-2">
+          {location.pathname !== "/" && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate(token ? "/dashboard" : "/");
+                }
+              }}
+              className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition active:scale-95 flex items-center gap-1 cursor-pointer shadow-2xs"
+              title="Dashboard / Previous page par wapas jayein"
+              aria-label="Back"
+            >
+              <svg className="w-3.5 h-3.5 text-slate-800 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span className="font-bold">Back</span>
+            </button>
+          )}
+
+          <Link to="/" className="flex items-center gap-2.5">
+            <img
+              src="/icon-192.png"
+              alt="Educa Fintech Logo"
+              className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-full shadow-xs shrink-0"
+            />
+            <div>
+              <span className="font-extrabold text-xl text-[#0C1B3A] tracking-tight">
+                Educa<span className="text-[#1D6AE5]">Fintech</span>
+              </span>
+            </div>
+          </Link>
+        </div>
 
         {/* DESKTOP NAV */}
         <nav className="hidden lg:flex items-center gap-1 xl:gap-2">

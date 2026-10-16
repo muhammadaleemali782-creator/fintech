@@ -640,6 +640,63 @@ export default function StaffDesk() {
     }
   };
 
+  // Precise Timing Helper: requested at, approved/rejected at, and duration in days, hours, minutes
+  const formatTiming = (reqDate, procDate) => {
+    if (!reqDate) return null;
+    const start = new Date(reqDate);
+    if (isNaN(start.getTime())) return null;
+    const end = procDate ? new Date(procDate) : new Date();
+    const diffMs = Math.max(0, end.getTime() - start.getTime());
+    const diffMins = Math.floor(diffMs / 60000);
+    const days = Math.floor(diffMins / 1440);
+    const hours = Math.floor((diffMins % 1440) / 60);
+    const mins = diffMins % 60;
+
+    let durationStr = "";
+    if (days > 0) durationStr = `${days}d ${hours}h ${mins}m`;
+    else if (hours > 0) durationStr = `${hours}h ${mins}m`;
+    else durationStr = `${mins}m`;
+
+    return {
+      reqStr: start.toLocaleDateString("en-IN", { day: "numeric", month: "short" }) + ", " + start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      procStr: procDate ? (new Date(procDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) + ", " + new Date(procDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })) : null,
+      durationStr
+    };
+  };
+
+  // Live Counts for Filter Dropdown (All, Pending, Approved, Rejected)
+  const filterCounts = useMemo(() => {
+    const list = queues[activeTab] || [];
+    if (activeTab === "kyc") {
+      let normal = 0, loan = 0, lending = 0, bond = 0;
+      list.forEach(item => {
+        const hasLoan = Boolean(item.hasLoan || item.loanId || item.documents?.chequeUrl || item.kycDocuments?.chequeUrl || (item.purpose && item.purpose.toLowerCase().includes("loan")));
+        const hasLending = Boolean(item.hasLending || item.lendingId || (item.purpose && item.purpose.toLowerCase().includes("lending")));
+        const hasBond = Boolean(item.hasBond || item.bondId || (item.purpose && item.purpose.toLowerCase().includes("bond")));
+        if (hasLoan) loan++;
+        else if (hasLending) lending++;
+        else if (hasBond) bond++;
+        else normal++;
+      });
+      return { all: list.length, normal, loan, lending, bond, pending: list.length, approved: 0, rejected: 0 };
+    }
+
+    let pending = 0, approved = 0, rejected = 0;
+    list.forEach(item => {
+      const s = String(item.status || "pending").toLowerCase();
+      if (["pending", "hold"].includes(s)) pending++;
+      else if (["approved", "completed", "active", "verified"].includes(s)) approved++;
+      else if (s === "rejected") rejected++;
+    });
+
+    return {
+      all: list.length,
+      pending,
+      approved,
+      rejected
+    };
+  }, [queues, activeTab]);
+
   // Filter current queue items
   const currentItems = useMemo(() => {
     let list = queues[activeTab] || [];
@@ -737,14 +794,11 @@ export default function StaffDesk() {
       )}
 
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 px-4 sm:px-8 py-3 flex items-center justify-between gap-3 shadow-2xs">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 font-black text-lg">
-            
-          </div>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 px-3.5 sm:px-8 py-3 flex items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-2.5">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-900">Educa Staff Desk</h1>
+              <h1 className="text-sm sm:text-lg font-black tracking-tight text-gray-900">Educa Staff Desk</h1>
               <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider ${isAdmin ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-blue-100 text-blue-800 border border-blue-200"}`}>
                 {role}
               </span>
@@ -757,19 +811,25 @@ export default function StaffDesk() {
           {isAdmin && (
             <button
               onClick={() => navigate("/admin")}
-              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 active:scale-95 text-xs font-bold rounded-xl border border-indigo-200 transition flex items-center gap-1 cursor-pointer"
+              className="px-2.5 sm:px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 active:scale-95 text-xs font-bold rounded-xl border border-indigo-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
-              
-              <span className="hidden sm:inline">Admin Panel</span>
+              <svg className="w-3.5 h-3.5 text-indigo-700 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span className="hidden sm:inline">Admin</span>
             </button>
           )}
 
           <button
             onClick={() => navigate("/dashboard")}
-            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 active:scale-95 text-xs font-bold rounded-xl border border-gray-200 transition flex items-center gap-1 cursor-pointer"
+            className="px-2.5 sm:px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 active:scale-95 text-xs font-bold rounded-xl border border-gray-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Dashboard par wapas jayein"
           >
-            
-            <span className="hidden sm:inline">Dashboard</span>
+            <svg className="w-3.5 h-3.5 text-gray-700 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span className="font-bold">Dashboard</span>
           </button>
         </div>
       </header>
@@ -782,7 +842,8 @@ export default function StaffDesk() {
             {availableTabs.map((deptKey) => {
               const conf = DEPT_CONFIG[deptKey];
               const isActive = activeTab === deptKey;
-              const count = counts[deptKey] || 0;
+              const pendingCount = counts[deptKey] !== undefined ? counts[deptKey] : (queues[deptKey] || []).filter(t => ['pending', 'hold'].includes(String(t.status || t.kycStatus || 'pending').toLowerCase())).length;
+              const totalCount = (queues[deptKey] || []).length;
 
               return (
                 <button
@@ -791,7 +852,7 @@ export default function StaffDesk() {
                     setActiveTab(deptKey);
                     setSelectedItem(null);
                   }}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm whitespace-nowrap transition-all border cursor-pointer ${
+                  className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm whitespace-nowrap transition-all border cursor-pointer ${
                     isActive
                       ? "bg-blue-600 text-white border-blue-600 shadow-sm"
                       : "bg-white hover:bg-gray-50 text-gray-700 border-gray-200 shadow-2xs"
@@ -800,15 +861,15 @@ export default function StaffDesk() {
                   <span>{conf.icon}</span>
                   <span>{conf.label}</span>
                   <span
-                    className={`ml-1 px-2 py-0.5 rounded-full text-[11px] font-black ${
+                    className={`ml-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black ${
                       isActive
                         ? "bg-white/20 text-white"
-                        : count > 0
+                        : pendingCount > 0
                         ? "bg-rose-100 text-rose-700 border border-rose-200"
                         : "bg-gray-100 text-gray-600"
                     }`}
                   >
-                    {count}
+                    {pendingCount > 0 ? `${pendingCount} Pending` : `${totalCount} Total`}
                   </span>
                 </button>
               );
@@ -878,26 +939,31 @@ export default function StaffDesk() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <label className="text-xs text-gray-500 font-bold hidden sm:inline">Status / Category:</label>
+            <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-gray-100 px-3 py-2 rounded-xl">
+              <span className="text-amber-600 font-extrabold">{filterCounts.pending} Pending</span>
+              <span className="text-gray-300">•</span>
+              <span className="text-gray-600 font-bold">{filterCounts.all} Total</span>
+            </div>
+            <label className="text-xs text-gray-500 font-bold hidden sm:inline">Filter:</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-gray-50 border border-gray-200 text-gray-800 text-xs rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:border-blue-500 focus:bg-white cursor-pointer"
+              className="bg-gray-50 border border-gray-200 text-gray-800 text-xs rounded-xl px-3 py-2 font-bold focus:outline-none focus:border-blue-500 focus:bg-white cursor-pointer"
             >
               {activeTab === "kyc" ? (
                 <>
-                  <option value="all">Full KYC (All)</option>
-                  <option value="normal_kyc">Normal KYC</option>
-                  <option value="loan_kyc">Loan KYC</option>
-                  <option value="lending_kyc">Lending KYC</option>
-                  <option value="bond_kyc">Bond KYC</option>
+                  <option value="all">Full KYC (All) ({filterCounts.all})</option>
+                  <option value="normal_kyc">Normal KYC ({filterCounts.normal})</option>
+                  <option value="loan_kyc">Loan KYC ({filterCounts.loan})</option>
+                  <option value="lending_kyc">Lending KYC ({filterCounts.lending})</option>
+                  <option value="bond_kyc">Bond KYC ({filterCounts.bond})</option>
                 </>
               ) : (
                 <>
-                  <option value="all">All Items</option>
-                  <option value="pending">Pending Only</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
+                  <option value="all">All Items ({filterCounts.all})</option>
+                  <option value="pending">Pending Only ({filterCounts.pending})</option>
+                  <option value="approved">Approved ({filterCounts.approved})</option>
+                  <option value="rejected">Rejected ({filterCounts.rejected})</option>
                 </>
               )}
             </select>
@@ -1275,12 +1341,41 @@ export default function StaffDesk() {
                           <span className="text-gray-800 truncate max-w-[150px]">{item.purpose}</span>
                         </div>
                       )}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Requested:</span>
-                        <span className="text-gray-600">
-                          {item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) : "—"}
-                        </span>
-                      </div>
+                      {(() => {
+                        const procDate = item.approvedAt || (['approved', 'completed', 'active', 'verified', 'rejected'].includes(itemStatus) ? (item.handledBy?.at || item.updatedAt) : null);
+                        const timing = formatTiming(item.createdAt || item.requestedAt || item.kycDocuments?.submittedAt, procDate);
+                        if (!timing) return null;
+                        const isApprovedState = ["approved", "completed", "active", "verified"].includes(itemStatus);
+                        const isRejectedState = itemStatus === "rejected";
+                        return (
+                          <div className="pt-1.5 mt-1 border-t border-gray-100 flex flex-col gap-0.5">
+                            <div className="flex justify-between items-center text-[11px]">
+                              <span className="text-gray-400">Requested:</span>
+                              <span className="text-gray-700 font-semibold">{timing.reqStr}</span>
+                            </div>
+                            {isApprovedState ? (
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="text-emerald-600 font-bold">Approved:</span>
+                                <span className="text-emerald-700 font-bold">
+                                  {timing.procStr} <span className="text-emerald-500 font-normal">({timing.durationStr})</span>
+                                </span>
+                              </div>
+                            ) : isRejectedState ? (
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="text-rose-600 font-bold">Rejected:</span>
+                                <span className="text-rose-700 font-bold">
+                                  {timing.procStr} <span className="text-rose-500 font-normal">({timing.durationStr})</span>
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="text-amber-600 font-bold">Waiting:</span>
+                                <span className="text-amber-700 font-extrabold">{timing.durationStr} ago</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Warning Badges - Only for actionable/pending items */}
@@ -1605,9 +1700,7 @@ export default function StaffDesk() {
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-gray-200 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-xl">
-                  
-                </div>
+                <img src="/icon-192.png" alt="Educa" className="w-9 h-9 rounded-full object-contain border border-gray-200 bg-white shadow-2xs shrink-0" />
                 <div>
                   <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
                     Issue Loan (Naya Loan Karein)
@@ -2233,8 +2326,20 @@ export default function StaffDesk() {
       {enlargedImage && (
         <div
           onClick={() => setEnlargedImage(null)}
-          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 cursor-zoom-out"
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 cursor-zoom-out relative"
         >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEnlargedImage(null);
+            }}
+            className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-white/20 hover:bg-white/40 text-white flex items-center justify-center text-xl font-bold cursor-pointer transition shadow-lg"
+            title="Close image"
+            aria-label="Close"
+          >
+            ✕
+          </button>
           <img
             src={enlargedImage}
             alt="Enlarged Document"

@@ -340,11 +340,13 @@ export default function AgentDesk() {
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => navigate("/dashboard")}
-              className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 text-xs font-bold rounded-xl transition flex items-center gap-1 cursor-pointer"
+              className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
               title="Dashboard par wapas jayein"
             >
-              <span>←</span>
-              <span className="hidden sm:inline">Dashboard</span>
+              <svg className="w-3.5 h-3.5 text-gray-700 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span className="font-bold">Dashboard</span>
             </button>
 
             <div className="flex items-center gap-2 min-w-0">

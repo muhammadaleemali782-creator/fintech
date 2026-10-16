@@ -2559,7 +2559,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
 
       promises.push(
         Transaction.find(txQuery)
-          .select('userId type amount status isHold sourceWallet referenceId utrNumber method upiId accountNumber remarks createdAt claim')
+          .select('userId type amount status isHold sourceWallet referenceId utrNumber method upiId accountNumber remarks createdAt claim approvedAt handledBy updatedAt')
           .populate('userId', 'name email phone accountNumber')
           .sort({ createdAt: -1 })
           .limit(80)
@@ -2614,7 +2614,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
     if (allowedDepts.includes('kyc')) {
       promises.push(
         User.find({ kycStatus: 'pending', role: { $ne: 'admin' } })
-          .select('name email phone aadharNumber panNumber address bankAccount kycStatus kycDocuments.submittedAt kycDocuments.doc1Url kycDocuments.doc1BackUrl kycDocuments.doc2Url kycDocuments.doc2BackUrl kycDocuments.chequeUrl createdAt accountNumber upiId cardStatus avatar photoUrl')
+          .select('name email phone aadharNumber panNumber address bankAccount kycStatus kycDocuments.submittedAt kycDocuments.doc1Url kycDocuments.doc1BackUrl kycDocuments.doc2Url kycDocuments.doc2BackUrl kycDocuments.chequeUrl createdAt accountNumber upiId cardStatus avatar photoUrl approvedAt kycApprovedAt updatedAt')
           .sort({ 'kycDocuments.submittedAt': -1, createdAt: -1 })
           .limit(60)
           .maxTimeMS(8000)

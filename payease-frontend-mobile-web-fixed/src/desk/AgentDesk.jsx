@@ -546,60 +546,60 @@ export default function AgentDesk() {
               const quotaUtilization = agentLoanLimit > 0 ? Math.min(100, Math.round((marketDisbursed / agentLoanLimit) * 100)) : 0;
 
               return (
-                <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-sm border border-blue-800/60 relative overflow-hidden">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/90 shadow-2xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                       <div>
-                        <div className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-200">
+                        <div className="text-xs sm:text-sm font-black uppercase tracking-wider text-gray-900">
                           Mera Loan Lending Quota (Admin Set)
                         </div>
-                        <div className="text-xs text-blue-300 font-medium">
-                          Admin dwara aapke liye sanctioned personal loan lending limit
+                        <div className="text-xs text-gray-500 font-medium">
+                          Admin dwara aapke liye sanctioned kul lending limit (Business, Student sabhi loans ke liye)
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-blue-100 font-bold">
+                      <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-200 text-gray-700 font-bold">
                         Portfolio Clients: {agentMetrics?.stats?.customerCount || 0}
                       </span>
-                      <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold">
+                      <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold">
                         {quotaUtilization}% Utilized
                       </span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10">
-                    <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
-                      <span className="text-[10px] text-blue-300 uppercase font-bold block">Sanctioned Limit</span>
-                      <div className="text-xl sm:text-2xl font-black font-mono text-white mt-0.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200">
+                      <span className="text-[10px] text-gray-500 uppercase font-bold block">Sanctioned Limit</span>
+                      <div className="text-xl sm:text-2xl font-black font-mono text-gray-900 mt-0.5">
                         ₹{agentLoanLimit.toLocaleString("en-IN")}
                       </div>
-                      <span className="text-[9px] text-blue-300/80">Admin Configured Quota</span>
+                      <span className="text-[10px] text-gray-400">Admin Configured Quota</span>
                     </div>
 
-                    <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
-                      <span className="text-[10px] text-rose-300 uppercase font-bold block">Market me Diya Loan</span>
-                      <div className="text-xl sm:text-2xl font-black font-mono text-rose-300 mt-0.5">
+                    <div className="bg-rose-50/60 p-3.5 rounded-xl border border-rose-200">
+                      <span className="text-[10px] text-rose-600 uppercase font-bold block">Market me Diya Loan</span>
+                      <div className="text-xl sm:text-2xl font-black font-mono text-rose-600 mt-0.5">
                         ₹{marketDisbursed.toLocaleString("en-IN")}
                       </div>
-                      <span className="text-[9px] text-rose-200/80">Portfolio Disbursed Capital</span>
+                      <span className="text-[10px] text-rose-400">Portfolio Disbursed Capital</span>
                     </div>
 
-                    <div className="bg-emerald-500/10 backdrop-blur-xs p-3 rounded-xl border border-emerald-400/20">
-                      <span className="text-[10px] text-emerald-300 uppercase font-bold block">Available Sanctioned Quota</span>
-                      <div className="text-xl sm:text-2xl font-black font-mono text-emerald-300 mt-0.5">
+                    <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200">
+                      <span className="text-[10px] text-emerald-700 uppercase font-bold block">Available Sanctioned Quota</span>
+                      <div className="text-xl sm:text-2xl font-black font-mono text-emerald-700 mt-0.5">
                         ₹{availableQuota.toLocaleString("en-IN")}
                       </div>
-                      <span className="text-[9px] text-emerald-200/80">Available to Disburse</span>
+                      <span className="text-[10px] text-emerald-600">Available to Disburse</span>
                     </div>
                   </div>
 
                   {/* Utilization Progress Bar */}
-                  <div className="mt-3">
-                    <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                  <div className="pt-1">
+                    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-blue-400 to-emerald-400 transition-all duration-500 rounded-full"
+                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500 rounded-full"
                         style={{ width: `${quotaUtilization}%` }}
                       />
                     </div>

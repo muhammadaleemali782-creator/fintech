@@ -5314,27 +5314,18 @@ export default function AdminPanel() {
           {tab === "analytics" && (
             <div className="space-y-6 w-full min-w-0">
               {/* Quick Actions Bar */}
-              <div className="flex items-center justify-end gap-2 flex-wrap">
+              <div className="flex items-center justify-end -mb-2">
                 <button
                   type="button"
-                  onClick={() => switchTab("staff")}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-md shadow-blue-500/20"
-                  title="Open Staff & ID Maker to create department IDs"
-                >
-                  
-                  <span>Create Staff ID / Assign Role</span>
-                  <span className="bg-amber-400 text-slate-900 text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase">NEW</span>
-                </button>
-                <button
                   onClick={() => {
                     loadAnalytics(true);
                     loadStats(true);
                   }}
                   disabled={loadingAnalytics}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold border border-slate-200 transition active:scale-95 cursor-pointer shadow-2xs"
+                  title="Refresh Data"
                 >
-                  <span>{loadingAnalytics ? "⏳" : ""}</span>
-                  <span>{loadingAnalytics ? "Refreshing..." : "Refresh Data"}</span>
+                  {loadingAnalytics ? "Refreshing..." : "Refresh"}
                 </button>
               </div>
 

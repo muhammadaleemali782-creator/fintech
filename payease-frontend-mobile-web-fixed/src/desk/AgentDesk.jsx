@@ -420,7 +420,7 @@ export default function AgentDesk() {
 
         {/* Drawer Body (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
-          {/* Navigation to Dashboard (Image 2) */}
+          {/* Navigation to Dashboard */}
           <div>
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 block mb-1.5">
               Portal Navigation
@@ -431,19 +431,20 @@ export default function AgentDesk() {
                 setSideMenuOpen(false);
                 navigate("/dashboard");
               }}
-              className="w-full p-2.5 rounded-xl bg-gray-50 hover:bg-blue-50/60 active:scale-98 border border-gray-200 hover:border-blue-300 text-gray-800 hover:text-blue-700 text-xs font-bold transition flex items-center justify-between cursor-pointer shadow-2xs group"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200/80 active:scale-98 border border-gray-200 text-gray-800 text-xs font-bold transition flex items-center justify-between cursor-pointer shadow-2xs group"
             >
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-500 group-hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-gray-600 group-hover:text-blue-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
                 <span>Dashboard par wapas jayein</span>
               </div>
+              <span className="text-gray-400 text-xs">→</span>
             </button>
           </div>
 
-          {/* The 3 Dedicated Buttons (Image 1) */}
-          <div className="space-y-1.5">
+          {/* Dedicated Section Buttons */}
+          <div className="space-y-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 block mb-1">
               Agent Desk Sections (Tabs)
             </span>
@@ -455,22 +456,17 @@ export default function AgentDesk() {
                 setActiveTab("overview");
                 setSideMenuOpen(false);
               }}
-              className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer active:scale-98 ${
+              className={`w-full px-3.5 py-2.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer active:scale-98 ${
                 activeTab === "overview"
-                  ? "bg-blue-50/80 border-blue-500 text-blue-900 shadow-2xs ring-1 ring-blue-400/40"
-                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50"
+                  ? "bg-blue-600 text-white border-blue-600 shadow-sm font-black"
+                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50 font-bold"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-xl">📊</span>
-                <div>
-                  <div className="text-xs font-extrabold text-gray-900">Overview & Dues</div>
-                  <div className="text-[10px] text-gray-500">Limits, Quota & Dues Collection</div>
-                </div>
+              <div className="flex items-center gap-2.5">
+                <span className="text-base">📊</span>
+                <span className="text-xs sm:text-sm">Overview & Dues</span>
               </div>
-              {activeTab === "overview" && (
-                <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0"></span>
-              )}
+              <span className={`text-xs ${activeTab === "overview" ? "text-white/80" : "text-gray-400"}`}>→</span>
             </button>
 
             {/* Tab 2: Rates & Commission */}
@@ -480,22 +476,17 @@ export default function AgentDesk() {
                 setActiveTab("commissions");
                 setSideMenuOpen(false);
               }}
-              className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer active:scale-98 ${
+              className={`w-full px-3.5 py-2.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer active:scale-98 ${
                 activeTab === "commissions"
-                  ? "bg-amber-50/80 border-amber-500 text-amber-900 shadow-2xs ring-1 ring-amber-400/40"
-                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50"
+                  ? "bg-blue-600 text-white border-blue-600 shadow-sm font-black"
+                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50 font-bold"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-xl">💰</span>
-                <div>
-                  <div className="text-xs font-extrabold text-gray-900">Rates & Commission</div>
-                  <div className="text-[10px] text-gray-500">Earnings & Slabs ({commissions.loan}% Loan, {commissions.lending}% Invest)</div>
-                </div>
+              <div className="flex items-center gap-2.5">
+                <span className="text-base">💰</span>
+                <span className="text-xs sm:text-sm">Rates & Commission</span>
               </div>
-              {activeTab === "commissions" && (
-                <span className="w-2 h-2 rounded-full bg-amber-600 shrink-0"></span>
-              )}
+              <span className={`text-xs ${activeTab === "commissions" ? "text-white/80" : "text-gray-400"}`}>→</span>
             </button>
 
             {/* Tab 3: Customer Portfolio */}
@@ -505,24 +496,17 @@ export default function AgentDesk() {
                 setActiveTab("customers");
                 setSideMenuOpen(false);
               }}
-              className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer active:scale-98 ${
+              className={`w-full px-3.5 py-2.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer active:scale-98 ${
                 activeTab === "customers"
-                  ? "bg-emerald-50/80 border-emerald-500 text-emerald-900 shadow-2xs ring-1 ring-emerald-400/40"
-                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50"
+                  ? "bg-blue-600 text-white border-blue-600 shadow-sm font-black"
+                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50 font-bold"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-xl">👥</span>
-                <div>
-                  <div className="text-xs font-extrabold text-gray-900">
-                    Customer Portfolio ({agentMetrics?.customers?.length || 0})
-                  </div>
-                  <div className="text-[10px] text-gray-500">Registered Clients & Disbursals</div>
-                </div>
+              <div className="flex items-center gap-2.5">
+                <span className="text-base">👥</span>
+                <span className="text-xs sm:text-sm">Customer Portfolio ({agentMetrics?.customers?.length || 0})</span>
               </div>
-              {activeTab === "customers" && (
-                <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0"></span>
-              )}
+              <span className={`text-xs ${activeTab === "customers" ? "text-white/80" : "text-gray-400"}`}>→</span>
             </button>
           </div>
 

@@ -8583,22 +8583,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Department Loan Capital Pool Status */}
-          <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <div>
-                <span className="text-[10px] uppercase font-bold text-blue-900 block">Educa Loan Department Lending Pool</span>
-                <span className="text-xs font-black text-blue-950 font-mono">
-                  Available Capital: ₹{(loanDepartmentPool.availablePool !== undefined ? loanDepartmentPool.availablePool : 1000000).toLocaleString("en-IN")}
-                </span>
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="text-[10px] text-gray-500 block">Total Pool Quota</span>
-              <span className="text-xs font-bold font-mono text-gray-800">₹{(loanDepartmentPool.totalPool || 1000000).toLocaleString("en-IN")}</span>
-            </div>
-          </div>
 
           {/* 5-DAY UPCOMING DUE ALERT BANNER (FROM ACTIVE DETAILS OR LOANS SCHEDULE) */}
           {(upcomingDueInstallment || (activeLoanDetails?.isUpcomingSoon && activeLoanDetails?.nextInstallment)) && (() => {

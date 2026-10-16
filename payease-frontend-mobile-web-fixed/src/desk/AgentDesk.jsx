@@ -23,13 +23,6 @@ export default function AgentDesk() {
   const [activeTab, setActiveTab] = useState("overview"); // 'overview' | 'commissions' | 'customers'
   const [customerSearch, setCustomerSearch] = useState("");
   const [copied, setCopied] = useState(false);
-  const [loanPool, setLoanPool] = useState({
-    totalPool: 1000000,
-    marketDisbursed: 0,
-    availablePool: 1000000,
-    activeLoansCount: 0,
-    utilizationPercent: 0
-  });
 
   // Notifications
   const [toast, setToast] = useState({ text: "", type: "" });
@@ -84,10 +77,9 @@ export default function AgentDesk() {
     }
     if (!isSilent) setRefreshing(true);
     try {
-      const [metricsRes, profileRes, poolRes] = await Promise.all([
+      const [metricsRes, profileRes] = await Promise.all([
         fetch(`${API}/user/agent/stats`, { headers }),
-        fetch(`${API}/user/me`, { headers }),
-        fetch(`${API}/loans/department-pool`, { headers }).catch(() => null)
+        fetch(`${API}/user/me`, { headers })
       ]);
 
       if (metricsRes.status === 401 || profileRes.status === 401) {
@@ -109,13 +101,6 @@ export default function AgentDesk() {
           const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
           localStorage.setItem("user", JSON.stringify({ ...storedUser, ...prof }));
         } catch {}
-      }
-
-      if (poolRes && poolRes.ok) {
-        const pData = await poolRes.json();
-        if (pData.success) {
-          setLoanPool(pData);
-        }
       }
     } catch (err) {
       console.error("Agent metrics load error:", err);
@@ -434,7 +419,7 @@ export default function AgentDesk() {
                 </span>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Avail Pool: ₹{(loanPool.availablePool !== undefined ? loanPool.availablePool : 1000000).toLocaleString("en-IN")}
+                    Agent Quota: ₹{(agentMetrics?.agentInfo?.loanLimit ?? agentMetrics?.stats?.loanLimit ?? userProfile?.agentProfile?.loanLimit ?? 100000).toLocaleString("en-IN")}
                   </span>
                   <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                     {commissions.loan}% Commission
@@ -553,66 +538,75 @@ export default function AgentDesk() {
         ══════════════════════════════════════════════════════ */}
         {activeTab === "overview" && (
           <div className="space-y-4">
-            {/* Central Loan Department Pool Quota Banner */}
-            <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-sm border border-blue-800/60 relative overflow-hidden">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <div>
-                    <div className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-200">
-                      Loan Department Central Pool
+            {/* Agent Individual Loan Lending Quota Banner (Admin Set) */}
+            {(() => {
+              const agentLoanLimit = agentMetrics?.agentInfo?.loanLimit ?? agentMetrics?.stats?.loanLimit ?? userProfile?.agentProfile?.loanLimit ?? 100000;
+              const marketDisbursed = agentMetrics?.stats?.totalDisbursal || 0;
+              const availableQuota = Math.max(0, agentLoanLimit - marketDisbursed);
+              const quotaUtilization = agentLoanLimit > 0 ? Math.min(100, Math.round((marketDisbursed / agentLoanLimit) * 100)) : 0;
+
+              return (
+                <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-sm border border-blue-800/60 relative overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <div>
+                        <div className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-200">
+                          Mera Loan Lending Quota (Admin Set)
+                        </div>
+                        <div className="text-xs text-blue-300 font-medium">
+                          Admin dwara aapke liye sanctioned personal loan lending limit
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-blue-300 font-medium">
-                      All Loan Staff Shared Lending Capital Quota
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-blue-100 font-bold">
+                        Portfolio Clients: {agentMetrics?.stats?.customerCount || 0}
+                      </span>
+                      <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold">
+                        {quotaUtilization}% Utilized
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10">
+                    <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
+                      <span className="text-[10px] text-blue-300 uppercase font-bold block">Sanctioned Limit</span>
+                      <div className="text-xl sm:text-2xl font-black font-mono text-white mt-0.5">
+                        ₹{agentLoanLimit.toLocaleString("en-IN")}
+                      </div>
+                      <span className="text-[9px] text-blue-300/80">Admin Configured Quota</span>
+                    </div>
+
+                    <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
+                      <span className="text-[10px] text-rose-300 uppercase font-bold block">Market me Diya Loan</span>
+                      <div className="text-xl sm:text-2xl font-black font-mono text-rose-300 mt-0.5">
+                        ₹{marketDisbursed.toLocaleString("en-IN")}
+                      </div>
+                      <span className="text-[9px] text-rose-200/80">Portfolio Disbursed Capital</span>
+                    </div>
+
+                    <div className="bg-emerald-500/10 backdrop-blur-xs p-3 rounded-xl border border-emerald-400/20">
+                      <span className="text-[10px] text-emerald-300 uppercase font-bold block">Available Sanctioned Quota</span>
+                      <div className="text-xl sm:text-2xl font-black font-mono text-emerald-300 mt-0.5">
+                        ₹{availableQuota.toLocaleString("en-IN")}
+                      </div>
+                      <span className="text-[9px] text-emerald-200/80">Available to Disburse</span>
+                    </div>
+                  </div>
+
+                  {/* Utilization Progress Bar */}
+                  <div className="mt-3">
+                    <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-400 to-emerald-400 transition-all duration-500 rounded-full"
+                        style={{ width: `${quotaUtilization}%` }}
+                      />
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-blue-100 font-bold">
-                    Active Loans: {loanPool.activeLoansCount || 0}
-                  </span>
-                  <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold">
-                    {loanPool.utilizationPercent || 0}% Utilized
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10">
-                <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
-                  <span className="text-[10px] text-blue-300 uppercase font-bold block">Dept Total Limit</span>
-                  <div className="text-xl sm:text-2xl font-black font-mono text-white mt-0.5">
-                    ₹{(loanPool.totalPool || 1000000).toLocaleString("en-IN")}
-                  </div>
-                  <span className="text-[9px] text-blue-300/80">Default ₹10 Lakh Pool</span>
-                </div>
-
-                <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
-                  <span className="text-[10px] text-rose-300 uppercase font-bold block">Market me Diya Loan</span>
-                  <div className="text-xl sm:text-2xl font-black font-mono text-rose-300 mt-0.5">
-                    ₹{(loanPool.marketDisbursed || 0).toLocaleString("en-IN")}
-                  </div>
-                  <span className="text-[9px] text-rose-200/80">Active Disbursed Capital</span>
-                </div>
-
-                <div className="bg-emerald-500/10 backdrop-blur-xs p-3 rounded-xl border border-emerald-400/20">
-                  <span className="text-[10px] text-emerald-300 uppercase font-bold block">Available Lending Pool</span>
-                  <div className="text-xl sm:text-2xl font-black font-mono text-emerald-300 mt-0.5">
-                    ₹{(loanPool.availablePool !== undefined ? loanPool.availablePool : 1000000).toLocaleString("en-IN")}
-                  </div>
-                  <span className="text-[9px] text-emerald-200/80">Available for New Loans</span>
-                </div>
-              </div>
-
-              {/* Utilization Progress Bar */}
-              <div className="mt-3">
-                <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-blue-400 to-emerald-400 transition-all duration-500 rounded-full"
-                    style={{ width: `${Math.min(100, Math.max(0, loanPool.utilizationPercent || 0))}%` }}
-                  />
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* 5 Core Agent Metrics */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">

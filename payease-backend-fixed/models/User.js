@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema({
     status: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
     commissionModel: { type: String, enum: ['team_1', 'solo_2', 'team', 'solo'], default: 'solo_2' },
     commissionRate: { type: Number, default: 0 }, // Admin assigns commission percentage (legacy/fallback)
+    loanLimit: { type: Number, default: 100000 }, // Admin assigns individual lending limit for this agent
     commissions: {
       loan: { type: Number, default: 2 },
       lending: { type: Number, default: 2 },

@@ -2152,15 +2152,17 @@ export default function AdminPanel() {
     } catch {}
   }, []); // eslint-disable-line
 
-  const approveAgent = async (id, customRate, customCommissions) => {
+  const approveAgent = async (id, customRate, customCommissions, customLoanLimit) => {
     try {
       const rateVal = customRate !== undefined && customRate !== "" ? parseFloat(customRate) : undefined;
+      const limitVal = customLoanLimit !== undefined && customLoanLimit !== "" ? parseFloat(customLoanLimit) : undefined;
       const res = await fetch(`${API}/admin/agent-applications/${id}/approve`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           commissionRate: rateVal,
           commissions: customCommissions,
+          loanLimit: limitVal,
           approverName: user.name || "Admin",
           approverDevice: getClientDeviceInfo()
         })
@@ -2179,7 +2181,7 @@ export default function AdminPanel() {
     }
   };
 
-  const updateAgentCommission = async (id, customRateOrObj) => {
+  const updateAgentCommission = async (id, customRateOrObj, customLoanLimit) => {
     try {
       setSavingAgentCommission(prev => ({ ...prev, [id]: true }));
       let bodyPayload = {};
@@ -2194,6 +2196,13 @@ export default function AdminPanel() {
         bodyPayload = { commissionRate: rateVal };
       }
 
+      if (customLoanLimit !== undefined && customLoanLimit !== null && customLoanLimit !== "") {
+        const limitVal = parseFloat(customLoanLimit);
+        if (!isNaN(limitVal) && limitVal >= 0) {
+          bodyPayload.loanLimit = limitVal;
+        }
+      }
+
       const res = await fetch(`${API}/admin/agent-applications/${id}/set-commission`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
@@ -2201,7 +2210,7 @@ export default function AdminPanel() {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.message);
-      showToast(d.message || "Agent commission rates updated successfully!", "success");
+      showToast(d.message || "Agent commission & loan limit updated successfully!", "success");
       apiCache.clear();
       appCache.remove("educa_admin_audit_all_all");
       appCache.remove("educa_admin_audit_agent_all");
@@ -9563,7 +9572,7 @@ export default function AdminPanel() {
                                 Admin Custom Approval
                               </span>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                               <div className="p-2 bg-white rounded-xl border border-blue-200 shadow-2xs">
                                 <span className="text-[10px] font-bold text-blue-900 block mb-1">Loan %</span>
                                 <div className="flex items-center gap-1">
@@ -9578,10 +9587,8 @@ export default function AdminPanel() {
                                       setAgentCategoryInputs({
                                         ...agentCategoryInputs,
                                         [a._id]: {
-                                          loan: e.target.value,
-                                          lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
-                                          investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
-                                          bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
+                                          ...cur,
+                                          loan: e.target.value
                                         }
                                       });
                                     }}
@@ -9604,10 +9611,8 @@ export default function AdminPanel() {
                                       setAgentCategoryInputs({
                                         ...agentCategoryInputs,
                                         [a._id]: {
-                                          loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? 1),
-                                          lending: e.target.value,
-                                          investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
-                                          bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
+                                          ...cur,
+                                          lending: e.target.value
                                         }
                                       });
                                     }}
@@ -9630,9 +9635,7 @@ export default function AdminPanel() {
                                       setAgentCategoryInputs({
                                         ...agentCategoryInputs,
                                         [a._id]: {
-                                          loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? 1),
-                                          lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
-                                          investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
+                                          ...cur,
                                           bond: e.target.value
                                         }
                                       });
@@ -9642,21 +9645,50 @@ export default function AdminPanel() {
                                   <span className="text-xs font-bold text-purple-900">%</span>
                                 </div>
                               </div>
+                              <div className="p-2 bg-white rounded-xl border border-indigo-200 shadow-2xs">
+                                <span className="text-[10px] font-bold text-indigo-950 block mb-1">Loan Limit (₹)</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs font-black text-indigo-900">₹</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="5000"
+                                    placeholder="100000"
+                                    value={agentCategoryInputs[a._id]?.loanLimit !== undefined ? agentCategoryInputs[a._id]?.loanLimit : (a.loanLimit ?? prof.loanLimit ?? 100000)}
+                                    onChange={(e) => {
+                                      const cur = agentCategoryInputs[a._id] || {};
+                                      setAgentCategoryInputs({
+                                        ...agentCategoryInputs,
+                                        [a._id]: {
+                                          ...cur,
+                                          loanLimit: e.target.value
+                                        }
+                                      });
+                                    }}
+                                    className="w-full px-2 py-1 text-xs font-black text-indigo-950 text-center bg-indigo-50/50 border border-indigo-300 rounded-lg outline-none"
+                                  />
+                                </div>
+                              </div>
                             </div>
                             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-amber-200">
                               <span className="text-[11px] text-amber-900 font-medium">
                                 Wallet Transfers: <strong>0%</strong> (Nahi milega)
                               </span>
                               <button
-                                onClick={() => approveAgent(a._id, undefined, {
-                                  loan: parseFloat(agentCategoryInputs[a._id]?.loan !== undefined ? agentCategoryInputs[a._id]?.loan : (prof.commissions?.loan ?? 1)),
-                                  lending: parseFloat(agentCategoryInputs[a._id]?.lending !== undefined ? agentCategoryInputs[a._id]?.lending : (prof.commissions?.lending ?? 4)),
-                                  investment: parseFloat(agentCategoryInputs[a._id]?.investment !== undefined ? agentCategoryInputs[a._id]?.investment : (prof.commissions?.investment ?? 1)),
-                                  bond: parseFloat(agentCategoryInputs[a._id]?.bond !== undefined ? agentCategoryInputs[a._id]?.bond : (prof.commissions?.bond ?? 4))
-                                })}
+                                onClick={() => {
+                                  const cur = agentCategoryInputs[a._id] || {};
+                                  const catComms = {
+                                    loan: parseFloat(cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? 1)),
+                                    lending: parseFloat(cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4)),
+                                    investment: parseFloat(cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1)),
+                                    bond: parseFloat(cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4))
+                                  };
+                                  const assignedLimit = cur.loanLimit !== undefined ? cur.loanLimit : (a.loanLimit ?? prof.loanLimit ?? 100000);
+                                  approveAgent(a._id, undefined, catComms, assignedLimit);
+                                }}
                                 className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition shadow-sm active:scale-95 cursor-pointer flex items-center gap-1.5"
                               >
-                                <span>✓</span> {a.nominatedBy ? "Approve Sub-Agent with these Rates" : "Approve Agent with these Rates"}
+                                <span>✓</span> {a.nominatedBy ? "Approve Sub-Agent with these Rates & Limit" : "Approve Agent with these Rates & Limit"}
                               </button>
                             </div>
                           </div>
@@ -9721,7 +9753,7 @@ export default function AdminPanel() {
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
                             {/* 1. Loan Commission */}
                             <div className="p-2.5 bg-blue-50/70 border border-blue-200/90 rounded-xl">
                               <span className="text-[11px] font-bold text-blue-900 block mb-1">Loan</span>
@@ -9737,10 +9769,8 @@ export default function AdminPanel() {
                                     setAgentCategoryInputs({
                                       ...agentCategoryInputs,
                                       [a._id]: {
-                                        loan: e.target.value,
-                                        lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
-                                        investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
-                                        bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
+                                        ...cur,
+                                        loan: e.target.value
                                       }
                                     });
                                   }}
@@ -9765,10 +9795,8 @@ export default function AdminPanel() {
                                     setAgentCategoryInputs({
                                       ...agentCategoryInputs,
                                       [a._id]: {
-                                        loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? prof.commissionRate ?? 1),
-                                        lending: e.target.value,
-                                        investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
-                                        bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
+                                        ...cur,
+                                        lending: e.target.value
                                       }
                                     });
                                   }}
@@ -9793,9 +9821,7 @@ export default function AdminPanel() {
                                     setAgentCategoryInputs({
                                       ...agentCategoryInputs,
                                       [a._id]: {
-                                        loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? prof.commissionRate ?? 1),
-                                        lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
-                                        investment: cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1),
+                                        ...cur,
                                         bond: e.target.value
                                       }
                                     });
@@ -9803,6 +9829,32 @@ export default function AdminPanel() {
                                   className="w-full px-2 py-1 text-xs font-black text-purple-950 text-center bg-white border border-purple-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500"
                                 />
                                 <span className="text-xs font-black text-purple-900">%</span>
+                              </div>
+                            </div>
+
+                            {/* 4. Agent Loan Limit (Admin Set Quota) */}
+                            <div className="p-2.5 bg-indigo-50/70 border border-indigo-200/90 rounded-xl">
+                              <span className="text-[11px] font-bold text-indigo-950 block mb-1">Agent Loan Limit (₹)</span>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs font-black text-indigo-900">₹</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="5000"
+                                  placeholder="100000"
+                                  value={agentCategoryInputs[a._id]?.loanLimit !== undefined ? agentCategoryInputs[a._id]?.loanLimit : (a.loanLimit ?? prof.loanLimit ?? 100000)}
+                                  onChange={e => {
+                                    const cur = agentCategoryInputs[a._id] || {};
+                                    setAgentCategoryInputs({
+                                      ...agentCategoryInputs,
+                                      [a._id]: {
+                                        ...cur,
+                                        loanLimit: e.target.value
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 text-xs font-black text-indigo-950 text-center bg-white border border-indigo-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
                               </div>
                             </div>
                           </div>
@@ -9821,12 +9873,13 @@ export default function AdminPanel() {
                                   investment: parseFloat(cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1)),
                                   bond: parseFloat(cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4))
                                 };
-                                updateAgentCommission(a._id, catRates);
+                                const assignedLimit = cur.loanLimit !== undefined ? cur.loanLimit : (a.loanLimit ?? prof.loanLimit ?? 100000);
+                                updateAgentCommission(a._id, catRates, assignedLimit);
                               }}
                               disabled={savingAgentCommission[a._id]}
                               className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
                             >
-                               {savingAgentCommission[a._id] ? "Updating..." : "Save Commission Rates"}
+                               {savingAgentCommission[a._id] ? "Updating..." : "Save Commission & Loan Limit"}
                             </button>
                           </div>
                         </div>

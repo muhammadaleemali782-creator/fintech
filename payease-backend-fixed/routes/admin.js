@@ -633,6 +633,8 @@ router.get('/agent-applications', protect, admin, async (req, res) => {
         investment: a.agentProfile?.commissions?.investment ?? defRate,
         bond: a.agentProfile?.commissions?.bond ?? defRate
       };
+      aObj.agentProfile.loanLimit = a.agentProfile?.loanLimit !== undefined ? a.agentProfile.loanLimit : 100000;
+      aObj.loanLimit = aObj.agentProfile.loanLimit;
 
       aObj.earningsBreakdown = {
         loan: Number(loanEarnings.toFixed(2)),
@@ -670,7 +672,7 @@ router.post('/agent-applications/:id/approve', protect, admin, async (req, res) 
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const { commissionRate, commissions } = req.body;
+    const { commissionRate, commissions, loanLimit } = req.body;
     user.role = 'agent';
     if (!user.agentProfile) user.agentProfile = {};
     user.agentProfile.status = 'approved';
@@ -708,6 +710,13 @@ router.post('/agent-applications/:id/approve', protect, admin, async (req, res) 
       if (commissions.bond !== undefined && !isNaN(parseFloat(commissions.bond))) user.agentProfile.commissions.bond = Math.max(0, parseFloat(commissions.bond));
     }
 
+    if (loanLimit !== undefined && loanLimit !== null && loanLimit !== '') {
+      const parsedLimit = parseFloat(loanLimit);
+      if (!isNaN(parsedLimit) && parsedLimit >= 0) {
+        user.agentProfile.loanLimit = parsedLimit;
+      }
+    }
+
     if (commissionRate !== undefined && commissionRate !== null && commissionRate !== '') {
       const parsedRate = parseFloat(commissionRate);
       if (!isNaN(parsedRate) && parsedRate >= 0) {
@@ -738,7 +747,7 @@ router.post('/agent-applications/:id/set-commission', protect, admin, async (req
       user.agentProfile.commissions = { loan: defRate, lending: defRate, investment: defRate, bond: defRate };
     }
 
-    const { commissionRate, commissions, loanCommission, lendingCommission, investmentCommission, bondCommission } = req.body;
+    const { commissionRate, commissions, loanCommission, lendingCommission, investmentCommission, bondCommission, loanLimit } = req.body;
 
     const newLoan = commissions?.loan !== undefined ? commissions.loan : loanCommission;
     const newLending = commissions?.lending !== undefined ? commissions.lending : lendingCommission;
@@ -756,6 +765,13 @@ router.post('/agent-applications/:id/set-commission', protect, admin, async (req
     }
     if (newBond !== undefined && !isNaN(parseFloat(newBond))) {
       user.agentProfile.commissions.bond = Math.max(0, parseFloat(newBond));
+    }
+
+    if (loanLimit !== undefined && loanLimit !== null && loanLimit !== '') {
+      const parsedLimit = parseFloat(loanLimit);
+      if (!isNaN(parsedLimit) && parsedLimit >= 0) {
+        user.agentProfile.loanLimit = parsedLimit;
+      }
     }
 
     if (commissionRate !== undefined && !isNaN(parseFloat(commissionRate))) {

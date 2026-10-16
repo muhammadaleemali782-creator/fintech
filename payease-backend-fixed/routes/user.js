@@ -1059,6 +1059,7 @@ router.get('/agent/stats', protect, async (req, res) => {
         commissionModel: agent.agentProfile?.commissionModel || 'solo_2',
         isTeamModel,
         commissionRate: agent.agentProfile?.commissionRate ?? 0,
+        loanLimit: agent.agentProfile?.loanLimit ?? 100000,
         commissions: {
           loan: agent.agentProfile?.commissions?.loan ?? (isTeamModel ? 1 : 2),
           lending: agent.agentProfile?.commissions?.lending ?? (isTeamModel ? 1 : 2),
@@ -1090,7 +1091,9 @@ router.get('/agent/stats', protect, async (req, res) => {
         preClosingCount,
         preClosingAmount,
         customerCount: customers.length,
-        teamMembersCount: subAgents.length
+        teamMembersCount: subAgents.length,
+        loanLimit: agent.agentProfile?.loanLimit ?? 100000,
+        availableLoanLimit: Math.max(0, (agent.agentProfile?.loanLimit ?? 100000) - totalDisbursal)
       },
       customers: customers.map((c, idx) => {
         const cDeposits = depositTxns
@@ -1313,6 +1316,11 @@ router.post('/agent/update-loan-limit', protect, async (req, res) => {
     // Agent can only update their own referred users (admins can update anyone)
     if (agent.role !== 'admin' && String(customer.referredBy) !== String(agent._id)) {
       return res.status(403).json({ message: 'Aap sirf apne registered customer ki loan limit badha sakte hain.' });
+    }
+
+    const agentCap = agent.agentProfile?.loanLimit || 100000;
+    if (agent.role !== 'admin' && limitNum > agentCap) {
+      return res.status(400).json({ message: `Customer limit aapke sanctioned agent quota ₹${agentCap.toLocaleString('en-IN')} se zyada nahi ho sakti.` });
     }
 
     customer.loanLimit = limitNum;

@@ -21,6 +21,7 @@ export default function AgentDesk() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("overview"); // 'overview' | 'commissions' | 'customers'
+  const [sideMenuOpen, setSideMenuOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -325,7 +326,7 @@ export default function AgentDesk() {
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => navigate("/dashboard")}
-              className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="hidden sm:flex px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 text-xs font-bold rounded-xl transition items-center gap-1.5 cursor-pointer shadow-2xs"
               title="Dashboard par wapas jayein"
             >
               <svg className="w-3.5 h-3.5 text-gray-700 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -343,8 +344,215 @@ export default function AgentDesk() {
               </span>
             </div>
           </div>
+
+          {/* Right Hamburger / Menu Toggle Button (3 lines) */}
+          <button
+            type="button"
+            onClick={() => setSideMenuOpen(true)}
+            className="p-2 sm:px-3 sm:py-2 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-800 rounded-xl transition flex items-center gap-2 cursor-pointer shadow-2xs border border-gray-200 shrink-0"
+            title="Agent Menu Kholein"
+            aria-label="Open Agent Menu"
+          >
+            <svg className="w-5 h-5 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.3} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <span className="text-xs font-black text-gray-800 hidden sm:inline">Menu</span>
+          </button>
         </div>
       </header>
+
+      {/* ══════════════════════════════════════════════════════
+          SMOOTH SLIDE-OUT LEFT DRAWER MENU (Hamburger / Collapse)
+      ══════════════════════════════════════════════════════ */}
+      {/* 1. Backdrop */}
+      <div
+        className={`fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300 ease-in-out ${
+          sideMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={() => setSideMenuOpen(false)}
+        aria-hidden="true"
+      />
+
+      {/* 2. Drawer Panel (Slides out smoothly from left) */}
+      <aside
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 sm:w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-out border-r border-gray-200 ${
+          sideMenuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+        style={{ willChange: "transform" }}
+      >
+        {/* Drawer Header (Image 2 + Collapse Icon from Image 3) */}
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/80">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-xs shrink-0">
+              AD
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-black text-gray-900 truncate">
+                Educa Agent Desk
+              </h2>
+              <span className="px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
+                {isTeamModel ? "Team Model" : "Direct Agent"}
+              </span>
+            </div>
+          </div>
+
+          {/* Collapse icon (as in Image 3) */}
+          <button
+            type="button"
+            onClick={() => setSideMenuOpen(false)}
+            className="p-1.5 hover:bg-gray-200/80 active:scale-90 rounded-lg text-gray-600 hover:text-gray-900 transition cursor-pointer"
+            title="Menu band karein (Collapse)"
+            aria-label="Collapse Menu"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <line x1="9" y1="3" x2="9" y2="21" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Drawer Body (Scrollable) */}
+        <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
+          {/* Navigation to Dashboard (Image 2) */}
+          <div>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 block mb-1.5">
+              Portal Navigation
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSideMenuOpen(false);
+                navigate("/dashboard");
+              }}
+              className="w-full p-2.5 rounded-xl bg-gray-50 hover:bg-blue-50/60 active:scale-98 border border-gray-200 hover:border-blue-300 text-gray-800 hover:text-blue-700 text-xs font-bold transition flex items-center justify-between cursor-pointer shadow-2xs group"
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-500 group-hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span>Dashboard par wapas jayein</span>
+              </div>
+              <span className="text-[10px] text-gray-400 font-mono">Exit →</span>
+            </button>
+          </div>
+
+          {/* The 3 Dedicated Buttons (Image 1) */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 block mb-1">
+              Agent Desk Sections (Tabs)
+            </span>
+
+            {/* Tab 1: Overview & Dues */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("overview");
+                setSideMenuOpen(false);
+              }}
+              className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer active:scale-98 ${
+                activeTab === "overview"
+                  ? "bg-blue-50/80 border-blue-500 text-blue-900 shadow-2xs ring-1 ring-blue-400/40"
+                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📊</span>
+                <div>
+                  <div className="text-xs font-extrabold text-gray-900">Overview & Dues</div>
+                  <div className="text-[10px] text-gray-500">Limits, Quota & Dues Collection</div>
+                </div>
+              </div>
+              {activeTab === "overview" && (
+                <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0"></span>
+              )}
+            </button>
+
+            {/* Tab 2: Rates & Commission */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("commissions");
+                setSideMenuOpen(false);
+              }}
+              className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer active:scale-98 ${
+                activeTab === "commissions"
+                  ? "bg-amber-50/80 border-amber-500 text-amber-900 shadow-2xs ring-1 ring-amber-400/40"
+                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">💰</span>
+                <div>
+                  <div className="text-xs font-extrabold text-gray-900">Rates & Commission</div>
+                  <div className="text-[10px] text-gray-500">Earnings & Slabs ({commissions.loan}% Loan, {commissions.lending}% Invest)</div>
+                </div>
+              </div>
+              {activeTab === "commissions" && (
+                <span className="w-2 h-2 rounded-full bg-amber-600 shrink-0"></span>
+              )}
+            </button>
+
+            {/* Tab 3: Customer Portfolio */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("customers");
+                setSideMenuOpen(false);
+              }}
+              className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer active:scale-98 ${
+                activeTab === "customers"
+                  ? "bg-emerald-50/80 border-emerald-500 text-emerald-900 shadow-2xs ring-1 ring-emerald-400/40"
+                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">👥</span>
+                <div>
+                  <div className="text-xs font-extrabold text-gray-900">
+                    Customer Portfolio ({agentMetrics?.customers?.length || 0})
+                  </div>
+                  <div className="text-[10px] text-gray-500">Registered Clients & Disbursals</div>
+                </div>
+              </div>
+              {activeTab === "customers" && (
+                <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0"></span>
+              )}
+            </button>
+          </div>
+
+          {/* Quick Shortcuts */}
+          <div className="pt-2 border-t border-gray-100 space-y-2">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 block mb-1">
+              Quick Shortcuts
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSideMenuOpen(false);
+                setAddCustomerModalOpen(true);
+              }}
+              className="w-full p-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-95"
+            >
+              <span>+ Naya Grahak Register Karein</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Drawer Footer */}
+        <div className="p-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="text-[11px] font-medium">Agent Active Session</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSideMenuOpen(false)}
+            className="text-[11px] font-bold text-gray-500 hover:text-gray-900 cursor-pointer"
+          >
+            Band Karein ✕
+          </button>
+        </div>
+      </aside>
 
       {/* Main Page Body */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-8 py-5 space-y-5">
@@ -496,8 +704,27 @@ export default function AgentDesk() {
           )}
         </div>
 
-        {/* 3 Dedicated Page Tabs */}
-        <div className="flex items-center gap-1.5 bg-gray-200/80 p-1.5 rounded-2xl border border-gray-300">
+        {/* Mobile active tab pill + Desktop full tab bar */}
+        <div className="sm:hidden flex items-center justify-between p-2 bg-gray-100/90 rounded-xl border border-gray-200 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+            <span className="text-[11px] font-bold text-gray-500">Active Section:</span>
+            <span className="font-extrabold text-gray-900">
+              {activeTab === "overview" ? "Overview & Dues" : activeTab === "commissions" ? "Rates & Commission" : `Customer Portfolio (${agentMetrics?.customers?.length || 0})`}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSideMenuOpen(true)}
+            className="text-[11px] font-extrabold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer bg-white px-2 py-1 rounded-lg border border-gray-200 shadow-2xs active:scale-95 transition"
+          >
+            <span>Change</span>
+            <span>☰</span>
+          </button>
+        </div>
+
+        {/* 3 Dedicated Page Tabs (Desktop) */}
+        <div className="hidden sm:flex items-center gap-1.5 bg-gray-200/80 p-1.5 rounded-2xl border border-gray-300">
           <button
             type="button"
             onClick={() => setActiveTab("overview")}

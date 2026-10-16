@@ -105,7 +105,7 @@ const DEFAULT_DEPT_COMMISSIONS = {
     description: 'Flat incentive reward per verified KYC profile'
   },
   lending: {
-    name: 'Lending & P2P',
+    name: 'Lending',
     rate: 2,
     unit: '%',
     type: 'percentage',
@@ -113,7 +113,7 @@ const DEFAULT_DEPT_COMMISSIONS = {
     description: 'Commission on lending allocations and yield distributions'
   },
   bond: {
-    name: 'Bonds & FD Desk',
+    name: 'Bonds',
     rate: 2,
     unit: '%',
     type: 'percentage',
@@ -126,7 +126,9 @@ const DEFAULT_DEPT_COMMISSIONS = {
 router.get('/dept-commissions', protect, admin, async (req, res) => {
   try {
     const doc = await Settings.findOne({ key: 'departmentCommissions' }).lean();
-    const commissions = doc?.value ? { ...DEFAULT_DEPT_COMMISSIONS, ...doc.value } : DEFAULT_DEPT_COMMISSIONS;
+    const commissions = doc?.value ? { ...DEFAULT_DEPT_COMMISSIONS, ...doc.value } : { ...DEFAULT_DEPT_COMMISSIONS };
+    if (commissions.lending) commissions.lending.name = 'Lending';
+    if (commissions.bond) commissions.bond.name = 'Bonds';
     res.json({ success: true, commissions });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch department commissions' });

@@ -6,7 +6,6 @@ import StatusBadge from "./components/StatusBadge";
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
 import { CacheManager, appCache, parseCachedNumber } from "./utils/dataCache";
-import LiveRefreshBadge from "./components/LiveRefreshBadge";
 import { useDebounce } from "./utils/performance";
 
 const StaffManager = React.lazy(() => import("./admin/StaffManager"));
@@ -1238,8 +1237,8 @@ export default function AdminPanel() {
     deposit: { name: 'Deposit Department', rate: 1, unit: '%', type: 'percentage', basis: 'Approved Inflow Deposits', description: 'Commission on verified external deposits added to fintech' },
     withdrawal: { name: 'Withdrawal Department', rate: 1, unit: '%', type: 'percentage', basis: 'Approved Payouts', description: 'Processing commission on user cash-out transactions' },
     kyc: { name: 'KYC Verification', rate: 20, unit: '₹', type: 'flat', basis: 'Verified User Accounts', description: 'Flat incentive reward per verified KYC profile' },
-    lending: { name: 'Lending & P2P', rate: 2, unit: '%', type: 'percentage', basis: 'Lending Capital Returns', description: 'Commission on lending allocations and yield distributions' },
-    bond: { name: 'Bonds & FD Desk', rate: 2, unit: '%', type: 'percentage', basis: 'Bond Investment Subscriptions', description: 'Commission on bond placements and fixed deposits' }
+    lending: { name: 'Lending', rate: 2, unit: '%', type: 'percentage', basis: 'Lending Capital Returns', description: 'Commission on lending allocations and yield distributions' },
+    bond: { name: 'Bonds', rate: 2, unit: '%', type: 'percentage', basis: 'Bond Investment Subscriptions', description: 'Commission on bond placements and fixed deposits' }
   });
   const [loadingCommissions, setLoadingCommissions] = useState(false);
   const [analytics, setAnalytics] = useState(() => {
@@ -3423,7 +3422,11 @@ export default function AdminPanel() {
       const res = await fetch(`${API}/settings/dept-commissions`, { headers });
       if (res.ok) {
         const d = await res.json();
-        if (d.commissions) setDeptCommissions(d.commissions);
+        if (d.commissions) {
+          if (d.commissions.lending) d.commissions.lending.name = 'Lending';
+          if (d.commissions.bond) d.commissions.bond.name = 'Bonds';
+          setDeptCommissions(d.commissions);
+        }
       }
     } catch {} finally {
       setLoadingCommissions(false);
@@ -4187,53 +4190,55 @@ export default function AdminPanel() {
               )}
             </button>
           ))}
-        </nav>
 
-        {/* Footer Area */}
-        <div className={`shrink-0 ${isSidebarCollapsed ? "p-2 space-y-2" : "px-3.5 py-3 space-y-2"} border-t border-slate-800 bg-slate-950/60`}>
-          <Link
-            to="/desk"
-            title={isSidebarCollapsed ? "Department Desks" : undefined}
-            className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
-          >
-            <span>🏢</span>
-            {!isSidebarCollapsed && <span className="truncate">Department Desks</span>}
-          </Link>
-          <Link
-            to="/dashboard"
-            title={isSidebarCollapsed ? "Customer App View" : undefined}
-            className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
-          >
-            <span>📱</span>
-            {!isSidebarCollapsed && <span className="truncate">Customer App View</span>}
-          </Link>
-          {!isSidebarCollapsed && (
-            <div className="flex items-center justify-between text-xs px-1 pt-0.5">
-              <span className="text-slate-400 text-[11px] truncate">Admin: <strong className="text-white font-semibold">{user.name}</strong></span>
-            </div>
-          )}
-          <button
-            onClick={() => {
-              if (window.confirm("Admin offline cache clear karein? Sab fresh load hoga.")) {
-                CacheManager.clearUser("admin", user?._id || user?.id || "admin");
-                window.location.reload();
-              }
-            }}
-            title={isSidebarCollapsed ? "Clear Cache" : undefined}
-            className="w-full px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <span>🧹</span>
-            {!isSidebarCollapsed && <span>Clear Cache</span>}
-          </button>
-          <button
-            onClick={logout}
-            title={isSidebarCollapsed ? "Logout" : undefined}
-            className="w-full px-2.5 py-1.5 bg-rose-600/90 hover:bg-rose-600 text-white rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <span>🚪</span>
-            {!isSidebarCollapsed && <span>Logout</span>}
-          </button>
-        </div>
+          {/* Bottom Actions moved inside scrollable nav */}
+          <div className="pt-3 mt-3 border-t border-slate-800 space-y-2">
+            <Link
+              to="/desk"
+              title={isSidebarCollapsed ? "Department Desks" : undefined}
+              className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
+            >
+              <span>🏢</span>
+              {!isSidebarCollapsed && <span className="truncate">Department Desks</span>}
+            </Link>
+            <Link
+              to="/dashboard"
+              title={isSidebarCollapsed ? "Customer App View" : undefined}
+              className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
+            >
+              <span>📱</span>
+              {!isSidebarCollapsed && <span className="truncate">Customer App View</span>}
+            </Link>
+            {!isSidebarCollapsed && (
+              <div className="flex items-center justify-between text-xs px-1 pt-0.5">
+                <span className="text-slate-400 text-[11px] truncate">Admin: <strong className="text-white font-semibold">{user.name}</strong></span>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Admin offline cache clear karein? Sab fresh load hoga.")) {
+                  CacheManager.clearUser("admin", user?._id || user?.id || "admin");
+                  window.location.reload();
+                }
+              }}
+              title={isSidebarCollapsed ? "Clear Cache" : undefined}
+              className="w-full px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <span>🧹</span>
+              {!isSidebarCollapsed && <span>Clear Cache</span>}
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              title={isSidebarCollapsed ? "Logout" : undefined}
+              className="w-full px-2.5 py-1.5 bg-rose-600/90 hover:bg-rose-600 text-white rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <span>🚪</span>
+              {!isSidebarCollapsed && <span>Logout</span>}
+            </button>
+          </div>
+        </nav>
       </aside>
 
       <div className={`flex-1 min-w-0 max-w-full min-h-screen ${isSidebarCollapsed ? "lg:pl-20" : "lg:pl-64"} transition-all duration-200`}>
@@ -4259,7 +4264,7 @@ export default function AdminPanel() {
           </div>
         </nav>
 
-        {/* DESKTOP TOP BAR WITH LIVE SYNC BADGE */}
+        {/* DESKTOP TOP BAR */}
         <header className="hidden lg:flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
           <div className="flex items-center gap-3">
             <h2 className="text-slate-900 font-bold text-base capitalize flex items-center gap-2">
@@ -4267,41 +4272,6 @@ export default function AdminPanel() {
               <span>{tabs.find(t => t.key === tab)?.label || "Dashboard"}</span>
             </h2>
             <span className="text-xs text-slate-400 font-medium">| Educa Executive Console</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => switchTab("staff")}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
-              title="Open Staff & ID Maker"
-            >
-              <span>👔</span>
-              <span>Staff ID Maker</span>
-              <span className="bg-amber-400 text-slate-900 text-[9px] px-1.5 py-0.2 rounded font-extrabold uppercase">NEW</span>
-            </button>
-            <LiveRefreshBadge
-              secondsToNext={adminCountdown}
-              isRefreshing={isRefreshing}
-              onRefresh={() => {
-                setAdminCountdown(30);
-                loadBootstrapAdmin(true);
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm("Admin offline cache clear karein? Sab fresh load hoga.")) {
-                  CacheManager.clearUser("admin", user?._id || user?.id || "admin");
-                  window.location.reload();
-                }
-              }}
-              title="Clear Saved Offline Data"
-              className="text-xs text-slate-500 hover:text-rose-600 font-semibold px-2 py-1 rounded hover:bg-slate-100 transition cursor-pointer flex items-center gap-1"
-            >
-              <span>🧹</span> Clear Cache
-            </button>
-            <div className="h-4 w-px bg-slate-200" />
-            <span className="text-xs font-semibold text-slate-700">{user.name}</span>
           </div>
         </header>
 
@@ -14114,7 +14084,7 @@ export default function AdminPanel() {
                             {key === "loan" ? "🏦" : key === "deposit" ? "💳" : key === "withdrawal" ? "💸" : key === "kyc" ? "🪪" : key === "lending" ? "📈" : "📜"}
                           </span>
                           <div>
-                            <h4 className="text-sm font-black text-gray-900 leading-tight">{dept.name}</h4>
+                            <h4 className="text-sm font-black text-gray-900 leading-tight">{key === "lending" ? "Lending" : key === "bond" ? "Bonds" : dept.name}</h4>
                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mt-0.5">
                               Basis: {dept.basis}
                             </span>

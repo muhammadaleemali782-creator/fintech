@@ -56,8 +56,7 @@ export default function StaffManager() {
     phone: "",
     password: "",
     departments: ["loan"],
-    permissions: DEPT_PERMISSIONS.loan,
-    maxApprovalAmount: 50000
+    permissions: DEPT_PERMISSIONS.loan
   });
   const [createdCredentials, setCreatedCredentials] = useState(null);
 
@@ -65,14 +64,67 @@ export default function StaffManager() {
   const [editingStaff, setEditingStaff] = useState(null);
   const [editForm, setEditForm] = useState({
     departments: [],
-    permissions: [],
-    maxApprovalAmount: 0
+    permissions: []
   });
+
+  // Loan Department Central Pool State
+  const [loanDeptPool, setLoanDeptPool] = useState({
+    totalPool: 1000000,
+    marketDisbursed: 0,
+    availablePool: 1000000,
+    activeLoansCount: 0,
+    utilizationPercent: 0
+  });
+  const [poolEditing, setPoolEditing] = useState(false);
+  const [editPoolInput, setEditPoolInput] = useState(1000000);
+  const [poolSaving, setPoolSaving] = useState(false);
 
   const showToast = useCallback((msg, isError = false) => {
     setToast({ msg, isError });
     setTimeout(() => setToast({ msg: "", isError: false }), 4500);
   }, []);
+
+  // Fetch Loan Department Central Pool
+  const fetchDeptPool = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/loans/department-pool`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLoanDeptPool(data);
+        setEditPoolInput(data.totalPool || 1000000);
+      }
+    } catch (_) {}
+  }, [token]);
+
+  const handleSavePool = async () => {
+    const val = Number(editPoolInput);
+    if (!Number.isFinite(val) || val < 0) {
+      showToast("Kripya sahi pool amount dalein", true);
+      return;
+    }
+    setPoolSaving(true);
+    try {
+      const res = await fetch(`${API}/loans/department-pool`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ totalPool: val })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Failed to update pool");
+      setLoanDeptPool(data);
+      setPoolEditing(false);
+      showToast(data.message || "Loan Department pool updated!");
+    } catch (err) {
+      showToast(err.message, true);
+    } finally {
+      setPoolSaving(false);
+    }
+  };
 
   // Fetch staff accounts
   const fetchStaff = useCallback(async () => {
@@ -93,7 +145,8 @@ export default function StaffManager() {
 
   useEffect(() => {
     fetchStaff();
-  }, [fetchStaff]);
+    fetchDeptPool();
+  }, [fetchStaff, fetchDeptPool]);
 
   // Toggle Department Checkbox in Create Form (Multi-role selection)
   const toggleCreateDept = (deptId) => {
@@ -139,11 +192,7 @@ export default function StaffManager() {
           phone: createForm.phone.trim(),
           password: createForm.password.trim(),
           departments: createForm.departments,
-          permissions: createForm.permissions,
-          maxApprovalAmount: Number(createForm.maxApprovalAmount) || 0,
-          limits: {
-            maxApprovalAmount: Number(createForm.maxApprovalAmount) || 0
-          }
+          permissions: createForm.permissions
         })
       });
       const data = await res.json();
@@ -174,8 +223,7 @@ export default function StaffManager() {
     setEditingStaff(staff);
     setEditForm({
       departments: staff.staffProfile?.departments || [],
-      permissions: staff.staffProfile?.permissions || [],
-      maxApprovalAmount: staff.staffProfile?.limits?.maxApprovalAmount ?? staff.staffProfile?.maxApprovalAmount ?? 0
+      permissions: staff.staffProfile?.permissions || []
     });
   };
 
@@ -191,11 +239,7 @@ export default function StaffManager() {
         },
         body: JSON.stringify({
           departments: editForm.departments,
-          permissions: editForm.permissions,
-          maxApprovalAmount: Number(editForm.maxApprovalAmount) || 0,
-          limits: {
-            maxApprovalAmount: Number(editForm.maxApprovalAmount) || 0
-          }
+          permissions: editForm.permissions
         })
       });
       const data = await res.json();
@@ -279,7 +323,7 @@ export default function StaffManager() {
             <span>Staff & Department Desks Management</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Create staff accounts, configure department access, set approval limits, and control sessions.
+            Create staff accounts, configure department access, manage central loan department pool, and control sessions.
           </p>
         </div>
 
@@ -291,14 +335,12 @@ export default function StaffManager() {
               phone: "",
               password: "",
               departments: ["loan"],
-              permissions: DEPT_PERMISSIONS.loan,
-              maxApprovalAmount: 50000
+              permissions: DEPT_PERMISSIONS.loan
             });
             setShowCreateModal(true);
           }}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center gap-1.5 cursor-pointer"
         >
-          
           <span>Create Staff Account</span>
         </button>
       </div>
@@ -342,6 +384,116 @@ export default function StaffManager() {
         </div>
       )}
 
+      {/* Loan Department Central Capital Pool (Department-Wide Limit) */}
+      <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-blue-500/30 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-800">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xl">🏢</span>
+              <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                Loan Department Central Capital Pool
+              </h3>
+              <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                Department-Wide Limit
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Yeh limit pure Loan Department ki hai — chahe 1 staff ho ya 100 staff, sabhi ko yahi pool aur market loan dikhega. Baki departments me koi limit nahi hai.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {poolEditing ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  value={editPoolInput}
+                  onChange={(e) => setEditPoolInput(e.target.value)}
+                  placeholder="e.g. 1000000"
+                  className="w-32 bg-slate-950 border border-blue-500 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none"
+                />
+                <button
+                  onClick={handleSavePool}
+                  disabled={poolSaving}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow-sm cursor-pointer"
+                >
+                  {poolSaving ? "Saving..." : "Save"}
+                </button>
+                <button
+                  onClick={() => setPoolEditing(false)}
+                  className="px-2 py-1 bg-slate-800 text-slate-300 text-xs rounded-lg hover:bg-slate-700 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setEditPoolInput(loanDeptPool.totalPool || 1000000);
+                  setPoolEditing(true);
+                }}
+                className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+              >
+                ✏️ Set Limit (₹{(loanDeptPool.totalPool || 1000000).toLocaleString("en-IN")})
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 3 Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Total Department Pool
+            </span>
+            <span className="text-lg font-black text-white mt-0.5 block font-mono">
+              ₹{(loanDeptPool.totalPool || 1000000).toLocaleString("en-IN")}
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">
+              Allocated lending budget
+            </span>
+          </div>
+
+          <div className="bg-amber-950/20 p-3 rounded-xl border border-amber-800/40">
+            <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+              Market Me Diya Loan (Disbursed)
+            </span>
+            <span className="text-lg font-black text-amber-300 mt-0.5 block font-mono">
+              ₹{(loanDeptPool.marketDisbursed || 0).toLocaleString("en-IN")}
+            </span>
+            <span className="text-[10px] text-amber-400/70 block mt-0.5">
+              {loanDeptPool.activeLoansCount || 0} active loans in market ({loanDeptPool.utilizationPercent || 0}%)
+            </span>
+          </div>
+
+          <div className="bg-emerald-950/20 p-3 rounded-xl border border-emerald-800/40">
+            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
+              Available Limit (Baki Pool)
+            </span>
+            <span className="text-lg font-black text-emerald-300 mt-0.5 block font-mono">
+              ₹{(loanDeptPool.availablePool !== undefined ? loanDeptPool.availablePool : 1000000).toLocaleString("en-IN")}
+            </span>
+            <span className="text-[10px] text-emerald-400/70 block mt-0.5">
+              Ready for new disbursals
+            </span>
+          </div>
+        </div>
+
+        {/* Visual Progress Bar */}
+        <div className="space-y-1 pt-1">
+          <div className="flex items-center justify-between text-[10px] text-slate-400">
+            <span>Pool Utilization</span>
+            <span className="font-mono text-slate-300 font-bold">{loanDeptPool.utilizationPercent || 0}% used</span>
+          </div>
+          <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 via-amber-500 to-emerald-500 transition-all duration-500 rounded-full"
+              style={{ width: `${Math.min(100, Math.max(0, loanDeptPool.utilizationPercent || 0))}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Search and Filter Controls */}
       <div className="flex items-center justify-between gap-3 bg-slate-950 p-2.5 rounded-2xl border border-slate-800">
         <div className="relative flex-1">
@@ -378,7 +530,6 @@ export default function StaffManager() {
             const isActive = profile.isActive !== false;
             const depts = profile.departments || [];
             const perms = profile.permissions || [];
-            const maxAmt = profile.limits?.maxApprovalAmount || 0;
 
             return (
               <div
@@ -417,15 +568,9 @@ export default function StaffManager() {
                     )}
                   </div>
 
-                  {/* Permissions & Limit Summary */}
+                  {/* Permissions & Details */}
                   <div className="mt-2 text-[11px] text-slate-400 space-y-0.5">
                     <div>Permissions: <strong className="text-slate-200">{perms.length} granted</strong></div>
-                    <div>
-                      Approval Limit:{" "}
-                      <strong className={maxAmt > 0 ? "text-amber-400" : "text-emerald-400"}>
-                        {maxAmt > 0 ? `₹${maxAmt.toLocaleString("en-IN")}` : "Unlimited"}
-                      </strong>
-                    </div>
                     {staff.lastLogin && (
                       <div className="text-[10px] text-slate-500">
                         Last Login: {new Date(staff.lastLogin).toLocaleDateString()}
@@ -629,19 +774,6 @@ export default function StaffManager() {
               </div>
             </div>
 
-            {/* Max Approval Limit */}
-            <div>
-              <label className="text-slate-300 font-bold block mb-1">
-                Max Approval Amount (₹) <span className="text-slate-500 font-normal">(0 for unlimited)</span>
-              </label>
-              <input
-                type="number"
-                value={createForm.maxApprovalAmount}
-                onChange={(e) => setCreateForm({ ...createForm, maxApprovalAmount: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
-              />
-            </div>
-
             {/* Modal Actions */}
             <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
               <button
@@ -766,19 +898,6 @@ export default function StaffManager() {
                   );
                 })}
               </div>
-            </div>
-
-            {/* Max Approval Limit */}
-            <div>
-              <label className="text-slate-300 font-bold block mb-1">
-                Max Approval Amount (₹) <span className="text-slate-500 font-normal">(0 for unlimited)</span>
-              </label>
-              <input
-                type="number"
-                value={editForm.maxApprovalAmount}
-                onChange={(e) => setEditForm({ ...editForm, maxApprovalAmount: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
-              />
             </div>
 
             {/* Modal Actions */}

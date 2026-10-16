@@ -193,14 +193,6 @@ router.post('/transaction/:id/approve', protect, staffOrAdmin, async (req, res) 
           e.status = 403;
           throw e;
         }
-
-        // Maximum approval limit check
-        const maxLimit = req.user.staffProfile?.limits?.maxApprovalAmount || 0;
-        if (maxLimit > 0 && txn.amount > maxLimit) {
-          const e = new Error(`Transaction amount (₹${txn.amount}) exceeds your maximum approval limit of ₹${maxLimit}`);
-          e.status = 403;
-          throw e;
-        }
       }
 
       if (txn.type === 'deposit') {

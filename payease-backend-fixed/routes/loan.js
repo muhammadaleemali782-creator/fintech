@@ -1191,6 +1191,73 @@ router.post('/:id/close-early', protect, async (req, res) => {
   }
 });
 
+// Loan Department Central Pool Limit & Market Stats
+router.get('/department-pool', protect, staffOrAdmin, async (req, res) => {
+  try {
+    const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).lean();
+    const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
+
+    const activeLoansAgg = await Loan.aggregate([
+      { $match: { status: { $in: ['active', 'approved'] } } },
+      { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
+    ]);
+
+    const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
+    const activeLoansCount = activeLoansAgg[0]?.count || 0;
+    const availablePool = Math.max(0, totalPool - marketDisbursed);
+    const utilizationPercent = totalPool > 0 ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1))) : 0;
+
+    res.json({
+      success: true,
+      totalPool,
+      marketDisbursed,
+      availablePool,
+      activeLoansCount,
+      utilizationPercent
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch loan department pool data' });
+  }
+});
+
+// Update Loan Department Central Pool Limit (Admin only)
+router.post('/department-pool', protect, admin, async (req, res) => {
+  try {
+    const { totalPool } = req.body;
+    const poolNum = Number(totalPool);
+    if (!Number.isFinite(poolNum) || poolNum < 0) {
+      return res.status(400).json({ success: false, message: 'Invalid pool amount' });
+    }
+
+    await Settings.findOneAndUpdate(
+      { key: 'loanDepartmentPool' },
+      { key: 'loanDepartmentPool', value: poolNum, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    const activeLoansAgg = await Loan.aggregate([
+      { $match: { status: { $in: ['active', 'approved'] } } },
+      { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
+    ]);
+    const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
+    const activeLoansCount = activeLoansAgg[0]?.count || 0;
+    const availablePool = Math.max(0, poolNum - marketDisbursed);
+    const utilizationPercent = poolNum > 0 ? Math.min(100, Number(((marketDisbursed / poolNum) * 100).toFixed(1))) : 0;
+
+    res.json({
+      success: true,
+      message: `✅ Loan Department Pool updated to ₹${poolNum.toLocaleString('en-IN')}`,
+      totalPool: poolNum,
+      marketDisbursed,
+      availablePool,
+      activeLoansCount,
+      utilizationPercent
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to update loan department pool' });
+  }
+});
+
 // Pre-closure Quote & Breakdown Preview Endpoint
 router.get('/:id/preclose-quote', protect, async (req, res) => {
   try {
@@ -1517,6 +1584,22 @@ router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_o
     const shouldDisburse = disburseToWallet !== undefined ? Boolean(disburseToWallet) : (paidCount === 0);
     const disbursalPayout = quote.disbursalAmount || Math.max(0, numAmount - (quote.processingFee || 0) - (quote.upiCharges || 0));
 
+    if (isDirectActive && req.user.role === 'staff') {
+      const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' });
+      const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
+      const activeLoansAgg = await Loan.aggregate([
+        { $match: { status: { $in: ['active', 'approved'] } } },
+        { $group: { _id: null, totalDisbursed: { $sum: '$amount' } } }
+      ]);
+      const currentMarketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
+      const availablePool = Math.max(0, totalPool - currentMarketDisbursed);
+      if (quote.amount > availablePool) {
+        return res.status(403).json({
+          message: `Loan amount (₹${quote.amount.toLocaleString('en-IN')}) exceeds Loan Department available pool (₹${availablePool.toLocaleString('en-IN')}). Total Department Limit: ₹${totalPool.toLocaleString('en-IN')}`
+        });
+      }
+    }
+
     const accountNumber = await generateLoanAccountNumber();
 
     const createdLoan = await Loan.create({
@@ -1768,10 +1851,21 @@ router.post('/:id/approve', protect, requirePermission('loan.process', 'loan.dis
         throw Object.assign(new Error('Self-approval is forbidden.'), { status: 403 });
       }
 
-      // Max approval limit check
-      const maxLimit = req.user.staffProfile?.limits?.maxApprovalAmount || 0;
-      if (req.user.role === 'staff' && maxLimit > 0 && loan.amount > maxLimit) {
-        throw Object.assign(new Error(`Loan amount (₹${loan.amount}) exceeds your maximum approval limit of ₹${maxLimit}`), { status: 403 });
+      // Loan Department Central Pool Limit check (shared across all loan staff)
+      const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).session(session);
+      const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
+      const activeLoansAgg = await Loan.aggregate([
+        { $match: { status: { $in: ['active', 'approved'] } } },
+        { $group: { _id: null, totalDisbursed: { $sum: '$amount' } } }
+      ]).session(session);
+      const currentMarketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
+      const availablePool = Math.max(0, totalPool - currentMarketDisbursed);
+
+      if (req.user.role === 'staff' && loan.amount > availablePool) {
+        throw Object.assign(
+          new Error(`Loan amount (₹${loan.amount.toLocaleString('en-IN')}) exceeds Loan Department available pool (₹${availablePool.toLocaleString('en-IN')}). Total Department Limit: ₹${totalPool.toLocaleString('en-IN')}`),
+          { status: 403 }
+        );
       }
 
       const user = await User.findById(loan.userId).session(session);

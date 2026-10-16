@@ -543,12 +543,6 @@ router.post('/:id/approve', protect, staffOrAdmin, async (req, res) => {
       if (String(bond.userId) === String(req.user._id)) {
         return res.status(403).json({ message: 'Self-approval is forbidden.' });
       }
-
-      // Max approval limit check
-      const maxLimit = req.user.staffProfile?.limits?.maxApprovalAmount || 0;
-      if (maxLimit > 0 && bond.principalAmount > maxLimit) {
-        return res.status(403).json({ message: `Bond amount (₹${bond.principalAmount}) exceeds your maximum approval limit of ₹${maxLimit}` });
-      }
     }
 
     bond.status = 'active';

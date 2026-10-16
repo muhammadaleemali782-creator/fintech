@@ -91,12 +91,8 @@ export function usePermissions() {
   );
 
   const canApproveAmount = useCallback(
-    (amt) => {
-      if (isAdmin) return true;
-      if (maxApprovalAmount <= 0) return true;
-      return Number(amt || 0) <= maxApprovalAmount;
-    },
-    [isAdmin, maxApprovalAmount]
+    () => true,
+    []
   );
 
   return {

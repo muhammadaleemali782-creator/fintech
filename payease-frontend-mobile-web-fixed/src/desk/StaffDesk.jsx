@@ -82,7 +82,30 @@ export default function StaffDesk() {
     setKycSubTab("verifications");
   }, [activeTab]);
 
+  // Loan Department Central Pool State
+  const [deptPool, setDeptPool] = useState({
+    totalPool: 1000000,
+    marketDisbursed: 0,
+    availablePool: 1000000,
+    activeLoansCount: 0,
+    utilizationPercent: 0
+  });
 
+  const fetchDeptPool = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/loans/department-pool`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDeptPool(data);
+      }
+    } catch (_) {}
+  }, [token]);
+
+  useEffect(() => {
+    fetchDeptPool();
+  }, [fetchDeptPool]);
 
   const loanStats = useMemo(() => {
     const list = queues.loan || [];
@@ -248,6 +271,7 @@ export default function StaffDesk() {
       if (data.success && data.queues) {
         setQueues(data.queues);
         setCounts(data.counts || {});
+        fetchDeptPool();
         try {
           localStorage.setItem("educa_staff_desk_queues", JSON.stringify(data.queues));
           localStorage.setItem("educa_staff_desk_counts", JSON.stringify(data.counts || {}));
@@ -885,48 +909,98 @@ export default function StaffDesk() {
           <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-gray-100 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-base"></span>
+                <span className="text-base">🏢</span>
                 <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                  Loan Department Overview
+                  Loan Department Central Pool & Performance
                 </h4>
               </div>
-              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
-                {loanStats.totalCount} Total Loans Active/Processed
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                  Shared Department Limit
+                </span>
+                <span className="text-[11px] font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-lg">
+                  {loanStats.totalCount} Total Loans
+                </span>
+              </div>
             </div>
 
-            {/* 3 Stat Cards */}
+            {/* Department Central Pool Row */}
+            <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-3.5 rounded-xl shadow-xs space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-200">
+                    Loan Department Central Pool
+                  </span>
+                  <div className="text-xl sm:text-2xl font-black font-mono">
+                    ₹{(deptPool.totalPool || 1000000).toLocaleString("en-IN")}
+                  </div>
+                  <p className="text-[10px] text-blue-200/80">
+                    Sabhi loan staff ko yahi central pool aur market me diya hua loan dikhega.
+                  </p>
+                </div>
+                <div className="flex items-center gap-4 text-right">
+                  <div>
+                    <span className="text-[10px] font-bold text-amber-300 uppercase block">Market Me Diya Loan</span>
+                    <span className="text-sm sm:text-base font-black text-amber-200 font-mono">
+                      ₹{(deptPool.marketDisbursed || loanStats.totalDisbursed).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-300 uppercase block">Available Pool (Baki)</span>
+                    <span className="text-sm sm:text-base font-black text-emerald-300 font-mono">
+                      ₹{(deptPool.availablePool !== undefined ? deptPool.availablePool : Math.max(0, 1000000 - loanStats.totalDisbursed)).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pool Utilization Bar */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-blue-200">
+                  <span>Pool Disbursal: {deptPool.utilizationPercent || 0}%</span>
+                  <span>Baki Limit: ₹{(deptPool.availablePool !== undefined ? deptPool.availablePool : Math.max(0, 1000000 - loanStats.totalDisbursed)).toLocaleString("en-IN")}</span>
+                </div>
+                <div className="w-full h-1.5 bg-blue-950 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-400 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.max(0, deptPool.utilizationPercent || 0))}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Collections & Recovery Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {/* 1. Total Disbursed (Gaye Paise) */}
-              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <span className="text-[10px] font-bold text-gray-500 uppercase block">Total Loan Diya (Gaye)</span>
-                <span className="text-base sm:text-lg font-black text-gray-900 mt-0.5 block">
+              <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                <span className="text-[10px] font-bold text-gray-500 uppercase block">Total Disbursed</span>
+                <span className="text-sm sm:text-base font-black text-gray-900 mt-0.5 block">
                   ₹{loanStats.totalDisbursed.toLocaleString("en-IN")}
                 </span>
                 <span className="text-[10px] text-gray-400 mt-0.5 block font-medium">
-                  {loanStats.totalCount} Total Loans
+                  {loanStats.totalCount} Total Loans Processed
                 </span>
               </div>
 
               {/* 2. Total Recovered / Received (Aaye Paise) */}
-              <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
-                <span className="text-[10px] font-bold text-emerald-700 uppercase block">Total EMI Aayi (Aaye)</span>
-                <span className="text-base sm:text-lg font-black text-emerald-800 mt-0.5 block">
+              <div className="bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-200">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase block">Total EMI Recovered</span>
+                <span className="text-sm sm:text-base font-black text-emerald-800 mt-0.5 block">
                   ₹{loanStats.totalCollected.toLocaleString("en-IN")}
                 </span>
                 <span className="text-[10px] text-emerald-600 mt-0.5 block font-medium">
-                  out of ₹{loanStats.totalRepayable.toLocaleString("en-IN")} ({loanStats.recoveryRate}%)
+                  Recovery Rate: {loanStats.recoveryRate}%
                 </span>
               </div>
 
               {/* 3. Total Due / Pending EMI (Baki Paise) */}
-              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200">
+              <div className="bg-amber-50/60 p-2.5 rounded-xl border border-amber-200">
                 <span className="text-[10px] font-bold text-amber-700 uppercase block">Pending Due (Baki EMI)</span>
-                <span className="text-base sm:text-lg font-black text-amber-800 mt-0.5 block">
+                <span className="text-sm sm:text-base font-black text-amber-800 mt-0.5 block">
                   ₹{loanStats.totalRemaining.toLocaleString("en-IN")}
                 </span>
                 <span className="text-[10px] text-amber-600 mt-0.5 block font-medium">
-                  {loanStats.activeCount} Active EMIs
+                  {loanStats.activeCount} Active EMIs in Market
                 </span>
               </div>
             </div>
@@ -1006,7 +1080,7 @@ export default function StaffDesk() {
               const amount = item.amount || item.principalAmount || 0;
               const itemStatus = String(item.status || item.kycStatus || "pending").toLowerCase();
               const isPendingItem = ["pending", "hold"].includes(itemStatus);
-              const isOverLimit = maxApprovalAmount > 0 && amount > maxApprovalAmount;
+              const isOverLimit = activeTab === "loan" && (deptPool.availablePool !== undefined) && amount > deptPool.availablePool;
               const isSelfAction = String(item.userId?._id || item.userId || "") === String(user?._id || user?.id || "");
               const canProcess = hasPermission(DEPT_CONFIG[activeTab]?.processPerm) && !isSelfAction;
               const hasDocs = !!(item.documents?.photoUrl || item.documents?.doc1Url || item.documents?.doc1BackUrl || item.documents?.doc2Url || item.documents?.chequeUrl || item.screenshotUrl || item.proofUrl || item.kycDocuments?.doc1Url);
@@ -1217,7 +1291,7 @@ export default function StaffDesk() {
                     )}
                     {isPendingItem && isOverLimit && (
                       <div className="mt-2 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold">
-                        Exceeds approval limit (₹{maxApprovalAmount})
+                        Exceeds Loan Dept Pool (Available: ₹{deptPool.availablePool?.toLocaleString("en-IN")})
                       </div>
                     )}
                   </div>

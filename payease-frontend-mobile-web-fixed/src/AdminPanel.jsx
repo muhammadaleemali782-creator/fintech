@@ -1358,6 +1358,10 @@ export default function AdminPanel() {
   }, [users]);
   const verifiedKycCount = useMemo(() => allKycUsers.filter(u => u.kycStatus === "verified").length, [allKycUsers]);
   const rejectedKycCount = useMemo(() => allKycUsers.filter(u => u.kycStatus === "rejected").length, [allKycUsers]);
+  const pendingBankChangeUsers = useMemo(() => {
+    if (!Array.isArray(users)) return [];
+    return users.filter(u => u.bankChangeRequest && u.bankChangeRequest.status === "pending");
+  }, [users]);
   const [userFilter, setUserFilter] = useState("all"); // 'all' | 'customers' | 'agents'
   const [agentFilter, setAgentFilter] = useState("all"); // 'all' | 'approved' | 'pending'
 
@@ -1385,6 +1389,9 @@ export default function AdminPanel() {
   const filteredKycUsers = useMemo(() => {
     if (!Array.isArray(users)) return [];
     return users.filter(u => {
+      if (kycFilter === "bank_change") {
+        return u.bankChangeRequest && u.bankChangeRequest.status === "pending";
+      }
       const hasKyc = u.kycStatus && u.kycStatus !== "none";
       if (!hasKyc) return false;
       if (kycFilter !== "all" && u.kycStatus !== kycFilter) return false;
@@ -3244,6 +3251,48 @@ export default function AdminPanel() {
       }
     } catch {
       showToast("Failed to reject KYC", "error");
+      loadUsers(true);
+    }
+  };
+
+  const approveBankChange = async (userId, remarks = "") => {
+    try {
+      const res = await fetch(`${API}/admin/bank-change/${userId}/approve`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ remarks })
+      });
+      const data = await res.json();
+      showToast(data.message || "Bank details approved successfully", res.ok ? "success" : "error");
+      if (res.ok) {
+        apiCache.clear();
+        loadUsers(true);
+      } else {
+        loadUsers(true);
+      }
+    } catch (err) {
+      showToast("Failed to approve bank change: " + err.message, "error");
+      loadUsers(true);
+    }
+  };
+
+  const rejectBankChange = async (userId, remarks = "") => {
+    try {
+      const res = await fetch(`${API}/admin/bank-change/${userId}/reject`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ remarks })
+      });
+      const data = await res.json();
+      showToast(data.message || "Bank change request rejected", res.ok ? "success" : "error");
+      if (res.ok) {
+        apiCache.clear();
+        loadUsers(true);
+      } else {
+        loadUsers(true);
+      }
+    } catch (err) {
+      showToast("Failed to reject bank change: " + err.message, "error");
       loadUsers(true);
     }
   };
@@ -7772,6 +7821,7 @@ export default function AdminPanel() {
                   {[
                     { key: "all", label: `All (${allKycUsers.length})` },
                     { key: "pending", label: `Pending (${pendingKycCount})` },
+                    { key: "bank_change", label: `Bank Change (${pendingBankChangeUsers.length})` },
                     { key: "verified", label: `Verified (${verifiedKycCount})` },
                     { key: "rejected", label: `Rejected (${rejectedKycCount})` },
                   ].map(f => (
@@ -7938,6 +7988,89 @@ export default function AdminPanel() {
                             </span>
                           )}
                         </div>
+
+                        {/* Registered Bank Details */}
+                        {(u.bankAccount?.accountNumber || u.kycDocuments?.bankAccountNumber) && (
+                          <div className="flex flex-wrap items-center gap-2 text-[11px] text-emerald-800 bg-emerald-50/90 px-3 py-1.5 rounded-xl border border-emerald-200">
+                            <span className="font-bold flex items-center gap-1">
+                              <span>🏦</span> Registered Bank:
+                            </span>
+                            <span className="font-semibold text-gray-900">{u.bankAccount?.bankName || u.kycDocuments?.bankName || "Bank"}</span>
+                            <span className="font-mono text-gray-700">A/C: {u.bankAccount?.accountNumber || u.kycDocuments?.bankAccountNumber}</span>
+                            {(u.bankAccount?.ifsc || u.kycDocuments?.bankIfsc) && (
+                              <span className="font-mono text-gray-600">IFSC: {u.bankAccount?.ifsc || u.kycDocuments?.bankIfsc}</span>
+                            )}
+                            {(u.bankAccount?.holderName || u.kycDocuments?.bankHolderName) && (
+                              <span className="text-gray-700">Holder: {u.bankAccount?.holderName || u.kycDocuments?.bankHolderName}</span>
+                            )}
+                            {(u.bankAccount?.upiId || u.kycDocuments?.bankUpiId || u.upiId) && (
+                              <span className="font-mono text-emerald-700 font-semibold">UPI: {u.bankAccount?.upiId || u.kycDocuments?.bankUpiId || u.upiId}</span>
+                            )}
+                            <span className="text-[9px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold uppercase ml-auto">
+                              Permanent
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Pending Bank Change Request Banner & Action */}
+                        {u.bankChangeRequest && u.bankChangeRequest.status === "pending" && (
+                          <div className="p-3 bg-amber-50 rounded-xl border-2 border-amber-300 text-xs text-amber-950 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-extrabold text-amber-900 flex items-center gap-1.5">
+                                <span>⚠️</span> Bank / UPI Change Request Pending KYC Approval
+                              </span>
+                              <span className="text-[10px] text-amber-700 font-medium">
+                                {u.bankChangeRequest.requestedAt ? new Date(u.bankChangeRequest.requestedAt).toLocaleDateString("en-IN") : "Recent"}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                              <div className="p-2 bg-white rounded-lg border border-amber-200 space-y-0.5">
+                                <span className="font-bold text-gray-400 block text-[9px] uppercase tracking-wider">Current Bank Details</span>
+                                <div className="font-semibold text-gray-800">{u.bankAccount?.bankName || "—"}</div>
+                                <div className="font-mono text-gray-600">A/C: {u.bankAccount?.accountNumber || "—"}</div>
+                                <div className="font-mono text-gray-600">IFSC: {u.bankAccount?.ifsc || "—"}</div>
+                                <div className="font-mono text-gray-600">UPI: {u.bankAccount?.upiId || u.upiId || "—"}</div>
+                              </div>
+                              <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-300 space-y-0.5 text-emerald-950">
+                                <span className="font-bold text-emerald-700 block text-[9px] uppercase tracking-wider">Requested New Bank Details</span>
+                                <div className="font-extrabold text-emerald-900">{u.bankChangeRequest.bankName || "—"}</div>
+                                <div className="font-mono font-bold text-emerald-900">A/C: {u.bankChangeRequest.accountNumber || "—"}</div>
+                                <div className="font-mono text-emerald-800">IFSC: {u.bankChangeRequest.ifsc || "—"} | Holder: {u.bankChangeRequest.holderName || "—"}</div>
+                                <div className="font-mono text-emerald-800">UPI: {u.bankChangeRequest.upiId || "—"}</div>
+                              </div>
+                            </div>
+                            {u.bankChangeRequest.reason && (
+                              <div className="text-[11px] text-amber-900 bg-white/80 p-2 rounded-lg border border-amber-200">
+                                <strong>User's Reason:</strong> "{u.bankChangeRequest.reason}"
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 pt-0.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  approveBankChange(u._id, "Bank change approved by KYC Department");
+                                }}
+                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                              >
+                                ✓ Approve Bank Change
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const reason = prompt("Enter reason for rejecting bank change:");
+                                  if (reason !== null) {
+                                    rejectBankChange(u._id, reason || "Bank details could not be verified");
+                                  }
+                                }}
+                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-lg text-xs font-bold transition cursor-pointer active:scale-95"
+                              >
+                                ✕ Reject Bank Change
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Admin Remarks if any */}
                         {u.kycDocuments?.adminRemarks && (
@@ -14167,6 +14300,100 @@ export default function AdminPanel() {
                 </div>
               </div>
 
+              {/* Registered Bank Account (Permanent) */}
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-1.5 text-xs">
+                <div className="flex items-center justify-between pb-1 border-b border-emerald-200">
+                  <span className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                    <span>🏦</span> Registered Permanent Bank Details
+                  </span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+                    Permanent
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1">
+                  <div>
+                    <span className="text-gray-400 block text-[10px]">Bank Name:</span>
+                    <span className="font-bold text-gray-800">{previewKycUser.bankAccount?.bankName || previewKycUser.kycDocuments?.bankName || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px]">Account No:</span>
+                    <span className="font-mono font-bold text-gray-900">{previewKycUser.bankAccount?.accountNumber || previewKycUser.kycDocuments?.bankAccountNumber || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px]">IFSC Code:</span>
+                    <span className="font-mono font-bold text-gray-800">{previewKycUser.bankAccount?.ifsc || previewKycUser.kycDocuments?.bankIfsc || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px]">Holder / UPI:</span>
+                    <span className="font-mono text-gray-800 truncate block">
+                      {previewKycUser.bankAccount?.holderName || previewKycUser.kycDocuments?.bankHolderName || previewKycUser.name}
+                      {(previewKycUser.bankAccount?.upiId || previewKycUser.kycDocuments?.bankUpiId) ? ` • ${previewKycUser.bankAccount?.upiId || previewKycUser.kycDocuments?.bankUpiId}` : ""}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pending Bank Change Request Details (if any) */}
+              {previewKycUser.bankChangeRequest && previewKycUser.bankChangeRequest.status === "pending" && (
+                <div className="p-3.5 bg-amber-50 rounded-2xl border-2 border-amber-300 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between pb-1 border-b border-amber-200">
+                    <span className="font-extrabold text-amber-950 flex items-center gap-1.5">
+                      <span>⚠️</span> Bank Account / UPI Change Request
+                    </span>
+                    <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-bold">
+                      Requested {previewKycUser.bankChangeRequest.requestedAt ? new Date(previewKycUser.bankChangeRequest.requestedAt).toLocaleDateString("en-IN") : "Recent"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-2 bg-white rounded-xl border border-amber-200 space-y-0.5">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Current Registered Bank</span>
+                      <div className="font-bold text-gray-800">{previewKycUser.bankAccount?.bankName || "—"}</div>
+                      <div className="font-mono text-gray-600">A/C: {previewKycUser.bankAccount?.accountNumber || "—"}</div>
+                      <div className="font-mono text-gray-600">IFSC: {previewKycUser.bankAccount?.ifsc || "—"}</div>
+                      <div className="font-mono text-gray-600">UPI: {previewKycUser.bankAccount?.upiId || "—"}</div>
+                    </div>
+                    <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-300 space-y-0.5 text-emerald-950">
+                      <span className="text-[9px] font-bold text-emerald-700 block text-[9px] uppercase tracking-wider">Requested New Bank Details</span>
+                      <div className="font-extrabold text-emerald-900">{previewKycUser.bankChangeRequest.bankName || "—"}</div>
+                      <div className="font-mono font-bold text-emerald-900">A/C: {previewKycUser.bankChangeRequest.accountNumber || "—"}</div>
+                      <div className="font-mono text-emerald-800">IFSC: {previewKycUser.bankChangeRequest.ifsc || "—"} | Holder: {previewKycUser.bankChangeRequest.holderName || "—"}</div>
+                      <div className="font-mono text-emerald-800">UPI: {previewKycUser.bankChangeRequest.upiId || "—"}</div>
+                    </div>
+                  </div>
+                  {previewKycUser.bankChangeRequest.reason && (
+                    <div className="p-2 bg-white rounded-lg border border-amber-200 text-[11px] text-amber-900">
+                      <strong>Reason for change:</strong> "{previewKycUser.bankChangeRequest.reason}"
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const uid = previewKycUser._id;
+                        setPreviewKycUser(null);
+                        await approveBankChange(uid, "Bank change approved by KYC Department");
+                      }}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                    >
+                      ✓ Approve Bank Change
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const uid = previewKycUser._id;
+                        const reason = prompt("Enter reason for rejecting bank change:");
+                        if (reason !== null) {
+                          setPreviewKycUser(null);
+                          await rejectBankChange(uid, reason || "Bank details could not be verified");
+                        }
+                      }}
+                      className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95"
+                    >
+                      ✕ Reject Bank Change
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Secure Document Vault Status */}
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">

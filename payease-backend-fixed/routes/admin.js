@@ -1071,6 +1071,22 @@ router.post('/kyc/:id/approve', protect, requirePermission('kyc.process'), async
     if (remarks) user.kycDocuments.adminRemarks = remarks.trim();
     user.kycDocuments.isNoteLocked = true;
 
+    // Lock submitted bank details into permanent registered bank account
+    if (user.kycDocuments?.bankAccountNumber && !user.bankAccount?.accountNumber) {
+      user.bankAccount = {
+        ...(user.bankAccount || {}),
+        accountNumber: user.kycDocuments.bankAccountNumber,
+        ifsc: user.kycDocuments.bankIfsc || '',
+        bankName: user.kycDocuments.bankName || '',
+        holderName: user.kycDocuments.bankHolderName || user.name || '',
+        upiId: user.kycDocuments.bankUpiId || user.bankAccount?.upiId || ''
+      };
+      if (user.kycDocuments.bankUpiId) {
+        user.upiId = user.kycDocuments.bankUpiId;
+      }
+      user.markModified('bankAccount');
+    }
+
     if (!user.cardStatus) {
       user.cardStatus = {
         silver: { unlocked: true, cardNumber: `4532 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 1200` },
@@ -1148,6 +1164,187 @@ router.post('/kyc/:id/reject', protect, requirePermission('kyc.process'), async 
     res.json({ message: `User ${user.name} KYC marked as rejected.`, user });
   } catch (err) {
     res.status(500).json({ message: 'Failed to reject KYC: ' + err.message });
+  }
+});
+
+// Bank Change Requests Review (KYC Department)
+router.get('/bank-change-requests', protect, staffOrAdmin, async (req, res) => {
+  try {
+    const { status = 'pending' } = req.query;
+    const filter = {};
+    if (status && status !== 'all') {
+      filter['bankChangeRequest.status'] = status;
+    } else {
+      filter['bankChangeRequest.status'] = { $in: ['pending', 'approved', 'rejected'] };
+    }
+
+    const users = await User.find(filter)
+      .select('name email phone accountNumber kycStatus bankAccount bankChangeRequest createdAt')
+      .sort({ 'bankChangeRequest.requestedAt': -1 })
+      .lean();
+
+    const items = users.map(u => ({
+      _id: u._id,
+      userId: u._id,
+      userName: u.name,
+      name: u.name,
+      userEmail: u.email,
+      email: u.email,
+      userPhone: u.phone,
+      phone: u.phone,
+      accountNumber: u.accountNumber || '—',
+      kycStatus: u.kycStatus,
+      currentBank: u.bankAccount || {},
+      bankAccount: u.bankAccount || {},
+      bankChangeRequest: u.bankChangeRequest || {},
+      status: u.bankChangeRequest?.status || 'none',
+      requestedAt: u.bankChangeRequest?.requestedAt || u.createdAt,
+      createdAt: u.bankChangeRequest?.requestedAt || u.createdAt
+    }));
+
+    res.json({ success: true, count: items.length, requests: items });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch bank change requests: ' + err.message });
+  }
+});
+
+router.post('/bank-change/:id/approve', protect, requirePermission('kyc.process'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.bankChangeRequest || user.bankChangeRequest.status !== 'pending') {
+      return res.status(400).json({ message: 'Is user ki koi pending bank change request nahi hai.' });
+    }
+
+    const { remarks } = req.body;
+    const changeReq = user.bankChangeRequest;
+
+    // Apply new bank details to user's registered bank account
+    user.bankAccount = {
+      accountNumber: changeReq.accountNumber,
+      ifsc: changeReq.ifsc,
+      holderName: changeReq.holderName,
+      bankName: changeReq.bankName,
+      upiId: changeReq.upiId || user.bankAccount?.upiId || '',
+      qrCodeUrl: user.bankAccount?.qrCodeUrl || '',
+      googleDriveQrUrl: user.bankAccount?.googleDriveQrUrl || ''
+    };
+    if (changeReq.upiId) {
+      user.upiId = changeReq.upiId;
+    }
+
+    user.bankChangeRequest.status = 'approved';
+    user.bankChangeRequest.reviewedAt = new Date();
+    user.bankChangeRequest.reviewedBy = {
+      userId: req.user._id,
+      name: req.body.approverName || req.user.name || (req.user.role === 'staff' ? 'Staff' : 'Admin'),
+      role: req.user.role
+    };
+    user.bankChangeRequest.adminRemarks = remarks ? remarks.trim() : 'Approved by KYC Department';
+
+    user.markModified('bankAccount');
+    user.markModified('bankChangeRequest');
+    await user.save();
+    memoryCache.delPrefix('user_me_' + user._id);
+
+    // Audit Log
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'kyc',
+      action: 'bank_change.approve',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      userId: user._id,
+      fromStatus: 'pending',
+      toStatus: 'approved',
+      note: `New Bank: ${changeReq.bankName} - ${changeReq.accountNumber}. Remarks: ${remarks || ''}`,
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
+    sendNotification({
+      type: 'bank_change_approved',
+      title: 'Bank Change Request Approved ✅',
+      message: `Aapki registered bank details successfully update ho gayi hain (${changeReq.bankName} - ${changeReq.accountNumber}).`,
+      data: { userId: user._id }
+    });
+
+    res.json({
+      success: true,
+      message: `User ${user.name} ki bank change request approve ho gayi hai! Registered bank details update ho gayi hain.`,
+      user: {
+        _id: user._id,
+        bankAccount: user.bankAccount,
+        bankChangeRequest: user.bankChangeRequest
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to approve bank change request: ' + err.message });
+  }
+});
+
+router.post('/bank-change/:id/reject', protect, requirePermission('kyc.process'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid user ID' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.bankChangeRequest || user.bankChangeRequest.status !== 'pending') {
+      return res.status(400).json({ message: 'Is user ki koi pending bank change request nahi hai.' });
+    }
+
+    const { remarks } = req.body;
+    user.bankChangeRequest.status = 'rejected';
+    user.bankChangeRequest.reviewedAt = new Date();
+    user.bankChangeRequest.reviewedBy = {
+      userId: req.user._id,
+      name: req.body.approverName || req.user.name || (req.user.role === 'staff' ? 'Staff' : 'Admin'),
+      role: req.user.role
+    };
+    user.bankChangeRequest.adminRemarks = remarks ? remarks.trim() : 'Rejected by KYC Department';
+
+    user.markModified('bankChangeRequest');
+    await user.save();
+    memoryCache.delPrefix('user_me_' + user._id);
+
+    // Audit Log
+    await AuditLog.create({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'kyc',
+      action: 'bank_change.reject',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      userId: user._id,
+      fromStatus: 'pending',
+      toStatus: 'rejected',
+      note: remarks || 'Rejected by KYC Department',
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
+    sendNotification({
+      type: 'bank_change_rejected',
+      title: 'Bank Change Request Rejected ❌',
+      message: `Aapki bank change request reject kar di gayi hai. Kaaran: ${remarks || 'Details mismatch'}`,
+      data: { userId: user._id }
+    });
+
+    res.json({
+      success: true,
+      message: `User ${user.name} ki bank change request reject kar di gayi hai.`,
+      user: {
+        _id: user._id,
+        bankChangeRequest: user.bankChangeRequest
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to reject bank change request: ' + err.message });
   }
 });
 
@@ -2348,9 +2545,10 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
       withdrawal: [],
       loan: [],
       kyc: [],
+      bankChanges: [],
       lending: [],
       bond: [],
-      counts: { deposit: 0, withdrawal: 0, loan: 0, kyc: 0, lending: 0, bond: 0 }
+      counts: { deposit: 0, withdrawal: 0, loan: 0, kyc: 0, lending: 0, bond: 0, bankChanges: 0 }
     };
 
     const promises = [];
@@ -2420,7 +2618,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
       );
     }
 
-    // KYC Verification Queue
+    // KYC Verification & Bank Change Request Queue
     if (allowedDepts.includes('kyc')) {
       promises.push(
         User.find({ kycStatus: 'pending', role: { $ne: 'admin' } })
@@ -2434,6 +2632,39 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
             queues.counts.kyc = users.length;
           })
           .catch(err => console.warn('Desk kyc queue notice:', err.message))
+      );
+
+      promises.push(
+        User.find({ 'bankChangeRequest.status': 'pending', role: { $ne: 'admin' } })
+          .select('name email phone accountNumber kycStatus bankAccount bankChangeRequest createdAt')
+          .sort({ 'bankChangeRequest.requestedAt': -1 })
+          .limit(50)
+          .maxTimeMS(8000)
+          .lean()
+          .then(users => {
+            queues.bankChanges = users.map(u => ({
+              _id: u._id,
+              userId: u._id,
+              userName: u.name,
+              name: u.name,
+              userEmail: u.email,
+              email: u.email,
+              userPhone: u.phone,
+              phone: u.phone,
+              accountNumber: u.accountNumber || '—',
+              kycStatus: u.kycStatus,
+              currentBank: u.bankAccount || {},
+              bankAccount: u.bankAccount || {},
+              bankChangeRequest: u.bankChangeRequest || {},
+              status: 'pending',
+              department: 'kyc',
+              type: 'bank_change_request',
+              requestedAt: u.bankChangeRequest?.requestedAt || u.createdAt,
+              createdAt: u.bankChangeRequest?.requestedAt || u.createdAt
+            }));
+            queues.counts.bankChanges = queues.bankChanges.length;
+          })
+          .catch(err => console.warn('Desk bankChange queue notice:', err.message))
       );
     }
 

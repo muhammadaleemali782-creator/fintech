@@ -50,7 +50,7 @@ export default function StaffDesk() {
       const raw = localStorage.getItem("educa_staff_desk_queues");
       if (raw) return JSON.parse(raw);
     } catch (_) {}
-    return { deposit: [], withdrawal: [], loan: [], kyc: [], lending: [], bond: [] };
+    return { deposit: [], withdrawal: [], loan: [], kyc: [], lending: [], bond: [], bankChanges: [] };
   }, []);
 
   const initialCounts = useMemo(() => {
@@ -75,9 +75,11 @@ export default function StaffDesk() {
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [kycSubTab, setKycSubTab] = useState("verifications"); // "verifications" | "bank_changes"
 
   useEffect(() => {
     setStatusFilter("all");
+    setKycSubTab("verifications");
   }, [activeTab]);
 
 
@@ -428,7 +430,10 @@ export default function StaffDesk() {
       let endpoint = "";
       let bodyData = {};
 
-      if (department === "deposit" || department === "withdrawal") {
+      if (department === "bank_change" || item.type === "bank_change_request") {
+        endpoint = `${API}/admin/bank-change/${item.userId || item._id}/${actionType}`;
+        bodyData = { remarks: actionReason.trim() };
+      } else if (department === "deposit" || department === "withdrawal") {
         endpoint = `${API}/admin/transaction/${item._id}/${actionType}`;
         bodyData = {
           remarks: actionReason.trim(),
@@ -613,7 +618,24 @@ export default function StaffDesk() {
 
   // Filter current queue items
   const currentItems = useMemo(() => {
-    const list = queues[activeTab] || [];
+    let list = queues[activeTab] || [];
+    if (activeTab === "kyc" && kycSubTab === "bank_changes") {
+      list = queues.bankChanges || [];
+      return list.filter(item => {
+        if (searchTerm.trim()) {
+          const q = searchTerm.toLowerCase();
+          const userName = (item.name || item.userName || "").toLowerCase();
+          const userEmail = (item.email || item.userEmail || "").toLowerCase();
+          const userPhone = (item.phone || item.userPhone || "").toLowerCase();
+          const ref = (item.accountNumber || item._id || item.bankChangeRequest?.accountNumber || item.currentBank?.accountNumber || "").toLowerCase();
+          const bankName = (item.bankChangeRequest?.bankName || item.currentBank?.bankName || "").toLowerCase();
+          const upi = (item.bankChangeRequest?.upiId || item.currentBank?.upiId || "").toLowerCase();
+          return userName.includes(q) || userEmail.includes(q) || userPhone.includes(q) || ref.includes(q) || bankName.includes(q) || upi.includes(q);
+        }
+        return true;
+      });
+    }
+
     return list.filter(item => {
       if (activeTab === "kyc") {
         if (statusFilter === "normal_kyc") {
@@ -767,6 +789,46 @@ export default function StaffDesk() {
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* KYC Department Sub-views (Full KYC vs Bank Change Requests) */}
+        {activeTab === "kyc" && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+            <button
+              type="button"
+              onClick={() => setKycSubTab("verifications")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer select-none border ${
+                kycSubTab === "verifications"
+                  ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                  : "bg-white text-gray-700 hover:bg-gray-50 border-gray-200"
+              }`}
+            >
+              <span>🪪</span>
+              <span>Full KYC Submissions</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                kycSubTab === "verifications" ? "bg-white/20 text-white" : "bg-blue-50 text-blue-700 border border-blue-200"
+              }`}>
+                {queues.kyc?.length || 0}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setKycSubTab("bank_changes")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer select-none border ${
+                kycSubTab === "bank_changes"
+                  ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                  : "bg-white text-amber-900 hover:bg-amber-50 border-amber-200"
+              }`}
+            >
+              <span>🏦</span>
+              <span>Bank Change Requests</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                kycSubTab === "bank_changes" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800 border border-amber-200"
+              }`}>
+                {queues.bankChanges?.length || counts.bankChanges || 0}
+              </span>
+            </button>
           </div>
         )}
 
@@ -950,6 +1012,88 @@ export default function StaffDesk() {
               const hasDocs = !!(item.documents?.photoUrl || item.documents?.doc1Url || item.documents?.doc1BackUrl || item.documents?.doc2Url || item.documents?.chequeUrl || item.screenshotUrl || item.proofUrl || item.kycDocuments?.doc1Url);
               const customerName = item.name || item.userId?.name || item.userName || "Customer";
               const customerPhone = item.phone || item.userId?.phone || item.userPhone || item.email || item.userId?.email || "—";
+
+              if (item.type === "bank_change_request") {
+                const req = item.bankChangeRequest || {};
+                const cur = item.currentBank || {};
+                return (
+                  <div
+                    key={item._id}
+                    className="bg-white border-2 border-amber-300 rounded-2xl p-4 flex flex-col justify-between gap-3 transition hover:shadow-md shadow-xs"
+                  >
+                    <div>
+                      {/* Top Bar: Badge & Request Date */}
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <span className="px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                          Bank Change Request
+                        </span>
+                        <span className="text-[10px] text-gray-500 font-medium">
+                          {req.requestedAt ? new Date(req.requestedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "Recent"}
+                        </span>
+                      </div>
+
+                      {/* User Identity */}
+                      <div className="flex items-center gap-3 mb-2.5">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 font-black flex items-center justify-center text-sm shrink-0">
+                          {customerName ? customerName[0].toUpperCase() : "U"}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-sm font-bold text-gray-900 truncate">{customerName}</h4>
+                          <p className="text-xs text-gray-500 truncate">{customerPhone} • A/C: {item.accountNumber}</p>
+                        </div>
+                      </div>
+
+                      {/* Current vs New Bank Comparison */}
+                      <div className="space-y-2 text-[11px]">
+                        <div className="p-2 bg-gray-50 rounded-xl border border-gray-200">
+                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Current Registered Bank</span>
+                          <div className="font-bold text-gray-800 truncate">{cur.bankName || "—"} ({cur.accountNumber || "—"})</div>
+                          <div className="text-gray-500 font-mono text-[10px]">IFSC: {cur.ifsc || "—"} | UPI: {cur.upiId || "—"}</div>
+                        </div>
+
+                        <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-300 text-emerald-950">
+                          <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider block">Requested New Bank</span>
+                          <div className="font-extrabold text-emerald-900 truncate">{req.bankName || "—"} ({req.accountNumber || "—"})</div>
+                          <div className="text-emerald-800 font-mono text-[10px]">IFSC: {req.ifsc || "—"} | Holder: {req.holderName || "—"}</div>
+                          <div className="text-emerald-800 font-mono text-[10px]">UPI: {req.upiId || "—"}</div>
+                        </div>
+
+                        {req.reason && (
+                          <div className="text-[11px] text-amber-900 bg-amber-50/80 p-2 rounded-xl border border-amber-200">
+                            <span className="font-bold">Reason:</span> "{req.reason}"
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions Bar */}
+                    <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
+                      <button
+                        onClick={() => setSelectedItem(item)}
+                        className="py-1.5 px-3 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-800 text-xs font-bold rounded-xl border border-gray-200 transition cursor-pointer"
+                      >
+                        Inspect
+                      </button>
+                      {canProcess && (
+                        <>
+                          <button
+                            onClick={() => setActionModal({ item, type: "approve", department: "bank_change" })}
+                            className="flex-1 py-1.5 px-3 text-xs font-extrabold rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-xs cursor-pointer transition text-center"
+                          >
+                            Approve ✓
+                          </button>
+                          <button
+                            onClick={() => setActionModal({ item, type: "reject", department: "bank_change" })}
+                            className="py-1.5 px-2.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition cursor-pointer"
+                          >
+                            Reject ✕
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
 
               return (
                 <div
@@ -1160,8 +1304,73 @@ export default function StaffDesk() {
                 </div>
               </div>
 
-              {/* Likhit KYC & Written Record on File */}
-              <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
+              {/* If Bank Change Request */}
+              {selectedItem.type === "bank_change_request" ? (
+                <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-300 space-y-3">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-amber-200">
+                    <h5 className="font-bold text-amber-900 flex items-center gap-1.5">
+                      <span>🏦</span>
+                      <span>Bank Account / UPI Change Request</span>
+                    </h5>
+                    <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-bold">
+                      Pending KYC Review
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 bg-white rounded-xl border border-amber-200 space-y-1">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Current Registered Bank</span>
+                      <div className="font-semibold text-gray-900">{selectedItem.currentBank?.bankName || "—"}</div>
+                      <div><span className="text-gray-400">A/C:</span> <span className="font-mono font-bold text-gray-800">{selectedItem.currentBank?.accountNumber || "—"}</span></div>
+                      <div><span className="text-gray-400">IFSC:</span> <span className="font-mono text-gray-800">{selectedItem.currentBank?.ifsc || "—"}</span></div>
+                      <div><span className="text-gray-400">Holder:</span> <span className="text-gray-800">{selectedItem.currentBank?.holderName || selectedItem.userName || "—"}</span></div>
+                      <div><span className="text-gray-400">UPI:</span> <span className="font-mono text-gray-800">{selectedItem.currentBank?.upiId || "—"}</span></div>
+                    </div>
+
+                    <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-300 space-y-1 text-emerald-950">
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Requested New Bank</span>
+                      <div className="font-semibold text-emerald-900">{selectedItem.bankChangeRequest?.bankName || "—"}</div>
+                      <div><span className="text-emerald-700">A/C:</span> <span className="font-mono font-bold text-emerald-900">{selectedItem.bankChangeRequest?.accountNumber || "—"}</span></div>
+                      <div><span className="text-emerald-700">IFSC:</span> <span className="font-mono text-emerald-900">{selectedItem.bankChangeRequest?.ifsc || "—"}</span></div>
+                      <div><span className="text-emerald-700">Holder:</span> <span className="text-emerald-900">{selectedItem.bankChangeRequest?.holderName || selectedItem.userName || "—"}</span></div>
+                      <div><span className="text-emerald-700">UPI:</span> <span className="font-mono text-emerald-900">{selectedItem.bankChangeRequest?.upiId || "—"}</span></div>
+                    </div>
+                  </div>
+
+                  {selectedItem.bankChangeRequest?.reason && (
+                    <div className="p-2.5 bg-white rounded-xl border border-amber-200 text-xs">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase block">User's Stated Reason:</span>
+                      <p className="text-amber-950 italic mt-0.5">"{selectedItem.bankChangeRequest.reason}"</p>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const item = selectedItem;
+                        setSelectedItem(null);
+                        setActionModal({ item, type: "approve", department: "bank_change" });
+                      }}
+                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition"
+                    >
+                      ✓ Approve Bank Change
+                    </button>
+                    <button
+                      onClick={() => {
+                        const item = selectedItem;
+                        setSelectedItem(null);
+                        setActionModal({ item, type: "reject", department: "bank_change" });
+                      }}
+                      className="flex-1 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold cursor-pointer active:scale-95 transition"
+                    >
+                      ✕ Reject Bank Change
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Likhit KYC & Written Record on File */}
+                  <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
                 <div className="flex items-center justify-between pb-1.5 border-b border-gray-200">
                   <h5 className="font-bold text-gray-800 flex items-center gap-1.5">
                     
@@ -1292,6 +1501,8 @@ export default function StaffDesk() {
                     </div>
                   ))}
                 </div>
+              )}
+                </>
               )}
             </div>
 

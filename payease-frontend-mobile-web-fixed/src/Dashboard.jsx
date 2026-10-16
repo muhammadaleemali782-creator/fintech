@@ -1038,10 +1038,26 @@ export default function Dashboard() {
     doc2Url: "",
     doc2BackName: "",
     doc2BackUrl: "",
+    bankName: "",
+    bankAccountNumber: "",
+    bankIfsc: "",
+    bankHolderName: "",
+    bankUpiId: "",
     address: ""
   });
   const [kycSubmitting, setKycSubmitting] = useState(false);
   const [kycError, setKycError] = useState("");
+
+  const [bankChangeForm, setBankChangeForm] = useState({
+    bankName: "",
+    accountNumber: "",
+    ifsc: "",
+    holderName: "",
+    upiId: "",
+    reason: ""
+  });
+  const [bankChangeSubmitting, setBankChangeSubmitting] = useState(false);
+  const [bankChangeError, setBankChangeError] = useState("");
 
   // Auto-dismiss KYC red error message after 4 seconds
   useEffect(() => {
@@ -3604,6 +3620,26 @@ export default function Dashboard() {
       return;
     }
 
+    // 3. Mandatory Step 3: Registered Permanent Bank Account
+    if (!kycForm.bankName.trim() || kycForm.bankName.trim().length < 2) {
+      setKycError("Step 3: Registered Bank ka naam darj karein (e.g. State Bank of India, HDFC).");
+      return;
+    }
+    const cleanBankAcc = kycForm.bankAccountNumber.trim().replace(/\D/g, "");
+    if (!cleanBankAcc || cleanBankAcc.length < 8) {
+      setKycError("Step 3: Valid Bank Account number darj karein (minimum 8 digits).");
+      return;
+    }
+    const cleanBankIfsc = kycForm.bankIfsc.trim().toUpperCase();
+    if (!cleanBankIfsc || cleanBankIfsc.length < 9) {
+      setKycError("Step 3: Valid Bank IFSC code darj karein (e.g. SBIN0001234).");
+      return;
+    }
+    if (!kycForm.bankHolderName.trim() || kycForm.bankHolderName.trim().length < 2) {
+      setKycError("Step 3: Bank Account Holder ka pura naam darj karein.");
+      return;
+    }
+
     setKycSubmitting(true);
     setKycError("");
 
@@ -3622,6 +3658,11 @@ export default function Dashboard() {
       aadharPhone: cleanPhone,
       panNumber: kycForm.panNumber,
       chequeNumber: kycForm.chequeNumber,
+      bankName: kycForm.bankName.trim(),
+      bankAccountNumber: cleanBankAcc,
+      bankIfsc: cleanBankIfsc,
+      bankHolderName: kycForm.bankHolderName.trim(),
+      bankUpiId: kycForm.bankUpiId.trim(),
       address: kycForm.aadhaarAddress.trim(),
       submittedAt: new Date()
     };
@@ -3634,6 +3675,14 @@ export default function Dashboard() {
           kycStatus: "pending",
           aadharNumber: cleanAadhaar,
           address: kycForm.aadhaarAddress.trim(),
+          bankAccount: {
+            ...(prev?.bankAccount || {}),
+            bankName: kycForm.bankName.trim(),
+            accountNumber: cleanBankAcc,
+            ifsc: cleanBankIfsc,
+            holderName: kycForm.bankHolderName.trim(),
+            upiId: kycForm.bankUpiId.trim() || prev?.bankAccount?.upiId || ""
+          },
           kycDocuments: {
             ...(prev?.kycDocuments || {}),
             ...optimisticDocs
@@ -3647,7 +3696,7 @@ export default function Dashboard() {
       });
       setKycSubmitting(false);
       closeModal();
-      showToast("KYC documents successfully submit ho gaye! Review in progress.", "success");
+      showToast("KYC documents aur registered bank details successfully submit ho gaye! Review in progress.", "success");
     }, 600);
 
     // Reliable background upload to server & notify admin
@@ -3666,6 +3715,11 @@ export default function Dashboard() {
         chequeNumber: kycForm.chequeNumber.trim(),
         doc2Url: kycForm.doc2Url,
         doc2BackUrl: kycForm.doc2BackUrl || "",
+        bankName: kycForm.bankName.trim(),
+        bankAccountNumber: cleanBankAcc,
+        bankIfsc: cleanBankIfsc,
+        bankHolderName: kycForm.bankHolderName.trim(),
+        bankUpiId: kycForm.bankUpiId.trim(),
         address: kycForm.aadhaarAddress.trim()
       })
     })
@@ -3688,6 +3742,75 @@ export default function Dashboard() {
       .catch(err => {
         console.warn("Background KYC submit warning:", err);
       });
+  };
+
+  const submitBankChangeRequest = async (e) => {
+    if (e) e.preventDefault();
+    if (bankChangeSubmitting) return;
+
+    if (!bankChangeForm.bankName.trim() || bankChangeForm.bankName.trim().length < 2) {
+      setBankChangeError("Naye bank ka naam darj karein.");
+      return;
+    }
+    const cleanAcc = bankChangeForm.accountNumber.trim().replace(/\D/g, "");
+    if (!cleanAcc || cleanAcc.length < 8) {
+      setBankChangeError("Valid Bank Account Number darj karein (minimum 8 digits).");
+      return;
+    }
+    const cleanIfsc = bankChangeForm.ifsc.trim().toUpperCase();
+    if (!cleanIfsc || cleanIfsc.length < 9) {
+      setBankChangeError("Valid IFSC code darj karein.");
+      return;
+    }
+    if (!bankChangeForm.holderName.trim() || bankChangeForm.holderName.trim().length < 2) {
+      setBankChangeError("Account Holder ka naam darj karein.");
+      return;
+    }
+    if (!bankChangeForm.reason.trim() || bankChangeForm.reason.trim().length < 4) {
+      setBankChangeError("Bank badalne ka kaaran (reason) likhein (minimum 4 characters).");
+      return;
+    }
+
+    setBankChangeSubmitting(true);
+    setBankChangeError("");
+    try {
+      const res = await fetch(`${API}/user/bank-change-request`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bankName: bankChangeForm.bankName.trim(),
+          accountNumber: cleanAcc,
+          ifsc: cleanIfsc,
+          holderName: bankChangeForm.holderName.trim(),
+          upiId: bankChangeForm.upiId.trim(),
+          reason: bankChangeForm.reason.trim()
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to submit bank change request");
+
+      showToast(data.message || "Bank Change Request successfully submit ho gayi!", "success");
+      setUserProfile(prev => ({
+        ...prev,
+        bankChangeRequest: data.bankChangeRequest || {
+          status: "pending",
+          bankName: bankChangeForm.bankName.trim(),
+          accountNumber: cleanAcc,
+          ifsc: cleanIfsc,
+          holderName: bankChangeForm.holderName.trim(),
+          upiId: bankChangeForm.upiId.trim(),
+          reason: bankChangeForm.reason.trim(),
+          requestedAt: new Date()
+        }
+      }));
+      closeModal();
+      setBankChangeForm({ bankName: "", accountNumber: "", ifsc: "", holderName: "", upiId: "", reason: "" });
+    } catch (err) {
+      setBankChangeError(err.message);
+      showToast(err.message, "error");
+    } finally {
+      setBankChangeSubmitting(false);
+    }
   };
 
   const submitDeposit = async () => {
@@ -9677,6 +9800,128 @@ export default function Dashboard() {
             </button>
           </div>
 
+          {/* PERMANENT REGISTERED BANK ACCOUNT CARD (KYC PROTECTED) */}
+          <div className="p-4 bg-white border border-gray-200/90 rounded-2xl shadow-xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center text-sm font-bold">
+                  🏦
+                </span>
+                <div>
+                  <h4 className="font-extrabold text-xs text-gray-900">Registered Bank Account</h4>
+                  <p className="text-[10px] text-gray-500">Payouts, Withdrawals & Refunds</p>
+                </div>
+              </div>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                userProfile.kycStatus === "verified"
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                  : userProfile.kycStatus === "pending"
+                  ? "bg-amber-100 text-amber-800 border border-amber-200"
+                  : "bg-slate-100 text-slate-700 border border-slate-200"
+              }`}>
+                {userProfile.kycStatus === "verified"
+                  ? "🔒 KYC Verified & Permanent"
+                  : userProfile.kycStatus === "pending"
+                  ? "⏳ KYC Review Pending"
+                  : "Not KYC Verified"}
+              </span>
+            </div>
+
+            {/* Bank details grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                <span className="text-[10px] text-gray-400 font-bold uppercase block">Bank Name</span>
+                <span className="font-bold text-gray-900 text-xs truncate block">
+                  {userProfile.bankAccount?.bankName || userProfile.kycDocuments?.bankName || "Bank Name Not Set"}
+                </span>
+              </div>
+              <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                <span className="text-[10px] text-gray-400 font-bold uppercase block">Account Number</span>
+                <span className="font-mono font-bold text-gray-900 text-xs truncate block">
+                  {userProfile.bankAccount?.accountNumber || userProfile.kycDocuments?.bankAccountNumber || "—"}
+                </span>
+              </div>
+              <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                <span className="text-[10px] text-gray-400 font-bold uppercase block">IFSC Code</span>
+                <span className="font-mono font-bold text-gray-900 text-xs truncate block">
+                  {userProfile.bankAccount?.ifsc || userProfile.kycDocuments?.bankIfsc || "—"}
+                </span>
+              </div>
+              <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                <span className="text-[10px] text-gray-400 font-bold uppercase block">Account Holder</span>
+                <span className="font-bold text-gray-900 text-xs truncate block">
+                  {userProfile.bankAccount?.holderName || userProfile.kycDocuments?.bankHolderName || userProfile.name || "—"}
+                </span>
+              </div>
+              {(userProfile.bankAccount?.upiId || userProfile.kycDocuments?.bankUpiId) && (
+                <div className="col-span-2 p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase block">Registered UPI ID</span>
+                  <span className="font-mono font-bold text-indigo-700 text-xs truncate block">
+                    {userProfile.bankAccount?.upiId || userProfile.kycDocuments?.bankUpiId}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Bank Change Request Status or Action */}
+            {userProfile.bankChangeRequest?.status === "pending" ? (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-amber-950 flex items-center gap-1.5">
+                    <span>⏳</span>
+                    <span>Bank Change Request Pending</span>
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 uppercase">
+                    KYC Desk
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-800">
+                  Requested: <strong>{userProfile.bankChangeRequest.bankName}</strong> ({userProfile.bankChangeRequest.accountNumber})
+                </p>
+                <p className="text-[10px] text-amber-600">
+                  KYC Department aapki request verify kar raha hai. Approval milne ke baad hi registered bank update hoga.
+                </p>
+              </div>
+            ) : userProfile.kycStatus === "verified" ? (
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-gray-500 italic">
+                  Suraksha niyam: Yeh bank account permanent locked hai. Ise badalne ke liye KYC Department ko Bank Change Request bhejein.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBankChangeForm({
+                      bankName: "",
+                      accountNumber: "",
+                      ifsc: "",
+                      holderName: userProfile.name || "",
+                      upiId: "",
+                      reason: ""
+                    });
+                    setBankChangeError("");
+                    setModal("bank_change");
+                  }}
+                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 rounded-xl font-bold text-xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <span>Request Bank / UPI Change →</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-gray-500">
+                  KYC verification ke waqt aapka permanent bank account register hota hai.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setModal("kyc")}
+                  className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-bold text-xs transition active:scale-95"
+                >
+                  Verify KYC to Register Bank →
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* E-KYC STATUS & DOCUMENT CARD */}
           <div className="p-3.5 bg-white border border-gray-200/90 rounded-2xl shadow-xs space-y-2">
             <div className="flex items-center justify-between">
@@ -10513,6 +10758,52 @@ export default function Dashboard() {
                   </div>
                 )}
 
+                {/* Registered Permanent Bank Account */}
+                {(userProfile.bankAccount?.accountNumber || userProfile.kycDocuments?.bankAccountNumber) && (
+                  <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-gray-800">3. Registered Bank Account</span>
+                      <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        🔒 Permanent Verified
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Bank:</span>
+                        <span className="font-bold text-gray-800 truncate block">
+                          {userProfile.bankAccount?.bankName || userProfile.kycDocuments?.bankName || "Bank"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">A/C Number:</span>
+                        <span className="font-mono font-bold text-gray-800">
+                          {userProfile.bankAccount?.accountNumber || userProfile.kycDocuments?.bankAccountNumber}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">IFSC Code:</span>
+                        <span className="font-mono font-bold text-gray-800">
+                          {userProfile.bankAccount?.ifsc || userProfile.kycDocuments?.bankIfsc || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Holder Name:</span>
+                        <span className="font-bold text-gray-800 truncate block">
+                          {userProfile.bankAccount?.holderName || userProfile.kycDocuments?.bankHolderName || userProfile.name}
+                        </span>
+                      </div>
+                      {(userProfile.bankAccount?.upiId || userProfile.kycDocuments?.bankUpiId) && (
+                        <div className="col-span-2">
+                          <span className="text-gray-400 block text-[10px]">Registered UPI:</span>
+                          <span className="font-mono font-bold text-indigo-700">
+                            {userProfile.bankAccount?.upiId || userProfile.kycDocuments?.bankUpiId}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <p className="text-[10px] text-gray-500 italic text-center pt-1">
                   As per security guidelines, verified KYC documents are permanently locked on server and cannot be deleted or modified.
                 </p>
@@ -10644,6 +10935,52 @@ export default function Dashboard() {
                           />
                           <span className="text-[10px] font-bold text-indigo-700 mt-1 flex items-center gap-1 group-hover:underline">
                             Back (Zoom)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Registered Bank Under Review */}
+                {(userProfile.bankAccount?.accountNumber || userProfile.kycDocuments?.bankAccountNumber) && (
+                  <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-gray-800">3. Registered Bank Account</span>
+                      <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                        ⏳ Under Review
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Bank:</span>
+                        <span className="font-bold text-gray-800 truncate block">
+                          {userProfile.bankAccount?.bankName || userProfile.kycDocuments?.bankName || "Bank"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">A/C Number:</span>
+                        <span className="font-mono font-bold text-gray-800">
+                          {userProfile.bankAccount?.accountNumber || userProfile.kycDocuments?.bankAccountNumber}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">IFSC Code:</span>
+                        <span className="font-mono font-bold text-gray-800">
+                          {userProfile.bankAccount?.ifsc || userProfile.kycDocuments?.bankIfsc || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Holder Name:</span>
+                        <span className="font-bold text-gray-800 truncate block">
+                          {userProfile.bankAccount?.holderName || userProfile.kycDocuments?.bankHolderName || userProfile.name}
+                        </span>
+                      </div>
+                      {(userProfile.bankAccount?.upiId || userProfile.kycDocuments?.bankUpiId) && (
+                        <div className="col-span-2">
+                          <span className="text-gray-400 block text-[10px]">Registered UPI:</span>
+                          <span className="font-mono font-bold text-indigo-700">
+                            {userProfile.bankAccount?.upiId || userProfile.kycDocuments?.bankUpiId}
                           </span>
                         </div>
                       )}
@@ -10962,6 +11299,95 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* Step 3: Mandatory Registered Bank & UPI Account (Permanent) */}
+              <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-bold text-[11px] flex items-center justify-center">3</span>
+                    <span className="text-xs font-bold text-emerald-950">Registered Bank Account (Permanent)</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Locked on KYC</span>
+                </div>
+
+                <div className="p-2.5 bg-white border border-emerald-200 rounded-xl text-[11px] text-emerald-900 leading-relaxed space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <span>🔒</span>
+                    <span>Permanent Bank Record Policy</span>
+                  </div>
+                  <p className="text-[10.5px] text-emerald-800">
+                    Yeh bank account aapka permanent registered account banega. KYC approve hone ke baad ise direct change nahi kiya ja sakega. Badlaav ke liye KYC Department ko request bhejni hogi.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Bank Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Jaise State Bank of India, HDFC, ICICI, PNB"
+                    value={kycForm.bankName}
+                    onChange={e => setKycForm({ ...kycForm, bankName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Account Number <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Bank Account Number"
+                      value={kycForm.bankAccountNumber}
+                      onChange={e => setKycForm({ ...kycForm, bankAccountNumber: e.target.value.replace(/\D/g, "") })}
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      IFSC Code <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="SBIN0001234"
+                      value={kycForm.bankIfsc}
+                      onChange={e => setKycForm({ ...kycForm, bankIfsc: e.target.value.toUpperCase() })}
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs uppercase focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Account Holder Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Name as per Bank Account"
+                      value={kycForm.bankHolderName}
+                      onChange={e => setKycForm({ ...kycForm, bankHolderName: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Registered UPI ID (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="mobile@upi / name@bank"
+                      value={kycForm.bankUpiId}
+                      onChange={e => setKycForm({ ...kycForm, bankUpiId: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Residential Address / City */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -11020,6 +11446,138 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
+          BANK DETAILS CHANGE REQUEST SHEET (KYC DEPARTMENT)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet open={modal === "bank_change"} onClose={closeModal} title="Request Bank Details Change" icon="">
+        <form onSubmit={submitBankChangeRequest} className="space-y-4">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-900 space-y-1">
+            <span className="font-bold block flex items-center gap-1.5">
+              <span>🛡️</span> KYC Department Review Policy
+            </span>
+            <p className="text-[11px] text-blue-700 leading-relaxed">
+              Aapka purana registered bank account locked hai. Nayi bank ya UPI details submit karne ke baad hamari KYC verification team iska review karegi. KYC desk se approval milte hi aapka account update ho jayega.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 mb-1">
+              Naye Bank Ka Naam (New Bank Name) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. State Bank of India, HDFC Bank, Axis Bank"
+              value={bankChangeForm.bankName}
+              onChange={e => setBankChangeForm({ ...bankChangeForm, bankName: e.target.value })}
+              className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                Naya Account Number <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                required
+                placeholder="Bank Account Number"
+                value={bankChangeForm.accountNumber}
+                onChange={e => setBankChangeForm({ ...bankChangeForm, accountNumber: e.target.value.replace(/\D/g, "") })}
+                className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                Bank IFSC Code <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="SBIN0001234"
+                value={bankChangeForm.ifsc}
+                onChange={e => setBankChangeForm({ ...bankChangeForm, ifsc: e.target.value.toUpperCase() })}
+                className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs uppercase focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                Account Holder Ka Naam <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Name as per Bank Passbook"
+                value={bankChangeForm.holderName}
+                onChange={e => setBankChangeForm({ ...bankChangeForm, holderName: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                Naya UPI ID (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="user@upi / mobile@bank"
+                value={bankChangeForm.upiId}
+                onChange={e => setBankChangeForm({ ...bankChangeForm, upiId: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 mb-1">
+              Bank Account Badalne Ka Kaaran (Reason) <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              rows={2}
+              required
+              placeholder="e.g. Purana account band ho gaya hai / Naya salary account open karwaya hai"
+              value={bankChangeForm.reason}
+              onChange={e => setBankChangeForm({ ...bankChangeForm, reason: e.target.value })}
+              className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+            />
+          </div>
+
+          {bankChangeError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold flex items-center justify-between gap-2">
+              <span>{bankChangeError}</span>
+              <button
+                type="button"
+                onClick={() => setBankChangeError("")}
+                className="text-rose-400 hover:text-rose-700 font-black text-sm px-1.5 py-0.5 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <div className="flex gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={closeModal}
+              className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={bankChangeSubmitting}
+              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-black text-xs shadow-md shadow-blue-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-80"
+            >
+              {bankChangeSubmitting ? "Submitting..." : "Submit to KYC Desk →"}
+            </button>
+          </div>
+        </form>
       </Sheet>
 
       {/* ══════════════════════════════════════════════════════

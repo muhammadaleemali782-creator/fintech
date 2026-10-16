@@ -326,6 +326,32 @@ router.put('/update', protect, async (req, res) => {
       }
     }
 
+    // 4. Guard: Registered bank and UPI details are permanent once KYC is verified
+    if (user.kycStatus === 'verified' && user.bankAccount?.accountNumber) {
+      if (bankAccount && typeof bankAccount === 'object') {
+        const curAcc = String(user.bankAccount.accountNumber || '').trim();
+        const curIfsc = String(user.bankAccount.ifsc || '').trim().toUpperCase();
+        const curBank = String(user.bankAccount.bankName || '').trim();
+        const curUpi = String(user.bankAccount.upiId || '').trim();
+
+        const newAcc = bankAccount.accountNumber !== undefined ? String(bankAccount.accountNumber).trim() : curAcc;
+        const newIfsc = bankAccount.ifsc !== undefined ? String(bankAccount.ifsc).trim().toUpperCase() : curIfsc;
+        const newBank = bankAccount.bankName !== undefined ? String(bankAccount.bankName).trim() : curBank;
+        const newUpi = bankAccount.upiId !== undefined ? String(bankAccount.upiId).trim() : curUpi;
+
+        if (newAcc !== curAcc || newIfsc !== curIfsc || newBank !== curBank || (curUpi && newUpi !== curUpi)) {
+          return res.status(400).json({
+            message: 'Aapka KYC verified hai. Registered bank account permanent hai. Ise badalne ke liye Bank Change Request submit karein jo KYC Department review karega.'
+          });
+        }
+      }
+      if (upiId !== undefined && user.bankAccount?.upiId && String(upiId).trim() !== String(user.bankAccount.upiId).trim()) {
+        return res.status(400).json({
+          message: 'Aapka KYC verified hai. Registered UPI ID badalne ke liye Bank Change Request submit karein jo KYC Department review karega.'
+        });
+      }
+    }
+
     // upiId validation
     if (upiId !== undefined) {
       user.upiId = String(upiId || '').trim();
@@ -614,6 +640,22 @@ router.post('/kyc/submit', protect, async (req, res) => {
     if (!cleanAadhaarAddress || cleanAadhaarAddress.length < 10)
       return res.status(400).json({ message: 'Aadhaar card par likha hua address darj karein.' });
 
+    // 3. Mandatory Step 3: Registered Permanent Bank Account Check
+    const cleanBankName = String(req.body.bankName || '').trim();
+    const cleanBankAcc = String(req.body.bankAccountNumber || req.body.accountNumber || '').trim();
+    const cleanBankIfsc = String(req.body.bankIfsc || req.body.ifsc || '').trim().toUpperCase();
+    const cleanBankHolder = String(req.body.bankHolderName || req.body.holderName || cleanAadhaarName || '').trim();
+    const cleanBankUpi = String(req.body.bankUpiId || req.body.upiId || '').trim();
+
+    if (!cleanBankName || cleanBankName.length < 2)
+      return res.status(400).json({ message: 'Step 3: Registered Bank Name darj karein (e.g. State Bank of India, HDFC, PNB).' });
+    if (!cleanBankAcc || cleanBankAcc.length < 8 || !/^\d{8,22}$/.test(cleanBankAcc))
+      return res.status(400).json({ message: 'Step 3: Valid Bank Account Number darj karein (8 se 22 digits).' });
+    if (!cleanBankIfsc || cleanBankIfsc.length < 9)
+      return res.status(400).json({ message: 'Step 3: Valid Bank IFSC code darj karein (e.g. SBIN0001234).' });
+    if (!cleanBankHolder || cleanBankHolder.length < 2)
+      return res.status(400).json({ message: 'Step 3: Account Holder ka pura naam darj karein.' });
+
     user.kycStatus = 'pending';
     user.aadharNumber = cleanAadhaar;
     user.address = cleanAadhaarAddress;
@@ -629,6 +671,21 @@ router.post('/kyc/submit', protect, async (req, res) => {
           user.phone = cleanAadhaarPhone;
         }
       }
+    }
+
+    // Save Registered Bank Details into user's profile
+    const existingBank = user.bankAccount || {};
+    user.bankAccount = {
+      accountNumber: cleanBankAcc,
+      ifsc: cleanBankIfsc,
+      holderName: cleanBankHolder,
+      bankName: cleanBankName,
+      upiId: cleanBankUpi || existingBank.upiId || '',
+      qrCodeUrl: existingBank.qrCodeUrl || '',
+      googleDriveQrUrl: existingBank.googleDriveQrUrl || ''
+    };
+    if (cleanBankUpi) {
+      user.upiId = cleanBankUpi;
     }
 
     // Fast Cloudflare R2 Upload for KYC documents (CDN speed, removes base64 bloat)
@@ -668,6 +725,11 @@ router.post('/kyc/submit', protect, async (req, res) => {
       panNumber: cleanPan || user.kycDocuments?.panNumber || '',
       chequeNumber: cleanCheque || user.kycDocuments?.chequeNumber || '',
       address: cleanAadhaarAddress,
+      bankName: cleanBankName,
+      bankAccountNumber: cleanBankAcc,
+      bankIfsc: cleanBankIfsc,
+      bankHolderName: cleanBankHolder,
+      bankUpiId: cleanBankUpi,
       googleDriveLink: '',
       docUrl: encryptData(savedFile1), // backwards compatibility
       adminRemarks: '',
@@ -675,7 +737,9 @@ router.post('/kyc/submit', protect, async (req, res) => {
     };
 
     user.markModified('kycDocuments');
+    user.markModified('bankAccount');
     await user.save();
+    memoryCache.delPrefix('user_me_' + req.user._id);
 
     // Background Drive Webhook sync — 100% server-side (Zero exposure to client/Burp Suite)
     const adminDriveSetting = await Settings.findOne({ key: 'googleDriveUrl' });
@@ -692,6 +756,11 @@ router.post('/kyc/submit', protect, async (req, res) => {
           email: user.email,
           phone: user.phone,
           address: user.address || '',
+          bankName: cleanBankName,
+          bankAccountNumber: cleanBankAcc,
+          bankIfsc: cleanBankIfsc,
+          bankHolderName: cleanBankHolder,
+          bankUpiId: cleanBankUpi,
           doc1Type: 'aadhaar',
           aadharNumber: user.aadharNumber || '',
           doc1Url: file1,
@@ -717,17 +786,94 @@ router.post('/kyc/submit', protect, async (req, res) => {
     sendNotification({
       type: 'kyc_submitted',
       title: 'New KYC Document Submission 📄',
-      message: `${user.name} (${user.email || user.phone}) ne ${selectedDoc2.toUpperCase()} document submit kiya hai.`,
+      message: `${user.name} (${user.email || user.phone}) ne KYC documents aur registered bank (${cleanBankName}) submit kiya hai.`,
       data: { userId: user._id, name: user.name }
     });
 
     res.json({
-      message: 'KYC documents successfully submit ho gaye hain! Verification in progress.',
+      message: 'KYC documents aur registered bank details successfully submit ho gaye hain! Verification in progress.',
       kycStatus: user.kycStatus
     });
   } catch (err) {
     console.error('KYC submit error:', err);
     res.status(500).json({ message: 'KYC submit karne me samasya aayi.' });
+  }
+});
+
+// Submit Bank Details Change Request (for KYC-verified users)
+router.post('/bank-change-request', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.kycStatus !== 'verified') {
+      return res.status(400).json({
+        message: 'Bank change request sirf KYC verified users ke liye hai. Pehle KYC verification complete karein.'
+      });
+    }
+
+    if (user.bankChangeRequest && user.bankChangeRequest.status === 'pending') {
+      return res.status(400).json({
+        message: 'Aapki ek Bank Change Request pehle se pending hai. KYC Department ke review ka intezaar karein.'
+      });
+    }
+
+    const { bankName, accountNumber, ifsc, holderName, upiId, reason } = req.body;
+    const cleanBankName = String(bankName || '').trim();
+    const cleanAccNo = String(accountNumber || '').trim();
+    const cleanIfsc = String(ifsc || '').trim().toUpperCase();
+    const cleanHolder = String(holderName || user.name || '').trim();
+    const cleanUpi = String(upiId || '').trim();
+    const cleanReason = String(reason || '').trim();
+
+    if (!cleanBankName || cleanBankName.length < 2) {
+      return res.status(400).json({ message: 'Naye bank ka naam darj karein (e.g. State Bank of India, HDFC).' });
+    }
+    if (!cleanAccNo || cleanAccNo.length < 8 || !/^\d{8,22}$/.test(cleanAccNo)) {
+      return res.status(400).json({ message: 'Valid Naya Bank Account number darj karein (8 se 22 digits).' });
+    }
+    if (!cleanIfsc || cleanIfsc.length < 9) {
+      return res.status(400).json({ message: 'Valid IFSC code darj karein (e.g. SBIN0001234).' });
+    }
+    if (!cleanHolder || cleanHolder.length < 2) {
+      return res.status(400).json({ message: 'Account Holder ka pura naam darj karein.' });
+    }
+    if (!cleanReason || cleanReason.length < 4) {
+      return res.status(400).json({ message: 'Bank account badalne ka kaaran (reason) likhein (minimum 4 characters).' });
+    }
+
+    user.bankChangeRequest = {
+      status: 'pending',
+      bankName: cleanBankName,
+      accountNumber: cleanAccNo,
+      ifsc: cleanIfsc,
+      holderName: cleanHolder,
+      upiId: cleanUpi,
+      reason: cleanReason,
+      requestedAt: new Date(),
+      reviewedAt: null,
+      reviewedBy: null,
+      adminRemarks: ''
+    };
+
+    await user.save();
+    memoryCache.delPrefix('user_me_' + req.user._id);
+
+    sendNotification({
+      type: 'bank_change_requested',
+      title: 'New Bank Change Request 🏦',
+      message: `${user.name} ne registered bank change request submit ki hai (${cleanBankName} - ${cleanAccNo}). KYC Department review karein.`,
+      data: { userId: user._id, name: user.name }
+    });
+
+    res.json({
+      success: true,
+      message: 'Bank details badalne ki request safaltapoorvak submit ho gayi hai! KYC Department review ke baad approve karega.',
+      bankChangeRequest: user.bankChangeRequest
+    });
+  } catch (err) {
+    console.error('Bank change request error:', err);
+    res.status(500).json({ message: 'Failed to submit bank change request: ' + err.message });
   }
 });
 

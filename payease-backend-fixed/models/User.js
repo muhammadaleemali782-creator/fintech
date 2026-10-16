@@ -118,6 +118,11 @@ const userSchema = new mongoose.Schema({
     chequeUrl: { type: String, default: '' },
     chequeBackUrl: { type: String, default: '' },
     address: { type: String, default: '' },
+    bankName: { type: String, default: '' },
+    bankAccountNumber: { type: String, default: '' },
+    bankIfsc: { type: String, default: '' },
+    bankHolderName: { type: String, default: '' },
+    bankUpiId: { type: String, default: '' },
     googleDriveLink: { type: String, default: '' },
     docUrl: { type: String, default: '' },
     adminRemarks: { type: String, default: '' },
@@ -129,6 +134,25 @@ const userSchema = new mongoose.Schema({
     name: { type: String, default: '' },
     device: { type: String, default: '' },
     at: { type: Date, default: null }
+  },
+
+  // Bank Details Change Request (Requires KYC Department review & approval)
+  bankChangeRequest: {
+    status: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
+    bankName: { type: String, default: '' },
+    accountNumber: { type: String, default: '' },
+    ifsc: { type: String, default: '' },
+    holderName: { type: String, default: '' },
+    upiId: { type: String, default: '' },
+    reason: { type: String, default: '' },
+    requestedAt: { type: Date, default: null },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      name: { type: String, default: '' },
+      role: { type: String, default: '' }
+    },
+    adminRemarks: { type: String, default: '' }
   },
 
   // Custom UPI / App QR (GPay, PhonePe, Paytm, etc.) - Persists across app uninstalls

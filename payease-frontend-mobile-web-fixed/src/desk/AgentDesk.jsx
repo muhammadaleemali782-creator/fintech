@@ -544,20 +544,6 @@ export default function AgentDesk() {
           </div>
         </div>
 
-        {/* Drawer Footer */}
-        <div className="p-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="text-[11px] font-medium">Agent Active Session</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSideMenuOpen(false)}
-            className="text-[11px] font-bold text-gray-500 hover:text-gray-900 cursor-pointer"
-          >
-            Band Karein ✕
-          </button>
-        </div>
       </aside>
 
       {/* Main Page Body */}

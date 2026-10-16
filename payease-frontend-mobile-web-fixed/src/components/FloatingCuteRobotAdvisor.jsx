@@ -27,7 +27,7 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
         }`}
         style={{ willChange: "transform, opacity" }}
       >
-        {/* Visible Close 'X' Button on floating robot */}
+        {/* Transparent Close 'X' Button on floating robot */}
         <button
           type="button"
           onClick={(e) => {
@@ -35,10 +35,10 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
             setIsPeek(true);
           }}
           aria-label="Close AI Advisor"
-          className="absolute -top-1.5 -right-1.5 z-30 w-6 h-6 rounded-full bg-white/95 hover:bg-white text-slate-700 hover:text-slate-950 border border-slate-200/90 shadow-md flex items-center justify-center transition-all hover:scale-110 active:scale-90 cursor-pointer"
+          className="absolute -top-1 -left-1 z-30 w-5 h-5 flex items-center justify-center bg-transparent border-0 shadow-none text-slate-500 hover:text-slate-900 transition-all hover:scale-125 active:scale-90 cursor-pointer"
           title="Chupayein (Close / Hide)"
         >
-          <svg className="w-3.5 h-3.5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-3.5 h-3.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>

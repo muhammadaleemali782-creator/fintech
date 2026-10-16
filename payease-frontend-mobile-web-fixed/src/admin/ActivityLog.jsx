@@ -8,7 +8,7 @@ const DEPARTMENTS = [
   { id: "withdrawal", label: "Withdrawals" },
   { id: "loan", label: "Loans" },
   { id: "kyc", label: "KYC" },
-  { id: "lending", label: "P2P Lending" },
+  { id: "lending", label: "Lending" },
   { id: "bond", label: "Bonds" },
   { id: "staff", label: "Staff Admin" },
   { id: "system", label: "System" }

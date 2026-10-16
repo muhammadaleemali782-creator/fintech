@@ -697,7 +697,7 @@ export default function AgentDesk() {
 
               {/* Note */}
               <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-600 flex items-center justify-between">
-                <span>P2P Wallet Transfer: <strong className="text-gray-900">0% (Direct User-to-User par koi commission nahi)</strong></span>
+                <span>Wallet Transfer: <strong className="text-gray-900">0% (Direct User-to-User par koi commission nahi)</strong></span>
                 <span className="text-[10px] bg-gray-200/80 px-2 py-0.5 rounded text-gray-700 font-bold">Direct Only</span>
               </div>
 

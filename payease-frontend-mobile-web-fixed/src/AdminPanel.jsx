@@ -3656,7 +3656,7 @@ export default function AdminPanel() {
     { key: "all", label: "All Activities", icon: "" },
     { key: "deposit", label: "Deposits", icon: "" },
     { key: "withdrawal", label: "Withdrawals", icon: "" },
-    { key: "transfer", label: "P2P Transfers", icon: "" },
+    { key: "transfer", label: "Wallet Transfers", icon: "" },
     { key: "kyc", label: "All KYC", icon: "" },
     { key: "normal_kyc", label: "Normal KYC", icon: "" },
     { key: "loan_kyc", label: "Loan KYC", icon: "" },
@@ -9365,7 +9365,7 @@ export default function AdminPanel() {
                             </div>
                             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-amber-200">
                               <span className="text-[11px] text-amber-900 font-medium">
-                                P2P Wallet Transfers: <strong>0%</strong> (Nahi milega)
+                                Wallet Transfers: <strong>0%</strong> (Nahi milega)
                               </span>
                               <button
                                 onClick={() => approveAgent(a._id, undefined, {
@@ -15415,7 +15415,7 @@ Login karke apna naya personal password turant set karein.`}
                   { id: "kyc", label: "🪪 KYC Desk (Tum KYC wale ho)", sub: "Aadhaar & PAN verification & approval" },
                   { id: "deposit", label: "Deposit Desk (Tum Deposit wale ho)", sub: "Bank UTR transfers verify & credit" },
                   { id: "withdrawal", label: "Withdrawal Desk (Tum Withdrawal wale ho)", sub: "Customer payouts & bank cash-outs" },
-                  { id: "lending", label: "P2P Lending Desk", sub: "P2P borrower & lender requests" },
+                  { id: "lending", label: "Lending Desk", sub: "Borrower & lender requests" },
                   { id: "bond", label: "Bonds & FD Desk", sub: "Fixed yield bonds & applications" }
                 ].map((item) => {
                   const isChecked = assignStaffDepts.includes(item.id);

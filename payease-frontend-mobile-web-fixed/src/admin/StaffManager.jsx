@@ -7,7 +7,7 @@ const ALL_DEPARTMENTS = [
   { id: "kyc", label: "🪪 KYC Desk (Tum KYC wale ho)", sub: "Aadhaar & PAN verification & approval", icon: "🪪" },
   { id: "deposit", label: "Deposit Desk (Tum Deposit wale ho)", sub: "Bank UTR transfers verify & credit", icon: "" },
   { id: "withdrawal", label: "Withdrawal Desk (Tum Withdrawal wale ho)", sub: "Customer payouts & bank cash-outs", icon: "" },
-  { id: "lending", label: "P2P Lending Desk", sub: "P2P borrower & lender transactions", icon: "" },
+  { id: "lending", label: "Lending Desk", sub: "Borrower & lender transactions", icon: "" },
   { id: "bond", label: "Bonds & FD Desk", sub: "Fixed yield bonds & debentures", icon: "" }
 ];
 
@@ -34,8 +34,8 @@ const ALL_PERMISSIONS_LIST = [
   { key: "kyc.view", label: "View KYC Requests", dept: "kyc" },
   { key: "kyc.process", label: "Approve/Reject KYC", dept: "kyc" },
   { key: "kyc.view_documents", label: "View Sensitive KYC Documents", dept: "kyc" },
-  { key: "lending.view", label: "View P2P Lending Requests", dept: "lending" },
-  { key: "lending.process", label: "Approve P2P Lending", dept: "lending" },
+  { key: "lending.view", label: "View Lending Requests", dept: "lending" },
+  { key: "lending.process", label: "Approve Lending", dept: "lending" },
   { key: "bond.view", label: "View Bonds & FD Applications", dept: "bond" },
   { key: "bond.process", label: "Approve/Reject Bonds", dept: "bond" }
 ];

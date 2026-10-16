@@ -11,7 +11,7 @@ const DEPT_CONFIG = {
   withdrawal: { label: "Withdrawals", icon: "", perm: "withdrawal.view", processPerm: "withdrawal.process" },
   loan: { label: "Loans", icon: "", perm: "loan.view", processPerm: "loan.process" },
   kyc: { label: "KYC Verifications", icon: "🪪", perm: "kyc.view", processPerm: "kyc.process" },
-  lending: { label: "P2P Lending", icon: "", perm: "lending.view", processPerm: "lending.process" },
+  lending: { label: "Lending", icon: "", perm: "lending.view", processPerm: "lending.process" },
   bond: { label: "Bonds & FD", icon: "", perm: "bond.view", processPerm: "bond.process" }
 };
 

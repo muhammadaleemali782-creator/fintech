@@ -280,19 +280,16 @@ const UI_TEXT = {
     shareBankDetails: "Share Bank & UPI Details",
     shareSuccess: "Bank details copy ho gaye!",
     sendMoneyPlaceholder: "Phone number, Account No (EFS0000XXX), ya UPI ID (@educa)",
-    accountsHubTitle: "6 Modular Accounts Hub",
-    accountsHubSub: "Sabhi accounts ka pura data dekhne ke liye card par click karein",
-    openAccount: "Open Account →",
-    walletAccount: "Wallet Account",
-    debtAccount: "Bond Account",
-    lendingAccount: "Lending Account",
-    personalLoanAccount: "Personal Loan Account",
-    studentLoanAccount: "Student Loan Account",
-    businessLoanAccount: "Micro Business Loan Account",
+    accountsHubTitle: "Loans & Investments",
+    accountsHubSub: "Sabhi loans aur high-return investment programs ke liye vikalp chunein",
+    openAccount: "Explore →",
+    loansAccount: "Loan Hub",
+    investmentsAccount: "Investment Hub",
     navHome: "Home",
     navLoans: "Loans",
     navScan: "Scan QR",
     navBonds: "Bonds",
+    navInvestments: "Investments",
     navProfile: "Profile",
   },
   hindi: {
@@ -346,19 +343,16 @@ const UI_TEXT = {
     shareBankDetails: "बैंक व UPI विवरण शेयर करें",
     shareSuccess: "बैंक विवरण कॉपी हो गया!",
     sendMoneyPlaceholder: "फ़ोन नंबर, खाता संख्या (EFS0000XXX), या UPI ID (@educa)",
-    accountsHubTitle: "6 मॉड्यूलर खाता हब",
-    accountsHubSub: "सभी खातों का पूरा डेटा देखने के लिए कार्ड पर क्लिक करें",
-    openAccount: "खाता खोलें →",
-    walletAccount: "वॉलेट खाता",
-    debtAccount: "बॉन्ड खाता",
-    lendingAccount: "लेंडिंग खाता",
-    personalLoanAccount: "पर्सनल लोन खाता",
-    studentLoanAccount: "छात्र लोन खाता",
-    businessLoanAccount: "माइक्रो बिजनेस लोन खाता",
+    accountsHubTitle: "लोन एवं इन्वेस्टमेंट",
+    accountsHubSub: "सभी प्रकार के लोन और हाई-रिटर्न इन्वेस्टमेंट प्रोग्राम के लिए विकल्प चुनें",
+    openAccount: "देखें →",
+    loansAccount: "लोन हब",
+    investmentsAccount: "इन्वेस्टमेंट हब",
     navHome: "होम",
     navLoans: "लोन",
     navScan: "QR स्कैन",
     navBonds: "बॉन्ड्स",
+    navInvestments: "इन्वेस्टमेंट",
     navProfile: "प्रोफ़ाइल",
   },
   english: {
@@ -412,19 +406,16 @@ const UI_TEXT = {
     shareBankDetails: "Share Bank & UPI Details",
     shareSuccess: "Bank details copied to clipboard!",
     sendMoneyPlaceholder: "Phone number, Account No (EFS0000XXX), or UPI ID (@educa)",
-    accountsHubTitle: "6 Modular Accounts Hub",
-    accountsHubSub: "Click any card to inspect full account details & transactions",
-    openAccount: "Open Account →",
-    walletAccount: "Wallet Account",
-    debtAccount: "Bond Account",
-    lendingAccount: "Lending Account",
-    personalLoanAccount: "Personal Loan Account",
-    studentLoanAccount: "Student Loan Account",
-    businessLoanAccount: "Micro Business Loan Account",
+    accountsHubTitle: "Loans & Investments",
+    accountsHubSub: "Explore all loan schemes and high-return investment plans",
+    openAccount: "Explore →",
+    loansAccount: "Loan Hub",
+    investmentsAccount: "Investment Hub",
     navHome: "Home",
     navLoans: "Loans",
     navScan: "Scan QR",
     navBonds: "Bonds",
+    navInvestments: "Investments",
     navProfile: "Profile",
   }
 };
@@ -4903,7 +4894,7 @@ export default function Dashboard() {
     { key: "home", label: txt.navHome, icon: "", onClick: () => { setModal(null); setAccountModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); } },
     { key: "loans", label: txt.navLoans, icon: "", onClick: openLoansHub, heroBadge: heroFlyId === "loans_hub" },
     { key: "scan", label: txt.navScan, icon: <ScannerIcon className="w-6 h-6 text-white" />, isCenter: true, onClick: () => setModal("scan_qr") },
-    { key: "bonds", label: txt.navBonds, icon: "", onClick: () => setAccountModal("debt") },
+    { key: "investments", label: txt.navInvestments || "Investments", icon: "", onClick: () => setAccountModal("investment_hub") },
     { key: "profile", label: txt.navProfile, icon: "", onClick: () => setModal("profile") },
   ];
 
@@ -5463,186 +5454,108 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-
         {/* ══════════════════════════════════════════════════════
-            6 MODULAR ACCOUNTS SECTION (RESTORED CLEAN TILES)
+            CORE HUBS: 1. LOAN & 2. INVESTMENT (2 CORE OPTIONS)
         ══════════════════════════════════════════════════════ */}
         <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-gray-100 mb-6 sm:mb-8">
           <div className="flex justify-between items-center mb-5">
             <div>
               <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
-                 {txt.accountsHubTitle || "Modular Accounts Hub"}
+                 {txt.accountsHubTitle || "Loans & Investments"}
               </h3>
-              <p className="text-xs text-gray-500">{txt.accountsHubSub || "Click on any account to view data and apply"}</p>
+              <p className="text-xs text-gray-500">{txt.accountsHubSub || "Sabhi loans aur high-return investment programs ke liye vikalp chunein"}</p>
             </div>
             <span className="hidden sm:inline-block px-3 py-1 bg-blue-50 text-[#1D6AE5] rounded-full text-xs font-bold">
-              {txt.openAccount || "Open Account"}
+              {lang === "hindi" ? "2 मुख्य सेवाएं" : "2 Core Services"}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* 1. Wallet Account */}
-            <div
-              onClick={handleOpenWalletAccount}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-blue-500 bg-white hover:bg-blue-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl">
-                    
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-blue-100 text-blue-800">
-                    {userProfile.accountNumber || "EFS0000001"}
-                  </span>
-                </div>
-                <h4 className="font-extrabold text-base text-gray-900">Wallet Account</h4>
-              </div>
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end text-xs mt-3">
-                <span className="text-[#1D6AE5] font-bold">Open Account →</span>
-              </div>
-            </div>
-
-            {/* 2. Dues Account (Loan Dues & Kist) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            {/* 1. LOAN HUB (Includes Personal, Student, Micro Business Loans) */}
             <div
               onClick={openLoansHub}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-red-500 bg-white hover:bg-red-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+              className="relative overflow-hidden p-5 sm:p-6 rounded-3xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-50/40 via-white to-teal-50/30 hover:border-emerald-600 shadow-xs hover:shadow-lg active:scale-[0.99] transition-all cursor-pointer flex flex-col justify-between group"
             >
+              {heroFlyId === "loans_hub" && <LoanHeroFlyBadge />}
               <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-red-100 text-red-700 flex items-center justify-center text-xl">
-                    
+                <div className="flex justify-between items-start mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                    🏦
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-red-100 text-red-800">
-                    10-Day Cycle
+                  <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800">
+                    3 Loan Schemes
                   </span>
                 </div>
-                <h4 className="font-extrabold text-base text-gray-900">Dues Account</h4>
-              </div>
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end text-xs mt-3">
-                <span className="text-red-600 font-bold">Open Dues & Kist →</span>
-              </div>
-            </div>
+                <h4 className="font-extrabold text-lg sm:text-xl text-gray-900 mb-1">
+                  {lang === "hindi" ? "लोन खाता (Loans)" : "Loan Accounts"}
+                </h4>
+                <p className="text-xs text-gray-600 mb-4 leading-relaxed">
+                  {lang === "hindi"
+                    ? "पर्सनल लोन (10-दिन चक्र), छात्र लोन (8% p.a.) एवं माइक्रो बिजनेस लोन (दैनिक कलेक्शन)।"
+                    : "Personal Loan (10-Day Cycle), Student Loan (8% p.a.), and Micro Business Loan (Daily Collection)."}
+                </p>
 
-            {/* 3. Bond Account (365-Day Fixed 18% Profit Bond) */}
-            <div
-              onClick={() => setAccountModal("debt")}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-emerald-500 bg-white hover:bg-emerald-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl">
-                    
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800">
-                    365-Day Bond
+                {/* Sub-schemes preview pills */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white border border-emerald-200 text-emerald-800 shadow-2xs">
+                    Personal Loan
+                  </span>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white border border-cyan-200 text-cyan-800 shadow-2xs">
+                    Student Loan
+                  </span>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white border border-amber-200 text-amber-800 shadow-2xs">
+                    Micro Business
                   </span>
                 </div>
-                <h4 className="font-extrabold text-base text-gray-900">Bond Account</h4>
               </div>
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end text-xs mt-3">
-                <span className="text-emerald-700 font-bold">Open 365d Bond →</span>
-              </div>
-            </div>
 
-            {/* 3. Lending Account (40 & 80 Months Monthly Return Bonds) */}
-            <div
-              onClick={openLendingSheet}
-              className="p-5 rounded-2xl border-2 border-gray-200 hover:border-indigo-500 bg-white hover:bg-indigo-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xl">
-                    
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-100 text-indigo-800">
-                    Monthly Payouts
-                  </span>
-                </div>
-                <h4 className="font-extrabold text-base text-gray-900">Lending Account</h4>
-              </div>
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end text-xs mt-3">
-                <span className="text-indigo-600 font-bold">Open Lending →</span>
-              </div>
-            </div>
-
-            {/* 4. Personal Loan Account (5k-50k, 10-day cycle, Cheque facility) */}
-            <div
-              onClick={() => {
-                triggerHeroFly("card_personal");
-                openLoanSheet("personal_loan");
-              }}
-              className="relative overflow-visible p-5 rounded-2xl border-2 border-emerald-500/50 bg-emerald-50/20 hover:border-emerald-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
-            >
-              {heroFlyId === "card_personal" && <LoanHeroFlyBadge />}
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl">
-                    
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-emerald-100 text-emerald-800">
-                    {activePersonalLoan ? (activePersonalLoan.accountNumber || "EFS0000001") : "10-Day Cycle"}
-                  </span>
-                </div>
-                <h4 className="font-extrabold text-base text-gray-900">Personal Loan Account</h4>
-              </div>
-              <div className="pt-3 border-t border-emerald-200/60 flex items-center justify-end text-xs mt-3">
-                <span className="text-emerald-700 font-bold">
-                  {activePersonalLoan ? "View Loan Data →" : "Apply Loan →"}
+              <div className="pt-3.5 border-t border-emerald-100/80 flex items-center justify-between text-xs mt-3">
+                <span className="text-emerald-700 font-black">
+                  {activeLoanDetails?.hasActiveLoan ? "View Active Loan & Dues →" : "Explore & Apply Loans →"}
                 </span>
+                <span className="text-xs text-gray-400 font-semibold group-hover:translate-x-1 transition-transform">→</span>
               </div>
             </div>
 
-            {/* 5. Student Loan Account */}
+            {/* 2. INVESTMENT HUB (Includes 365-Day Bond & Monthly Lending) */}
             <div
-              onClick={() => {
-                triggerHeroFly("card_student");
-                openLoanSheet("student_loan");
-              }}
-              className="relative overflow-visible p-5 rounded-2xl border-2 border-cyan-500/50 bg-cyan-50/20 hover:border-cyan-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
+              onClick={() => setAccountModal("investment_hub")}
+              className="relative overflow-hidden p-5 sm:p-6 rounded-3xl border-2 border-indigo-500/40 bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/30 hover:border-indigo-600 shadow-xs hover:shadow-lg active:scale-[0.99] transition-all cursor-pointer flex flex-col justify-between group"
             >
-              {heroFlyId === "card_student" && <LoanHeroFlyBadge />}
               <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center text-xl">
-                    
+                <div className="flex justify-between items-start mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                    📈
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-cyan-100 text-cyan-800">
-                    {activeStudentLoan ? (activeStudentLoan.accountNumber || "EFS0000001") : "8% p.a."}
+                  <span className="px-3 py-1 rounded-full text-xs font-black bg-indigo-100 text-indigo-800">
+                    Bond & Lending
                   </span>
                 </div>
-                <h4 className="font-extrabold text-base text-gray-900">Student Loan Account</h4>
-              </div>
-              <div className="pt-3 border-t border-cyan-200/60 flex items-center justify-end text-xs mt-3">
-                <span className="text-cyan-700 font-bold">
-                  {activeStudentLoan ? "View Loan Data →" : "Apply Student Loan →"}
-                </span>
-              </div>
-            </div>
+                <h4 className="font-extrabold text-lg sm:text-xl text-gray-900 mb-1">
+                  {lang === "hindi" ? "इन्वेस्टमेंट खाता (Investments)" : "Investment Accounts"}
+                </h4>
+                <p className="text-xs text-gray-600 mb-4 leading-relaxed">
+                  {lang === "hindi"
+                    ? "365-दिन फिक्स्ड बॉन्ड (18% निश्चित रिटर्न) एवं लेंडिंग प्रोग्राम (40 व 80 महीने मासिक पेआउट)।"
+                    : "365-Day Fixed Bond (18% Fixed Return) & Monthly Lending Programs (40 & 80 Months Regular Payouts)."}
+                </p>
 
-            {/* 6. Micro Business Loan Account (Daily Collection) */}
-            <div
-              onClick={() => {
-                triggerHeroFly("card_business");
-                openLoanSheet("business_loan");
-              }}
-              className="relative overflow-visible p-5 rounded-2xl border-2 border-amber-500/50 bg-amber-50/20 hover:border-amber-600 shadow-xs hover:shadow-md active:scale-95 transition cursor-pointer flex flex-col justify-between"
-            >
-              {heroFlyId === "card_business" && <LoanHeroFlyBadge />}
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl">
-                    
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-800">
-                    {activeBusinessLoan ? "Daily Active" : "Daily Collection"}
+                {/* Sub-schemes preview pills */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white border border-emerald-200 text-emerald-800 shadow-2xs">
+                    365d Bond (18%)
+                  </span>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white border border-indigo-200 text-indigo-800 shadow-2xs">
+                    Monthly Lending (40/80 Mo)
                   </span>
                 </div>
-                <h4 className="font-extrabold text-base text-gray-900">Micro Business Loan Account</h4>
               </div>
-              <div className="pt-3 border-t border-amber-200/60 flex items-center justify-end text-xs mt-3">
-                <span className="text-amber-700 font-bold">
-                  {activeBusinessLoan ? "View Daily Loan →" : "Apply Daily Loan →"}
+
+              <div className="pt-3.5 border-t border-indigo-100/80 flex items-center justify-between text-xs mt-3">
+                <span className="text-indigo-700 font-black">
+                  Explore Investments →
                 </span>
+                <span className="text-xs text-gray-400 font-semibold group-hover:translate-x-1 transition-transform">→</span>
               </div>
             </div>
           </div>
@@ -7436,6 +7349,92 @@ export default function Dashboard() {
             </button>
           </div>
         )}
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════
+          INVESTMENTS HUB SHEET (BOND & LENDING)
+      ══════════════════════════════════════════════════════ */}
+      <Sheet
+        open={accountModal === "investment_hub"}
+        onClose={closeModal}
+        title={lang === "hindi" ? "इन्वेस्टमेंट प्रोग्राम्स (Bond & Lending)" : "Investment Programs Hub"}
+        icon=""
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500">
+            {lang === "hindi" 
+              ? "अपनी पसंद का इन्वेस्टमेंट प्रोग्राम चुनें और सुरक्षित उच्च रिटर्न पाएं:"
+              : "Choose an investment program to generate guaranteed high returns:"}
+          </p>
+
+          <div className="grid grid-cols-1 gap-3.5">
+            {/* 1. 365-Day Fixed Bond */}
+            <div
+              onClick={() => {
+                closeModal();
+                setAccountModal("debt");
+              }}
+              className="p-4 sm:p-5 rounded-2xl border-2 border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 hover:border-emerald-500 transition cursor-pointer flex flex-col justify-between shadow-2xs group"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shrink-0">
+                    📜
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm sm:text-base text-gray-900">
+                      Bond Account (365-Day Fixed)
+                    </h4>
+                    <p className="text-[11px] text-emerald-800 font-bold">18% Flat Annual Guaranteed Profit</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 shrink-0">
+                  365d Bond
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                1 Saal ke lock-in ke saath 18% flat profit. Maturity par full principal + profit direct settlement aur official digital certificate.
+              </p>
+              <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs">
+                <span className="text-emerald-700 font-black">Open 365-Day Bond →</span>
+                <span className="text-emerald-600 font-bold group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </div>
+
+            {/* 2. Monthly P2P Lending Program */}
+            <div
+              onClick={() => {
+                closeModal();
+                openLendingSheet();
+              }}
+              className="p-4 sm:p-5 rounded-2xl border-2 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 hover:border-indigo-500 transition cursor-pointer flex flex-col justify-between shadow-2xs group"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center text-xl shrink-0">
+                    🤝
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm sm:text-base text-gray-900">
+                      Lending Account (Monthly Return)
+                    </h4>
+                    <p className="text-[11px] text-indigo-800 font-bold">Monthly Passive Income Payouts</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-100 text-indigo-800 shrink-0">
+                  40 / 80 Months
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                Monthly regular returns direct aapke wallet me. 40 mahine (120% return) ya 80 mahine (240% return) fixed tenure options.
+              </p>
+              <div className="pt-2 border-t border-indigo-200/60 flex items-center justify-between text-xs">
+                <span className="text-indigo-700 font-black">Open Monthly Lending →</span>
+                <span className="text-indigo-600 font-bold group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </Sheet>
 
       {/* ══════════════════════════════════════════════════════

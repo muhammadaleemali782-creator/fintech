@@ -5470,7 +5470,7 @@ export default function Dashboard() {
         {/* ══════════════════════════════════════════════════════
             CORE HUBS: 1. LOAN & 2. INVESTMENT (2 CORE OPTIONS)
         ══════════════════════════════════════════════════════ */}
-        <div className="bg-white rounded-3xl p-3.5 sm:p-6 shadow-sm border border-gray-100 mb-1 sm:mb-2">
+        <div className="bg-white rounded-3xl p-3.5 sm:p-6 shadow-sm border border-gray-100 mb-6 sm:mb-8">
           <div className="flex justify-between items-center mb-5">
             <div>
               <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">

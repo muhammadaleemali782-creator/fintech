@@ -17,7 +17,7 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
   if (isOpen) return null;
 
   return (
-    <div className="fixed bottom-16 sm:bottom-6 right-2 sm:right-5 z-40 select-none pointer-events-auto">
+    <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 right-2 sm:right-5 z-40 select-none pointer-events-auto">
       {/* 1. FULL ROBOT (Visible when not tucked) */}
       <div
         className={`relative transition-all duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${

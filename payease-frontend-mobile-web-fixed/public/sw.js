@@ -1,6 +1,6 @@
 // Service Worker for Educa Fintech PWA
-// v12: Network-first for app shell navigation (ensures updates apply immediately, falls back to cache offline).
-const CACHE_NAME = 'educa-fintech-v12';
+// v13: Enhanced bottom padding clearance and transparent robot close icon.
+const CACHE_NAME = 'educa-fintech-v13';
 const SHELL_URL = '/index.html';
 
 self.addEventListener('install', (event) => {

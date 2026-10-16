@@ -835,6 +835,17 @@ export default function Dashboard() {
     pendingPinActionRef.current = pendingPinAction;
   }, [pendingPinAction]);
 
+  // Central Loan Department Pool State
+  const [loanDepartmentPool, setLoanDepartmentPool] = useState(() => {
+    return appCache.get("educa_cached_loan_pool") || {
+      totalPool: 1000000,
+      marketDisbursed: 0,
+      availablePool: 1000000,
+      activeLoansCount: 0,
+      utilizationPercent: 0
+    };
+  });
+
   // Personal Loan Application State (₹5k-₹100k, 15-30 Easy Installments, 1.34% or 1.0% per installment)
   const [loanForm, setLoanForm] = useState({
     amount: 5000,
@@ -2502,6 +2513,12 @@ export default function Dashboard() {
       setShowLoans(true);
     } catch {}
     loadActiveLoanDetails();
+    fetch(`${API}/loans/department-pool`, { headers }).then(r => r.json()).then(poolData => {
+      if (poolData && poolData.success) {
+        setLoanDepartmentPool(poolData);
+        appCache.set("educa_cached_loan_pool", poolData);
+      }
+    }).catch(() => {});
   };
 
   const openLoansHub = () => {
@@ -2665,6 +2682,10 @@ export default function Dashboard() {
           CacheManager.set(CacheManager.createKey(role, uId, "agent_stats"), d.agentStats);
           appCache.set("educa_cached_agent_metrics", d.agentStats);
           try { CacheManager.persistLegacy("educa_cached_agent_metrics", d.agentStats); } catch {}
+        }
+        if (d.loanDepartmentPool) {
+          setLoanDepartmentPool(prev => (isDataEqual(prev, d.loanDepartmentPool) ? prev : d.loanDepartmentPool));
+          appCache.set("educa_cached_loan_pool", d.loanDepartmentPool);
         }
         setLastSyncedAt(Date.now());
         return true;
@@ -5473,6 +5494,9 @@ export default function Dashboard() {
                   </span>
                   <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white border border-amber-200 text-amber-800 shadow-2xs">
                     Micro Business
+                  </span>
+                  <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 shadow-2xs font-mono">
+                    Avail Quota: ₹{(loanDepartmentPool.availablePool !== undefined ? loanDepartmentPool.availablePool : 1000000).toLocaleString("en-IN")}
                   </span>
                 </div>
               </div>
@@ -8443,6 +8467,23 @@ export default function Dashboard() {
               <span className="px-2.5 py-1 rounded-full text-xs font-black bg-white/20 text-white">
                 Eligible Limit: ₹{maxLimit.toLocaleString("en-IN")}
               </span>
+            </div>
+          </div>
+
+          {/* Department Loan Capital Pool Status */}
+          <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <div>
+                <span className="text-[10px] uppercase font-bold text-blue-900 block">Educa Loan Department Lending Pool</span>
+                <span className="text-xs font-black text-blue-950 font-mono">
+                  Available Capital: ₹{(loanDepartmentPool.availablePool !== undefined ? loanDepartmentPool.availablePool : 1000000).toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] text-gray-500 block">Total Pool Quota</span>
+              <span className="text-xs font-bold font-mono text-gray-800">₹{(loanDepartmentPool.totalPool || 1000000).toLocaleString("en-IN")}</span>
             </div>
           </div>
 

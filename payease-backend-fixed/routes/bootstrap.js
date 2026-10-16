@@ -33,6 +33,25 @@ async function getDepositDetails() {
   return payload;
 }
 
+// Helper to get cached or fresh loan department pool
+async function getLoanDepartmentPool() {
+  const cached = memoryCache.get('loan_dept_pool');
+  if (cached) return cached;
+  const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).lean();
+  const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
+  const activeLoansAgg = await Loan.aggregate([
+    { $match: { status: { $in: ['active', 'approved'] } } },
+    { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
+  ]);
+  const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
+  const activeLoansCount = activeLoansAgg[0]?.count || 0;
+  const availablePool = Math.max(0, totalPool - marketDisbursed);
+  const utilizationPercent = totalPool > 0 ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1))) : 0;
+  const payload = { totalPool, marketDisbursed, availablePool, activeLoansCount, utilizationPercent };
+  memoryCache.set('loan_dept_pool', payload, 10);
+  return payload;
+}
+
 // -------------------------------------------------------------
 // 1. COMBINED USER BOOTSTRAP: All Customer Data in 1 Fast Query
 // -------------------------------------------------------------
@@ -60,7 +79,8 @@ router.get('/user', protect, async (req, res) => {
       bondsRes,
       profitHistoryRes,
       depositDetailsRes,
-      rateSettingRes
+      rateSettingRes,
+      poolRes
     ] = await Promise.allSettled([
       Transaction.find({ userId }).sort({ createdAt: -1 }).limit(40).lean(),
       Loan.find({ userId }).sort({ createdAt: -1 }).lean(),
@@ -71,7 +91,8 @@ router.get('/user', protect, async (req, res) => {
         type: { $in: ['daily_yield', 'bond_payout', 'referral_bonus', 'profit_transfer', 'interest'] }
       }).sort({ createdAt: -1 }).limit(50).lean(),
       getDepositDetails(),
-      Settings.findOne({ key: 'loanInterestRate' }).lean()
+      Settings.findOne({ key: 'loanInterestRate' }).lean(),
+      getLoanDepartmentPool()
     ]);
 
     const userObj = user.toObject ? user.toObject() : { ...user };
@@ -89,6 +110,7 @@ router.get('/user', protect, async (req, res) => {
       profitHistory: profitHistoryRes.status === 'fulfilled' ? profitHistoryRes.value : [],
       depositDetails: depositDetailsRes.status === 'fulfilled' ? depositDetailsRes.value : null,
       currentRate: rateSettingRes.status === 'fulfilled' && rateSettingRes.value ? rateSettingRes.value.value : 12,
+      loanDepartmentPool: poolRes.status === 'fulfilled' ? poolRes.value : { totalPool: 1000000, marketDisbursed: 0, availablePool: 1000000, activeLoansCount: 0, utilizationPercent: 0 },
       timestamp: Date.now()
     };
 
@@ -114,7 +136,8 @@ router.get('/agent', protect, async (req, res) => {
       customersRes,
       commissionsRes,
       depositDetailsRes,
-      rateSettingRes
+      rateSettingRes,
+      poolRes
     ] = await Promise.allSettled([
       User.find({ referredBy: agent._id })
         .select('name email phone balance duesBalance loansCount createdAt kycStatus loanLimit customQrUrl')
@@ -126,7 +149,8 @@ router.get('/agent', protect, async (req, res) => {
         .limit(40)
         .lean(),
       getDepositDetails(),
-      Settings.findOne({ key: 'referralCommissionRate' }).lean()
+      Settings.findOne({ key: 'referralCommissionRate' }).lean(),
+      getLoanDepartmentPool()
     ]);
 
     const customers = customersRes.status === 'fulfilled' ? customersRes.value : [];
@@ -165,6 +189,7 @@ router.get('/agent', protect, async (req, res) => {
       commissions: commissionsRes.status === 'fulfilled' ? commissionsRes.value : [],
       depositDetails: depositDetailsRes.status === 'fulfilled' ? depositDetailsRes.value : null,
       referralRate: rateSettingRes.status === 'fulfilled' && rateSettingRes.value ? rateSettingRes.value.value : 2,
+      loanDepartmentPool: poolRes.status === 'fulfilled' ? poolRes.value : { totalPool: 1000000, marketDisbursed: 0, availablePool: 1000000, activeLoansCount: 0, utilizationPercent: 0 },
       timestamp: Date.now()
     };
 
@@ -195,7 +220,8 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
       agentsRes,
       devicesRes,
       settingsRes,
-      depositDetailsRes
+      depositDetailsRes,
+      poolRes
     ] = await Promise.allSettled([
       User.find({ role: { $ne: 'admin' } })
         .select('-password -walletPin -kycDocuments.doc1Url -kycDocuments.doc1BackUrl -kycDocuments.doc2Url -kycDocuments.doc2BackUrl -kycDocuments.chequeUrl -kycDocuments.chequeBackUrl -kycDocuments.docUrl')
@@ -233,7 +259,8 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
         .limit(40)
         .lean(),
       Settings.find().lean(),
-      getDepositDetails()
+      getDepositDetails(),
+      getLoanDepartmentPool()
     ]);
 
     // Fast Analytics aggregation
@@ -342,6 +369,7 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
         devices: [],
         settings: { depositDetails: settingsMap.depositDetails },
         depositDetails: depositDetailsRes.status === 'fulfilled' ? depositDetailsRes.value : null,
+        loanDepartmentPool: poolRes.status === 'fulfilled' ? poolRes.value : { totalPool: 1000000, marketDisbursed: 0, availablePool: 1000000, activeLoansCount: 0, utilizationPercent: 0 },
         timestamp: Date.now()
       };
       memoryCache.set(cacheKey, staffPayload, 8);
@@ -367,6 +395,7 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
       devices: devicesRes.status === 'fulfilled' ? devicesRes.value : [],
       settings: settingsMap,
       depositDetails: depositDetailsRes.status === 'fulfilled' ? depositDetailsRes.value : null,
+      loanDepartmentPool: poolRes.status === 'fulfilled' ? poolRes.value : { totalPool: 1000000, marketDisbursed: 0, availablePool: 1000000, activeLoansCount: 0, utilizationPercent: 0 },
       timestamp: Date.now()
     };
 

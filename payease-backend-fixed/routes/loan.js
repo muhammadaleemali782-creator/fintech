@@ -1192,7 +1192,7 @@ router.post('/:id/close-early', protect, async (req, res) => {
 });
 
 // Loan Department Central Pool Limit & Market Stats
-router.get('/department-pool', protect, staffOrAdmin, async (req, res) => {
+router.get('/department-pool', protect, async (req, res) => {
   try {
     const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).lean();
     const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;

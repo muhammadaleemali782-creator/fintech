@@ -1497,6 +1497,15 @@ export default function AdminPanel() {
   });
   const [capitalMetrics, setCapitalMetrics] = useState(() => appCache.get("educa_admin_cached_capital_metrics", null));
   const [capitalLoading, setCapitalLoading] = useState(false);
+  const [loanDepartmentPool, setLoanDepartmentPool] = useState(() => {
+    return appCache.get("educa_admin_cached_loan_pool") || {
+      totalPool: 1000000,
+      marketDisbursed: 0,
+      availablePool: 1000000,
+      activeLoansCount: 0,
+      utilizationPercent: 0
+    };
+  });
   const [capitalSubCategory, setCapitalSubCategory] = useState("loans"); // "loans" | "investments" | "cashout" | "deposits" | "profit"
   const [capitalSearch, setCapitalSearch] = useState("");
   const debouncedCapitalSearch = useDebounce(capitalSearch, 200);
@@ -2070,6 +2079,12 @@ export default function AdminPanel() {
         appCache.set("educa_admin_cached_loans", d);
         appCache.set("educa_admin_cached_loans_count", d.length);
       }
+      fetch(`${API}/loans/department-pool`, { headers }).then(r => r.json()).then(poolData => {
+        if (poolData && poolData.success) {
+          setLoanDepartmentPool(poolData);
+          appCache.set("educa_admin_cached_loan_pool", poolData);
+        }
+      }).catch(() => {});
     } catch {}
   }, []); // eslint-disable-line
 
@@ -2588,6 +2603,10 @@ export default function AdminPanel() {
         setDepositDetails(data.depositDetails);
         appCache.set("educa_admin_cached_deposit_details", data.depositDetails);
       }
+      if (data.loanDepartmentPool) {
+        setLoanDepartmentPool(data.loanDepartmentPool);
+        appCache.set("educa_admin_cached_loan_pool", data.loanDepartmentPool);
+      }
       if (data.settings) {
         if (data.settings.loanInterestRate) setInterestRate(data.settings.loanInterestRate);
         if (data.settings.referralCommissionRate) setCommissionRate(data.settings.referralCommissionRate);
@@ -2720,7 +2739,7 @@ export default function AdminPanel() {
     return () => clearInterval(kycPoll);
   }, [tab, loadUsers, headers]); // eslint-disable-line
 
-  // LIVE BACKGROUND SYNC (Quiet, non-blocking 45s interval on active operational tabs)
+  // LIVE BACKGROUND SYNC (Quiet, non-blocking 30s interval on active operational tabs)
   useEffect(() => {
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
@@ -2729,8 +2748,11 @@ export default function AdminPanel() {
         loadLoans(true);
       } else if (tab === "analytics" || tab === "capital") {
         loadAnalytics(true);
+        loadLoans(true);
+      } else if (tab === "loans") {
+        loadLoans(true);
       }
-    }, 45 * 1000);
+    }, 30 * 1000);
     return () => clearInterval(timer);
   }, [loadPending, loadLoans, loadAnalytics, tab]);
 
@@ -2743,6 +2765,9 @@ export default function AdminPanel() {
           loadLoans(true);
         } else if (tab === "analytics" || tab === "capital") {
           loadAnalytics(true);
+          loadLoans(true);
+        } else if (tab === "loans") {
+          loadLoans(true);
         }
       }
     };
@@ -4669,7 +4694,69 @@ export default function AdminPanel() {
                   const loanActive = activeItems.filter(l => l.status === "active").length;
 
                   return (
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                    <div className="space-y-3">
+                      {/* Central Loan Department Pool Quota Banner */}
+                      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-sm border border-blue-800/60 relative overflow-hidden">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <div>
+                              <div className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-200">
+                                Loan Department Central Pool
+                              </div>
+                              <div className="text-xs text-blue-300 font-medium">
+                                Shared Department Lending Quota • Default ₹10 Lakh Limit
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-blue-100 font-bold">
+                              Active Loans: {loanDepartmentPool.activeLoansCount || 0}
+                            </span>
+                            <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold">
+                              {loanDepartmentPool.utilizationPercent || 0}% Utilized
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10">
+                          <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
+                            <span className="text-[10px] text-blue-300 uppercase font-bold block">Dept Total Limit</span>
+                            <div className="text-xl sm:text-2xl font-black font-mono text-white mt-0.5">
+                              ₹{(loanDepartmentPool.totalPool || 1000000).toLocaleString("en-IN")}
+                            </div>
+                            <span className="text-[9px] text-blue-300/80">Configured Department Pool</span>
+                          </div>
+
+                          <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
+                            <span className="text-[10px] text-rose-300 uppercase font-bold block">Market me Diya Loan</span>
+                            <div className="text-xl sm:text-2xl font-black font-mono text-rose-300 mt-0.5">
+                              ₹{(loanDepartmentPool.marketDisbursed || 0).toLocaleString("en-IN")}
+                            </div>
+                            <span className="text-[9px] text-rose-200/80">Active Disbursed Capital</span>
+                          </div>
+
+                          <div className="bg-emerald-500/10 backdrop-blur-xs p-3 rounded-xl border border-emerald-400/20">
+                            <span className="text-[10px] text-emerald-300 uppercase font-bold block">Available Lending Pool</span>
+                            <div className="text-xl sm:text-2xl font-black font-mono text-emerald-300 mt-0.5">
+                              ₹{(loanDepartmentPool.availablePool !== undefined ? loanDepartmentPool.availablePool : 1000000).toLocaleString("en-IN")}
+                            </div>
+                            <span className="text-[9px] text-emerald-200/80">Available Approval Balance</span>
+                          </div>
+                        </div>
+
+                        {/* Utilization Progress Bar */}
+                        <div className="mt-3">
+                          <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-blue-400 to-emerald-400 transition-all duration-500 rounded-full"
+                              style={{ width: `${Math.min(100, Math.max(0, loanDepartmentPool.utilizationPercent || 0))}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-blue-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                            Total Diya Gaya (Disbursed)
@@ -4726,7 +4813,8 @@ export default function AdminPanel() {
                         </div>
                       </div>
                     </div>
-                  );
+                  </div>
+                );
                 })()}
 
                 {capitalSubCategory === "investments" && (() => {
@@ -6691,6 +6779,67 @@ export default function AdminPanel() {
                     >
                       <span>Refresh Loans</span>
                     </button>
+                  </div>
+
+                  {/* Central Loan Department Pool Quota Banner */}
+                  <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-sm border border-blue-800/60 relative overflow-hidden">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <div>
+                          <div className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-200">
+                            Loan Department Central Pool
+                          </div>
+                          <div className="text-xs text-blue-300 font-medium">
+                            Shared Department Lending Quota • Default ₹10 Lakh Limit
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-blue-100 font-bold">
+                          Active Loans: {loanDepartmentPool.activeLoansCount || 0}
+                        </span>
+                        <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold">
+                          {loanDepartmentPool.utilizationPercent || 0}% Utilized
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10">
+                      <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-blue-300 uppercase font-bold block">Dept Total Limit</span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-white mt-0.5">
+                          ₹{(loanDepartmentPool.totalPool || 1000000).toLocaleString("en-IN")}
+                        </div>
+                        <span className="text-[9px] text-blue-300/80">Configured Department Pool</span>
+                      </div>
+
+                      <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-rose-300 uppercase font-bold block">Market me Diya Loan</span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-rose-300 mt-0.5">
+                          ₹{(loanDepartmentPool.marketDisbursed || 0).toLocaleString("en-IN")}
+                        </div>
+                        <span className="text-[9px] text-rose-200/80">Active Disbursed Capital</span>
+                      </div>
+
+                      <div className="bg-emerald-500/10 backdrop-blur-xs p-3 rounded-xl border border-emerald-400/20">
+                        <span className="text-[10px] text-emerald-300 uppercase font-bold block">Available Lending Pool</span>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-emerald-300 mt-0.5">
+                          ₹{(loanDepartmentPool.availablePool !== undefined ? loanDepartmentPool.availablePool : 1000000).toLocaleString("en-IN")}
+                        </div>
+                        <span className="text-[9px] text-emerald-200/80">Remaining Approval Quota</span>
+                      </div>
+                    </div>
+
+                    {/* Utilization Progress Bar */}
+                    <div className="mt-3">
+                      <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-400 to-emerald-400 transition-all duration-500 rounded-full"
+                          style={{ width: `${Math.min(100, Math.max(0, loanDepartmentPool.utilizationPercent || 0))}%` }}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Quick Action: Apply on Behalf / Issue Loan Shortcut */}

@@ -5067,6 +5067,16 @@ export default function Dashboard() {
               )}
             </div>
 
+            {/* Desktop Profile Button */}
+            <button
+              type="button"
+              onClick={() => setModal("profile")}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-800 border border-gray-200 rounded-xl font-bold text-xs transition active:scale-95 cursor-pointer shadow-2xs"
+              title="My Profile & Member ID"
+            >
+              <span>{txt.navProfile || "Profile"}</span>
+            </button>
+
             <button onClick={logout} className="hidden sm:inline-block px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-semibold text-xs cursor-pointer">
               {txt.logout}
             </button>

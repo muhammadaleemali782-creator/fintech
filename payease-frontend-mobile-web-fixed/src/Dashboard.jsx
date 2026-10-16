@@ -284,7 +284,7 @@ const UI_TEXT = {
     accountsHubSub: "Sabhi accounts ka pura data dekhne ke liye card par click karein",
     openAccount: "Open Account →",
     walletAccount: "Wallet Account",
-    debtAccount: "Debt & Bond Account",
+    debtAccount: "Bond Account",
     lendingAccount: "Lending Account",
     personalLoanAccount: "Personal Loan Account",
     studentLoanAccount: "Student Loan Account",
@@ -350,7 +350,7 @@ const UI_TEXT = {
     accountsHubSub: "सभी खातों का पूरा डेटा देखने के लिए कार्ड पर क्लिक करें",
     openAccount: "खाता खोलें →",
     walletAccount: "वॉलेट खाता",
-    debtAccount: "ऋण व बॉन्ड खाता",
+    debtAccount: "बॉन्ड खाता",
     lendingAccount: "लेंडिंग खाता",
     personalLoanAccount: "पर्सनल लोन खाता",
     studentLoanAccount: "छात्र लोन खाता",
@@ -416,7 +416,7 @@ const UI_TEXT = {
     accountsHubSub: "Click any card to inspect full account details & transactions",
     openAccount: "Open Account →",
     walletAccount: "Wallet Account",
-    debtAccount: "Debt & Bond Account",
+    debtAccount: "Bond Account",
     lendingAccount: "Lending Account",
     personalLoanAccount: "Personal Loan Account",
     studentLoanAccount: "Student Loan Account",
@@ -5370,7 +5370,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* 2. Debt Account (Loan Dues & Kist) */}
+            {/* 2. Dues Account (Loan Dues & Kist) */}
             <div
               onClick={openLoansHub}
               className="p-5 rounded-2xl border-2 border-gray-200 hover:border-red-500 bg-white hover:bg-red-50/20 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between"
@@ -5384,10 +5384,10 @@ export default function Dashboard() {
                     10-Day Cycle
                   </span>
                 </div>
-                <h4 className="font-extrabold text-base text-gray-900">Debt Account</h4>
+                <h4 className="font-extrabold text-base text-gray-900">Dues Account</h4>
               </div>
               <div className="pt-3 border-t border-gray-100 flex items-center justify-end text-xs mt-3">
-                <span className="text-red-600 font-bold">Open Debt & Dues →</span>
+                <span className="text-red-600 font-bold">Open Dues & Kist →</span>
               </div>
             </div>
 
@@ -9726,9 +9726,6 @@ export default function Dashboard() {
                   </span>
                   <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-900 rounded font-mono font-bold text-[9px]">
                     Lend: {userProfile.agentProfile?.commissions?.lending ?? (userProfile.agentProfile?.commissionModel === 'team_1' ? 1 : 2)}%
-                  </span>
-                  <span className="px-1.5 py-0.5 bg-amber-100 text-amber-900 rounded font-mono font-bold text-[9px]">
-                    Debt: {userProfile.agentProfile?.commissions?.investment ?? (userProfile.agentProfile?.commissionModel === 'team_1' ? 1 : 2)}%
                   </span>
                   <span className="px-1.5 py-0.5 bg-purple-100 text-purple-900 rounded font-mono font-bold text-[9px]">
                     Bond: {userProfile.agentProfile?.commissions?.bond ?? (userProfile.agentProfile?.commissionModel === 'team_1' ? 1 : 2)}%

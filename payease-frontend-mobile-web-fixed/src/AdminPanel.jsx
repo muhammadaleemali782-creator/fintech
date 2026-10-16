@@ -8481,9 +8481,6 @@ export default function AdminPanel() {
                                 <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono font-bold text-[9px]">
                                   Lend: {item.commissions?.lending ?? item.commissionRate ?? 4}%
                                 </span>
-                                <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-mono font-bold text-[9px]">
-                                  Debt: {item.commissions?.investment ?? item.commissionRate ?? 1}%
-                                </span>
                                 <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-mono font-bold text-[9px]">
                                   Bond: {item.commissions?.bond ?? item.commissionRate ?? 4}%
                                 </span>
@@ -8750,9 +8747,6 @@ export default function AdminPanel() {
                                     </span>
                                     <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
                                       Lend: {item.commissions?.lending ?? item.commissionRate ?? 4}%
-                                    </span>
-                                    <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
-                                      Debt: {item.commissions?.investment ?? item.commissionRate ?? 1}%
                                     </span>
                                     <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold">
                                       Bond: {item.commissions?.bond ?? item.commissionRate ?? 4}%
@@ -9289,7 +9283,7 @@ export default function AdminPanel() {
                                 Admin Custom Approval
                               </span>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                               <div className="p-2 bg-white rounded-xl border border-blue-200 shadow-2xs">
                                 <span className="text-[10px] font-bold text-blue-900 block mb-1">Loan %</span>
                                 <div className="flex items-center gap-1">
@@ -9340,32 +9334,6 @@ export default function AdminPanel() {
                                     className="w-full px-2 py-1 text-xs font-black text-emerald-950 text-center bg-emerald-50/50 border border-emerald-300 rounded-lg outline-none"
                                   />
                                   <span className="text-xs font-bold text-emerald-900">%</span>
-                                </div>
-                              </div>
-                              <div className="p-2 bg-white rounded-xl border border-amber-200 shadow-2xs">
-                                <span className="text-[10px] font-bold text-amber-900 block mb-1">Debt %</span>
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="50"
-                                    step="0.5"
-                                    value={agentCategoryInputs[a._id]?.investment !== undefined ? agentCategoryInputs[a._id]?.investment : (prof.commissions?.investment ?? 1)}
-                                    onChange={(e) => {
-                                      const cur = agentCategoryInputs[a._id] || {};
-                                      setAgentCategoryInputs({
-                                        ...agentCategoryInputs,
-                                        [a._id]: {
-                                          loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? 1),
-                                          lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
-                                          investment: e.target.value,
-                                          bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
-                                        }
-                                      });
-                                    }}
-                                    className="w-full px-2 py-1 text-xs font-black text-amber-950 text-center bg-amber-50/50 border border-amber-300 rounded-lg outline-none"
-                                  />
-                                  <span className="text-xs font-bold text-amber-900">%</span>
                                 </div>
                               </div>
                               <div className="p-2 bg-white rounded-xl border border-purple-200 shadow-2xs">
@@ -9473,7 +9441,7 @@ export default function AdminPanel() {
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                             {/* 1. Loan Commission */}
                             <div className="p-2.5 bg-blue-50/70 border border-blue-200/90 rounded-xl">
                               <span className="text-[11px] font-bold text-blue-900 block mb-1">Loan</span>
@@ -9530,35 +9498,7 @@ export default function AdminPanel() {
                               </div>
                             </div>
 
-                            {/* 3. Debt Account Commission */}
-                            <div className="p-2.5 bg-amber-50/70 border border-amber-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-amber-900 block mb-1">Debt Account</span>
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="50"
-                                  step="0.5"
-                                  value={agentCategoryInputs[a._id]?.investment !== undefined ? agentCategoryInputs[a._id]?.investment : (prof.commissions?.investment ?? 1)}
-                                  onChange={e => {
-                                    const cur = agentCategoryInputs[a._id] || {};
-                                    setAgentCategoryInputs({
-                                      ...agentCategoryInputs,
-                                      [a._id]: {
-                                        loan: cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? prof.commissionRate ?? 1),
-                                        lending: cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4),
-                                        investment: e.target.value,
-                                        bond: cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4)
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-2 py-1 text-xs font-black text-amber-950 text-center bg-white border border-amber-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500"
-                                />
-                                <span className="text-xs font-black text-amber-900">%</span>
-                              </div>
-                            </div>
-
-                            {/* 4. Bond Commission */}
+                            {/* 3. Bond Commission */}
                             <div className="p-2.5 bg-purple-50/70 border border-purple-200/90 rounded-xl">
                               <span className="text-[11px] font-bold text-purple-900 block mb-1">Bonds (365 Days)</span>
                               <div className="flex items-center gap-1">
@@ -9589,7 +9529,7 @@ export default function AdminPanel() {
 
                           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100">
                             <span className="text-[11px] text-gray-500">
-                              Wallet P2P Transfers: <strong className="text-gray-700">0% (Nahi milega)</strong>
+                              Wallet Deposits / P2P Transfers: <strong className="text-gray-700">0% (Only 1-Time ₹30 Referral on 30-Day ₹5K Hold)</strong>
                             </span>
                             <button
                               type="button"
@@ -9622,7 +9562,7 @@ export default function AdminPanel() {
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center text-xs">
                             <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs">
                               <span className="text-[10px] text-gray-500 font-bold block mb-0.5">Loan</span>
                               <div className="font-black font-mono text-blue-700 text-sm">
@@ -9637,14 +9577,6 @@ export default function AdminPanel() {
                                 ₹{(a.earningsBreakdown?.lending || 0).toLocaleString("en-IN")}
                               </div>
                               <span className="text-[9px] text-gray-400">Rate: {prof.commissions?.lending ?? 4}%</span>
-                            </div>
-
-                            <div className="bg-white p-2.5 rounded-xl border border-amber-100 shadow-2xs">
-                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">Debt Account</span>
-                              <div className="font-black font-mono text-amber-700 text-sm">
-                                ₹{(a.earningsBreakdown?.investment || 0).toLocaleString("en-IN")}
-                              </div>
-                              <span className="text-[9px] text-gray-400">Rate: {prof.commissions?.investment ?? 1}%</span>
                             </div>
 
                             <div className="bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs">

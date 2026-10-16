@@ -4969,10 +4969,9 @@ export default function Dashboard() {
       {isAgent && (
         <div className="bg-white border-b border-gray-200 text-gray-900 px-3.5 sm:px-6 py-2 flex items-center justify-between text-xs sticky top-0 z-50 shadow-xs">
           <div className="flex items-center gap-2 font-bold min-w-0">
-            <span className="text-base shrink-0"></span>
             <span className="truncate text-gray-900 font-extrabold text-xs">Agent Account Active</span>
             <span className="hidden sm:inline text-gray-500 font-normal">
-              | {agentMetrics?.agentInfo?.businessName || userProfile.name} • {agentMetrics?.stats?.customerCount ?? 0} Customers
+              • {agentMetrics?.stats?.customerCount ?? 0} Customers
             </span>
           </div>
           <button

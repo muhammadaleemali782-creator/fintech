@@ -343,11 +343,17 @@ export default function AgentDesk() {
                   ? "Rates & Commission"
                   : `Customer Portfolio (${agentMetrics?.customers?.length || 0})`}
               </h1>
-              {activeTab === "overview" && (
-                <span className="px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
-                  {isTeamModel ? "Team Model" : "Direct Agent"}
-                </span>
-              )}
+              <span
+                className={`px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider border transition-colors ${
+                  activeTab === "commissions"
+                    ? "bg-amber-50 text-amber-800 border-amber-200"
+                    : activeTab === "customers"
+                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                    : "bg-blue-50 text-blue-700 border-blue-200"
+                }`}
+              >
+                {isTeamModel ? "Team Model" : "Direct Agent"}
+              </span>
             </div>
           </div>
 
@@ -390,14 +396,30 @@ export default function AgentDesk() {
         {/* Drawer Header (Image 2 + Collapse Icon from Image 3) */}
         <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/80">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-xs shrink-0">
+            <div
+              className={`w-8 h-8 rounded-xl text-white flex items-center justify-center font-black text-xs shadow-xs shrink-0 transition-colors ${
+                activeTab === "commissions"
+                  ? "bg-gradient-to-tr from-amber-500 to-amber-600"
+                  : activeTab === "customers"
+                  ? "bg-gradient-to-tr from-purple-600 to-indigo-600"
+                  : "bg-gradient-to-tr from-blue-600 to-indigo-600"
+              }`}
+            >
               AD
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-black text-gray-900 truncate">
                 Educa Agent Desk
               </h2>
-              <span className="px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
+              <span
+                className={`px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider border transition-colors ${
+                  activeTab === "commissions"
+                    ? "bg-amber-50 text-amber-800 border-amber-200"
+                    : activeTab === "customers"
+                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                    : "bg-blue-50 text-blue-700 border-blue-200"
+                }`}
+              >
                 {isTeamModel ? "Team Model" : "Direct Agent"}
               </span>
             </div>
@@ -418,112 +440,82 @@ export default function AgentDesk() {
           </button>
         </div>
 
-        {/* Drawer Body (Scrollable) */}
-        <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
-          {/* Navigation to Dashboard */}
-          <div>
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 block mb-1.5">
-              Portal Navigation
-            </span>
+        {/* Drawer Body (Scrollable, Clean, No section headers, No arrows) */}
+        <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-2.5">
+          {/* Tab 1: Overview & Dues */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("overview");
+              setSideMenuOpen(false);
+            }}
+            className={`w-full px-3.5 py-2.5 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer active:scale-98 ${
+              activeTab === "overview"
+                ? "bg-blue-600 text-white border-blue-600 shadow-sm font-black"
+                : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50 font-bold"
+            }`}
+          >
+            <span className="text-base">📊</span>
+            <span className="text-xs sm:text-sm">Overview & Dues</span>
+          </button>
+
+          {/* Tab 2: Rates & Commission */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("commissions");
+              setSideMenuOpen(false);
+            }}
+            className={`w-full px-3.5 py-2.5 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer active:scale-98 ${
+              activeTab === "commissions"
+                ? "bg-amber-500 text-white border-amber-500 shadow-sm font-black"
+                : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50 font-bold"
+            }`}
+          >
+            <span className="text-base">💰</span>
+            <span className="text-xs sm:text-sm">Rates & Commission</span>
+          </button>
+
+          {/* Tab 3: Customer Portfolio */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("customers");
+              setSideMenuOpen(false);
+            }}
+            className={`w-full px-3.5 py-2.5 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer active:scale-98 ${
+              activeTab === "customers"
+                ? "bg-purple-600 text-white border-purple-600 shadow-sm font-black"
+                : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50 font-bold"
+            }`}
+          >
+            <span className="text-base">👥</span>
+            <span className="text-xs sm:text-sm">Customer Portfolio ({agentMetrics?.customers?.length || 0})</span>
+          </button>
+
+          {/* Action: Register New Customer */}
+          <button
+            type="button"
+            onClick={() => {
+              setSideMenuOpen(false);
+              setAddCustomerModalOpen(true);
+            }}
+            className="w-full p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-95 mt-1"
+          >
+            <span>+ Naya Grahak Register Karein</span>
+          </button>
+
+          {/* Navigation to Dashboard (Moved to last as in Image 2) */}
+          <div className="mt-auto pt-3 border-t border-gray-100">
             <button
               type="button"
               onClick={() => {
                 setSideMenuOpen(false);
                 navigate("/dashboard");
               }}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200/80 active:scale-98 border border-gray-200 text-gray-800 text-xs font-bold transition flex items-center justify-between cursor-pointer shadow-2xs group"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-98 border border-gray-200 text-gray-800 text-xs font-bold transition flex items-center justify-center cursor-pointer shadow-2xs"
             >
-              <div className="flex items-center gap-2.5">
-                <svg className="w-4 h-4 text-gray-600 group-hover:text-blue-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                <span>Dashboard par wapas jayein</span>
-              </div>
-              <span className="text-gray-400 text-xs">→</span>
-            </button>
-          </div>
-
-          {/* Dedicated Section Buttons */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 block mb-1">
-              Agent Desk Sections (Tabs)
-            </span>
-
-            {/* Tab 1: Overview & Dues */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("overview");
-                setSideMenuOpen(false);
-              }}
-              className={`w-full px-3.5 py-2.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer active:scale-98 ${
-                activeTab === "overview"
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm font-black"
-                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50 font-bold"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="text-base">📊</span>
-                <span className="text-xs sm:text-sm">Overview & Dues</span>
-              </div>
-              <span className={`text-xs ${activeTab === "overview" ? "text-white/80" : "text-gray-400"}`}>→</span>
-            </button>
-
-            {/* Tab 2: Rates & Commission */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("commissions");
-                setSideMenuOpen(false);
-              }}
-              className={`w-full px-3.5 py-2.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer active:scale-98 ${
-                activeTab === "commissions"
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm font-black"
-                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50 font-bold"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="text-base">💰</span>
-                <span className="text-xs sm:text-sm">Rates & Commission</span>
-              </div>
-              <span className={`text-xs ${activeTab === "commissions" ? "text-white/80" : "text-gray-400"}`}>→</span>
-            </button>
-
-            {/* Tab 3: Customer Portfolio */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("customers");
-                setSideMenuOpen(false);
-              }}
-              className={`w-full px-3.5 py-2.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer active:scale-98 ${
-                activeTab === "customers"
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm font-black"
-                  : "bg-white border-gray-200 hover:border-gray-300 text-gray-800 hover:bg-gray-50 font-bold"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="text-base">👥</span>
-                <span className="text-xs sm:text-sm">Customer Portfolio ({agentMetrics?.customers?.length || 0})</span>
-              </div>
-              <span className={`text-xs ${activeTab === "customers" ? "text-white/80" : "text-gray-400"}`}>→</span>
-            </button>
-          </div>
-
-          {/* Quick Shortcuts */}
-          <div className="pt-2 border-t border-gray-100 space-y-2">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 block mb-1">
-              Quick Shortcuts
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setSideMenuOpen(false);
-                setAddCustomerModalOpen(true);
-              }}
-              className="w-full p-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-95"
-            >
-              <span>+ Naya Grahak Register Karein</span>
+              <span>Dashboard par wapas jayein</span>
             </button>
           </div>
         </div>

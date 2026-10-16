@@ -1502,7 +1502,6 @@ export default function AdminPanel() {
   const debouncedCapitalSearch = useDebounce(capitalSearch, 200);
   const [capitalTimeFilter, setCapitalTimeFilter] = useState("all"); // "all" | "today" | "7days" | "month"
   const [rejectLoadingId, setRejectLoadingId] = useState(null);
-  const [adminHeroFlyId, setAdminHeroFlyId] = useState(null);
   const [bondActionLoadingId, setBondActionLoadingId] = useState(null);
   const [installmentActionLoadingId, setInstallmentActionLoadingId] = useState(null);
 
@@ -1737,30 +1736,6 @@ export default function AdminPanel() {
     };
     reader.readAsDataURL(file);
   };
-
-  const triggerAdminHeroFly = (id = "generic") => {
-    setAdminHeroFlyId(id);
-    setTimeout(() => {
-      setAdminHeroFlyId(prev => (prev === id ? null : prev));
-    }, 1250);
-  };
-
-  const AdminLoanHeroFlyBadge = () => (
-    <div className="absolute pointer-events-none -top-2 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center animate-hero-flight select-none">
-      <div className="relative">
-        <span className="text-4xl filter drop-shadow-[0_0_15px_rgba(16,185,129,0.9)] inline-block animate-bounce">
-          
-        </span>
-        <span className="absolute -top-1 -right-2 text-base animate-ping"></span>
-      </div>
-      <span className="text-[10px] font-black tracking-wider text-emerald-200 bg-emerald-950/90 border border-emerald-400 px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap mt-0.5">
-        HERO FLIGHT! 
-      </span>
-      <span className="text-xs tracking-widest text-amber-300 font-bold opacity-80">
-        
-      </span>
-    </div>
-  );
 
   const showToast = (text, type = "success") => setToast({ text, type });
 
@@ -6988,7 +6963,6 @@ export default function AdminPanel() {
                                 onClick={() => {
                                   setAdvanceOption(chosenOpt);
                                   setLoanApproveModal(l);
-                                  triggerAdminHeroFly(l._id);
                                 }}
                                 className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
                               >
@@ -11089,11 +11063,9 @@ export default function AdminPanel() {
                                   onClick={() => {
                                     setAdvanceOption(chosenOpt);
                                     setLoanApproveModal(l);
-                                    triggerAdminHeroFly(l._id);
                                   }}
-                                  className="relative overflow-visible w-full sm:flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                                  className="w-full sm:flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
                                 >
-                                  {adminHeroFlyId === l._id && <AdminLoanHeroFlyBadge />}
                                   <span>Approve & Disburse (₹{currentDisburseAmount.toLocaleString("en-IN")})</span>
                                 </button>
                                 <button
@@ -15394,12 +15366,10 @@ export default function AdminPanel() {
                 type="button"
                 disabled={loanApproveLoading}
                 onClick={() => {
-                  triggerAdminHeroFly("modal_confirm");
                   submitApproveLoan();
                 }}
-                className="relative overflow-visible flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {adminHeroFlyId === "modal_confirm" && <AdminLoanHeroFlyBadge />}
                 {loanApproveLoading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

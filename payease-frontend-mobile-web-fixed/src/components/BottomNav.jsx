@@ -4,7 +4,7 @@ export default function BottomNav({ items, active, onChange }) {
   return (
     <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-lg border-t border-gray-100 safe-bottom">
       <div className="grid grid-cols-5 items-center px-1">
-        {items.map(({ key, label, icon, onClick, isCenter, heroBadge }) => {
+        {items.map(({ key, label, icon, onClick, isCenter }) => {
           if (isCenter) {
             return (
               <button
@@ -26,17 +26,10 @@ export default function BottomNav({ items, active, onChange }) {
               key={key}
               type="button"
               onClick={() => { onChange?.(key); onClick?.(); }}
-              className={`relative overflow-visible flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-[48px] text-[11px] font-semibold transition-all active:scale-90 cursor-pointer ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-[48px] text-[11px] font-semibold transition-all active:scale-90 cursor-pointer ${
                 active === key ? "text-blue-600 font-bold" : "text-gray-400"
               }`}
             >
-              {heroBadge && (
-                <div className="absolute pointer-events-none -top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center animate-hero-flight select-none">
-                  <span className="text-[9px] font-black tracking-wider text-emerald-200 bg-emerald-950/90 border border-emerald-400 px-1.5 py-0.2 rounded-full shadow-lg whitespace-nowrap">
-                    HERO!
-                  </span>
-                </div>
-              )}
               {icon && <span className={`text-xl leading-none transition-transform ${active === key ? "scale-110" : ""}`}>{icon}</span>}
               <span>{label}</span>
             </button>

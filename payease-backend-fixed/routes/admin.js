@@ -216,46 +216,6 @@ router.post('/transaction/:id/approve', protect, staffOrAdmin, async (req, res) 
         }
         txn.status = 'approved';
         txn.isHold = false;
-
-        // Agent Referral Commission on Investment / Deposit
-        if (user.referredBy) {
-          try {
-            const agentUser = await User.findById(user.referredBy).session(session);
-            if (agentUser && (agentUser.role === 'agent' || agentUser.agentProfile?.status === 'approved')) {
-              const invRate = agentUser.agentProfile?.commissions?.investment !== undefined && agentUser.agentProfile?.commissions?.investment !== null && !isNaN(agentUser.agentProfile.commissions.investment)
-                ? Number(agentUser.agentProfile.commissions.investment)
-                : 1;
-
-              if (invRate > 0) {
-                const commAmount = Number(((txn.amount * invRate) / 100).toFixed(2));
-                if (commAmount > 0) {
-                  agentUser.balance = Number(((agentUser.balance || 0) + commAmount).toFixed(2));
-                  agentUser.profitBalance = Number(((agentUser.profitBalance || 0) + commAmount).toFixed(2));
-                  agentUser.referralEarnings = Number(((agentUser.referralEarnings || 0) + commAmount).toFixed(2));
-                  if (!agentUser.agentProfile) agentUser.agentProfile = {};
-                  if (!agentUser.agentProfile.earningsBreakdown) {
-                    agentUser.agentProfile.earningsBreakdown = { loan: 0, lending: 0, investment: 0, bond: 0 };
-                  }
-                  agentUser.agentProfile.earningsBreakdown.investment = Number(((agentUser.agentProfile.earningsBreakdown.investment || 0) + commAmount).toFixed(2));
-                  await agentUser.save({ session });
-
-                  await Transaction.create([{
-                    userId: agentUser._id,
-                    type: 'referral_bonus',
-                    amount: commAmount,
-                    method: 'system',
-                    status: 'completed',
-                    sourceWallet: 'investment',
-                    referenceId: txn._id.toString(),
-                    remarks: `Agent Investment Commission (${invRate}%) for deposit of ₹${txn.amount.toLocaleString('en-IN')} by ${user.name}`
-                  }], { session });
-                }
-              }
-            }
-          } catch (agentErr) {
-            console.error('Agent investment commission credit error:', agentErr);
-          }
-        }
       } else {
         txn.status = 'completed';
         txn.isHold = false;
@@ -2049,7 +2009,7 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           bond: rawComms?.bond !== undefined ? rawComms.bond : (hasBase ? baseRate : 4)
         };
         const agentRef = a.accountNumber ? `A/C: ${a.accountNumber}` : `Agent: ${a.phone}`;
-        const agentNote = `${a.agentProfile?.businessName || 'Business Partner'} • Loan: ${comms.loan}% | Lend: ${comms.lending}% | Debt: ${comms.investment}% | Bond: ${comms.bond}%`;
+        const agentNote = `${a.agentProfile?.businessName || 'Business Partner'} • Loan: ${comms.loan}% | Lend: ${comms.lending}% | Bond: ${comms.bond}%`;
 
         historyItems.push({
           id: 'agent_' + a._id,
@@ -3039,6 +2999,7 @@ router.get('/activity-log', protect, admin, async (req, res) => {
       page: pageNum,
       pages: Math.ceil(total / limitNum),
       logs
+    });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch activity log: ' + err.message });
   }

@@ -81,11 +81,10 @@ async function checkAndUpdatePremiumStatus(userOrDoc) {
   const curBalance = Number(user.balance) || 0;
   let changed = false;
 
-  // Case 1: Balance dropped below threshold -> Reset holdSince & cancel premium
+  // Case 1: Balance dropped below threshold -> Reset holdSince if user has not achieved premium yet
   if (curBalance < threshold) {
-    if (user.holdSince !== null || user.isPremium) {
+    if (!user.isPremium && user.holdSince !== null) {
       user.holdSince = null;
-      user.isPremium = false;
       changed = true;
     }
   } else {

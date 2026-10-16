@@ -7,12 +7,12 @@ import Can from "../components/Can";
 
 // Department definitions
 const DEPT_CONFIG = {
-  deposit: { label: "Deposits", icon: "💰", perm: "deposit.view", processPerm: "deposit.process" },
-  withdrawal: { label: "Withdrawals", icon: "💸", perm: "withdrawal.view", processPerm: "withdrawal.process" },
-  loan: { label: "Loans", icon: "📄", perm: "loan.view", processPerm: "loan.process" },
+  deposit: { label: "Deposits", icon: "", perm: "deposit.view", processPerm: "deposit.process" },
+  withdrawal: { label: "Withdrawals", icon: "", perm: "withdrawal.view", processPerm: "withdrawal.process" },
+  loan: { label: "Loans", icon: "", perm: "loan.view", processPerm: "loan.process" },
   kyc: { label: "KYC Verifications", icon: "🪪", perm: "kyc.view", processPerm: "kyc.process" },
-  lending: { label: "P2P Lending", icon: "🤝", perm: "lending.view", processPerm: "lending.process" },
-  bond: { label: "Bonds & FD", icon: "📈", perm: "bond.view", processPerm: "bond.process" }
+  lending: { label: "P2P Lending", icon: "", perm: "lending.view", processPerm: "lending.process" },
+  bond: { label: "Bonds & FD", icon: "", perm: "bond.view", processPerm: "bond.process" }
 };
 
 export default function StaffDesk() {
@@ -677,14 +677,14 @@ export default function StaffDesk() {
       {/* Toast Alert Banner */}
       {errorMsg && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-rose-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 max-w-md w-full">
-          <span className="text-xl">⚠️</span>
+          <span className="text-xl"></span>
           <p className="text-xs font-semibold leading-relaxed flex-1">{errorMsg}</p>
           <button onClick={() => setErrorMsg("")} className="text-white/80 hover:text-white font-bold text-sm">✕</button>
         </div>
       )}
       {successToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 max-w-md w-full">
-          <span className="text-xl">✅</span>
+          <span className="text-xl"></span>
           <p className="text-xs font-semibold leading-relaxed flex-1">{successToast}</p>
           <button onClick={() => setSuccessToast("")} className="text-white/80 hover:text-white font-bold text-sm">✕</button>
         </div>
@@ -694,7 +694,7 @@ export default function StaffDesk() {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 px-4 sm:px-8 py-3 flex items-center justify-between gap-3 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 font-black text-lg">
-            🏢
+            
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -713,7 +713,7 @@ export default function StaffDesk() {
               onClick={() => navigate("/admin")}
               className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 active:scale-95 text-xs font-bold rounded-xl border border-indigo-200 transition flex items-center gap-1 cursor-pointer"
             >
-              <span>⚙️</span>
+              
               <span className="hidden sm:inline">Admin Panel</span>
             </button>
           )}
@@ -722,7 +722,7 @@ export default function StaffDesk() {
             onClick={() => navigate("/dashboard")}
             className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 active:scale-95 text-xs font-bold rounded-xl border border-gray-200 transition flex items-center gap-1 cursor-pointer"
           >
-            <span>📱</span>
+            
             <span className="hidden sm:inline">Dashboard</span>
           </button>
         </div>
@@ -773,7 +773,7 @@ export default function StaffDesk() {
         {/* Filter and Search Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-gray-200 shadow-xs">
           <div className="relative flex-1">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></span>
             <input
               type="text"
               value={searchTerm}
@@ -823,7 +823,7 @@ export default function StaffDesk() {
           <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-gray-100 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-base">📊</span>
+                <span className="text-base"></span>
                 <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
                   Loan Department Overview
                 </h4>
@@ -876,7 +876,7 @@ export default function StaffDesk() {
           <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-gray-100 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-base">💳</span>
+                <span className="text-base"></span>
                 <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
                   Deposit Department Overview (Inflow / Aaya Paisa)
                 </h4>
@@ -932,7 +932,7 @@ export default function StaffDesk() {
           </div>
         ) : currentItems.length === 0 ? (
           <div className="py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 shadow-2xs">
-            <span className="text-4xl">🎉</span>
+            <span className="text-4xl"></span>
             <h3 className="text-sm font-bold text-gray-800">All clear! No items in this queue</h3>
             <p className="text-xs text-gray-500 max-w-sm">
               There are currently no items matching your filter criteria in the {DEPT_CONFIG[activeTab]?.label} desk.
@@ -1003,7 +1003,7 @@ export default function StaffDesk() {
                           </h4>
                           {hasDocs && (
                             <span className="text-[11px] text-blue-600 font-bold" title="Photos/Documents attached">
-                              📷
+                              
                             </span>
                           )}
                         </div>
@@ -1068,12 +1068,12 @@ export default function StaffDesk() {
                     {/* Warning Badges - Only for actionable/pending items */}
                     {isPendingItem && isSelfAction && (
                       <div className="mt-2 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-bold">
-                        ⚠️ Self-action is forbidden
+                        Self-action is forbidden
                       </div>
                     )}
                     {isPendingItem && isOverLimit && (
                       <div className="mt-2 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold">
-                        ⚠️ Exceeds approval limit (₹{maxApprovalAmount})
+                        Exceeds approval limit (₹{maxApprovalAmount})
                       </div>
                     )}
                   </div>
@@ -1084,7 +1084,7 @@ export default function StaffDesk() {
                       onClick={() => setSelectedItem(item)}
                       className="flex-1 py-1.5 px-3 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-800 text-xs font-bold rounded-xl border border-gray-200 transition cursor-pointer"
                     >
-                      Inspect 🔍
+                      Inspect 
                     </button>
 
                     {canProcess && isPendingItem && (
@@ -1164,12 +1164,12 @@ export default function StaffDesk() {
               <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
                 <div className="flex items-center justify-between pb-1.5 border-b border-gray-200">
                   <h5 className="font-bold text-gray-800 flex items-center gap-1.5">
-                    <span>📋</span>
+                    
                     <span>Full KYC & Identity Verification</span>
                   </h5>
                   <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
                     {selectedItem.userId?.kycStatus === "verified" || selectedItem.kycStatus === "verified"
-                      ? "KYC Verified ✅"
+                      ? "KYC Verified "
                       : "Full KYC In Progress"}
                   </span>
                 </div>
@@ -1321,7 +1321,7 @@ export default function StaffDesk() {
             <div className="flex items-center justify-between pb-3 border-b border-gray-200 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-xl">
-                  ➕🏦
+                  
                 </div>
                 <div>
                   <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
@@ -1355,7 +1355,7 @@ export default function StaffDesk() {
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                <span>👤</span>
+                
                 <span>Existing / ID Daalo</span>
               </button>
               <button
@@ -1371,7 +1371,7 @@ export default function StaffDesk() {
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                <span>✨</span>
+                
                 <span>Naya Customer (New)</span>
               </button>
             </div>
@@ -1384,7 +1384,7 @@ export default function StaffDesk() {
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></span>
                     <input
                       type="text"
                       value={issueUserQuery}
@@ -1453,14 +1453,14 @@ export default function StaffDesk() {
                     <div className="flex items-start justify-between gap-2 pb-2 border-b border-emerald-200">
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-emerald-700 font-black">✅ Borrower Selected:</span>
+                          <span className="text-emerald-700 font-black">Borrower Selected:</span>
                           <span className="font-black text-gray-900 text-sm">{issueSelectedUser.name}</span>
                           <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] rounded-full font-bold">
                             KYC Verified
                           </span>
                         </div>
                         <div className="text-[11px] text-gray-600 font-mono mt-0.5">
-                          📱 {issueSelectedUser.phone} | 🏦 A/C: {issueSelectedUser.accountNumber || "N/A"}
+                          {issueSelectedUser.phone} | A/C: {issueSelectedUser.accountNumber || "N/A"}
                         </div>
                       </div>
                       <button
@@ -1679,26 +1679,26 @@ export default function StaffDesk() {
                     Bina KYC ke loan request nahi lagti. Existing customer ke documents pehle se verified hain, isliye dubara upload karne ki zaroorat nahi hai.
                   </div>
                 </div>
-                <span className="text-2xl shrink-0">🛡️</span>
+                <span className="text-2xl shrink-0"></span>
               </div>
             ) : (
               <div className="space-y-2.5 bg-gray-50 p-3.5 rounded-2xl border border-gray-200">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                    <span>📷</span>
+                    
                     <span>New User Documents (PAN Aage-Peeche, Aadhaar Aage-Peeche, Cheque Aage)</span>
                   </label>
-                  <span className="text-[10px] text-amber-700 font-semibold">Camera 📸 ya gallery se dalein</span>
+                  <span className="text-[10px] text-amber-700 font-semibold">Camera ya gallery se dalein</span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                   {[
-                    { key: "photoUrl", label: "Customer Photo", sub: "Selfie / Face", icon: "👤", capture: true },
+                    { key: "photoUrl", label: "Customer Photo", sub: "Selfie / Face", icon: "", capture: true },
                     { key: "doc1Url", label: "Aadhaar Aage", sub: "Front Photo", icon: "🪪" },
                     { key: "doc1BackUrl", label: "Aadhaar Peeche", sub: "Back Photo", icon: "🪪" },
-                    { key: "doc2Url", label: "PAN Card Aage", sub: "Front Photo", icon: "📄" },
-                    { key: "doc2BackUrl", label: "PAN Card Peeche", sub: "Back Photo", icon: "📄" },
-                    { key: "chequeUrl", label: "Cheque Aage", sub: "Front / Cancelled", icon: "🏦" }
+                    { key: "doc2Url", label: "PAN Card Aage", sub: "Front Photo", icon: "" },
+                    { key: "doc2BackUrl", label: "PAN Card Peeche", sub: "Back Photo", icon: "" },
+                    { key: "chequeUrl", label: "Cheque Aage", sub: "Front / Cancelled", icon: "" }
                   ].map(({ key, label, sub, icon, capture }) => {
                     const url = issueDocuments[key];
                     return (
@@ -1838,7 +1838,7 @@ export default function StaffDesk() {
                 <span>
                   {issueSubmitting
                     ? "Issuing Loan..."
-                    : `🚀 Grant & Disburse Loan (₹${issueLoanQuote.amt.toLocaleString("en-IN")})`}
+                    : `Grant & Disburse Loan (₹${issueLoanQuote.amt.toLocaleString("en-IN")})`}
                 </span>
               </button>
             </div>
@@ -1852,7 +1852,7 @@ export default function StaffDesk() {
           <div className="bg-white border border-gray-200 rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4 text-gray-900">
             <div className="flex items-center justify-between pb-2 border-b border-gray-200">
               <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
-                <span>{actionModal.type === "approve" ? "✅ Confirm Approval" : "✕ Confirm Rejection"}</span>
+                <span>{actionModal.type === "approve" ? "Confirm Approval" : "✕ Confirm Rejection"}</span>
               </h3>
               <button
                 onClick={() => setActionModal(null)}

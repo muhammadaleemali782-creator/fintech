@@ -22,7 +22,7 @@ export default function RatesPage() {
         {/* 1. SAVINGS ACCOUNT CHARGES */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-sm">
           <h3 className="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
-            <span>🏦</span> Savings & Wallet Charges
+             Savings & Wallet Charges
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
@@ -67,7 +67,7 @@ export default function RatesPage() {
         {/* 2. LOAN INTEREST & PROCESSING */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-sm">
           <h3 className="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
-            <span>📊</span> Loan Rates & Processing Fees
+             Loan Rates & Processing Fees
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
@@ -112,7 +112,7 @@ export default function RatesPage() {
         {/* 3. CARD FEES */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-sm">
           <h3 className="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
-            <span>💳</span> Virtual Card Charges
+             Virtual Card Charges
           </h3>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">

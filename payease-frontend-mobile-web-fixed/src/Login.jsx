@@ -182,7 +182,7 @@ export default function Login({ isApp = false }) {
       }
       showMsg(
         regData.isAgent
-          ? "🎉 Partner application submitted! Redirecting..."
+          ? "Partner application submitted! Redirecting..."
           : "Account & Educa Mail created! Redirecting...",
         "success"
       );
@@ -313,7 +313,7 @@ export default function Login({ isApp = false }) {
               }}
               className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs whitespace-nowrap active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
             >
-              <span>📲</span> Install App
+               Install App
             </button>
           </div>
         )}
@@ -362,7 +362,7 @@ export default function Login({ isApp = false }) {
                     placeholder="9876543210 ya name@educa.com"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition"
                   />
-                  <span className="absolute right-3.5 top-3.5 text-slate-400 text-sm">👤</span>
+                  <span className="absolute right-3.5 top-3.5 text-slate-400 text-sm"></span>
                 </div>
               </div>
 
@@ -393,7 +393,7 @@ export default function Login({ isApp = false }) {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 text-sm"
                   >
-                    {showPassword ? "🙈" : "👁️"}
+                    {showPassword ? "" : ""}
                   </button>
                 </div>
               </div>
@@ -462,7 +462,7 @@ export default function Login({ isApp = false }) {
           {tab === "register" && (
             <form onSubmit={handleRegister} className="space-y-3.5">
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-start gap-2">
-                <span className="text-base">✨</span>
+                <span className="text-base"></span>
                 <div>
                   <span className="font-bold text-emerald-900">Auto Educa Mail Provisioning:</span> Registration ke saath aapka official <strong>Educa Mail</strong> account automatically activate ho jayega.
                 </div>
@@ -540,7 +540,7 @@ export default function Login({ isApp = false }) {
                     className="w-4 h-4 rounded text-blue-600 focus:ring-0 border-slate-300"
                   />
                   <div>
-                    <span className="text-xs font-extrabold text-slate-900 block">Apply as Educa Agent / Partner 🤝</span>
+                    <span className="text-xs font-extrabold text-slate-900 block">Apply as Educa Agent / Partner </span>
                     <span className="text-[11px] text-slate-500 block">Earn attractive monthly loan & deposit commissions</span>
                   </div>
                 </label>
@@ -561,7 +561,7 @@ export default function Login({ isApp = false }) {
                           className="mt-0.5 text-blue-600"
                         />
                         <div>
-                          <span className="font-extrabold text-slate-900 block">👥 Team Model (Team Hierarchy & Partner Network)</span>
+                          <span className="font-extrabold text-slate-900 block">Team Model (Team Hierarchy & Partner Network)</span>
                           <span className="text-[11px] text-slate-500 block mt-0.5">
                             Aap apne neeche sub-agents aur team members jod kar poora network build kar sakte hain.
                           </span>
@@ -578,7 +578,7 @@ export default function Login({ isApp = false }) {
                           className="mt-0.5 text-blue-600"
                         />
                         <div>
-                          <span className="font-extrabold text-slate-900 block">👤 Solo Direct Model (Independent Financial Agent)</span>
+                          <span className="font-extrabold text-slate-900 block">Solo Direct Model (Independent Financial Agent)</span>
                           <span className="text-[11px] text-slate-500 block mt-0.5">
                             Direct customer onboarding aur independent financial operations (solo partner work).
                           </span>
@@ -657,7 +657,7 @@ export default function Login({ isApp = false }) {
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="text-center mb-3">
                 <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center text-xl mx-auto mb-2">
-                  🔐
+                  
                 </div>
                 <h3 className="font-extrabold text-slate-900 text-base">Reset Password</h3>
                 <p className="text-xs text-slate-500 mt-1">
@@ -719,7 +719,7 @@ export default function Login({ isApp = false }) {
               href="/home"
               className="text-xs text-slate-500 hover:text-blue-600 font-semibold transition inline-flex items-center gap-1.5"
             >
-              <span>🌐</span> Return to Main Website Home
+               Return to Main Website Home
             </a>
           </div>
         )}
@@ -728,11 +728,11 @@ export default function Login({ isApp = false }) {
       {/* FOOTER TRUST BADGES */}
       <div className="w-full max-w-md pt-2 pb-2 text-center relative z-10">
         <div className="flex items-center justify-center gap-3 text-[11px] text-slate-500 mb-1">
-          <span>🔒 256-bit Encrypted</span>
+          <span>256-bit Encrypted</span>
           <span>·</span>
-          <span>🏛️ RBI Registered NBFC</span>
+          <span>RBI Registered NBFC</span>
           <span>·</span>
-          <span>⚡ Instant UPI</span>
+          <span>Instant UPI</span>
         </div>
         <p className="text-[10px] text-slate-400">
           © 2026 Educa Fintech Private Limited · All Rights Reserved
@@ -800,7 +800,7 @@ export default function Login({ isApp = false }) {
               </button>
 
               <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-[11px] text-blue-900 flex items-start gap-2">
-                <span className="text-sm">✨</span>
+                <span className="text-sm"></span>
                 <span>
                   Educa Mail id se bina alag registration ke Fintech account auto-connect ho jayega.
                 </span>

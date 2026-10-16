@@ -24,7 +24,7 @@ export default function Footer() {
               <p className="font-bold text-gray-300">Registered Office:</p>
               <p>Vihar Gali No. 3, Utthan Road, Jhalwa,</p>
               <p>Prayagraj, Uttar Pradesh — 211012</p>
-              <p className="text-emerald-400 pt-1">📧 support@educafintech.com</p>
+              <p className="text-emerald-400 pt-1">support@educafintech.com</p>
             </div>
           </div>
 

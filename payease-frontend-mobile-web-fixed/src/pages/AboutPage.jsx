@@ -6,17 +6,17 @@ export default function AboutPage() {
     {
       title: "100% Financial Inclusion",
       desc: "Jise traditional banks CIBIL score na hone ke karan reject kar dete hain, unhe Educa Fintech samman ke sath micro-loans aur khata pradan karta hai.",
-      icon: "🤝",
+      icon: "",
     },
     {
       title: "Fair Wealth Creation",
       desc: "Hum vishwas karte hain ki aam nagrik aur student ke hard-earned paise par unhe duniya ka sabse behtar 12% saal ka interest milna chahiye.",
-      icon: "📈",
+      icon: "",
     },
     {
       title: "Zero Hidden Traps",
       desc: "Koi chhipa hua maintenance charge nahi, koi minimum balance penalty nahi. Sab kuch transparent aur clear.",
-      icon: "🛡️",
+      icon: "",
     },
   ];
 
@@ -51,7 +51,7 @@ export default function AboutPage() {
           </div>
 
           <div className="bg-gradient-to-tr from-[#1D6AE5] to-[#0DC98A] p-8 rounded-3xl text-white shadow-xl space-y-6">
-            <div className="text-4xl">🏛️</div>
+            <div className="text-4xl"></div>
             <h3 className="text-2xl font-black">Registered & Governed</h3>
             <p className="text-xs text-blue-50 leading-relaxed">
               Headquartered at <strong>Prayagraj, Uttar Pradesh</strong>, hamare financial operations aur security protocols industry ke highest security standards ke mutabiq auditted hain.

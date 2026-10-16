@@ -32,15 +32,12 @@ export default function BottomNav({ items, active, onChange }) {
             >
               {heroBadge && (
                 <div className="absolute pointer-events-none -top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center animate-hero-flight select-none">
-                  <span className="text-3xl filter drop-shadow-[0_0_12px_rgba(16,185,129,0.9)] animate-bounce inline-block">
-                    🦸‍♂️
-                  </span>
                   <span className="text-[9px] font-black tracking-wider text-emerald-200 bg-emerald-950/90 border border-emerald-400 px-1.5 py-0.2 rounded-full shadow-lg whitespace-nowrap">
                     HERO!
                   </span>
                 </div>
               )}
-              <span className={`text-xl leading-none transition-transform ${active === key ? "scale-110" : ""}`}>{icon}</span>
+              {icon && <span className={`text-xl leading-none transition-transform ${active === key ? "scale-110" : ""}`}>{icon}</span>}
               <span>{label}</span>
             </button>
           );

@@ -267,7 +267,7 @@ const UI_TEXT = {
     copied: "✓ Copied",
     skipTour: "Skip Tour",
     next: "Next →",
-    finish: "Got It, Let's Go! 🚀",
+    finish: "Got It, Let's Go! ",
     back: "← Back",
     // Bank Passbook Details
     bankCardTitle: "Educa Fintech Digital Bank",
@@ -333,7 +333,7 @@ const UI_TEXT = {
     copied: "✓ कॉपी हुआ",
     skipTour: "टूर छोड़ें",
     next: "आगे →",
-    finish: "समझ गया, शुरू करें! 🚀",
+    finish: "समझ गया, शुरू करें! ",
     back: "← पीछे",
     // Bank Passbook Details
     bankCardTitle: "एड्युका फिनटेक डिजिटल बैंक",
@@ -399,7 +399,7 @@ const UI_TEXT = {
     copied: "✓ Copied",
     skipTour: "Skip Tour",
     next: "Next →",
-    finish: "Got It, Let's Go! 🚀",
+    finish: "Got It, Let's Go! ",
     back: "← Back",
     // Bank Passbook Details
     bankCardTitle: "Educa Fintech Digital Bank",
@@ -436,7 +436,7 @@ const tourSteps = [
     desc: "Aapke dashboard ke top par Profit Wallet (365-Day 18% Bonds aur returns ke liye) aur Dues Wallet (1st, 11th, 21st ki pending installments) side-by-side milte hain.",
     descHi: "डैशबोर्ड के शीर्ष पर प्रॉफिट वॉलेट और देय राशि वॉलेट एक साथ दिए गए हैं ताकि आप आसानी से अपने मुनाफे और किश्तों को ट्रैक कर सकें।",
     descEn: "At the top of your dashboard, monitor your Profit Wallet (for 365-day 18% bonds & returns) and Dues Wallet (tracking collections on 1st, 11th, and 21st).",
-    icon: "📈",
+    icon: "",
     badge: "Step 1 of 5",
     color: "from-emerald-600 to-teal-700"
   },
@@ -446,7 +446,7 @@ const tourSteps = [
     desc: "Aapka main wallet balance PhonePe style 6-digit security PIN aur biometric fingerprint se protected rehta hai. Balance hamesha chupa rehta hai jab tak aap unlock na karein.",
     descHi: "आपका मुख्य बैलेंस 6-अंकों के सुरक्षा पिन और फिंगरप्रिंट से सुरक्षित रहता है। बैलेंस देखने के लिए पिन दर्ज करें।",
     descEn: "Your primary balance is secured by a 6-digit security PIN and biometric fingerprint lock. It remains masked until you unlock it.",
-    icon: "🔒",
+    icon: "",
     badge: "Step 2 of 5",
     color: "from-blue-600 to-indigo-700"
   },
@@ -456,7 +456,7 @@ const tourSteps = [
     desc: "₹5K se ₹50K tak ke personal loans with easy installments, aur 60-120 days ke daily collection business loans. Kisi bhi samay loan full payoff karke band kar sakte hain!",
     descHi: "₹5,000 से ₹50,000 तक आसान किश्तों में पर्सनल लोन और 60 से 120 दिनों के डेली कलेक्शन बिज़नेस लोन उपलब्ध हैं।",
     descEn: "Access personal loans up to ₹50K with easy installments, and daily collection business loans (60-120 days) with early full settlement privileges.",
-    icon: "💼",
+    icon: "",
     badge: "Step 3 of 5",
     color: "from-amber-600 to-orange-700"
   },
@@ -466,7 +466,7 @@ const tourSteps = [
     desc: "Top bar me 'Scan QR' button se aap direct phone camera se scan kar sakte hain, ya photo gallery se QR image select karke instant payment kar sakte hain.",
     descHi: "कैमरे से सीधे QR कोड स्कैन करें या अपनी गैलरी से QR फोटो चुनकर तुरंत भुगतान करें।",
     descEn: "Scan merchant or peer QR codes directly through your device camera or upload a QR image from your photo gallery.",
-    icon: "📷",
+    icon: "",
     badge: "Step 4 of 5",
     color: "from-blue-600 to-indigo-700"
   },
@@ -476,7 +476,7 @@ const tourSteps = [
     desc: "Aapka lifetime EDUCA ID sabhi services ke liye single identity hai. Profile me jakar Silver Debit Card aur Platinum VIP Card ke unlock criteria dekhein!",
     descHi: "आपकी स्थायी ID हमेशा सक्रिय रहती है। प्रोफ़ाइल में अपने सिल्वर डेबिट कार्ड और प्लैटिनम VIP कार्ड की स्थिति देखें।",
     descEn: "Your lifetime EDUCA ID is your unified identity. Access your Silver Debit Card and track your Platinum VIP card unlock criteria in Profile!",
-    icon: "💳",
+    icon: "",
     badge: "Step 5 of 5",
     color: "from-slate-800 to-slate-900"
   }
@@ -678,15 +678,15 @@ export default function Dashboard() {
     <div className="absolute pointer-events-none -top-3 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center animate-hero-flight select-none">
       <div className="relative">
         <span className="text-4xl filter drop-shadow-[0_0_15px_rgba(16,185,129,0.9)] inline-block animate-bounce">
-          🦸‍♂️
+          
         </span>
-        <span className="absolute -top-1 -right-2 text-base animate-ping">✨</span>
+        <span className="absolute -top-1 -right-2 text-base animate-ping"></span>
       </div>
       <span className="text-[10px] font-black tracking-wider text-emerald-200 bg-emerald-950/90 border border-emerald-400 px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap mt-0.5">
-        ⚡ HERO FLIGHT! 🚀
+        HERO FLIGHT! 
       </span>
       <span className="text-xs tracking-widest text-amber-300 font-bold opacity-80">
-        💨 ✨ 💫
+        
       </span>
     </div>
   );
@@ -1163,7 +1163,7 @@ export default function Dashboard() {
           const now = Date.now();
           if (now - lastTap > 2500) {
             lastTap = now;
-            setToast({ text: "⚠️ Form me details bhari hui hain. Dobara back dabayein band karne ke liye.", type: "info" });
+            setToast({ text: "Form me details bhari hui hain. Dobara back dabayein band karne ke liye.", type: "info" });
             return "dirty_prevented";
           }
         }
@@ -1263,7 +1263,7 @@ export default function Dashboard() {
         if (inputsFilled) {
           // Re-push state so user doesn't get evicted, show warning
           window.history.pushState({ educaSheetOpen: true }, "");
-          setToast({ text: "⚠️ Form me details bhari hui hain. Band karne ke liye Cancel button dabayein.", type: "info" });
+          setToast({ text: "Form me details bhari hui hain. Band karne ke liye Cancel button dabayein.", type: "info" });
           return;
         }
         closeModal();
@@ -1750,7 +1750,7 @@ export default function Dashboard() {
       setUserProfile(prev => ({ ...prev, mustChangePassword: false }));
       appCache.set("educa_cached_profile", { ...userProfile, mustChangePassword: false });
 
-      setToast({ text: "🎉 Naya password safaltapoorvak set ho gaya! Fintech aur Educa Mail dono update ho gaye.", type: "success" });
+      setToast({ text: "Naya password safaltapoorvak set ho gaya! Fintech aur Educa Mail dono update ho gaye.", type: "success" });
       setChangePasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       closeModal();
     } catch (err) {
@@ -2486,7 +2486,7 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(data.message || "🎉 Platinum VIP Card Unlocked!", "success");
+        showToast(data.message || "Platinum VIP Card Unlocked!", "success");
         setCardTab("platinum");
         loadDashboard();
       } else {
@@ -3198,54 +3198,54 @@ export default function Dashboard() {
 
     if (!isCalcQuery && (lower.includes("profit") && (lower.includes("transfer") || lower.includes("wallet") || lower.includes("main") || lower.includes("primary")))) {
       reply = isEn
-        ? `🔄 Dual Wallet & Instant Profit Transfer Rules:\n\n` +
+        ? `Dual Wallet & Instant Profit Transfer Rules:\n\n` +
           `• Real-Time Accrual: Your 12% p.a. profit accrues live second-by-second into your Profit Wallet.\n` +
           `• 1-Click Transfer: Transfer any amount from Profit Wallet to Primary Wallet instantly with zero fee!\n` +
           `• Complete Freedom: Once in Primary Wallet, cash out immediately to Bank/UPI or spend via QR.\n\n` +
-          `🔥 Your money works 24/7 for you in Educa Fintech!`
-        : `🔄 Dual Wallet & Instant Profit Transfer Niyam:\n\n` +
+          `Your money works 24/7 for you in Educa Fintech!`
+        : `Dual Wallet & Instant Profit Transfer Niyam:\n\n` +
           `• Har Second Live Profit: Aapka 12% p.a. munafa har second live aapke Profit Wallet me judta hai.\n` +
           `• 1-Click Transfer: Profit Wallet se Primary Wallet me jab chahein 1-click me transfer karein, zero charges!\n` +
           `• Pura Control: Primary Wallet me aate hi seedha Bank/UPI Cash Out karein ya QR scan se payment karein!\n\n` +
-          `🔥 Educa Fintech me aapka paisa har second aapke liye kamata hai! 🚀`;
+          `Educa Fintech me aapka paisa har second aapke liye kamata hai! `;
     } else if (!isCalcQuery && (lower.includes("12") || lower.includes("compounding") || lower.includes("munafa") || lower.includes("bachat") || (lower.includes("interest") && !lower.includes("loan")))) {
       reply = isEn
-        ? `📈 Educa Fintech 12% p.a. Compounding Wealth Model:\n\n` +
+        ? `Educa Fintech 12% p.a. Compounding Wealth Model:\n\n` +
           `• 12% Annual Interest: 4x higher returns than traditional bank savings accounts!\n` +
           `• Real-Time Accrual: Your money earns profit second-by-second on your live dashboard.\n` +
           `• Dual Wallet Power: Transfer profit to Primary Wallet anytime with 1-click or withdraw to Bank/UPI!\n\n` +
-          `🔥 "With Educa Fintech, you only go higher!" Invest and grow with complete confidence. 🚀`
-        : `📈 Educa Fintech 12% p.a. Compounding Wealth Model:\n\n` +
+          `"With Educa Fintech, you only go higher!" Invest and grow with complete confidence. `
+        : `Educa Fintech 12% p.a. Compounding Wealth Model:\n\n` +
           `• 12% p.a. Compounding Return: Bank ke aam bachat khate se 4 guna zyada munafa!\n` +
           `• Har Second Live Profit: Aapka balance har second live dashboard par profit kamata hai.\n` +
           `• Dual Wallet Azadi: Profit ko 1-click me Primary Wallet me bhejein ya seedha Cash Out karein!\n\n` +
-          `🔥 "Educa Fintech me aap sirf upar hi jayenge!" Aaj hi shuru karein aur daulat badhayein! 🚀`;
+          `"Educa Fintech me aap sirf upar hi jayenge!" Aaj hi shuru karein aur daulat badhayein! `;
     } else if (!isCalcQuery && (lower.includes("fayde") || lower.includes("fyde") || lower.includes("benefit") || lower.includes("advantage"))) {
       reply = isEn
-        ? `🎯 Key Advantages of Educa Fintech Loans:\n\n` +
-          `1. ⚡ Instant Disbursal: No bank queues or physical paperwork. Direct to wallet!\n` +
-          `2. 📈 Limit Doubling: Repay your 18 installments on time and your limit doubles up to ₹50,000!\n` +
-          `3. 💼 Business Growth: Up to ₹20,000 with cheque facility or ₹10,000 direct capital for your trade!\n` +
-          `4. 🛡️ Complete Transparency: Transparent 1.34% per installment rate, zero hidden penalties!\n\n` +
-          `🚀 In Educa Fintech, you only move upwards towards financial freedom!`
-        : `🎯 Educa Fintech Loan Ke Zabardast Fayde:\n\n` +
-          `1. ⚡ Turant Wallet Disbursal: Kisi bank ki lambi line ya paperwork ke bina turant aapke wallet me paisa!\n` +
-          `2. 📈 Limit Double Guarantee: 18 kistein samay par bharte hi aapki limit double ho jati hai (₹5,000 → ₹10,000 → ₹50,000 tak)!\n` +
-          `3. 💼 Business Growth Boost: Cheque ke sath ₹20,000 aur bina cheque ₹10,000 tak ki instant capital suvidha!\n` +
-          `4. 🛡️ 100% Transparent: Sirf 1.34% per installment ka transparent rate, zero hidden deduction!\n\n` +
-          `🚀 Educa Fintech me aap sirf upar hi jayenge — aaj hi apply karein aur aage badhein! 🌟`;
+        ? `Key Advantages of Educa Fintech Loans:\n\n` +
+          `1. Instant Disbursal: No bank queues or physical paperwork. Direct to wallet!\n` +
+          `2. Limit Doubling: Repay your 18 installments on time and your limit doubles up to ₹50,000!\n` +
+          `3. Business Growth: Up to ₹20,000 with cheque facility or ₹10,000 direct capital for your trade!\n` +
+          `4. Complete Transparency: Transparent 1.34% per installment rate, zero hidden penalties!\n\n` +
+          `In Educa Fintech, you only move upwards towards financial freedom!`
+        : `Educa Fintech Loan Ke Zabardast Fayde:\n\n` +
+          `1. Turant Wallet Disbursal: Kisi bank ki lambi line ya paperwork ke bina turant aapke wallet me paisa!\n` +
+          `2. Limit Double Guarantee: 18 kistein samay par bharte hi aapki limit double ho jati hai (₹5,000 → ₹10,000 → ₹50,000 tak)!\n` +
+          `3. Business Growth Boost: Cheque ke sath ₹20,000 aur bina cheque ₹10,000 tak ki instant capital suvidha!\n` +
+          `4. 100% Transparent: Sirf 1.34% per installment ka transparent rate, zero hidden deduction!\n\n` +
+          `Educa Fintech me aap sirf upar hi jayenge — aaj hi apply karein aur aage badhein! `;
     } else if (!isCalcQuery && (lower.includes("business") || lower.includes("cheque") || lower.includes("check") || lower.includes("dukan") || lower.includes("vyapar"))) {
       reply = isEn
-        ? `💼 Educa Micro Business Loan Limits:\n\n` +
+        ? `Educa Micro Business Loan Limits:\n\n` +
           `• With Cheque Facility: Up to ₹20,000 maximum eligible capital!\n` +
           `• Without Cheque: Up to ₹10,000 instant capital!\n` +
           `• Repayment: Flexible daily collection (60 to 120 days) or 10-day installments!\n\n` +
-          `Expand your inventory and scale your daily revenue with Educa Fintech! 🚀`
-        : `💼 Educa Micro Business Loan Suvidha:\n\n` +
+          `Expand your inventory and scale your daily revenue with Educa Fintech! `
+        : `Educa Micro Business Loan Suvidha:\n\n` +
           `• Cheque Ke Sath: Maximum ₹20,000 tak working capital!\n` +
           `• Bina Cheque Ke: Maximum ₹10,000 tak instant capital!\n` +
           `• Repayment: 60 se 120 din ke rozana aasan daily collections ya 10-day installments!\n\n` +
-          `Apne vyapar ko double karein — Educa Fintech me aap sirf unchaiyon pe jayenge! 🚀`;
+          `Apne vyapar ko double karein — Educa Fintech me aap sirf unchaiyon pe jayenge! `;
     } else {
       // Loan / EMI Calculation Engine (ignores percentage numbers like 12% or 1.34%)
       let tenureVal = null;
@@ -3311,22 +3311,22 @@ export default function Dashboard() {
         const interestRate = ((totalInterest / principalVal) * 100).toFixed(1);
 
         if (isEn) {
-          reply = `🧮 Custom Loan & EMI Breakdown:\n\n` +
+          reply = `Custom Loan & EMI Breakdown:\n\n` +
             `• Loan Amount Borrowed: ₹${principalVal.toLocaleString("en-IN")}\n` +
             `• Your EMI Amount: ₹${emiVal.toLocaleString("en-IN")} / installment\n` +
             `• Total Installments: ${tenure} Installments (Every 10-day cycle, ~${Math.round(tenure * 10 / 30)} months)\n` +
             `• Total Repayment: ₹${totalRepay.toLocaleString("en-IN")}\n` +
             `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}% total)\n\n` +
-            `🔥 With Educa Fintech, You Only Go Higher! 🚀\n` +
+            `With Educa Fintech, You Only Go Higher! \n` +
             `Pay each installment on time and your credit limit doubles automatically up to ₹50,000!`;
         } else {
-          reply = `🧮 Aapke Hisaab Ka Pura Breakdown:\n\n` +
+          reply = `Aapke Hisaab Ka Pura Breakdown:\n\n` +
             `• Aapne Liya (Loan Amount): ₹${principalVal.toLocaleString("en-IN")}\n` +
             `• Aapki EMI (Har Kist): Sirf ₹${emiVal.toLocaleString("en-IN")} / 10-din\n` +
             `• Kul Kistein (Tenure): ${tenure} Kistein (Har 10 din me 1 kist, ~${Math.round(tenure * 10 / 30)} mahine)\n` +
             `• Kul Bhugtan (Total Repayment): ₹${totalRepay.toLocaleString("en-IN")}\n` +
             `• Kul Byaj (Total Interest): ₹${totalInterest.toLocaleString("en-IN")} (Sirf ${interestRate}%)\n\n` +
-            `🔥 Educa Fintech Me Aap Sirf Upar Hi Jayenge! 🚀\n` +
+            `Educa Fintech Me Aap Sirf Upar Hi Jayenge! \n` +
             `Samay par kist chukane par aapka credit record mazboot hota hai aur agla loan instant double limit ke sath milta hai!`;
         }
       } else if (principalVal && totalVal && totalVal > principalVal) {
@@ -3337,21 +3337,21 @@ export default function Dashboard() {
         const interestRate = ((totalInterest / principalVal) * 100).toFixed(1);
 
         if (isEn) {
-          reply = `🧮 Repayment & EMI Breakdown for ₹${principalVal.toLocaleString("en-IN")}:\n\n` +
+          reply = `Repayment & EMI Breakdown for ₹${principalVal.toLocaleString("en-IN")}:\n\n` +
             `• Loan Amount Borrowed: ₹${principalVal.toLocaleString("en-IN")}\n` +
             `• Total Repayment: ₹${totalVal.toLocaleString("en-IN")}\n` +
             `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}%)\n` +
             `• Tenure: ${tenure} Installments (Every 10-day cycle)\n` +
             `• Each Installment (EMI): ₹${emiAmt.toLocaleString("en-IN")} / cycle\n\n` +
-            `🚀 With Educa Fintech, you only go higher! Repay easily and grow.`;
+            `With Educa Fintech, you only go higher! Repay easily and grow.`;
         } else {
-          reply = `🧮 ₹${principalVal.toLocaleString("en-IN")} Loan Ka Repayment Hisaab:\n\n` +
+          reply = `₹${principalVal.toLocaleString("en-IN")} Loan Ka Repayment Hisaab:\n\n` +
             `• Aapne Liya: ₹${principalVal.toLocaleString("en-IN")}\n` +
             `• Kul Wapas Dena Hai: ₹${totalVal.toLocaleString("en-IN")}\n` +
             `• Kul Byaj (Interest): ₹${totalInterest.toLocaleString("en-IN")} (${interestRate}%)\n` +
             `• Kul Kistein: ${tenure} Kistein (Har 10 din me 1 kist)\n` +
             `• Har Kist (EMI): Sirf ₹${emiAmt.toLocaleString("en-IN")} per kist\n\n` +
-            `🚀 Samay par bhugtan karein aur agla loan instant double limit ke sath paayein!`;
+            `Samay par bhugtan karein aur agla loan instant double limit ke sath paayein!`;
         }
       } else if (hasCalcIntent) {
         const amt = principalVal || 10000;
@@ -3362,32 +3362,32 @@ export default function Dashboard() {
         const emiAmt = Math.round(totalPayable / installments);
 
         if (isEn) {
-          reply = `🧮 Instant EMI Breakdown for ₹${amt.toLocaleString("en-IN")}:\n\n` +
+          reply = `Instant EMI Breakdown for ₹${amt.toLocaleString("en-IN")}:\n\n` +
             `• Loan Amount: ₹${amt.toLocaleString("en-IN")}\n` +
             `• Tenure: ${installments} Installments (Every 10-day cycle, ~${Math.round(installments * 10 / 30)} months)\n` +
             `• Each Installment (EMI): ₹${emiAmt.toLocaleString("en-IN")} / cycle\n` +
             `• Total Interest: ₹${totalInterest.toLocaleString("en-IN")} (Just 1.34% per installment)\n` +
             `• Total Repayment: ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
-            `🔥 With Educa Fintech, You Only Go Higher! 🚀\n` +
+            `With Educa Fintech, You Only Go Higher! \n` +
             `Partner with us and elevate your business. Repay on time and your credit limit doubles automatically! 100% digital disbursal, zero hidden fees!`;
         } else {
-          reply = `🧮 ₹${amt.toLocaleString("en-IN")} Loan Ka Turant EMI Hisaab:\n\n` +
+          reply = `₹${amt.toLocaleString("en-IN")} Loan Ka Turant EMI Hisaab:\n\n` +
             `• Loan Amount: ₹${amt.toLocaleString("en-IN")}\n` +
             `• Kul Kist (Tenure): ${installments} Kistein (Har 10 din me 1 kist, ~${Math.round(installments * 10 / 30)} mahine)\n` +
             `• Har Kist (EMI): Sirf ₹${emiAmt.toLocaleString("en-IN")} / 10-din\n` +
             `• Kul Byaj (Interest): ₹${totalInterest.toLocaleString("en-IN")} (Sirf 1.34% per kist)\n` +
             `• Total Repayment (Kul Dena Hai): ₹${totalPayable.toLocaleString("en-IN")}\n\n` +
-            `🔥 Educa Fintech Me Aap Sirf Upar Hi Jayenge! 🚀\n` +
+            `Educa Fintech Me Aap Sirf Upar Hi Jayenge! \n` +
             `Aap hamare sath kaam karenge aur judenge to aapka business aur balance dono tezi se unchaiyon par jayenge! Samay par kist chukane par aapki loan limit turant double ho jati hai. Zero hidden charges, seedha aapke wallet me instant paisa!`;
         }
       } else if (lower.includes("unchai") || lower.includes("vision") || lower.includes("safal") || lower.includes("upar")) {
         reply = isEn
-          ? "Yes! 'With Educa Fintech, you only go higher! 🚀' That is our core mission — idle funds earn 12% p.a. compounding returns, and you get instant loans up to ₹50,000 without paperwork hassle!"
-          : "Haan bilkul! 'Educa Fintech me aap sirf upar hi jayenge! 🚀' — Har aam insaan ka paisa har second 12% p.a. ki tezi se badhe aur emergency me instant ₹5,000 se ₹50,000 ka loan mile bina kisi paper chakkar ke!";
+          ? "Yes! 'With Educa Fintech, you only go higher! ' That is our core mission — idle funds earn 12% p.a. compounding returns, and you get instant loans up to ₹50,000 without paperwork hassle!"
+          : "Haan bilkul! 'Educa Fintech me aap sirf upar hi jayenge! ' — Har aam insaan ka paisa har second 12% p.a. ki tezi se badhe aur emergency me instant ₹5,000 se ₹50,000 ka loan mile bina kisi paper chakkar ke!";
       } else {
         reply = isEn
-          ? "Welcome to Educa Fintech! 🚀\n• 12% p.a. live compounding savings interest\n• Instant Business Loans (Up to ₹20K with cheque / ₹10K direct)\n• Instant Personal Loans with 18 easy installments (1.34%/cycle)\n• Ask any amount to calculate instant EMI!"
-          : "Educa Fintech me aapka swagat hai! 🚀\n• 12% p.a. live compounding munafa\n• Instant Business Loans (₹20,000 cheque ke sath / ₹10,000 direct)\n• Instant Personal Loans 18 aasan kiston me (1.34% per kist)\n• Koi bhi amount likhein (jaise 10000, 20000) aur turant EMI hisaab dekhein!";
+          ? "Welcome to Educa Fintech! \n• 12% p.a. live compounding savings interest\n• Instant Business Loans (Up to ₹20K with cheque / ₹10K direct)\n• Instant Personal Loans with 18 easy installments (1.34%/cycle)\n• Ask any amount to calculate instant EMI!"
+          : "Educa Fintech me aapka swagat hai! \n• 12% p.a. live compounding munafa\n• Instant Business Loans (₹20,000 cheque ke sath / ₹10,000 direct)\n• Instant Personal Loans 18 aasan kiston me (1.34% per kist)\n• Koi bhi amount likhein (jaise 10000, 20000) aur turant EMI hisaab dekhein!";
       }
     }
 
@@ -3474,13 +3474,13 @@ export default function Dashboard() {
     const accNum = userProfile.accountNumber || "EFS0000001";
     const upi = userProfile.upiId || `${accNum.toLowerCase()}@educa`;
     const userName = userProfile.name || userStored.name || "Customer";
-    const shareText = `🏦 Educa Fintech Digital Bank Details\n` +
-      `👤 Name: ${userName}\n` +
-      `🔢 A/C No: ${accNum}\n` +
-      `🏛️ IFSC: EFS0000JHAL\n` +
-      `📍 Branch: Jhalwa Branch, Prayagraj - 211012\n` +
-      `⚡ App UPI ID: ${upi}\n\n` +
-      `📲 Transfer directly to this Account Number or UPI ID using Educa Fintech App!`;
+    const shareText = `Educa Fintech Digital Bank Details\n` +
+      `Name: ${userName}\n` +
+      `A/C No: ${accNum}\n` +
+      `IFSC: EFS0000JHAL\n` +
+      `Branch: Jhalwa Branch, Prayagraj - 211012\n` +
+      `App UPI ID: ${upi}\n\n` +
+      `Transfer directly to this Account Number or UPI ID using Educa Fintech App!`;
 
     if (navigator.share) {
       navigator.share({
@@ -3647,7 +3647,7 @@ export default function Dashboard() {
       });
       setKycSubmitting(false);
       closeModal();
-      showToast("✅ KYC documents successfully submit ho gaye! Review in progress.", "success");
+      showToast("KYC documents successfully submit ho gaye! Review in progress.", "success");
     }, 600);
 
     // Reliable background upload to server & notify admin
@@ -3887,7 +3887,7 @@ export default function Dashboard() {
       clearTimeout(transferTimer);
       const data = await res.json();
       if (res.ok) {
-        showToast(data.message || "🎉 Transfer successful!", "success");
+        showToast(data.message || "Transfer successful!", "success");
         closeModal();
         if (data.newBalance !== undefined) {
           setBalance(data.newBalance);
@@ -4001,7 +4001,7 @@ export default function Dashboard() {
             </div>
             <div className="grid grid-cols-2 gap-1">
               <label className={`cursor-pointer py-1 px-1 rounded-lg text-[10px] font-bold text-center flex items-center justify-center gap-0.5 border active:scale-95 transition ${bgAccent}`}>
-                <span>📷 Cam</span>
+                <span>Cam</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -4011,7 +4011,7 @@ export default function Dashboard() {
                 />
               </label>
               <label className="cursor-pointer py-1 px-1 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-[10px] font-bold text-center flex items-center justify-center gap-0.5 border border-gray-200 active:scale-95 transition">
-                <span>📁 Upload</span>
+                <span>Upload</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -4026,7 +4026,7 @@ export default function Dashboard() {
                 onClick={() => { setLightboxImg(frontUrl); setZoomLevel(1); }}
                 className="w-full py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[10px] font-bold text-center flex items-center justify-center gap-1 transition"
               >
-                🔍 View Front
+                View Front
               </button>
             )}
           </div>
@@ -4039,7 +4039,7 @@ export default function Dashboard() {
             </div>
             <div className="grid grid-cols-2 gap-1">
               <label className={`cursor-pointer py-1 px-1 rounded-lg text-[10px] font-bold text-center flex items-center justify-center gap-0.5 border active:scale-95 transition ${bgAccent}`}>
-                <span>📷 Cam</span>
+                <span>Cam</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -4049,7 +4049,7 @@ export default function Dashboard() {
                 />
               </label>
               <label className="cursor-pointer py-1 px-1 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-[10px] font-bold text-center flex items-center justify-center gap-0.5 border border-gray-200 active:scale-95 transition">
-                <span>📁 Upload</span>
+                <span>Upload</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -4064,7 +4064,7 @@ export default function Dashboard() {
                 onClick={() => { setLightboxImg(backUrl); setZoomLevel(1); }}
                 className="w-full py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[10px] font-bold text-center flex items-center justify-center gap-1 transition"
               >
-                🔍 View Back
+                View Back
               </button>
             )}
           </div>
@@ -4413,7 +4413,7 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`🎉 ${units} Lakh 365-Day Bond created! ₹${profitReturn.toLocaleString("en-IN")} maturity scheduled.`, "success");
+        showToast(`${units} Lakh 365-Day Bond created! ₹${profitReturn.toLocaleString("en-IN")} maturity scheduled.`, "success");
         loadDashboard();
         loadBonds();
       } else {
@@ -4560,7 +4560,7 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(data.message || "🎉 Lending Bond created successfully!", "success");
+        showToast(data.message || "Lending Bond created successfully!", "success");
         loadDashboard();
         loadBonds();
       } else {
@@ -4675,14 +4675,14 @@ export default function Dashboard() {
   // Settle & Close Loan Early in Full (With 3-Part Pre-Close Discount Calculation)
   const closeLoanEarly = async (id, payoffAmount, userDiscount = 0, xPercent = 0) => {
     const confirmMsg = userDiscount > 0
-      ? `Kya aap loan ko ₹${payoffAmount.toLocaleString("en-IN")} me early payoff karke close karna chahte hain?\n\n🎉 Early Settlement Fayda:\nAapko samay se pehle loan payoff karne par ₹${userDiscount.toLocaleString("en-IN")} ki chhoot (fayda) milegi!`
+      ? `Kya aap loan ko ₹${payoffAmount.toLocaleString("en-IN")} me early payoff karke close karna chahte hain?\n\nEarly Settlement Fayda:\nAapko samay se pehle loan payoff karne par ₹${userDiscount.toLocaleString("en-IN")} ki chhoot (fayda) milegi!`
       : `Kya aap loan ko ₹${payoffAmount.toLocaleString("en-IN")} me early payoff karke close karna chahte hain?`;
     if (!window.confirm(confirmMsg)) return;
     try {
       const res = await fetch(`${API}/loan/${id}/close-early`, { method: "POST", headers });
       const data = await res.json();
       if (res.ok) {
-        showToast("🎉 Loan full payoff ho kar close ho gaya! Limit upgrade ho chuki hai.", "success");
+        showToast("Loan full payoff ho kar close ho gaya! Limit upgrade ho chuki hai.", "success");
         loadLoans();
         loadDashboard();
       } else {
@@ -4770,18 +4770,18 @@ export default function Dashboard() {
   };
 
   const quickActions = [
-    { icon: "📱", label: txt.myQrCode, sub: lang === "hindi" ? "पेमेंट प्राप्त करें" : "Scan to receive", color: "bg-blue-100", action: () => setModal("my_qr") },
-    { icon: "⚡", label: txt.sendMoney, sub: lang === "hindi" ? "तत्काल ट्रांसफर" : "Instant P2P", color: "bg-emerald-100", action: handleOpenSendMoney },
-    { icon: "🏦", label: txt.personalLoanAccount, sub: lang === "hindi" ? "10-दिवसीय चक्र" : "10-day cycle", color: "bg-indigo-100", action: () => openLoanSheet("personal_loan") },
-    { icon: "🏬", label: txt.businessLoanAccount, sub: lang === "hindi" ? "दैनिक कलेक्शन" : "Daily collection", color: "bg-amber-100", action: () => openLoanSheet("business_loan") },
+    { icon: "", label: txt.myQrCode, sub: lang === "hindi" ? "पेमेंट प्राप्त करें" : "Scan to receive", color: "bg-blue-100", action: () => setModal("my_qr") },
+    { icon: "", label: txt.sendMoney, sub: lang === "hindi" ? "तत्काल ट्रांसफर" : "Instant P2P", color: "bg-emerald-100", action: handleOpenSendMoney },
+    { icon: "", label: txt.personalLoanAccount, sub: lang === "hindi" ? "10-दिवसीय चक्र" : "10-day cycle", color: "bg-indigo-100", action: () => openLoanSheet("personal_loan") },
+    { icon: "", label: txt.businessLoanAccount, sub: lang === "hindi" ? "दैनिक कलेक्शन" : "Daily collection", color: "bg-amber-100", action: () => openLoanSheet("business_loan") },
   ];
 
   const navItems = [
-    { key: "home", label: txt.navHome, icon: "🏠", onClick: () => { setModal(null); setAccountModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); } },
-    { key: "loans", label: txt.navLoans, icon: "🏦", onClick: openLoansHub, heroBadge: heroFlyId === "loans_hub" },
+    { key: "home", label: txt.navHome, icon: "", onClick: () => { setModal(null); setAccountModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); } },
+    { key: "loans", label: txt.navLoans, icon: "", onClick: openLoansHub, heroBadge: heroFlyId === "loans_hub" },
     { key: "scan", label: txt.navScan, icon: <ScannerIcon className="w-6 h-6 text-white" />, isCenter: true, onClick: () => setModal("scan_qr") },
-    { key: "bonds", label: txt.navBonds, icon: "📈", onClick: () => setAccountModal("debt") },
-    { key: "profile", label: txt.navProfile, icon: "👤", onClick: () => setModal("profile") },
+    { key: "bonds", label: txt.navBonds, icon: "", onClick: () => setAccountModal("debt") },
+    { key: "profile", label: txt.navProfile, icon: "", onClick: () => setModal("profile") },
   ];
 
   // ══════════════════════════════════════════════════════
@@ -4802,7 +4802,7 @@ export default function Dashboard() {
             </span>
           </div>
           <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80 flex items-center gap-1 shadow-xs">
-            <span>🔒</span> Protected
+             Protected
           </span>
         </div>
 
@@ -4811,7 +4811,7 @@ export default function Dashboard() {
           {/* User Avatar */}
           <div className="w-20 h-20 rounded-3xl bg-blue-50 border-2 border-blue-200/70 p-1 shadow-md mb-4 flex items-center justify-center">
             <div className="w-full h-full bg-white rounded-[20px] flex items-center justify-center shadow-xs">
-              <span className="text-3xl">👤</span>
+              <span className="text-3xl"></span>
             </div>
           </div>
 
@@ -4907,7 +4907,7 @@ export default function Dashboard() {
                 </>
               ) : (
                 <>
-                  <span>🔓 Unlock & Open App</span>
+                  <span>Unlock & Open App</span>
                   <span className="text-xs">→</span>
                 </>
               )}
@@ -4935,7 +4935,7 @@ export default function Dashboard() {
       {(userStored.role === "staff" || userProfile?.role === "staff") && (
         <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 border-b border-blue-500/40 text-white px-3.5 sm:px-6 py-2.5 flex items-center justify-between text-xs sticky top-0 z-50 shadow-md">
           <div className="flex items-center gap-2 font-bold min-w-0">
-            <span className="text-base shrink-0">🏢</span>
+            <span className="text-base shrink-0"></span>
             <span className="truncate">Staff Account Active</span>
             <span className="hidden sm:inline text-blue-300 font-normal">| Department Desks Portal</span>
           </div>
@@ -4943,7 +4943,7 @@ export default function Dashboard() {
             href="/desk"
             className="shrink-0 px-3 py-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black rounded-lg shadow-sm flex items-center gap-1 transition"
           >
-            <span>⚡</span> Open Staff Desk →
+             Open Staff Desk →
           </a>
         </div>
       )}
@@ -4952,7 +4952,7 @@ export default function Dashboard() {
       {(userStored.role === "admin" || userProfile?.role === "admin") && (
         <div className="bg-gradient-to-r from-gray-950 via-indigo-950 to-gray-950 border-b border-indigo-500/40 text-white px-3.5 sm:px-6 py-2.5 flex items-center justify-between text-xs sticky top-0 z-50 shadow-md">
           <div className="flex items-center gap-2 font-bold min-w-0">
-            <span className="text-base shrink-0">🛡️</span>
+            <span className="text-base shrink-0"></span>
             <span className="truncate">Administrator Account Active</span>
             <span className="hidden sm:inline text-indigo-300 font-normal">| Full Platform Controls</span>
           </div>
@@ -4960,7 +4960,7 @@ export default function Dashboard() {
             href="/admin"
             className="shrink-0 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-black rounded-lg shadow-sm flex items-center gap-1 transition"
           >
-            <span>⚡</span> Open Admin Panel →
+             Open Admin Panel →
           </a>
         </div>
       )}
@@ -4969,7 +4969,7 @@ export default function Dashboard() {
       {isAgent && (
         <div className="bg-white border-b border-gray-200 text-gray-900 px-3.5 sm:px-6 py-2 flex items-center justify-between text-xs sticky top-0 z-50 shadow-xs">
           <div className="flex items-center gap-2 font-bold min-w-0">
-            <span className="text-base shrink-0">🏢</span>
+            <span className="text-base shrink-0"></span>
             <span className="truncate text-gray-900 font-extrabold text-xs">Agent Account Active</span>
             <span className="hidden sm:inline text-gray-500 font-normal">
               | {agentMetrics?.agentInfo?.businessName || userProfile.name} • {agentMetrics?.stats?.customerCount ?? 0} Customers
@@ -4980,7 +4980,7 @@ export default function Dashboard() {
             onClick={() => navigate("/agent-desk")}
             className="shrink-0 px-2 py-0.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-[10px] rounded-md shadow-2xs flex items-center gap-1 transition cursor-pointer"
           >
-            <span>⚡</span> Open Desk →
+             Open Desk →
           </button>
         </div>
       )}
@@ -5004,7 +5004,7 @@ export default function Dashboard() {
                 className="px-2.5 sm:px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
                 title="Return to Admin Panel"
               >
-                <span>🛡️</span> <span>Admin</span>
+                 <span>Admin</span>
               </a>
             )}
 
@@ -5037,9 +5037,9 @@ export default function Dashboard() {
                     {lang === "hindi" ? "भाषा चुनें" : lang === "english" ? "Choose Language" : "Bhasha Chunein"}
                   </div>
                   {[
-                    { code: "english", label: "EN • English", flag: "🇬🇧" },
-                    { code: "hindi", label: "HI • हिंदी", flag: "🇮🇳" },
-                    { code: "hinglish", label: "HN • Hinglish", flag: "🗣️" },
+                    { code: "english", label: "English" },
+                    { code: "hindi", label: "हिंदी" },
+                    { code: "hinglish", label: "Hinglish" },
                   ].map(item => {
                     const isSelected = lang === item.code;
                     return (
@@ -5091,7 +5091,7 @@ export default function Dashboard() {
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-emerald-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.profitWallet}</span>
-                <span className="text-base sm:text-lg">📈</span>
+                <span className="text-base sm:text-lg"></span>
               </div>
               <h3 className="text-xl sm:text-2xl lg:text-3xl font-black font-display font-mono mb-1 truncate text-white tracking-tight">
                 <LiveRollingProfit
@@ -5117,7 +5117,7 @@ export default function Dashboard() {
               <div className="flex justify-between items-center mb-1">
                 <span className="text-red-100 text-[11px] sm:text-xs font-bold uppercase tracking-wider">{txt.duesWallet}</span>
                 <span className="text-base sm:text-lg">
-                  {(userProfile.duesBalance || 0) > 0 ? "📅" : "✅"}
+                  {(userProfile.duesBalance || 0) > 0 ? "" : ""}
                 </span>
               </div>
               <h3 className="text-2xl sm:text-3xl font-black font-display mb-1 truncate text-white">
@@ -5183,19 +5183,19 @@ export default function Dashboard() {
                 onClick={handleOpenSendMoney}
                 className="py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl font-bold text-xs border border-amber-300/40 shadow-md shadow-amber-500/25 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
-                <span>⚡</span> {txt.sendMoney}
+                 {txt.sendMoney}
               </button>
               <button
                 onClick={() => setModal("my_qr")}
                 className="py-2.5 px-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl font-bold text-xs border border-indigo-300/40 shadow-md shadow-indigo-500/25 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
-                <span>📱</span> {txt.myQrCode}
+                 {txt.myQrCode}
               </button>
               <button
                 onClick={() => setModal("deposit")}
                 className="py-2.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl font-bold text-xs border border-emerald-300/40 shadow-md shadow-emerald-500/25 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
               >
-                <span>➕</span> {txt.addMoney}
+                 {txt.addMoney}
               </button>
               <button
                 onClick={() => requireKyc(() => setModal("withdraw"))}
@@ -5215,7 +5215,7 @@ export default function Dashboard() {
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-2xl text-blue-600 shadow-xs shrink-0">
-                🏛️
+                
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -5234,7 +5234,7 @@ export default function Dashboard() {
                   )}
                 </div>
                 <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1.5">
-                  <span>📍</span>
+                  
                   <strong>{txt.branchName}</strong> • IFSC: <span className="font-mono font-bold text-blue-600">EFS0000JHAL</span>
                 </p>
               </div>
@@ -5246,7 +5246,7 @@ export default function Dashboard() {
                 onClick={handleOpenWalletAccount}
                 className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
               >
-                <span>💰</span>
+                
                 <span>{lang === "hindi" ? "वॉलेट खाता खोलें" : "Open Wallet Account"}</span>
               </button>
               <button
@@ -5275,7 +5275,7 @@ export default function Dashboard() {
                   onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "acc")}
                   className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white border border-slate-200 hover:bg-slate-100 text-blue-600 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
                 >
-                  {copiedField === "acc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                  {copiedField === "acc" ? "✓ " + txt.copied : "" + txt.copy}
                 </button>
               </div>
               <div className="font-mono font-black text-xl sm:text-2xl text-slate-900 tracking-widest my-1">
@@ -5297,7 +5297,7 @@ export default function Dashboard() {
                   onClick={() => copyToClipboard("EFS0000JHAL", "ifsc")}
                   className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white border border-slate-200 hover:bg-slate-100 text-blue-600 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
                 >
-                  {copiedField === "ifsc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                  {copiedField === "ifsc" ? "✓ " + txt.copied : "" + txt.copy}
                 </button>
               </div>
               <div className="font-mono font-black text-xl sm:text-2xl text-blue-600 tracking-wider my-1">
@@ -5319,7 +5319,7 @@ export default function Dashboard() {
                   onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "upi")}
                   className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white border border-slate-200 hover:bg-slate-100 text-blue-600 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
                 >
-                  {copiedField === "upi" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                  {copiedField === "upi" ? "✓ " + txt.copied : "" + txt.copy}
                 </button>
               </div>
               <div className="font-mono font-black text-lg sm:text-xl text-emerald-700 tracking-wide truncate my-1">
@@ -5339,7 +5339,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-center mb-5">
             <div>
               <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
-                <span>📑</span> {txt.accountsHubTitle || "Modular Accounts Hub"}
+                 {txt.accountsHubTitle || "Modular Accounts Hub"}
               </h3>
               <p className="text-xs text-gray-500">{txt.accountsHubSub || "Click on any account to view data and apply"}</p>
             </div>
@@ -5357,7 +5357,7 @@ export default function Dashboard() {
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl">
-                    💰
+                    
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-blue-100 text-blue-800">
                     {userProfile.accountNumber || "EFS0000001"}
@@ -5378,7 +5378,7 @@ export default function Dashboard() {
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="w-11 h-11 rounded-xl bg-red-100 text-red-700 flex items-center justify-center text-xl">
-                    📑
+                    
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-red-100 text-red-800">
                     10-Day Cycle
@@ -5399,7 +5399,7 @@ export default function Dashboard() {
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl">
-                    📜
+                    
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800">
                     365-Day Bond
@@ -5420,7 +5420,7 @@ export default function Dashboard() {
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xl">
-                    🤝
+                    
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-100 text-indigo-800">
                     Monthly Payouts
@@ -5445,7 +5445,7 @@ export default function Dashboard() {
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl">
-                    🏦
+                    
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-emerald-100 text-emerald-800">
                     {activePersonalLoan ? (activePersonalLoan.accountNumber || "EFS0000001") : "10-Day Cycle"}
@@ -5472,7 +5472,7 @@ export default function Dashboard() {
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="w-11 h-11 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center text-xl">
-                    🎓
+                    
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black bg-cyan-100 text-cyan-800">
                     {activeStudentLoan ? (activeStudentLoan.accountNumber || "EFS0000001") : "8% p.a."}
@@ -5499,7 +5499,7 @@ export default function Dashboard() {
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl">
-                    🏬
+                    
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-800">
                     {activeBusinessLoan ? "Daily Active" : "Daily Collection"}
@@ -5520,7 +5520,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           1. MY QR CODE SHEET (DUAL TAB: FINTECH & CUSTOM UPI)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "my_qr"} onClose={closeModal} title={txt.myQrCode || "My QR Code"} icon="📱">
+      <Sheet open={modal === "my_qr"} onClose={closeModal} title={txt.myQrCode || "My QR Code"} icon="">
         <div className="space-y-4">
           {/* Dual Tab Switcher */}
           <div className="flex bg-gray-100 p-1 rounded-2xl text-xs font-bold">
@@ -5533,7 +5533,7 @@ export default function Dashboard() {
                   : "text-gray-500 hover:text-gray-900"
               }`}
             >
-              <span>🏛️</span> Fintech QR
+               Fintech QR
             </button>
             <button
               type="button"
@@ -5544,7 +5544,7 @@ export default function Dashboard() {
                   : "text-gray-500 hover:text-gray-900"
               }`}
             >
-              <span>📱</span> Other App QR {customQrUrl ? "✓" : ""}
+               Other App QR {customQrUrl ? "✓" : ""}
             </button>
           </div>
 
@@ -5573,7 +5573,7 @@ export default function Dashboard() {
               <div className="bg-slate-900 text-white rounded-2xl p-4 text-left space-y-2.5 shadow-md border border-white/10">
                 <div className="flex items-center justify-between pb-2 border-b border-white/10">
                   <div className="flex items-center gap-2">
-                    <span className="text-base">🏛️</span>
+                    <span className="text-base"></span>
                     <div>
                       <h4 className="font-extrabold text-xs text-white leading-tight">{userProfile.name || userStored.name || "Educa Customer"}</h4>
                       <p className="text-[10px] text-indigo-300">{txt.branchName} • IFSC: EFS0000JHAL</p>
@@ -5595,7 +5595,7 @@ export default function Dashboard() {
                     onClick={() => copyToClipboard(activeUpiId, "qr_upi")}
                     className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 transition active:scale-95 cursor-pointer"
                   >
-                    {copiedField === "qr_upi" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                    {copiedField === "qr_upi" ? "✓ " + txt.copied : "" + txt.copy}
                   </button>
                 </div>
 
@@ -5610,7 +5610,7 @@ export default function Dashboard() {
                     onClick={() => copyToClipboard(activeAccountNum, "qr_acc")}
                     className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 flex items-center gap-1 transition active:scale-95 cursor-pointer"
                   >
-                    {copiedField === "qr_acc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                    {copiedField === "qr_acc" ? "✓ " + txt.copied : "" + txt.copy}
                   </button>
                 </div>
               </div>
@@ -5621,7 +5621,7 @@ export default function Dashboard() {
                   onClick={() => copyToClipboard(activeUpiId, "qr_upi_btn")}
                   className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
                 >
-                  <span>📋</span> {copiedField === "qr_upi_btn" ? txt.copied : "Copy UPI ID"}
+                   {copiedField === "qr_upi_btn" ? txt.copied : "Copy UPI ID"}
                 </button>
                 <button
                   type="button"
@@ -5657,7 +5657,7 @@ export default function Dashboard() {
                   <div className="bg-slate-900 text-white rounded-2xl p-3.5 text-left space-y-2 border border-white/10">
                     <div className="flex items-center justify-between pb-2 border-b border-white/10">
                       <div className="flex items-center gap-2">
-                        <span className="text-base">📱</span>
+                        <span className="text-base"></span>
                         <div>
                           <h4 className="font-black text-xs text-white">{customQrApp || "Custom UPI QR"}</h4>
                           <p className="text-[10px] text-gray-400">Direct Payment QR</p>
@@ -5679,13 +5679,13 @@ export default function Dashboard() {
                           onClick={() => copyToClipboard(customQrUpi, "custom_upi_copy")}
                           className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 hover:bg-white/20 text-indigo-300 transition active:scale-95 cursor-pointer"
                         >
-                          {copiedField === "custom_upi_copy" ? "✓ Copied" : "📋 Copy"}
+                          {copiedField === "custom_upi_copy" ? "✓ Copied" : "Copy"}
                         </button>
                       </div>
                     )}
 
                     <div className="p-2 rounded-xl bg-blue-950/60 border border-blue-500/30 text-[10px] text-blue-200 flex items-center gap-1.5">
-                      <span>💾</span>
+                      
                       <span>Yeh QR aapke device me hamesha save rahega aur app re-install karne par bhi restore ho jayega.</span>
                     </div>
                   </div>
@@ -5695,7 +5695,7 @@ export default function Dashboard() {
                       htmlFor="custom-qr-replace-file"
                       className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      <span>🔄</span> Dusra QR Lagayein
+                       Dusra QR Lagayein
                     </label>
                     <input
                       id="custom-qr-replace-file"
@@ -5713,7 +5713,7 @@ export default function Dashboard() {
                       onClick={handleRemoveCustomQr}
                       className="py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      <span>🗑️</span> Remove QR
+                       Remove QR
                     </button>
                   </div>
                 </div>
@@ -5722,7 +5722,7 @@ export default function Dashboard() {
                 <div className="space-y-3 text-left">
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-900 space-y-1">
                     <p className="font-bold flex items-center gap-1.5">
-                      <span>📲</span> Apna Personal UPI QR Code Lagayein
+                       Apna Personal UPI QR Code Lagayein
                     </p>
                     <p className="text-[11px] text-blue-700">
                       Aap kisi bhi payment app (Google Pay, PhonePe, Paytm, BHIM, BharatPe) ka QR code apni profile me laga sakte hain. Yeh QR aapke phone aur ID me permanently save rahega.
@@ -5742,7 +5742,7 @@ export default function Dashboard() {
                     </div>
                   ) : (
                     <label className="border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/40 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition">
-                      <span className="text-3xl mb-1.5">📷</span>
+                      <span className="text-3xl mb-1.5"></span>
                       <span className="text-xs font-bold text-indigo-900">Gallery / Camera se QR Upload Karein</span>
                       <span className="text-[10px] text-gray-500 mt-0.5">Google Pay, PhonePe, Paytm ya kisi bhi app ka QR</span>
                       <input
@@ -5833,7 +5833,7 @@ export default function Dashboard() {
               }`}
               title="Toggle Flashlight"
             >
-              <span>{torchOn ? "🔦 On" : "🔦 Flash"}</span>
+              <span>{torchOn ? "On" : "Flash"}</span>
             </button>
           ) : null
         }
@@ -5846,7 +5846,7 @@ export default function Dashboard() {
               <span className="text-slate-800 font-semibold text-[11px]">UPI & BharatQR Auto-Detect</span>
             </div>
             <span className="text-[10px] text-blue-700 font-bold bg-white px-2 py-0.5 rounded-lg border border-blue-200 shadow-xs">
-              ⚡ Instant Pay
+              Instant Pay
             </span>
           </div>
 
@@ -5900,7 +5900,7 @@ export default function Dashboard() {
             {cameraError && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-200 gap-3 bg-slate-900/95 p-6 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center text-2xl">
-                  ⚠️
+                  
                 </div>
                 <h4 className="text-sm font-bold text-white">Camera Access Required</h4>
                 <p className="text-xs text-slate-300 max-w-xs">{cameraError}</p>
@@ -5942,7 +5942,7 @@ export default function Dashboard() {
               onClick={() => { closeModal(); setTimeout(() => setModal("my_qr"), 150); }}
               className="w-full py-3.5 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
             >
-              <span className="text-base">📱</span>
+              <span className="text-base"></span>
               <span>Mera QR Code</span>
             </button>
           </div>
@@ -5966,7 +5966,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           PROFIT WALLET & DAILY YIELD STATEMENT SHEET
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "profit_history"} onClose={closeModal} title="Profit Wallet & Returns Statement" icon="📈">
+      <Sheet open={modal === "profit_history"} onClose={closeModal} title="Profit Wallet & Returns Statement" icon="">
         <div className="space-y-4">
           {/* Total Profit Hero Banner */}
           <div className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden">
@@ -5974,7 +5974,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-center mb-1">
               <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-100">Total Profit Balance</span>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-300/40 text-emerald-100 font-bold">
-                ⚡ Active Yield
+                Active Yield
               </span>
             </div>
             <div className="text-3xl sm:text-4xl font-black font-display font-mono my-1 tracking-tight">
@@ -5997,7 +5997,7 @@ export default function Dashboard() {
               disabled={transferringProfit || (userProfile.profitBalance || 0) <= 0}
               className="py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition cursor-pointer"
             >
-              <span>🔄</span>
+              
               <span>{transferringProfit ? "Transferring to Wallet..." : "Main Wallet me Bhejein"}</span>
             </button>
             <button
@@ -6005,7 +6005,7 @@ export default function Dashboard() {
               onClick={() => exportPdfStatement("profit")}
               className="py-3 px-4 bg-white hover:bg-gray-50 border border-gray-200 text-slate-800 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs active:scale-[0.98] transition cursor-pointer"
             >
-              <span>📄</span>
+              
               <span>Export / Print PDF Statement</span>
             </button>
           </div>
@@ -6015,18 +6015,18 @@ export default function Dashboard() {
           <details className="group bg-indigo-50/80 border border-indigo-200/80 rounded-2xl p-3.5 text-xs text-indigo-950 transition shadow-xs">
             <summary className="font-extrabold flex items-center justify-between cursor-pointer list-none select-none">
               <span className="flex items-center gap-2">
-                <span className="text-sm">💡</span>
+                <span className="text-sm"></span>
                 <span>Profit Wallet & Transfer Ka Niyam</span>
               </span>
               <span className="text-[11px] font-bold text-indigo-600 group-open:rotate-180 transition-transform">▼</span>
             </summary>
             <div className="mt-3 pt-3 border-t border-indigo-200/60 space-y-2.5 text-[11px] text-indigo-900 leading-relaxed">
               <p>
-                <strong>📌 Base Balance Rule:</strong> Jab tak aap apne profit ko transfer nahi karte, tab tak aapke Main Account me mojud balance (jaise ₹6 Lakh) ke hisaab se hi rozana profit banta rahega.
+                <strong>Base Balance Rule:</strong> Jab tak aap apne profit ko transfer nahi karte, tab tak aapke Main Account me mojud balance (jaise ₹6 Lakh) ke hisaab se hi rozana profit banta rahega.
               </p>
               <div className="p-2 rounded-xl bg-white/80 border border-indigo-100 text-[10px] text-indigo-900 space-y-1">
-                <p>✅ <strong>Manual Transfer:</strong> Jaise hi aap 'Main Wallet me Bhejein' dabayenge, pura profit Main Wallet me jud jayega, Profit Wallet wapas ₹0 ho jayega, aur agle second se badhe hue naye total balance par profit calculate hoga.</p>
-                <p>🤝 <strong>Returns:</strong> Aapka munafa aur interest returns yahan transparently accrue hota hai.</p>
+                <p><strong>Manual Transfer:</strong> Jaise hi aap 'Main Wallet me Bhejein' dabayenge, pura profit Main Wallet me jud jayega, Profit Wallet wapas ₹0 ho jayega, aur agle second se badhe hue naye total balance par profit calculate hoga.</p>
+                <p><strong>Returns:</strong> Aapka munafa aur interest returns yahan transparently accrue hota hai.</p>
               </div>
             </div>
           </details>
@@ -6042,7 +6042,7 @@ export default function Dashboard() {
                 onClick={loadProfitHistory}
                 className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
               >
-                <span>🔄</span> Refresh
+                 Refresh
               </button>
             </div>
 
@@ -6061,7 +6061,7 @@ export default function Dashboard() {
               if (displayProfitList.length === 0 && activeCapital <= 0) {
                 return (
                   <div className="py-8 text-center text-gray-400 text-xs bg-gray-50 rounded-2xl border border-gray-100 p-4">
-                    <span className="text-2xl block mb-1">🌱</span>
+                    <span className="text-2xl block mb-1"></span>
                     Abhi tak koi profit entry nahi hai. Primary wallet me balance rakhein ya 365-day bond create karein roz profit paane ke liye!
                   </div>
                 );
@@ -6072,7 +6072,7 @@ export default function Dashboard() {
                     <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl shadow-xs flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">
-                          ⚡
+                          
                         </div>
                         <div>
                           <p className="text-xs font-extrabold text-emerald-950">Daily Profit</p>
@@ -6097,7 +6097,7 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg font-bold shrink-0">
-                          {item.type === "daily_yield" ? "⚡" : item.type === "bond_payout" ? "🏛️" : item.type === "profit_transfer" ? "🔄" : "🎁"}
+                          {item.type === "daily_yield" ? "" : item.type === "bond_payout" ? "" : item.type === "profit_transfer" ? "" : ""}
                         </div>
                         <div>
                           <p className="text-xs font-extrabold text-gray-900">
@@ -6160,10 +6160,10 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           2. SEND MONEY / P2P TRANSFER SHEET
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "send_money"} onClose={closeModal} title={txt.sendMoney || "Send Money"} icon="⚡">
+      <Sheet open={modal === "send_money"} onClose={closeModal} title={txt.sendMoney || "Send Money"} icon="">
         <div className="space-y-4">
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900">
-            ⚡ <strong>Instant Transfer:</strong> {lang === "hindi" ? "फ़ोन नंबर, खाता संख्या (EFS0000XXX), UPI ID (@educa) या ईमेल द्वारा तुरंत ट्रांसफर करें।" : "Transfer directly using Phone Number, Account Number (EFS0000XXX), UPI ID (@educa), or Email."}
+            <strong>Instant Transfer:</strong> {lang === "hindi" ? "फ़ोन नंबर, खाता संख्या (EFS0000XXX), UPI ID (@educa) या ईमेल द्वारा तुरंत ट्रांसफर करें।" : "Transfer directly using Phone Number, Account Number (EFS0000XXX), UPI ID (@educa), or Email."}
           </div>
 
           <div>
@@ -6230,7 +6230,7 @@ export default function Dashboard() {
                 }`}
               >
                 <div className="flex items-center justify-between text-xs font-black">
-                  <span className="flex items-center gap-1.5 text-sm text-blue-700">💳 Wallet Pay</span>
+                  <span className="flex items-center gap-1.5 text-sm text-blue-700">Wallet Pay</span>
                   {(sendForm.sourceWallet || "main") === "main" && <span className="text-blue-600 text-sm font-black">✓</span>}
                 </div>
                 <div className="text-base font-black mt-2 text-slate-900">
@@ -6249,7 +6249,7 @@ export default function Dashboard() {
                 }`}
               >
                 <div className="flex items-center justify-between text-xs font-black">
-                  <span className="flex items-center gap-1.5 text-sm text-emerald-700">📈 Profit Pay</span>
+                  <span className="flex items-center gap-1.5 text-sm text-emerald-700">Profit Pay</span>
                   {sendForm.sourceWallet === "profit" && <span className="text-emerald-600 text-sm font-black">✓</span>}
                 </div>
                 <div className="text-base font-black mt-2 text-emerald-700">
@@ -6297,7 +6297,7 @@ export default function Dashboard() {
               </label>
               {!userProfile.hasWalletPin && (
                 <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                  ⚠️ PIN Not Set
+                  PIN Not Set
                 </span>
               )}
             </div>
@@ -6311,7 +6311,7 @@ export default function Dashboard() {
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-center text-xl tracking-[0.35em] font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
             />
             <p className="text-[10px] text-gray-400 mt-1 text-center">
-              🔒 Transaction confirm karne ke liye apna 6-digit secret UPI PIN dalein
+              Transaction confirm karne ke liye apna 6-digit secret UPI PIN dalein
             </p>
           </div>
 
@@ -6337,7 +6337,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           3. PERSONAL LOAN ACCOUNT SHEET & APPLICATION
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={accountModal === "personal_loan"} onClose={closeModal} title="Personal Loan Account" icon="🏦">
+      <Sheet open={accountModal === "personal_loan"} onClose={closeModal} title="Personal Loan Account" icon="">
         {activePersonalLoan ? (
           <div className="space-y-4">
             {/* Account Card */}
@@ -6361,7 +6361,7 @@ export default function Dashboard() {
             {activeLoanDetails?.isUpcomingSoon && activeLoanDetails?.nextInstallment && (
               <div className="p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 rounded-2xl space-y-2 text-amber-950 shadow-sm animate-pulse">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">🔔</span>
+                  <span className="text-xl"></span>
                   <span className="font-black text-xs uppercase tracking-wide text-amber-900">
                     Upcoming Due Alert (Installment #{activeLoanDetails.nextInstallment.installmentNo})
                   </span>
@@ -6401,7 +6401,7 @@ export default function Dashboard() {
                 Har kist ki tareekh ko <strong>subah 10:00 AM se pehle</strong> bharni hogi. 10:00 AM nikalne par kist <strong>Overdue</strong> ho jayegi aur <strong>2% penalty</strong> lagne lagegi.
               </p>
               <div className="pt-1.5 border-t border-indigo-200/60 flex items-center justify-between text-[10px] font-bold text-indigo-800">
-                <span>🔄 Rollover Niyam:</span>
+                <span>Rollover Niyam:</span>
                 <span>Agar ek kist chhoote to agle cycle me jud jayegi (+2% penalty)</span>
               </div>
             </div>
@@ -6410,19 +6410,19 @@ export default function Dashboard() {
             <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl text-xs space-y-1.5">
               <div className="flex items-center justify-between font-extrabold text-emerald-950">
                 <span className="flex items-center gap-1.5">
-                  <span>💰</span> Paisa Aana & Kistein Jana (Timeline)
+                   Paisa Aana & Kistein Jana (Timeline)
                 </span>
                 <span className="text-[10px] font-bold text-emerald-700">10-Day Cycle</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[10px] pt-1">
                 <div className="p-2 bg-white/90 rounded-xl border border-emerald-100 space-y-0.5">
-                  <span className="text-emerald-800 font-extrabold uppercase block">📥 Paisa Aana Hai</span>
+                  <span className="text-emerald-800 font-extrabold uppercase block">Paisa Aana Hai</span>
                   <p className="text-gray-600">• Disbursal: Approval par direct credit</p>
                   <p className="text-gray-600">• Monthly Returns: 1st date credit</p>
                   <p className="text-gray-600">• Daily Yield: Midnight 12:00 AM</p>
                 </div>
                 <div className="p-2 bg-white/90 rounded-xl border border-emerald-100 space-y-0.5">
-                  <span className="text-rose-800 font-extrabold uppercase block">📤 Kistein Kab Jayengi</span>
+                  <span className="text-rose-800 font-extrabold uppercase block">Kistein Kab Jayengi</span>
                   <p className="text-gray-600">• 1st, 11th, aur 21st tareekh</p>
                   <p className="text-gray-600">• Subah 10:00 AM se pehle</p>
                   <p className="text-gray-600">• Miss hone par agli me rollover</p>
@@ -6445,7 +6445,7 @@ export default function Dashboard() {
                 <div className="p-3.5 bg-rose-50 border-2 border-rose-300 rounded-2xl text-xs space-y-2 text-rose-950">
                   <div className="flex items-center justify-between font-black">
                     <span className="flex items-center gap-1.5 text-rose-700">
-                      <span>🚨</span> Overdue & Rollover Notice
+                       Overdue & Rollover Notice
                     </span>
                     <span className="bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full text-[10px] font-mono font-black">
                       {overdueCount} Kist Missed
@@ -6521,10 +6521,10 @@ export default function Dashboard() {
                     Pay Next Easy Installment (₹{totalPayNow.toLocaleString("en-IN")}{penalty > 0 ? ` incl. ₹${penalty} penalty` : ""}) →
                   </button>
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 space-y-1">
-                    <p>⚡ <strong>15-Installment Early Pre-Closure Rule:</strong> Minimum 15 kiston ka bhugtan karke loan samay se pehle band kiya ja sakta hai.</p>
+                    <p><strong>15-Installment Early Pre-Closure Rule:</strong> Minimum 15 kiston ka bhugtan karke loan samay se pehle band kiya ja sakta hai.</p>
                     {userDiscount > 0 ? (
                       <p className="text-emerald-800 font-bold">
-                        🎉 Samay se pehle (9 kiston se pehle) loan payoff karne par aapko ₹{userDiscount.toLocaleString("en-IN")} ka vishesh fayda (chhoot) mila hai! (Payoff: ₹{payoffAmount.toLocaleString("en-IN")})
+                        Samay se pehle (9 kiston se pehle) loan payoff karne par aapko ₹{userDiscount.toLocaleString("en-IN")} ka vishesh fayda (chhoot) mila hai! (Payoff: ₹{payoffAmount.toLocaleString("en-IN")})
                       </p>
                     ) : (
                       paidCount >= 9 && <p className="text-gray-500">Notice: 9 kist ke baad early settlement discount lagu nahi hota hai.</p>
@@ -6546,7 +6546,7 @@ export default function Dashboard() {
               <div className="space-y-2.5 pt-2 border-t border-gray-100">
                 <div className="flex items-center justify-between">
                   <h4 className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
-                    <span>📅</span> 10-Day Installment Schedule & Payment History
+                     10-Day Installment Schedule & Payment History
                   </h4>
                   <span className="text-[10px] text-gray-500 font-bold">
                     {(activeLoanDetails?.installments || activePersonalLoan.installmentSchedule).filter(x => x.status === "paid").length} / {(activeLoanDetails?.installments || activePersonalLoan.installmentSchedule).length} Paid
@@ -6597,7 +6597,7 @@ export default function Dashboard() {
                                   onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
                                   className="text-[10px] text-emerald-800 hover:text-emerald-900 font-extrabold underline flex items-center gap-1 cursor-pointer"
                                 >
-                                  <span>🧾</span> Payment Slip / Receipt 🔍
+                                   Payment Slip / Receipt 
                                 </button>
                               )}
                             </div>
@@ -6609,7 +6609,7 @@ export default function Dashboard() {
                           )}
                           {isOverdue && (
                             <p className="text-[10px] text-rose-700 font-bold">
-                              ⚠️ 10:00 AM cutoff missed • +2% penalty • Agli kist se pehle bharein warna agli me judegi
+                              10:00 AM cutoff missed • +2% penalty • Agli kist se pehle bharein warna agli me judegi
                             </p>
                           )}
                         </div>
@@ -6648,7 +6648,7 @@ export default function Dashboard() {
           /* APPLY PERSONAL LOAN */
           <div className="space-y-4">
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 space-y-1">
-              <div>⚡ <strong>Amount:</strong> ₹5,000 se ₹{maxLimit.toLocaleString("en-IN")} tak.</div>
+              <div><strong>Amount:</strong> ₹5,000 se ₹{maxLimit.toLocaleString("en-IN")} tak.</div>
               {isPremiumUser ? (
                 <div className="text-emerald-700 font-bold flex items-center gap-1.5">
                   <span>⭐</span>
@@ -6656,10 +6656,10 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="text-amber-800 font-medium">
-                  🔒 ₹5000 wallet me 30 din rakho aur premium bano (₹10,000 instant loan unlock).
+                  ₹5000 wallet me 30 din rakho aur premium bano (₹10,000 instant loan unlock).
                 </div>
               )}
-              <div>📅 <strong>Tenure:</strong> Minimum 15 Easy Installments (10-din cycle: 1, 11, 21 tareekh).</div>
+              <div><strong>Tenure:</strong> Minimum 15 Easy Installments (10-din cycle: 1, 11, 21 tareekh).</div>
             </div>
 
             {/* Cheque Facility Toggle */}
@@ -6731,7 +6731,7 @@ export default function Dashboard() {
               <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-2xl space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                    <span>✨</span> Special Interest Rate Option (&gt;₹20,000)
+                     Special Interest Rate Option (&gt;₹20,000)
                   </span>
                   <span className="text-[10px] font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded-full">
                     Optional
@@ -6762,7 +6762,7 @@ export default function Dashboard() {
                         : "bg-emerald-50/60 border-emerald-200 text-gray-600 hover:bg-white"
                     }`}
                   >
-                    <div className="text-[11px] text-emerald-700 font-extrabold">🌟 Special Rate</div>
+                    <div className="text-[11px] text-emerald-700 font-extrabold">Special Rate</div>
                     <div className="font-mono text-xs font-black text-emerald-800">1.00% / installment</div>
                   </button>
                 </div>
@@ -6811,7 +6811,7 @@ export default function Dashboard() {
             {/* All Mandatory Loan Verification Details */}
             <div className="space-y-3 pt-2 border-t border-gray-100">
               <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2.5 text-[11px] text-amber-900 font-semibold flex items-center gap-1.5">
-                <span>⚠️</span>
+                
                 <span>Yeh sabhi dastavej (documents) aur details submit karna <strong>100% anivarya (mandatory)</strong> hai.</span>
               </div>
 
@@ -6985,7 +6985,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           4. MICRO BUSINESS LOAN (DAILY COLLECTION: 60/80/100/120 DAYS)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={accountModal === "business_loan"} onClose={closeModal} title="Micro Business Loan (Daily Collection)" icon="🏬">
+      <Sheet open={accountModal === "business_loan"} onClose={closeModal} title="Micro Business Loan (Daily Collection)" icon="">
         {activeBusinessLoan ? (
           <div className="space-y-4">
             <div className="bg-gradient-to-r from-amber-600 to-orange-700 rounded-2xl p-5 text-white">
@@ -7010,7 +7010,7 @@ export default function Dashboard() {
         ) : (
           <div className="space-y-4">
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
-              🏬 <strong>Daily Collection Tiers:</strong><br />
+              <strong>Daily Collection Tiers:</strong><br />
               60 Days → 18% | 80 Days → 24% | 100 Days → 30% | 120 Days → 36%
             </div>
 
@@ -7055,7 +7055,7 @@ export default function Dashboard() {
               </label>
               <div className="text-[11px] font-semibold text-amber-800">
                 {mblForm.hasChequeFacility
-                  ? "✅ Cheque ke sath: Maximum ₹20,000 limit active"
+                  ? "Cheque ke sath: Maximum ₹20,000 limit active"
                   : "ℹ️ Bina Cheque ke: Maximum ₹10,000 limit (₹20,000 ke liye check lagayein)"}
               </div>
               {mblForm.hasChequeFacility && (
@@ -7121,7 +7121,7 @@ export default function Dashboard() {
             {/* All Mandatory Business Loan Verification Details */}
             <div className="space-y-3 pt-2 border-t border-gray-100">
               <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2.5 text-[11px] text-amber-900 font-semibold flex items-center gap-1.5">
-                <span>⚠️</span>
+                
                 <span>Yeh sabhi dastavej (documents) aur details submit karna <strong>100% anivarya (mandatory)</strong> hai.</span>
               </div>
 
@@ -7309,14 +7309,14 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           5. 365-DAY FIXED BOND ACCOUNT SHEET
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={accountModal === "debt"} onClose={closeModal} title="Bond Account (365-Day Fixed)" icon="📜">
+      <Sheet open={accountModal === "debt"} onClose={closeModal} title="Bond Account (365-Day Fixed)" icon="">
         <div className="space-y-4">
           {/* 365-DAY MULTI-UNIT FIXED BOND CREATION */}
           <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-3 shadow-xs">
             <div className="flex justify-between items-start">
               <div>
                 <h5 className="font-extrabold text-sm text-emerald-950 flex items-center gap-1.5">
-                  <span>📜</span> 365-Day Fixed Bond (Multiple Units Allowed)
+                   365-Day Fixed Bond (Multiple Units Allowed)
                 </h5>
                 <p className="text-xs text-emerald-800 mt-0.5">
                   1 Lakh, 2 Lakh, 3 Lakh ya multiple bonds lock karein. Har bond par guaranteed <strong>18% Profit</strong> maturity par Profit Wallet me credit hoga!
@@ -7464,7 +7464,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           6. LENDING ACCOUNT SHEET (40 & 80 MONTHS MONTHLY BONDS)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={accountModal === "lending"} onClose={closeModal} title="Lending Account (Monthly Return)" icon="🤝">
+      <Sheet open={accountModal === "lending"} onClose={closeModal} title="Lending Account (Monthly Return)" icon="">
         <div className="space-y-4">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
             <span className="text-xs text-blue-100 font-bold uppercase tracking-wider">Lending Monthly Bonds (Multi-Unit Supported)</span>
@@ -7583,7 +7583,7 @@ export default function Dashboard() {
             <div className="p-3.5 bg-white border border-indigo-100 rounded-xl space-y-3 shadow-2xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black text-indigo-950 flex items-center gap-1.5">
-                  <span>📑</span> Mandatory Lending Verification Documents
+                   Mandatory Lending Verification Documents
                 </span>
                 <span className="text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
                   Compulsory 100%
@@ -7837,7 +7837,7 @@ export default function Dashboard() {
       </Sheet>
 
       {/* 7. WALLET ACCOUNT SHEET */}
-      <Sheet open={accountModal === "wallet"} onClose={closeModal} title={txt.walletAccount || "Wallet Account"} icon="💰">
+      <Sheet open={accountModal === "wallet"} onClose={closeModal} title={txt.walletAccount || "Wallet Account"} icon="">
         <div className="space-y-4">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white shadow-md">
             <div className="flex justify-between items-center mb-1">
@@ -7856,7 +7856,7 @@ export default function Dashboard() {
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 text-xs">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <span className="text-base">🏛️</span>
+                <span className="text-base"></span>
                 <div>
                   <h4 className="font-extrabold text-gray-900">{txt.bankCardTitle}</h4>
                   <p className="text-[11px] text-gray-500">{txt.branchName} • IFSC: EFS0000JHAL</p>
@@ -7878,7 +7878,7 @@ export default function Dashboard() {
                   onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "w_acc")}
                   className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer active:scale-95"
                 >
-                  {copiedField === "w_acc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                  {copiedField === "w_acc" ? "✓ " + txt.copied : "" + txt.copy}
                 </button>
               </div>
 
@@ -7892,7 +7892,7 @@ export default function Dashboard() {
                   onClick={() => copyToClipboard("EFS0000JHAL", "w_ifsc")}
                   className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer active:scale-95"
                 >
-                  {copiedField === "w_ifsc" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                  {copiedField === "w_ifsc" ? "✓ " + txt.copied : "" + txt.copy}
                 </button>
               </div>
 
@@ -7906,7 +7906,7 @@ export default function Dashboard() {
                   onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "w_upi")}
                   className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer active:scale-95"
                 >
-                  {copiedField === "w_upi" ? "✓ " + txt.copied : "📋 " + txt.copy}
+                  {copiedField === "w_upi" ? "✓ " + txt.copied : "" + txt.copy}
                 </button>
               </div>
             </div>
@@ -7935,7 +7935,7 @@ export default function Dashboard() {
       </Sheet>
 
       {/* 8. STUDENT LOAN ACCOUNT SHEET */}
-      <Sheet open={accountModal === "student_loan"} onClose={closeModal} title="Student Loan Account" icon="🎓">
+      <Sheet open={accountModal === "student_loan"} onClose={closeModal} title="Student Loan Account" icon="">
         {activeStudentLoan ? (
           <div className="space-y-4">
             <div className="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl p-5 text-white shadow-md">
@@ -7980,12 +7980,12 @@ export default function Dashboard() {
                 <div className="space-y-2">
                   {studentPenalty > 0 && (
                     <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
-                      ⚠️ Overdue Penalty Due: <strong>₹{studentPenalty}</strong> (Pehle penalty clear hogi)
+                      Overdue Penalty Due: <strong>₹{studentPenalty}</strong> (Pehle penalty clear hogi)
                     </div>
                   )}
                   {userDiscount > 0 && (
                     <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium">
-                      🎉 Early Settlement Offer: Samay se pehle band karne par <strong>₹{userDiscount.toLocaleString("en-IN")} ka fayda (chhoot)</strong> milega!
+                      Early Settlement Offer: Samay se pehle band karne par <strong>₹{userDiscount.toLocaleString("en-IN")} ka fayda (chhoot)</strong> milega!
                     </div>
                   )}
                   <button
@@ -8004,7 +8004,7 @@ export default function Dashboard() {
                     onClick={() => closeLoanEarly(activeStudentLoan._id, studentPayoff, userDiscount, xPercent)}
                     className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs transition cursor-pointer"
                   >
-                    ⚡ Close Loan Early (15-Kist Payoff ₹{studentPayoff.toLocaleString("en-IN")}{userDiscount > 0 ? ` • ₹${userDiscount} Fayda` : ""})
+                    Close Loan Early (15-Kist Payoff ₹{studentPayoff.toLocaleString("en-IN")}{userDiscount > 0 ? ` • ₹${userDiscount} Fayda` : ""})
                   </button>
                 </div>
               );
@@ -8019,9 +8019,9 @@ export default function Dashboard() {
             </div>
 
             <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 text-xs text-cyan-900 space-y-1">
-              <div>⚡ <strong>Amount:</strong> ₹5,000 se ₹{maxLimit.toLocaleString("en-IN")} tak.</div>
-              <div>📝 <strong>1st Time Limit:</strong> ₹5,000 (Subsidized student interest & easy installments).</div>
-              <div>📅 <strong>Tenure:</strong> 15 se 30 Easy Installments (10-din cycle: 1, 11, 21 tareekh).</div>
+              <div><strong>Amount:</strong> ₹5,000 se ₹{maxLimit.toLocaleString("en-IN")} tak.</div>
+              <div><strong>1st Time Limit:</strong> ₹5,000 (Subsidized student interest & easy installments).</div>
+              <div><strong>Tenure:</strong> 15 se 30 Easy Installments (10-din cycle: 1, 11, 21 tareekh).</div>
             </div>
 
             {/* Cheque Facility Toggle */}
@@ -8128,7 +8128,7 @@ export default function Dashboard() {
             {/* All Mandatory Student Loan Verification Details */}
             <div className="space-y-3 pt-2 border-t border-gray-100">
               <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2.5 text-[11px] text-amber-900 font-semibold flex items-center gap-1.5">
-                <span>⚠️</span>
+                
                 <span>Yeh sabhi dastavej (documents) aur details submit karna <strong>100% anivarya (mandatory)</strong> hai.</span>
               </div>
 
@@ -8324,7 +8324,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           ALL LOANS & DUES HUB SHEET (ACTIVATED ON 'LOANS' CLICK)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "all_loans"} onClose={closeModal} title="My Loans & Dues Hub" icon="🏦">
+      <Sheet open={modal === "all_loans"} onClose={closeModal} title="My Loans & Dues Hub" icon="">
         <div className="space-y-4">
           {/* Top Dues & Limit Summary Hero */}
           <div className={`p-4 sm:p-5 rounded-2xl text-white shadow-md relative overflow-hidden ${
@@ -8407,13 +8407,13 @@ export default function Dashboard() {
                 onClick={loadLoans}
                 className="text-[11px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
               >
-                🔄 Refresh
+                Refresh
               </button>
             </div>
 
             {loans.length === 0 ? (
               <div className="py-6 text-center bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-2">
-                <span className="text-3xl block">🏦</span>
+                <span className="text-3xl block"></span>
                 <h5 className="font-bold text-sm text-gray-800">Abhi Koi Active Loan Nahi Hai</h5>
                 <p className="text-xs text-gray-500 max-w-xs mx-auto">
                   Aap bina kisi delay ke instant loan le sakte hain. Neeche diye gaye loan options se apply karein:
@@ -8453,7 +8453,7 @@ export default function Dashboard() {
                               isDaily ? "bg-amber-100 text-amber-800" :
                               "bg-emerald-100 text-emerald-800"
                             }`}>
-                              {isStudent ? "🎓 Student Loan" : isDaily ? "🏬 Business Daily" : "🏦 Personal 10-Day"}
+                              {isStudent ? "Student Loan" : isDaily ? "Business Daily" : "Personal 10-Day"}
                             </span>
                           </div>
                           <h5 className="text-lg font-black font-display text-gray-900 mt-1">
@@ -8468,7 +8468,7 @@ export default function Dashboard() {
                               onClick={() => { setLightboxImg(l.documents.offlineEvidenceUrl); setZoomLevel(1); }}
                               className="mt-1 px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95 cursor-pointer shadow-2xs hover:bg-emerald-100 transition"
                             >
-                              <span>🧾</span> Offline Payment Voucher / Slip 🔍
+                               Offline Payment Voucher / Slip 
                             </button>
                           )}
                         </div>
@@ -8507,12 +8507,12 @@ export default function Dashboard() {
                           <div className="space-y-2 pt-1">
                             {penaltyAmt > 0 && (
                               <div className="p-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
-                                ⚠️ Overdue Penalty Due: <strong>₹{penaltyAmt}</strong> (Pehle penalty clear hogi)
+                                Overdue Penalty Due: <strong>₹{penaltyAmt}</strong> (Pehle penalty clear hogi)
                               </div>
                             )}
                             {userDiscount > 0 && (
                               <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium flex items-center justify-between">
-                                <span>🎉 Early Settlement Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} ki Chhoot (Fayda)</strong></span>
+                                <span>Early Settlement Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} ki Chhoot (Fayda)</strong></span>
                                 <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">Fayda Active</span>
                               </div>
                             )}
@@ -8538,7 +8538,7 @@ export default function Dashboard() {
                                 className="px-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs active:scale-95 transition cursor-pointer"
                                 title="Close loan early with 15-installment payoff"
                               >
-                                ⚡ 15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Fayda]` : ""}
+                                15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Fayda]` : ""}
                               </button>
                             </div>
                           </div>
@@ -8553,7 +8553,7 @@ export default function Dashboard() {
                             onClick={() => setExpandedLoanId(isExpanded ? null : l._id)}
                             className="w-full py-1.5 text-center text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center justify-center gap-1.5 cursor-pointer"
                           >
-                            <span>📅</span>
+                            
                             <span>{isExpanded ? "Hide Installments Schedule ▲" : `View Full Schedule (${paidCount}/${schedule.length} Paid) ▼`}</span>
                           </button>
 
@@ -8589,7 +8589,7 @@ export default function Dashboard() {
                                               onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
                                               className="text-[10px] text-emerald-800 hover:text-emerald-950 underline font-extrabold flex items-center gap-0.5 cursor-pointer"
                                             >
-                                              <span>🧾</span> Slip 🔍
+                                               Slip 
                                             </button>
                                           )}
                                         </div>
@@ -8645,7 +8645,7 @@ export default function Dashboard() {
                 {heroFlyId === "hub_apply_personal" && <LoanHeroFlyBadge />}
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shrink-0">
-                    🏦
+                    
                   </div>
                   <div>
                     <h5 className="font-extrabold text-xs text-gray-900">Personal Loan Account</h5>
@@ -8663,7 +8663,7 @@ export default function Dashboard() {
                 {heroFlyId === "hub_apply_student" && <LoanHeroFlyBadge />}
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center text-xl shrink-0">
-                    🎓
+                    
                   </div>
                   <div>
                     <h5 className="font-extrabold text-xs text-gray-900">Student Loan Account</h5>
@@ -8681,7 +8681,7 @@ export default function Dashboard() {
                 {heroFlyId === "hub_apply_business" && <LoanHeroFlyBadge />}
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl shrink-0">
-                    🏬
+                    
                   </div>
                   <div>
                     <h5 className="font-extrabold text-xs text-gray-900">Micro Business Loan</h5>
@@ -8696,12 +8696,12 @@ export default function Dashboard() {
       </Sheet>
 
       {/* DEPOSIT SHEET */}
-      <Sheet open={modal === "deposit"} onClose={closeModal} title="Add Money" icon="💸">
+      <Sheet open={modal === "deposit"} onClose={closeModal} title="Add Money" icon="">
         <div className="bg-white text-slate-800 rounded-2xl p-4 mb-4 shadow-sm border border-slate-200 space-y-3.5">
           {/* Professional English Fintech Clarity Notice */}
           <div className="p-3.5 bg-blue-50/90 border border-blue-200/90 rounded-xl text-xs text-blue-950">
             <div className="flex items-center gap-2 font-bold mb-1 text-blue-900">
-              <span className="text-base">🛡️</span>
+              <span className="text-base"></span>
               <span className="font-extrabold">Official Educa Fintech Wallet Deposit</span>
             </div>
             <p className="text-[11px] text-blue-800 leading-relaxed font-medium">
@@ -8711,7 +8711,7 @@ export default function Dashboard() {
 
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <div className="flex items-center gap-2">
-              <span className="text-lg">🏛️</span>
+              <span className="text-lg"></span>
               <div>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Official Settlement Bank</p>
                 <p className="text-xs font-black text-slate-900">{depositDetails.bankName || "Bank of Baroda"}</p>
@@ -8740,7 +8740,7 @@ export default function Dashboard() {
                   }}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-lg shadow-xs transition active:scale-95 flex items-center gap-1 cursor-pointer"
                 >
-                  {copiedDepField === "UPI ID" ? "✓ Copied" : "📋 Copy UPI"}
+                  {copiedDepField === "UPI ID" ? "✓ Copied" : "Copy UPI"}
                 </button>
               </div>
               {depForm.amount && Number(depForm.amount) >= 100 && (
@@ -8748,7 +8748,7 @@ export default function Dashboard() {
                   href={`upi://pay?pa=${encodeURIComponent(depositDetails.upiId)}&pn=${encodeURIComponent(depositDetails.upiName || "Educa")}&am=${depForm.amount}&cu=INR`}
                   className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95"
                 >
-                  ⚡ Open GPay / PhonePe / Paytm to Pay ₹{depForm.amount}
+                  Open GPay / PhonePe / Paytm to Pay ₹{depForm.amount}
                 </a>
               )}
             </div>
@@ -8769,7 +8769,7 @@ export default function Dashboard() {
                   }}
                   className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] rounded-lg transition active:scale-95 cursor-pointer"
                 >
-                  {copiedDepField === "Account No" ? "✓ Copied" : "📋 Copy A/C"}
+                  {copiedDepField === "Account No" ? "✓ Copied" : "Copy A/C"}
                 </button>
               </div>
               <div className="flex items-center justify-between">
@@ -8787,7 +8787,7 @@ export default function Dashboard() {
                   }}
                   className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-[11px] rounded-lg transition active:scale-95 cursor-pointer"
                 >
-                  {copiedDepField === "IFSC" ? "✓ Copied" : "📋 Copy IFSC"}
+                  {copiedDepField === "IFSC" ? "✓ Copied" : "Copy IFSC"}
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 pt-2 border-t border-slate-200">
@@ -8821,7 +8821,7 @@ export default function Dashboard() {
                     : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                <span>⚡</span> UPI Payment
+                 UPI Payment
               </button>
               <button
                 type="button"
@@ -8832,7 +8832,7 @@ export default function Dashboard() {
                     : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                <span>🏦</span> Bank Transfer
+                 Bank Transfer
               </button>
             </div>
           </div>
@@ -8841,7 +8841,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-center mb-1">
               <label className="text-xs font-bold text-gray-700 block">Deposit Amount (₹)</label>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                ♾️ {lang === "hindi" ? "अनंत सीमा (No Upper Limit)" : "Infinite Range (No Upper Limit)"}
+                {lang === "hindi" ? "अनंत सीमा (No Upper Limit)" : "Infinite Range (No Upper Limit)"}
               </span>
             </div>
             <input
@@ -8885,7 +8885,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <label className="cursor-pointer flex flex-col items-center justify-center py-2.5">
-                  <span className="text-2xl mb-1">📸</span>
+                  <span className="text-2xl mb-1"></span>
                   <span className="text-xs font-bold text-blue-600">Payment Screenshot Attach Karein</span>
                   <span className="text-[10px] text-gray-400 mt-0.5">JPG, PNG (Max 15MB)</span>
                   <input
@@ -8920,24 +8920,24 @@ export default function Dashboard() {
       </Sheet>
 
       {/* WITHDRAW SHEET */}
-      <Sheet open={modal === "withdraw"} onClose={closeModal} title="Withdraw Money (Money Out)" icon="💰">
+      <Sheet open={modal === "withdraw"} onClose={closeModal} title="Withdraw Money (Money Out)" icon="">
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3.5 mb-4 text-xs text-amber-950 space-y-2">
           <div className="flex items-center justify-between font-bold">
-            <span className="flex items-center gap-1.5">🏛️ Money Out SLA (Bank / UPI Transfer)</span>
+            <span className="flex items-center gap-1.5">Money Out SLA (Bank / UPI Transfer)</span>
             <span className="text-[10px] bg-amber-100/90 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full font-bold">Admin Verification</span>
           </div>
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <div className="bg-white/80 p-2 rounded-lg border border-amber-100 shadow-2xs">
-              <span className="font-bold text-emerald-800 block">⚡ ₹100 – ₹5,000:</span>
+              <span className="font-bold text-emerald-800 block">₹100 – ₹5,000:</span>
               <span className="text-gray-600 font-medium">24 ghante ke andar Admin Approval & Transfer</span>
             </div>
             <div className="bg-white/80 p-2 rounded-lg border border-amber-100 shadow-2xs">
-              <span className="font-bold text-indigo-800 block">🛡️ ₹5,000 se upar:</span>
+              <span className="font-bold text-indigo-800 block">₹5,000 se upar:</span>
               <span className="text-gray-600 font-medium">72 ghante ke darmiyan Admin Approval & Transfer</span>
             </div>
           </div>
           <p className="text-[10px] text-amber-800/80 italic font-medium pt-0.5">
-            💡 Fintech ke andar (Send Money) bina kisi SLA ke instant transfer hota hai.
+            Fintech ke andar (Send Money) bina kisi SLA ke instant transfer hota hai.
           </p>
         </div>
         <div className="space-y-3">
@@ -8957,7 +8957,7 @@ export default function Dashboard() {
                 }`}
               >
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span>🏛️ {lang === "hindi" ? "प्राइमरी वॉलेट" : "Main Wallet"}</span>
+                  <span>{lang === "hindi" ? "प्राइमरी वॉलेट" : "Main Wallet"}</span>
                   {(wdForm.sourceWallet || "main") === "main" && <span className="text-blue-600 text-xs">✓</span>}
                 </div>
                 <div className="text-sm font-black mt-1 text-blue-700">
@@ -8976,7 +8976,7 @@ export default function Dashboard() {
                 }`}
               >
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span>📈 {lang === "hindi" ? "प्रॉफ़िट वॉलेट" : "Profit Wallet"}</span>
+                  <span>{lang === "hindi" ? "प्रॉफ़िट वॉलेट" : "Profit Wallet"}</span>
                   {wdForm.sourceWallet === "profit" && <span className="text-blue-600 text-xs">✓</span>}
                 </div>
                 <div className="text-sm font-black mt-1 text-blue-700">
@@ -9003,7 +9003,7 @@ export default function Dashboard() {
                   ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                   : "bg-indigo-50 text-indigo-800 border border-indigo-200"
               }`}>
-                <span>{Number(wdForm.amount) <= 5000 ? "⏱️ SLA: 24 Ghante ke andar processed" : "🛡️ SLA: 72 Ghante ke darmiyan processed (High-Value)"}</span>
+                <span>{Number(wdForm.amount) <= 5000 ? "⏱️ SLA: 24 Ghante ke andar processed" : "SLA: 72 Ghante ke darmiyan processed (High-Value)"}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-white/70 uppercase tracking-wider">{Number(wdForm.amount) <= 5000 ? "Standard SLA" : "72h SLA"}</span>
               </div>
             )}
@@ -9071,7 +9071,7 @@ export default function Dashboard() {
                 ) : (
                   <div className="space-y-2">
                     <label className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-gray-50/50 hover:bg-blue-50/30 transition text-xs font-bold text-gray-600">
-                      <span>📷 Select QR Code Image</span>
+                      <span>Select QR Code Image</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -9085,7 +9085,7 @@ export default function Dashboard() {
                         onClick={() => setWdForm(prev => ({ ...prev, qrCode: userProfile.customQrUrl, qrCodeName: "Profile QR" }))}
                         className="w-full py-1.5 px-2 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700 font-bold hover:bg-blue-100 flex items-center justify-center gap-1.5 transition cursor-pointer"
                       >
-                        <span>📲</span> Use Saved Profile QR ({userProfile.customQrApp || "PhonePe/GPay"})
+                         Use Saved Profile QR ({userProfile.customQrApp || "PhonePe/GPay"})
                       </button>
                     )}
                   </div>
@@ -9140,7 +9140,7 @@ export default function Dashboard() {
             ? "Set 6-Digit PIN"
             : "Enter Security PIN"
         }
-        icon={pendingPinAction?.type === "send_money_transfer" ? "💸" : "🔒"}
+        icon={pendingPinAction?.type === "send_money_transfer" ? "" : ""}
       >
         <div className="space-y-4">
           <div className={`p-3 rounded-xl border text-xs ${
@@ -9157,16 +9157,16 @@ export default function Dashboard() {
                   <p className="text-[11px] text-emerald-700 mt-0.5">
                     To: <strong>{pendingPinAction.form?.recipient || sendForm.recipient}</strong>
                   </p>
-                  <p className="text-[10px] text-gray-500 mt-1">🔒 Apna 6-digit secret UPI PIN enter karein.</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Apna 6-digit secret UPI PIN enter karein.</p>
                 </div>
-                <span className="text-2xl">⚡</span>
+                <span className="text-2xl"></span>
               </div>
             ) : pendingPinAction?.type === "send_money" ? (
-              <>🔒 <strong>UPI Security PIN:</strong> Send Money transfer ke liye apna 6-digit secret UPI PIN banayein.</>
+              <><strong>UPI Security PIN:</strong> Send Money transfer ke liye apna 6-digit secret UPI PIN banayein.</>
             ) : pinSetupMode ? (
-              <>🔒 <strong>First-Time Security PIN:</strong> Balance check karne ke liye 6-number ka secret PIN banayein.</>
+              <><strong>First-Time Security PIN:</strong> Balance check karne ke liye 6-number ka secret PIN banayein.</>
             ) : (
-              <>🔒 Primary Wallet Balance check karne ke liye apna 6-number ka security PIN enter karein.</>
+              <>Primary Wallet Balance check karne ke liye apna 6-number ka security PIN enter karein.</>
             )}
           </div>
 
@@ -9177,7 +9177,7 @@ export default function Dashboard() {
                 onClick={triggerBiometricAuth}
                 className="w-full py-3 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border-2 border-emerald-300 text-emerald-900 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-95"
               >
-                <span className="text-xl">👆</span>
+                <span className="text-xl"></span>
                 <span>Use Fingerprint to Unlock</span>
               </button>
               <div className="flex items-center gap-2 my-3">
@@ -9279,13 +9279,13 @@ export default function Dashboard() {
         open={modal === "change_password" || modal === "must_change_password"}
         onClose={() => {
           if (isMustChangePassword) {
-            setToast({ text: "⚠️ Temporary password badalna zaroori hai.", type: "error" });
+            setToast({ text: "Temporary password badalna zaroori hai.", type: "error" });
             return;
           }
           closeModal();
         }}
         title={isMustChangePassword ? "Set New Personal Password" : "Change Login Password"}
-        icon="🔑"
+        icon=""
       >
         <form onSubmit={handleSaveNewPassword} className="space-y-3.5">
           <div className={`p-3 rounded-xl border text-xs ${
@@ -9295,7 +9295,7 @@ export default function Dashboard() {
           }`}>
             {isMustChangePassword ? (
               <>
-                <p className="font-extrabold text-sm mb-1 text-amber-950">⚠️ Temporary Password Notice</p>
+                <p className="font-extrabold text-sm mb-1 text-amber-950">Temporary Password Notice</p>
                 <p className="leading-relaxed">
                   Aapka password Admin dwara reset kiya gaya tha. Suraksha ke liye apna naya personal password set karein. Ye naya password <strong>Fintech App</strong> aur <strong>Educa Mail</strong> dono me lagoo hoga.
                 </p>
@@ -9331,7 +9331,7 @@ export default function Dashboard() {
                 onClick={() => setShowNewPasswordText(!showNewPasswordText)}
                 className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
               >
-                {showNewPasswordText ? "🙈 Hide" : "👁️ Show"}
+                {showNewPasswordText ? "Hide" : "Show"}
               </button>
             </div>
             <input
@@ -9360,7 +9360,7 @@ export default function Dashboard() {
 
           {changePasswordError && (
             <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200 font-medium">
-              ⚠️ {changePasswordError}
+              {changePasswordError}
             </p>
           )}
 
@@ -9379,7 +9379,7 @@ export default function Dashboard() {
               disabled={savingNewPassword || !changePasswordForm.newPassword}
               className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-extrabold text-xs shadow-md active:scale-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
             >
-              {savingNewPassword ? "Updating..." : "💾 Save New Password"}
+              {savingNewPassword ? "Updating..." : "Save New Password"}
             </button>
           </div>
         </form>
@@ -9388,10 +9388,10 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           RESET / CHANGE 6-DIGIT PIN MODAL (PHONE + AADHAR)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "reset_pin"} onClose={closeModal} title="Reset Wallet PIN" icon="🛡️">
+      <Sheet open={modal === "reset_pin"} onClose={closeModal} title="Reset Wallet PIN" icon="">
         <div className="space-y-3.5">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
-            🛡️ <strong>Identity Verification:</strong> PIN badalne ke liye apna registered mobile number aur 12-digit Aadhar number enter karein.
+            <strong>Identity Verification:</strong> PIN badalne ke liye apna registered mobile number aur 12-digit Aadhar number enter karein.
           </div>
 
           <div>
@@ -9461,14 +9461,14 @@ export default function Dashboard() {
       </Sheet>
 
       {/* PROFILE SHEET */}
-      <Sheet open={modal === "profile"} onClose={closeModal} title="My Profile & Member ID" icon="👤">
+      <Sheet open={modal === "profile"} onClose={closeModal} title="My Profile & Member ID" icon="">
         <div className="space-y-4">
           {/* USER PROFILE INFO & EDIT ID SECTION */}
           {isEditingProfile ? (
             <form onSubmit={handleSaveProfile} className="p-4 bg-white border border-blue-200 rounded-2xl shadow-sm space-y-3">
               <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                 <span className="font-extrabold text-xs sm:text-sm text-gray-900 flex items-center gap-1.5">
-                  <span>✏️</span> Edit ID Details (Name, Phone & Pata)
+                   Edit ID Details (Name, Phone & Pata)
                 </span>
                 <button
                   type="button"
@@ -9482,7 +9482,7 @@ export default function Dashboard() {
               {/* 1. Name */}
               <div>
                 <label className="text-[11px] font-bold text-gray-600 block mb-1">
-                  👤 Pura Naam (Full Name) *
+                  Pura Naam (Full Name) *
                 </label>
                 <input
                   type="text"
@@ -9497,7 +9497,7 @@ export default function Dashboard() {
               {/* 2. Phone */}
               <div>
                 <label className="text-[11px] font-bold text-gray-600 block mb-1">
-                  📱 Mobile / Phone Number *
+                  Mobile / Phone Number *
                 </label>
                 <input
                   type="text"
@@ -9512,7 +9512,7 @@ export default function Dashboard() {
               {/* 3. Address / Pata */}
               <div>
                 <label className="text-[11px] font-bold text-gray-600 block mb-1">
-                  📍 Pata (Address)
+                  Pata (Address)
                 </label>
                 <textarea
                   rows={2}
@@ -9536,7 +9536,7 @@ export default function Dashboard() {
                   disabled={savingProfile}
                   className="flex-1 py-2 text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-xs active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <span>💾</span> {savingProfile ? "Saving..." : "Save Changes"}
+                   {savingProfile ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>
@@ -9560,7 +9560,7 @@ export default function Dashboard() {
                   onClick={handleOpenEditProfile}
                   className="px-3 py-1.5 bg-white hover:bg-blue-50 border border-blue-200 text-blue-700 rounded-xl text-xs font-extrabold transition active:scale-95 shadow-2xs flex items-center gap-1 cursor-pointer"
                 >
-                  <span>✏️</span> Edit ID
+                   Edit ID
                 </button>
               </div>
 
@@ -9595,7 +9595,7 @@ export default function Dashboard() {
                 onClick={() => copyText(userUniqueId)}
                 className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold transition active:scale-95 shadow-xs"
               >
-                {copied ? "✓ Copied" : "📋 Copy ID"}
+                {copied ? "✓ Copied" : "Copy ID"}
               </button>
             </div>
           </div>
@@ -9604,7 +9604,7 @@ export default function Dashboard() {
           <div className="p-4 bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl shadow-sm border border-indigo-500/30 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <span className="text-base">🏛️</span>
+                <span className="text-base"></span>
                 <div>
                   <h4 className="font-extrabold text-xs text-white">{txt.bankCardTitle}</h4>
                   <p className="text-[10px] text-indigo-200">{txt.branchName}</p>
@@ -9625,7 +9625,7 @@ export default function Dashboard() {
                     onClick={() => copyToClipboard(userProfile.accountNumber || "EFS0000001", "p_acc")}
                     className="text-[10px] text-indigo-300 font-bold hover:underline cursor-pointer"
                   >
-                    {copiedField === "p_acc" ? "✓" : "📋"}
+                    {copiedField === "p_acc" ? "✓" : ""}
                   </button>
                 </div>
               </div>
@@ -9639,7 +9639,7 @@ export default function Dashboard() {
                     onClick={() => copyToClipboard("EFS0000JHAL", "p_ifsc")}
                     className="text-[10px] text-indigo-300 font-bold hover:underline cursor-pointer"
                   >
-                    {copiedField === "p_ifsc" ? "✓" : "📋"}
+                    {copiedField === "p_ifsc" ? "✓" : ""}
                   </button>
                 </div>
               </div>
@@ -9653,7 +9653,7 @@ export default function Dashboard() {
                     onClick={() => copyToClipboard(userProfile.upiId || ((userProfile.accountNumber || "efs0000001").toLowerCase() + "@educa"), "p_upi")}
                     className="text-[10px] text-indigo-300 font-bold hover:underline cursor-pointer shrink-0 ml-1"
                   >
-                    {copiedField === "p_upi" ? "✓ Copied" : "📋 Copy"}
+                    {copiedField === "p_upi" ? "✓ Copied" : "Copy"}
                   </button>
                 </div>
               </div>
@@ -9664,7 +9664,7 @@ export default function Dashboard() {
               onClick={shareFullBankDetails}
               className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
             >
-              <span>📤</span> {txt.shareBankDetails}
+               {txt.shareBankDetails}
             </button>
           </div>
 
@@ -9673,7 +9673,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-lg">
-                  {userProfile.kycStatus === "verified" ? "✅" : userProfile.kycStatus === "pending" ? "⏳" : userProfile.kycStatus === "rejected" ? "❌" : "📄"}
+                  {userProfile.kycStatus === "verified" ? "" : userProfile.kycStatus === "pending" ? "⏳" : userProfile.kycStatus === "rejected" ? "" : ""}
                 </span>
                 <div>
                   <h4 className="font-extrabold text-xs text-gray-900">
@@ -9717,7 +9717,7 @@ export default function Dashboard() {
             <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">🤝</span>
+                  <span className="text-base"></span>
                   <span className="font-extrabold text-xs text-amber-950">Verified Agent Partner</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-1 justify-end">
@@ -9755,7 +9755,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl shadow-xs p-4 sm:p-5 border border-gray-200/90">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-bold font-display flex items-center gap-1.5 text-gray-900">
-                <span>📑</span> <span>My Active Loans</span>
+                 <span>My Active Loans</span>
               </h3>
               <span className="text-[11px] text-gray-400 font-semibold">{loans.length} active</span>
             </div>
@@ -9803,12 +9803,12 @@ export default function Dashboard() {
                       </div>
                       {penaltyAmt > 0 && (
                         <div className="mb-2 p-2 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-700 font-medium">
-                          ⚠️ Overdue Penalty Due: <strong>₹{penaltyAmt}</strong> (Pehle penalty clear hogi, phir installment)
+                          Overdue Penalty Due: <strong>₹{penaltyAmt}</strong> (Pehle penalty clear hogi, phir installment)
                         </div>
                       )}
                       {userDiscount > 0 && (
                         <div className="mb-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 font-medium flex items-center justify-between">
-                          <span>🎉 Early Settlement Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} ki Chhoot</strong></span>
+                          <span>Early Settlement Offer: <strong>₹{userDiscount.toLocaleString("en-IN")} ki Chhoot</strong></span>
                           <span className="text-[9px] font-bold bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-full">Fayda Active</span>
                         </div>
                       )}
@@ -9826,7 +9826,7 @@ export default function Dashboard() {
                             Pay Kist ₹{nextDueAmt}{penaltyAmt > 0 ? ` (incl ₹${penaltyAmt} penalty)` : ""}
                           </button>
                           <button onClick={() => closeLoanEarly(l._id, payoffAmt, userDiscount, xPercent)} className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs border border-emerald-300 transition active:scale-[0.98]">
-                            ⚡ 15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Fayda]` : ""}
+                            15-Kist Payoff (₹{payoffAmt}){userDiscount > 0 ? ` [₹${userDiscount} Fayda]` : ""}
                           </button>
                         </div>
                       )}
@@ -9843,7 +9843,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl shadow-xs p-4 sm:p-5 border border-gray-200/90">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-bold font-display flex items-center gap-1.5 text-gray-900">
-                <span>📊</span> <span>Recent Transactions</span>
+                 <span>Recent Transactions</span>
               </h3>
               <span className="text-[11px] text-gray-400 font-semibold">{txns.length} records</span>
             </div>
@@ -9876,7 +9876,7 @@ export default function Dashboard() {
                     <div key={t._id} className="flex items-center justify-between border border-gray-100 rounded-xl p-2.5 hover:bg-gray-50/50 transition">
                       <div className="flex items-center gap-2.5">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${isCredit ? "bg-green-50" : "bg-red-50"}`}>
-                          {isCredit ? "🟢" : "🔴"}
+                          {isCredit ? "" : ""}
                         </div>
                         <div>
                           <p className="font-semibold text-xs capitalize text-gray-900">
@@ -9907,7 +9907,7 @@ export default function Dashboard() {
               onClick={() => { setModal("kyc"); }}
               className="w-full py-2.5 px-4 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200 text-blue-900 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
             >
-              <span className="flex items-center gap-2"><span>📄</span> e-KYC Document Verification</span>
+              <span className="flex items-center gap-2"> e-KYC Document Verification</span>
               <span className="text-blue-600 font-extrabold text-xs">
                 {userProfile.kycStatus === "verified" ? "✓ Verified" : "Submit →"}
               </span>
@@ -9920,7 +9920,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center gap-3 text-left">
                 <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center text-lg shrink-0">
-                  💳
+                  
                 </div>
                 <div>
                   <span className="block font-black text-sm text-white">{txt.passbookHistory}</span>
@@ -9937,7 +9937,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center gap-3 text-left">
                 <div className="w-9 h-9 bg-amber-400/20 border border-amber-400/40 rounded-xl flex items-center justify-center text-lg shrink-0">
-                  💳
+                  
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
@@ -9959,7 +9959,7 @@ export default function Dashboard() {
               onClick={() => { closeModal(); setTourStep(0); setShowTour(true); }}
               className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
             >
-              <span className="flex items-center gap-2"><span>🎓</span> {txt.appTour}</span>
+              <span className="flex items-center gap-2"> {txt.appTour}</span>
               <span className="text-gray-400">→</span>
             </button>
 
@@ -9967,7 +9967,7 @@ export default function Dashboard() {
               onClick={() => { setModal("my_qr"); }}
               className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
             >
-              <span className="flex items-center gap-2"><span>📱</span> {txt.myQrCode}</span>
+              <span className="flex items-center gap-2"> {txt.myQrCode}</span>
               <span className="text-gray-400">→</span>
             </button>
 
@@ -9975,7 +9975,7 @@ export default function Dashboard() {
               onClick={handleOpenResetPin}
               className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
             >
-              <span className="flex items-center gap-2"><span>🔒</span> {txt.resetPin}</span>
+              <span className="flex items-center gap-2"> {txt.resetPin}</span>
               <span className="text-gray-400">→</span>
             </button>
 
@@ -9983,7 +9983,7 @@ export default function Dashboard() {
               onClick={() => { closeModal(); setModal("change_password"); }}
               className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95 cursor-pointer"
             >
-              <span className="flex items-center gap-2"><span>🔑</span> Change Login Password (Fintech + Educa Mail)</span>
+              <span className="flex items-center gap-2"> Change Login Password (Fintech + Educa Mail)</span>
               <span className="text-gray-400">→</span>
             </button>
           </div>
@@ -9992,7 +9992,7 @@ export default function Dashboard() {
           <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
-                <span>⚙️</span> <span>App Settings & Preferences</span>
+                 <span>App Settings & Preferences</span>
               </span>
               <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Preferences</span>
             </div>
@@ -10002,9 +10002,9 @@ export default function Dashboard() {
               <span className="text-[11px] font-bold text-gray-700 block mb-1.5">App Language / भाषा चुनें:</span>
               <div className="grid grid-cols-3 gap-1.5">
                 {[
-                  { code: "hinglish", label: "Hinglish", flag: "🗣️" },
-                  { code: "hindi", label: "हिंदी", flag: "🇮🇳" },
-                  { code: "english", label: "English", flag: "🇬🇧" },
+                  { code: "hinglish", label: "Hinglish" },
+                  { code: "hindi", label: "हिंदी" },
+                  { code: "english", label: "English" },
                 ].map(item => (
                   <button
                     key={item.code}
@@ -10016,7 +10016,6 @@ export default function Dashboard() {
                         : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
                     }`}
                   >
-                    <span>{item.flag}</span>
                     <span>{item.label}</span>
                   </button>
                 ))}
@@ -10036,7 +10035,7 @@ export default function Dashboard() {
                   isSpeaking ? "bg-amber-500 text-white" : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
                 }`}
               >
-                <span>{isSpeaking ? "⏹️" : "🔊"}</span>
+                <span>{isSpeaking ? "⏹️" : ""}</span>
                 <span>{isSpeaking ? "Stop" : "Sunayein"}</span>
               </button>
             </div>
@@ -10047,7 +10046,7 @@ export default function Dashboard() {
               onClick={() => { closeModal(); setTourStep(0); setShowTour(true); }}
               className="w-full py-2 px-3 bg-white hover:bg-gray-100 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition cursor-pointer"
             >
-              <span className="flex items-center gap-1.5"><span>🎓</span> Replay App Feature Tour</span>
+              <span className="flex items-center gap-1.5"> Replay App Feature Tour</span>
               <span className="text-gray-400">→</span>
             </button>
             {/* Clear Offline Cache */}
@@ -10065,7 +10064,7 @@ export default function Dashboard() {
               className="w-full py-2.5 px-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 rounded-xl font-bold text-xs flex items-center justify-between transition cursor-pointer"
             >
               <span className="flex items-center gap-1.5">
-                <span>🧹</span> Clear Saved Offline Data
+                 Clear Saved Offline Data
               </span>
               <span className="text-[10px] text-gray-400 font-medium">Free storage</span>
             </button>
@@ -10093,7 +10092,7 @@ export default function Dashboard() {
         );
 
         return (
-          <Sheet open={modal === "cards"} onClose={closeModal} title="Educa Smart Cards & VIP" icon="💳">
+          <Sheet open={modal === "cards"} onClose={closeModal} title="Educa Smart Cards & VIP" icon="">
             <div className="space-y-4">
               {/* Tab Selector */}
               <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
@@ -10104,7 +10103,7 @@ export default function Dashboard() {
                     cardTab === "silver" ? "bg-white text-gray-900 shadow-xs" : "text-gray-500 hover:text-gray-900"
                   }`}
                 >
-                  Silver Debit {isSilverUnlocked ? "(Active)" : "(Locked 🔒)"}
+                  Silver Debit {isSilverUnlocked ? "(Active)" : "(Locked )"}
                 </button>
                 <button
                   type="button"
@@ -10113,7 +10112,7 @@ export default function Dashboard() {
                     cardTab === "platinum" ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-xs" : "text-gray-500 hover:text-gray-900"
                   }`}
                 >
-                  👑 Platinum VIP {isPlatinumUnlocked ? "(Unlocked)" : "(Locked 🔒)"}
+                  Platinum VIP {isPlatinumUnlocked ? "(Unlocked)" : "(Locked )"}
                 </button>
               </div>
 
@@ -10127,7 +10126,7 @@ export default function Dashboard() {
                     {!isSilverUnlocked && (
                       <div className="absolute inset-0 z-20 bg-slate-900/65 backdrop-blur-[3px] rounded-3xl flex flex-col items-center justify-center p-4 text-center">
                         <div className="w-12 h-12 rounded-2xl bg-white/20 border border-white/30 backdrop-blur-md flex items-center justify-center text-2xl shadow-lg mb-2">
-                          🔒
+                          
                         </div>
                         <span className="text-white font-black text-xs uppercase tracking-wider">
                           Silver Debit Card Locked
@@ -10163,7 +10162,7 @@ export default function Dashboard() {
                           </>
                         ) : (
                           <>
-                            <span>🔒</span> LOCKED
+                             LOCKED
                           </>
                         )}
                       </div>
@@ -10174,7 +10173,7 @@ export default function Dashboard() {
                       <div className="w-9 h-7 bg-amber-300/80 rounded-md border border-amber-500/40 relative overflow-hidden flex items-center justify-center">
                         <div className="w-full border-t border-amber-600/50" />
                       </div>
-                      <span className="text-slate-600 text-lg">📡</span>
+                      <span className="text-slate-600 text-lg"></span>
                     </div>
 
                     <div className="font-mono font-bold text-base sm:text-lg tracking-widest text-slate-800 mb-4">
@@ -10199,7 +10198,7 @@ export default function Dashboard() {
                   {/* Silver Card Perks & Status */}
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="font-bold text-xs text-blue-700">🎯 Silver Unlock Criteria:</span>
+                      <span className="font-bold text-xs text-blue-700">Silver Unlock Criteria:</span>
                       <span className="text-xs font-mono font-bold text-emerald-700">
                         {isSilverUnlocked ? "100% Unlocked" : (userProfile.kycStatus === "verified" ? "50% Completed" : "0% Completed")}
                       </span>
@@ -10252,7 +10251,7 @@ export default function Dashboard() {
                     {!isPlatinumUnlocked && (
                       <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-[3px] rounded-3xl flex flex-col items-center justify-center p-4 text-center">
                         <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 backdrop-blur-md flex items-center justify-center text-2xl shadow-lg mb-2">
-                          🔒
+                          
                         </div>
                         <span className="text-amber-300 font-black text-xs uppercase tracking-wider">
                           Platinum VIP Card Locked
@@ -10277,11 +10276,11 @@ export default function Dashboard() {
                       </div>
                       {isPlatinumUnlocked ? (
                         <span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-black text-[10px] rounded-full shadow-xs">
-                          👑 VIP ACTIVE
+                          VIP ACTIVE
                         </span>
                       ) : (
                         <span className="px-2.5 py-0.5 bg-zinc-800 border border-amber-500/40 text-amber-300 font-black text-[10px] rounded-full">
-                          🔒 LOCKED
+                          LOCKED
                         </span>
                       )}
                     </div>
@@ -10291,7 +10290,7 @@ export default function Dashboard() {
                       <div className="w-9 h-7 bg-gradient-to-br from-yellow-300 to-amber-500 rounded-md border border-amber-200/50 flex items-center justify-center shadow-xs">
                         <div className="w-full border-t border-amber-800/40" />
                       </div>
-                      <span className="text-amber-400 text-lg">📡</span>
+                      <span className="text-amber-400 text-lg"></span>
                     </div>
 
                     <div className="font-mono font-bold text-base sm:text-lg tracking-widest text-amber-200 mb-4">
@@ -10316,7 +10315,7 @@ export default function Dashboard() {
                   {/* Platinum Unlock Criteria & Progress */}
                   <div className="p-4 bg-amber-50/50 border border-amber-200 rounded-2xl text-slate-900 space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="font-bold text-xs text-amber-900">🎯 VIP Unlock Criteria:</span>
+                      <span className="font-bold text-xs text-amber-900">VIP Unlock Criteria:</span>
                       <span className="text-xs font-mono font-bold text-emerald-700">
                         {Math.min(100, Math.round(((userProfile.loansCount || 0) / 4) * 100))}% Completed
                       </span>
@@ -10354,7 +10353,7 @@ export default function Dashboard() {
 
                     {isPlatinumUnlocked ? (
                       <button
-                        onClick={() => showToast("🎉 Platinum VIP Card is activated for your account!", "success")}
+                        onClick={() => showToast("Platinum VIP Card is activated for your account!", "success")}
                         className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-extrabold text-xs rounded-xl shadow-md active:scale-95 transition"
                       >
                         Manage Platinum VIP Card →
@@ -10378,7 +10377,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           E-KYC DOCUMENT VERIFICATION SHEET (SECURE & LOCKED)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "kyc"} onClose={closeModal} title="Identity KYC Verification" icon="🛡️">
+      <Sheet open={modal === "kyc"} onClose={closeModal} title="Identity KYC Verification" icon="">
         <div className="space-y-4">
           {/* 1. Already Verified: Full Locked Documents View */}
           {userProfile.kycStatus === "verified" ? (
@@ -10404,7 +10403,7 @@ export default function Dashboard() {
               <div className="space-y-3 p-3.5 bg-gray-50 border border-gray-200 rounded-2xl">
                 <div className="flex items-center justify-between">
                   <span className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
-                    <span>🔒</span> Submitted Documents (Locked & Verified)
+                     Submitted Documents (Locked & Verified)
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase">
                     Tamper Proof
@@ -10437,7 +10436,7 @@ export default function Dashboard() {
                           className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
                         />
                         <span className="text-[10px] font-bold text-blue-600 mt-1 flex items-center gap-1 group-hover:underline">
-                          🔍 Front (Zoom)
+                          Front (Zoom)
                         </span>
                       </div>
                     )}
@@ -10453,7 +10452,7 @@ export default function Dashboard() {
                           className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
                         />
                         <span className="text-[10px] font-bold text-blue-600 mt-1 flex items-center gap-1 group-hover:underline">
-                          🔍 Back (Zoom)
+                          Back (Zoom)
                         </span>
                       </div>
                     )}
@@ -10484,7 +10483,7 @@ export default function Dashboard() {
                             className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
                           />
                           <span className="text-[10px] font-bold text-indigo-600 mt-1 flex items-center gap-1 group-hover:underline">
-                            🔍 Front (Zoom)
+                            Front (Zoom)
                           </span>
                         </div>
                       )}
@@ -10500,7 +10499,7 @@ export default function Dashboard() {
                             className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
                           />
                           <span className="text-[10px] font-bold text-indigo-600 mt-1 flex items-center gap-1 group-hover:underline">
-                            🔍 Back (Zoom)
+                            Back (Zoom)
                           </span>
                         </div>
                       )}
@@ -10509,7 +10508,7 @@ export default function Dashboard() {
                 )}
 
                 <p className="text-[10px] text-gray-500 italic text-center pt-1">
-                  🛡️ As per security guidelines, verified KYC documents are permanently locked on server and cannot be deleted or modified.
+                  As per security guidelines, verified KYC documents are permanently locked on server and cannot be deleted or modified.
                 </p>
               </div>
 
@@ -10540,7 +10539,7 @@ export default function Dashboard() {
               <div className="space-y-3 p-3.5 bg-gray-50 border border-gray-200 rounded-2xl">
                 <div className="flex items-center justify-between">
                   <span className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
-                    <span>🔒</span> Submitted Documents (Locked)
+                     Submitted Documents (Locked)
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 uppercase">
                     Under Review
@@ -10575,7 +10574,7 @@ export default function Dashboard() {
                           className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
                         />
                         <span className="text-[10px] font-bold text-amber-800 mt-1 flex items-center gap-1 group-hover:underline">
-                          🔍 Front (Zoom)
+                          Front (Zoom)
                         </span>
                       </div>
                     )}
@@ -10591,7 +10590,7 @@ export default function Dashboard() {
                           className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
                         />
                         <span className="text-[10px] font-bold text-amber-800 mt-1 flex items-center gap-1 group-hover:underline">
-                          🔍 Back (Zoom)
+                          Back (Zoom)
                         </span>
                       </div>
                     )}
@@ -10622,7 +10621,7 @@ export default function Dashboard() {
                             className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
                           />
                           <span className="text-[10px] font-bold text-indigo-700 mt-1 flex items-center gap-1 group-hover:underline">
-                            🔍 Front (Zoom)
+                            Front (Zoom)
                           </span>
                         </div>
                       )}
@@ -10638,7 +10637,7 @@ export default function Dashboard() {
                             className="max-h-36 object-contain rounded-lg group-hover:scale-[1.02] transition"
                           />
                           <span className="text-[10px] font-bold text-indigo-700 mt-1 flex items-center gap-1 group-hover:underline">
-                            🔍 Back (Zoom)
+                            Back (Zoom)
                           </span>
                         </div>
                       )}
@@ -10647,7 +10646,7 @@ export default function Dashboard() {
                 )}
 
                 <p className="text-[10px] text-gray-500 italic text-center pt-1">
-                  🛡️ Documents are securely stored and locked against unauthorized edits.
+                  Documents are securely stored and locked against unauthorized edits.
                 </p>
               </div>
 
@@ -10745,7 +10744,7 @@ export default function Dashboard() {
                       <div className="text-[10px] font-bold text-gray-500 mb-1">Front Side *</div>
                       <div className="flex items-center gap-1.5">
                         <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-blue-300 rounded-xl text-xs text-blue-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
-                          <span>📄</span>
+                          
                           <span className="truncate text-[11px]">{kycForm.doc1Name ? "Change" : "Front File"}</span>
                           <input
                             type="file"
@@ -10780,7 +10779,7 @@ export default function Dashboard() {
                       <div className="text-[10px] font-bold text-gray-500 mb-1">Back Side (Optional)</div>
                       <div className="flex items-center gap-1.5">
                         <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-blue-300 rounded-xl text-xs text-blue-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
-                          <span>📄</span>
+                          
                           <span className="truncate text-[11px]">{kycForm.doc1BackName ? "Change" : "Back File"}</span>
                           <input
                             type="file"
@@ -10833,7 +10832,7 @@ export default function Dashboard() {
                         : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                     }`}
                   >
-                    <span>💳</span>
+                    
                     <span>PAN Card</span>
                   </button>
                   <button
@@ -10845,7 +10844,7 @@ export default function Dashboard() {
                         : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                     }`}
                   >
-                    <span>🏦</span>
+                    
                     <span>Cancelled Cheque</span>
                   </button>
                 </div>
@@ -10889,7 +10888,7 @@ export default function Dashboard() {
                       <div className="text-[10px] font-bold text-gray-500 mb-1">Front Side *</div>
                       <div className="flex items-center gap-1.5">
                         <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
-                          <span>📄</span>
+                          
                           <span className="truncate text-[11px]">{kycForm.doc2Name ? "Change" : "Front File"}</span>
                           <input
                             type="file"
@@ -10924,7 +10923,7 @@ export default function Dashboard() {
                       <div className="text-[10px] font-bold text-gray-500 mb-1">Back Side (Optional)</div>
                       <div className="flex items-center gap-1.5">
                         <label className="flex-1 cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
-                          <span>📄</span>
+                          
                           <span className="truncate text-[11px]">{kycForm.doc2BackName ? "Change" : "Back File"}</span>
                           <input
                             type="file"
@@ -10974,7 +10973,7 @@ export default function Dashboard() {
               {kycError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
                   <div className="flex items-center gap-2 flex-1">
-                    <span className="shrink-0 text-sm">⚠️</span>
+                    <span className="shrink-0 text-sm"></span>
                     <span className="leading-snug">{kycError}</span>
                   </div>
                   <button
@@ -11020,12 +11019,12 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           SETTINGS & ACCESSIBILITY SHEET (UNIFIED)
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "settings"} onClose={closeModal} title="Settings & Accessibility" icon="⚙️">
+      <Sheet open={modal === "settings"} onClose={closeModal} title="Settings & Accessibility" icon="">
         <div className="space-y-4">
           {/* Section 1: Language */}
           <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl space-y-2.5">
             <div className="flex items-center gap-2">
-              <span className="text-lg">🌐</span>
+              <span className="text-lg"></span>
               <div>
                 <h4 className="font-extrabold text-xs text-gray-900">App Language (भाषा)</h4>
                 <p className="text-[11px] text-gray-500">Apni pasandida bhasha chunein</p>
@@ -11078,7 +11077,7 @@ export default function Dashboard() {
           <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🔊</span>
+                <span className="text-xl"></span>
                 <div>
                   <h4 className="font-extrabold text-xs text-blue-950">Voice Guide (दृष्टिबाधित सहायता)</h4>
                   <p className="text-[11px] text-blue-700">Blind & Visually Impaired Voice Reader</p>
@@ -11104,7 +11103,7 @@ export default function Dashboard() {
                   : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
               }`}
             >
-              <span>{isSpeaking ? "⏹️" : "🔊"}</span>
+              <span>{isSpeaking ? "⏹️" : ""}</span>
               <span>{isSpeaking ? "Aawaz Band Karein (Stop Audio)" : "Aawaz Me Suniye (Read Screen Aloud)"}</span>
             </button>
           </div>
@@ -11115,7 +11114,7 @@ export default function Dashboard() {
             onClick={() => { closeModal(); setTourStep(0); setShowTour(true); }}
             className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-between transition active:scale-95"
           >
-            <span className="flex items-center gap-2"><span>🎓</span> Replay App Feature Tour</span>
+            <span className="flex items-center gap-2"> Replay App Feature Tour</span>
             <span className="text-gray-400">→</span>
           </button>
         </div>
@@ -11124,7 +11123,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════
           PASSBOOK & PRIMARY ACCOUNT STATEMENT SHEET
       ══════════════════════════════════════════════════════ */}
-      <Sheet open={modal === "passbook"} onClose={closeModal} title="Primary Wallet & Passbook Statement" icon="💳">
+      <Sheet open={modal === "passbook"} onClose={closeModal} title="Primary Wallet & Passbook Statement" icon="">
         <div className="space-y-4">
           {/* BALANCE CARD */}
           <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-3xl p-5 text-white shadow-lg shadow-blue-500/15 relative overflow-hidden">
@@ -11157,7 +11156,7 @@ export default function Dashboard() {
               onClick={() => exportPdfStatement("passbook")}
               className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
             >
-              <span>📄</span> Export / Print PDF
+               Export / Print PDF
             </button>
           </div>
 
@@ -11195,7 +11194,7 @@ export default function Dashboard() {
               if (filtered.length === 0) {
                 return (
                   <div className="py-12 text-center text-gray-400 text-xs">
-                    <p className="text-2xl mb-1">📜</p>
+                    <p className="text-2xl mb-1"></p>
                     Koi transaction record nahi mila
                   </div>
                 );
@@ -11261,7 +11260,7 @@ export default function Dashboard() {
                       <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-base shrink-0 ${
                         isCredit ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
                       }`}>
-                        {isCredit ? "🟢" : "🔴"}
+                        {isCredit ? "" : ""}
                       </div>
                       <div className="min-w-0">
                         <p className="font-extrabold text-xs text-gray-900 truncate capitalize">
@@ -11286,7 +11285,7 @@ export default function Dashboard() {
                             onClick={() => { setLightboxImg(t.adminEvidenceUrl); setZoomLevel(1); }}
                             className="text-[10px] text-blue-600 hover:text-blue-800 font-bold underline mt-0.5 block cursor-pointer"
                           >
-                            View Payout Receipt 🔍
+                            View Payout Receipt 
                           </button>
                         )}
                         <p className="text-[10px] text-gray-400 mt-0.5">
@@ -11404,7 +11403,7 @@ export default function Dashboard() {
           open={Boolean(submitInstallmentModal)}
           onClose={() => setSubmitInstallmentModal(null)}
           title={`Pay Installment #${submitInstallmentModal.installmentNo} (₹${submitInstallmentModal.amount})`}
-          icon="💳"
+          icon=""
         >
           <div className="space-y-4">
             <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex items-center justify-between">
@@ -11429,7 +11428,7 @@ export default function Dashboard() {
                     : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                 }`}
               >
-                <span>👛</span>
+                
                 <span>Wallet Balance</span>
               </button>
               <button
@@ -11441,7 +11440,7 @@ export default function Dashboard() {
                     : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                 }`}
               >
-                <span>📱</span>
+                
                 <span>UPI QR / Proof</span>
               </button>
             </div>
@@ -11464,7 +11463,7 @@ export default function Dashboard() {
                       }`}
                     >
                       <div className="flex items-center justify-between text-xs font-bold">
-                        <span>🏛️ Primary Wallet</span>
+                        <span>Primary Wallet</span>
                         {installmentSourceWallet === "main" && <span className="text-blue-600 text-xs">✓</span>}
                       </div>
                       <div className="text-sm font-black mt-1 text-blue-700">
@@ -11483,7 +11482,7 @@ export default function Dashboard() {
                       }`}
                     >
                       <div className="flex items-center justify-between text-xs font-bold">
-                        <span>📈 Profit Wallet</span>
+                        <span>Profit Wallet</span>
                         {installmentSourceWallet === "profit" && <span className="text-blue-600 text-xs">✓</span>}
                       </div>
                       <div className="text-sm font-black mt-1 text-blue-700">
@@ -11505,7 +11504,7 @@ export default function Dashboard() {
 
                 {((installmentSourceWallet === "profit" ? (userProfile.profitBalance || 0) : (userProfile.balance || 0)) < submitInstallmentModal.amount) ? (
                   <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-[11px] font-medium">
-                    ⚠️ Insufficient balance in {installmentSourceWallet === "profit" ? "Profit Wallet" : "Primary Wallet"}. Kripya doosra wallet chunein ya "UPI QR / Proof" option use karein.
+                    Insufficient balance in {installmentSourceWallet === "profit" ? "Profit Wallet" : "Primary Wallet"}. Kripya doosra wallet chunein ya "UPI QR / Proof" option use karein.
                   </div>
                 ) : (
                   <p className="text-[11px] text-gray-500">
@@ -11533,7 +11532,7 @@ export default function Dashboard() {
               <form onSubmit={submitInstallmentProof} className="space-y-3.5">
                 {/* UPI QR & Bank Instruction */}
                 <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-1.5 text-xs text-indigo-950">
-                  <p className="font-bold">📱 Pay via Any UPI App (GPay, PhonePe, Paytm):</p>
+                  <p className="font-bold">Pay via Any UPI App (GPay, PhonePe, Paytm):</p>
                   <p className="text-[11px] text-indigo-800">
                     Aap company ke official UPI ya QR code par ₹{submitInstallmentModal.amount} transfer karein. Payment hone ke baad 12-digit UTR number aur screenshot yahan submit karein.
                   </p>
@@ -11564,7 +11563,7 @@ export default function Dashboard() {
                     <div>
                       <div className="text-[10px] font-bold text-gray-500 mb-1">Receipt (Front) *</div>
                       <label className="cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
-                        <span>📄</span>
+                        
                         <span className="truncate text-[11px]">{installmentProofName ? "Change" : "Upload"}</span>
                         <input
                           type="file"
@@ -11587,7 +11586,7 @@ export default function Dashboard() {
                     <div>
                       <div className="text-[10px] font-bold text-gray-500 mb-1">Back / Confirmation</div>
                       <label className="cursor-pointer py-2 px-2 bg-white hover:bg-gray-50 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-700 font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
-                        <span>📄</span>
+                        
                         <span className="truncate text-[11px]">{installmentProofBackName ? "Change" : "Upload"}</span>
                         <input
                           type="file"
@@ -11649,7 +11648,7 @@ export default function Dashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 text-xs font-bold text-gray-200">
-              <span className="text-base">📄</span>
+              <span className="text-base"></span>
               <span className="truncate">Document Viewer</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-mono font-bold">
                 {Math.round(zoomLevel * 100)}%
@@ -11664,7 +11663,7 @@ export default function Dashboard() {
                 className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
                 title="Zoom Out"
               >
-                🔍-
+                -
               </button>
               {/* Reset Zoom */}
               <button
@@ -11682,7 +11681,7 @@ export default function Dashboard() {
                 className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
                 title="Zoom In"
               >
-                🔍+
+                +
               </button>
               {/* Close Button */}
               <button
@@ -11728,7 +11727,7 @@ export default function Dashboard() {
             className="text-center text-[11px] text-gray-400 py-1 z-10"
             onClick={(e) => e.stopPropagation()}
           >
-            Tap image to zoom in • Double tap to toggle 2x • Pinch / Use 🔍+ buttons
+            Tap image to zoom in • Double tap to toggle 2x • Pinch / Use + buttons
           </div>
         </div>
       )}
@@ -11740,7 +11739,7 @@ export default function Dashboard() {
         open={showAiAdvisor}
         onClose={() => setShowAiAdvisor(false)}
         title="Educa Support & Advisor"
-        icon="💬"
+        icon=""
         className="h-[90dvh] sm:h-[88vh] flex flex-col"
       >
         <div className="flex-1 flex flex-col min-h-0 space-y-3 bg-white">
@@ -11777,19 +11776,19 @@ export default function Dashboard() {
           {/* Quick Helpful Questions (Clean Light White Pills - Pure /ponytail) */}
           <div className="overflow-x-auto no-scrollbar flex items-center gap-1.5 py-0.5 shrink-0">
             {(advisorLang === "english" ? [
-              { label: "🧮 Custom EMI Calculator", q: "I borrowed 10000 with 600 emi how much to repay" },
-              { label: "💼 Business Loan", q: "Tell me about business loan with cheque" },
-              { label: "⚡ ₹10K Loan EMI", q: "10000 loan ka emi count karo" },
-              { label: "🎯 Loan Benefits", q: "What are the advantages of Educa loan" },
-              { label: "📈 12% Interest", q: "How does 12% compounding interest work" },
-              { label: "🔄 Profit Transfer", q: "How to transfer profit to primary wallet" },
+              { label: "Custom EMI Calculator", q: "I borrowed 10000 with 600 emi how much to repay" },
+              { label: "Business Loan", q: "Tell me about business loan with cheque" },
+              { label: "₹10K Loan EMI", q: "10000 loan ka emi count karo" },
+              { label: "Loan Benefits", q: "What are the advantages of Educa loan" },
+              { label: "12% Interest", q: "How does 12% compounding interest work" },
+              { label: "Profit Transfer", q: "How to transfer profit to primary wallet" },
             ] : [
-              { label: "🧮 10000 liya 600 emi hisaab", q: "maine 10000 liya 600 ki emi bani to kitna dena hai" },
-              { label: "💼 Business Loan Niyam", q: "Cheque ke sath business loan 20000" },
-              { label: "⚡ ₹20K Loan Hisaab", q: "maine 20000 liya 18 kist me kitna dena hai" },
-              { label: "🎯 Loan Ke Fayde", q: "Loan ke fayde ginwao motivation wale" },
-              { label: "📈 12% Munafa Byaj", q: "12% interest compounding kaise milta hai" },
-              { label: "🔄 Profit Transfer Help", q: "Profit wallet se main wallet transfer" },
+              { label: "10000 liya 600 emi hisaab", q: "maine 10000 liya 600 ki emi bani to kitna dena hai" },
+              { label: "Business Loan Niyam", q: "Cheque ke sath business loan 20000" },
+              { label: "₹20K Loan Hisaab", q: "maine 20000 liya 18 kist me kitna dena hai" },
+              { label: "Loan Ke Fayde", q: "Loan ke fayde ginwao motivation wale" },
+              { label: "12% Munafa Byaj", q: "12% interest compounding kaise milta hai" },
+              { label: "Profit Transfer Help", q: "Profit wallet se main wallet transfer" },
             ]).map((chip) => (
               <button
                 key={chip.label}
@@ -11869,7 +11868,7 @@ export default function Dashboard() {
           open={agentBroadcastModalOpen}
           onClose={() => setAgentBroadcastModalOpen(false)}
           title="Send Mass Broadcast Message"
-          icon="📢"
+          icon=""
         >
           <div className="space-y-4">
             <div className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-300 rounded-2xl flex items-center justify-between">
@@ -11895,13 +11894,13 @@ export default function Dashboard() {
                     msg: "Namaste! Aapke loan ki installment date najdeek hai. Kripya samay par kist jama karein taaki aapka credit score aur card limit dono secure rahein."
                   },
                   {
-                    label: "⚡ Early Settlement Offer",
-                    title: "⚡ Pre-Closure Discount Offer",
+                    label: "Early Settlement Offer",
+                    title: "Pre-Closure Discount Offer",
                     msg: "Special Notice: Aap apna loan samay se pehle pre-close kar sakte hain aur extra interest bacha sakte hain. Loan pre-close karne ke liye abhi sampark karein."
                   },
                   {
-                    label: "📢 Important Notice",
-                    title: "📢 Official Notice from Agent",
+                    label: "Important Notice",
+                    title: "Official Notice from Agent",
                     msg: "Namaste! Educa Fintech account aur loan payments ke sambandh me kisi bhi jaankari ya sahayata ke liye aap mujhse sidhe sampark kar sakte hain."
                   }
                 ].map((tmpl, idx) => (
@@ -11960,7 +11959,7 @@ export default function Dashboard() {
                   <span>Sending broadcast to all customers...</span>
                 ) : (
                   <>
-                    <span>📢</span>
+                    
                     <span>Send to All {agentMetrics?.stats?.customerCount || agentMetrics?.customers?.length || 0} Customers (1-Click)</span>
                   </>
                 )}
@@ -11978,7 +11977,7 @@ export default function Dashboard() {
           open={addCustomerModalOpen}
           onClose={() => setAddCustomerModalOpen(false)}
           title="Onboard Customer Under My Portfolio"
-          icon="👥"
+          icon=""
         >
           <form onSubmit={handleAgentAddCustomer} className="space-y-4">
             <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/5 border border-emerald-300 rounded-2xl flex items-center justify-between">
@@ -12088,7 +12087,7 @@ export default function Dashboard() {
           open={nominateSubAgentModalOpen}
           onClose={() => setNominateSubAgentModalOpen(false)}
           title="Nominate Sub-Agent Under My Team"
-          icon="🤝"
+          icon=""
         >
           <form onSubmit={handleNominateSubAgent} className="space-y-4">
             <div className="p-3 bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-purple-500/5 border border-purple-300 rounded-2xl flex items-center justify-between">
@@ -12222,7 +12221,7 @@ export default function Dashboard() {
                   <span>Submitting Nomination Request...</span>
                 ) : (
                   <>
-                    <span>🤝</span>
+                    
                     <span>Submit Sub-Agent Nomination to Admin →</span>
                   </>
                 )}

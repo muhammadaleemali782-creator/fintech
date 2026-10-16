@@ -110,7 +110,7 @@ export default function ActivityLog() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
           <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
-            <span>🛡️ Immutable Activity & Audit Log</span>
+            <span>Immutable Activity & Audit Log</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             Tamper-proof record of all staff actions, approvals, rejections, waiver changes, and department workflows.
@@ -122,14 +122,14 @@ export default function ActivityLog() {
             onClick={handleExportCsv}
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/30 transition flex items-center gap-1.5"
           >
-            <span>📥</span>
+            
             <span>Export CSV</span>
           </button>
           <button
             onClick={() => fetchLogs(page)}
             className="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition"
           >
-            🔄 Refresh
+            Refresh
           </button>
         </div>
       </div>

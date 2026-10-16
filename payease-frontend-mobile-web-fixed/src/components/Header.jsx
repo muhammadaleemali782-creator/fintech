@@ -189,7 +189,7 @@ export default function Header() {
                   onClick={() => navigate("/admin")}
                   className="px-3.5 py-1.5 rounded-xl text-xs xl:text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition shadow-md shadow-indigo-500/25 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span>🛡️</span> Admin Panel
+                   Admin Panel
                 </button>
                 <button
                   onClick={() => navigate("/dashboard")}
@@ -203,7 +203,7 @@ export default function Header() {
                 onClick={() => navigate("/dashboard")}
                 className="px-4 py-2 rounded-xl text-xs xl:text-sm font-extrabold text-white bg-[#1D6AE5] hover:bg-[#1558cc] active:scale-95 transition shadow-md shadow-blue-500/25 flex items-center gap-1.5 cursor-pointer"
               >
-                <span>📊</span> Go to Dashboard
+                 Go to Dashboard
               </button>
             )
           ) : (
@@ -211,7 +211,7 @@ export default function Header() {
               onClick={() => navigate("/login")}
               className="px-4 py-2 rounded-xl text-xs xl:text-sm font-extrabold text-white bg-[#1D6AE5] hover:bg-[#1558cc] active:scale-95 transition shadow-md shadow-blue-500/25 flex items-center gap-1.5 cursor-pointer"
             >
-              <span>👤</span> Account
+               Account
             </button>
           )}
         </div>
@@ -290,7 +290,7 @@ export default function Header() {
                   onClick={() => setMenuOpen(false)}
                   className="w-full py-2.5 px-4 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2 shadow-xs transition"
                 >
-                  <span>📊</span> Customer Dashboard
+                   Customer Dashboard
                 </Link>
                 {(user.role === "admin" || user.role === "staff") && (
                   <Link
@@ -298,7 +298,7 @@ export default function Header() {
                     onClick={() => setMenuOpen(false)}
                     className="w-full py-2.5 px-4 rounded-xl text-sm font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 flex items-center justify-center gap-2 transition"
                   >
-                    <span>🏢</span> Department Desk
+                     Department Desk
                   </Link>
                 )}
                 {user.role === "admin" && (
@@ -307,7 +307,7 @@ export default function Header() {
                     onClick={() => setMenuOpen(false)}
                     className="w-full py-2.5 px-4 rounded-xl text-sm font-black text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center justify-center gap-2 transition"
                   >
-                    <span>🛡️</span> Admin Panel
+                     Admin Panel
                   </Link>
                 )}
                 <button
@@ -315,7 +315,7 @@ export default function Header() {
                   onClick={handleLogout}
                   className="w-full py-2.5 px-4 rounded-xl text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
                 >
-                  <span>🚪</span> Logout
+                   Logout
                 </button>
               </>
             ) : (
@@ -323,7 +323,7 @@ export default function Header() {
                 onClick={() => { setMenuOpen(false); navigate("/login"); }}
                 className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
               >
-                <span>👤</span> Login / Account
+                 Login / Account
               </button>
             )}
           </div>

@@ -24,7 +24,7 @@ export default function Sheet({ open, onClose, title, icon, extraHeader = null, 
 
         <div className="flex justify-between items-center mb-3 sm:mb-4 shrink-0">
           <h3 className="text-lg sm:text-xl font-bold font-display flex items-center gap-2 text-gray-900">
-            {icon && <span>{icon}</span>} {title}
+            {title}
           </h3>
           <div className="flex items-center gap-2">
             {extraHeader}

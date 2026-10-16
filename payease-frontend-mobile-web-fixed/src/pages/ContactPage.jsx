@@ -32,7 +32,7 @@ export default function ContactPage() {
           <div className="md:col-span-5 space-y-6">
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6">
               <div>
-                <h3 className="text-lg font-black text-gray-900 mb-1">📍 Registered Office</h3>
+                <h3 className="text-lg font-black text-gray-900 mb-1">Registered Office</h3>
                 <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
                   Educa Fintech Private Limited<br />
                   Vihar Gali No. 3, Utthan Road, Jhalwa,<br />
@@ -41,7 +41,7 @@ export default function ContactPage() {
               </div>
 
               <div className="border-t border-gray-100 pt-4">
-                <h3 className="text-lg font-black text-gray-900 mb-1">📧 Email Support</h3>
+                <h3 className="text-lg font-black text-gray-900 mb-1">Email Support</h3>
                 <p className="text-xs sm:text-sm text-[#1D6AE5] font-semibold">
                   support@educafintech.com
                 </p>
@@ -85,7 +85,7 @@ export default function ContactPage() {
 
               {submitted ? (
                 <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-2">
-                  <div className="text-3xl">✅</div>
+                  <div className="text-3xl"></div>
                   <h4 className="text-base font-black text-emerald-900">Message Received!</h4>
                   <p className="text-xs text-emerald-700">
                     Aapka message hamare support team ko bhej diya gaya hai. Hum jaldi hi aapse contact karenge.

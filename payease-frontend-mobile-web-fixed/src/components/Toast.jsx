@@ -33,7 +33,7 @@ export default function Toast({ msg, onHide }) {
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <span className="text-base shrink-0">
-          {isSuccess ? "✓" : isWarning ? "⚠️" : isInfo ? "ℹ️" : "✕"}
+          {isSuccess ? "✓" : isWarning ? "" : isInfo ? "ℹ️" : "✕"}
         </span>
         <span className="truncate leading-tight">{msg.text}</span>
       </div>

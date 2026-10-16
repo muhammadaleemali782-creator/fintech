@@ -210,7 +210,7 @@ function KycDocThumbItem({ userId, docKey, label, initialUrl, hasDoc, onOpenLigh
       </div>
       <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
         <span className="text-[10px] font-extrabold text-slate-800 truncate">{label}</span>
-        <span className="text-[9px] text-blue-600 font-bold shrink-0">🔍 Zoom</span>
+        <span className="text-[9px] text-blue-600 font-bold shrink-0">Zoom</span>
       </div>
     </div>
   );
@@ -225,17 +225,17 @@ const getClientDeviceInfo = () => {
 
   if (/android/i.test(ua)) {
     const match = ua.match(/;\s*([^;)]+)\s*Build/i);
-    device = match && match[1] ? `📱 Android (${match[1].trim()})` : "📱 Android Phone";
+    device = match && match[1] ? `Android (${match[1].trim()})` : "Android Phone";
   } else if (/iphone/i.test(ua)) {
-    device = "📱 iPhone (iOS)";
+    device = "iPhone (iOS)";
   } else if (/ipad/i.test(ua)) {
-    device = "📱 iPad (iOS)";
+    device = "iPad (iOS)";
   } else if (/windows/i.test(ua)) {
-    device = "💻 Windows PC";
+    device = "Windows PC";
   } else if (/macintosh|mac os x/i.test(ua)) {
-    device = "💻 Mac";
+    device = "Mac";
   } else if (/linux/i.test(ua)) {
-    device = "💻 Linux PC";
+    device = "Linux PC";
   }
 
   if (/chrome|crios/i.test(ua) && !/edg/i.test(ua) && !/opr/i.test(ua)) {
@@ -255,7 +255,7 @@ const getClientDeviceInfo = () => {
 
 // --- BORROWER LINEAGE RESOLVER (Direct Customer, Agent, Sub-Agent, etc.) ---
 const getUserLineage = (u, allUsers = [], allAgents = []) => {
-  if (!u) return { type: "direct", label: "Direct Customer", subLabel: "", badge: "👤 Direct Customer" };
+  if (!u) return { type: "direct", label: "Direct Customer", subLabel: "", badge: "Direct Customer" };
 
   // Check if the user themselves is an Agent or approved applicant
   const isAgent = u.role === "agent" ||
@@ -287,7 +287,7 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
         type: "sub_agent",
         label: `Sub-Agent: ${u.name}`,
         subLabel: `Master Agent: ${parentName}`,
-        badge: `👑 Sub-Agent: ${u.name} (via ${parentName})`,
+        badge: `Sub-Agent: ${u.name} (via ${parentName})`,
         agentId: String(u._id),
         agentName: u.name,
         masterName: parentName,
@@ -300,7 +300,7 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
         type: "agent",
         label: `Agent: ${u.name}`,
         subLabel: busName,
-        badge: `🤝 Agent: ${u.name}`,
+        badge: `Agent: ${u.name}`,
         agentId: String(u._id),
         agentName: u.name,
         isAgentSelf: true
@@ -313,7 +313,7 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
       type: "direct",
       label: "Direct Customer",
       subLabel: "Platform Direct Signup",
-      badge: "👤 Direct Customer"
+      badge: "Direct Customer"
     };
   }
 
@@ -326,7 +326,7 @@ const getUserLineage = (u, allUsers = [], allAgents = []) => {
       type: "agent_user",
       label: `Referred (ID: ${refId.slice(-6)})`,
       subLabel: "",
-      badge: "🤝 Agent Customer",
+      badge: "Agent Customer",
       agentId: refId
     };
   }
@@ -374,7 +374,7 @@ const DESK_ROLE_PRESETS = [
   {
     key: "loan_desk",
     role: "staff",
-    label: "📄 Loan Desk (Tum Loan wale ho)",
+    label: "Loan Desk (Tum Loan wale ho)",
     sub: "Loans review, approve/reject & disbursal access",
     departments: ["loan"],
     permissions: ["loan.view", "loan.approve", "loan.reject", "loan.disburse"]
@@ -390,7 +390,7 @@ const DESK_ROLE_PRESETS = [
   {
     key: "deposit_desk",
     role: "staff",
-    label: "💰 Deposit Desk (Tum Deposit wale ho)",
+    label: "Deposit Desk (Tum Deposit wale ho)",
     sub: "Inward deposits & UPI payment approvals",
     departments: ["deposit"],
     permissions: ["deposit.view", "deposit.approve", "deposit.reject"]
@@ -398,7 +398,7 @@ const DESK_ROLE_PRESETS = [
   {
     key: "withdrawal_desk",
     role: "staff",
-    label: "💸 Withdrawal Desk (Tum Withdrawal wale ho)",
+    label: "Withdrawal Desk (Tum Withdrawal wale ho)",
     sub: "Outward payouts & withdrawal requests",
     departments: ["withdrawal"],
     permissions: ["withdrawal.view", "withdrawal.approve", "withdrawal.reject"]
@@ -406,7 +406,7 @@ const DESK_ROLE_PRESETS = [
   {
     key: "finance_desk",
     role: "staff",
-    label: "🤝 Finance Desk (Deposit + Withdrawal)",
+    label: "Finance Desk (Deposit + Withdrawal)",
     sub: "Cashier: Deposit + Withdrawal dono handle karega",
     departments: ["deposit", "withdrawal"],
     permissions: ["deposit.view", "deposit.approve", "deposit.reject", "withdrawal.view", "withdrawal.approve", "withdrawal.reject"]
@@ -414,7 +414,7 @@ const DESK_ROLE_PRESETS = [
   {
     key: "full_desk",
     role: "staff",
-    label: "🌟 Full Desk (All Departments)",
+    label: "Full Desk (All Departments)",
     sub: "Loan, KYC, Deposit, Withdrawal, Bonds & Lending (All Desks)",
     departments: ["loan", "kyc", "deposit", "withdrawal", "lending", "bond"],
     permissions: ["*"]
@@ -422,7 +422,7 @@ const DESK_ROLE_PRESETS = [
   {
     key: "revoke",
     role: "user",
-    label: "🚫 Remove Staff Role (Normal Customer)",
+    label: "Remove Staff Role (Normal Customer)",
     sub: "Staff access band karke regular user/customer banao",
     departments: [],
     permissions: []
@@ -833,11 +833,11 @@ function getDisbursalBreakdown(loan, chosenOpt = "none") {
         ...row,
         rolledOverToNext: true,
         payableNow: row.amount + penaltyPerEmi,
-        rolloverText: `⚠️ Chhooti hui: ₹${row.amount} + 2% Penalty: ₹${penaltyPerEmi}`
+        rolloverText: `Chhooti hui: ₹${row.amount} + 2% Penalty: ₹${penaltyPerEmi}`
       };
     } else if (row.status === "pending" && accumulatedMissed > 0) {
       const totalPayableThisKist = row.amount + accumulatedMissed + accumulatedPenalty;
-      const text = `⚠️ Pichli chhooti kist jodkar: ₹${row.amount} + ₹${accumulatedMissed} (Missed) + ₹${accumulatedPenalty} (2% Penalty)`;
+      const text = `Pichli chhooti kist jodkar: ₹${row.amount} + ₹${accumulatedMissed} (Missed) + ₹${accumulatedPenalty} (2% Penalty)`;
       accumulatedMissed = 0;
       accumulatedPenalty = 0;
       return {
@@ -886,7 +886,7 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
       {/* Top Banner */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 pb-2.5">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base sm:text-lg">📊</span>
+          <span className="text-base sm:text-lg"></span>
           <span className="text-xs sm:text-sm font-black text-slate-900">
             Selected Option Live Schedule & Calculations:
           </span>
@@ -911,7 +911,7 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-            <span>🗓️</span> EMI Dates & Timeline ({b.count} Kistein @ ₹{b.instAmt.toLocaleString("en-IN")})
+             EMI Dates & Timeline ({b.count} Kistein @ ₹{b.instAmt.toLocaleString("en-IN")})
           </span>
           <span className="text-[11px] font-bold text-emerald-700">
             {b.schedule.paidCount > 0 ? "1 Paid (Advance) • " : ""}{b.schedule.remainingCount} Kistein Due
@@ -942,7 +942,7 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
         <details className="mt-2.5 group border border-slate-200/90 rounded-xl bg-white overflow-hidden shadow-2xs" open>
           <summary className="flex items-center justify-between p-2.5 sm:p-3 font-black text-xs text-slate-800 cursor-pointer bg-slate-100/70 hover:bg-slate-100 transition select-none">
             <span className="flex items-center gap-1.5">
-              <span>📋</span> Poori Kist List ({b.count} Kistein Schedule & 10:00 AM Cutoff)
+               Poori Kist List ({b.count} Kistein Schedule & 10:00 AM Cutoff)
             </span>
             <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
               <span>Timeline Dekhein</span>
@@ -1012,7 +1012,7 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
       {/* 2. Percentage & Deductions Matrix */}
       <div className="border-t border-slate-200/70 pt-2.5">
         <span className="text-xs font-black text-slate-800 block mb-1.5 flex items-center gap-1.5">
-          <span>🏷️</span> Kitna Percent Lag Raha Hai (Exact Percentage & Amount Breakdown)
+           Kitna Percent Lag Raha Hai (Exact Percentage & Amount Breakdown)
         </span>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
           <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs">
@@ -1038,7 +1038,7 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
         </div>
         {chosenOpt === "deduct" && (
           <div className="mt-2 px-3 py-1.5 bg-amber-100/70 border border-amber-300 rounded-lg text-[11px] text-amber-950 font-semibold flex items-center justify-between">
-            <span>🟡 Kist #1 Advance Kaati Gayi: <strong>₹{b.instAmt.toLocaleString("en-IN")} ({b.advanceDeductPct}%)</strong></span>
+            <span>Kist #1 Advance Kaati Gayi: <strong>₹{b.instAmt.toLocaleString("en-IN")} ({b.advanceDeductPct}%)</strong></span>
             <span className="text-[10px] font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-amber-200">Kist #1 Abhi Paid Ho Jayegi</span>
           </div>
         )}
@@ -1048,7 +1048,7 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
       <div className="border-t border-slate-200/70 pt-2.5 bg-rose-50/70 p-3 rounded-xl border border-rose-200">
         <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
           <span className="text-xs font-black text-rose-950 flex items-center gap-1.5">
-            <span>⚠️</span> Overdue Penalty Policy (Kab Aur Kise Lagegi):
+             Overdue Penalty Policy (Kab Aur Kise Lagegi):
           </span>
           <span className="text-[10px] font-black bg-rose-200 text-rose-950 px-2 py-0.5 rounded-full border border-rose-300">
             2% Per Overdue Kist = ₹{b.penaltyPerEmi}/kist
@@ -1078,7 +1078,7 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
         <div className="mt-2 p-2.5 bg-white rounded-lg border border-rose-200 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
           <div className="flex items-center gap-2">
             <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
-              ⚠️ Active Overdue Penalty: ₹{b.penaltyPerEmi}
+              Active Overdue Penalty: ₹{b.penaltyPerEmi}
             </span>
             <span className="text-[10px] text-slate-500 font-bold">
               (1 Overdue Installment Par)
@@ -1443,7 +1443,7 @@ export default function AdminPanel() {
       setIsApyLocked(true);
       try { localStorage.setItem("educa_admin_apy_locked", "true"); } catch {}
       setApyTapCount(0);
-      showToast("🔒 APY Editor locked!", "info");
+      showToast("APY Editor locked!", "info");
       return;
     }
     const now = Date.now();
@@ -1455,9 +1455,9 @@ export default function AdminPanel() {
       setIsApyLocked(false);
       try { localStorage.setItem("educa_admin_apy_locked", "false"); } catch {}
       setApyTapCount(0);
-      showToast("🔓 APY Editor Unlocked! Ab aap custom interest rate edit kar sakte hain.", "success");
+      showToast("APY Editor Unlocked! Ab aap custom interest rate edit kar sakte hain.", "success");
     } else {
-      showToast(`🔒 APY Editor Locked: ${5 - count} baar aur tap karein unlock karne ke liye.`, "info");
+      showToast(`APY Editor Locked: ${5 - count} baar aur tap karein unlock karne ke liye.`, "info");
     }
   };
 
@@ -1742,15 +1742,15 @@ export default function AdminPanel() {
     <div className="absolute pointer-events-none -top-2 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center animate-hero-flight select-none">
       <div className="relative">
         <span className="text-4xl filter drop-shadow-[0_0_15px_rgba(16,185,129,0.9)] inline-block animate-bounce">
-          🦸‍♂️
+          
         </span>
-        <span className="absolute -top-1 -right-2 text-base animate-ping">✨</span>
+        <span className="absolute -top-1 -right-2 text-base animate-ping"></span>
       </div>
       <span className="text-[10px] font-black tracking-wider text-emerald-200 bg-emerald-950/90 border border-emerald-400 px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap mt-0.5">
-        ⚡ HERO FLIGHT! 🚀
+        HERO FLIGHT! 
       </span>
       <span className="text-xs tracking-widest text-amber-300 font-bold opacity-80">
-        💨 ✨ 💫
+        
       </span>
     </div>
   );
@@ -1801,7 +1801,7 @@ export default function AdminPanel() {
     try {
       const res = await cachedAdminFetch(`${API}/admin/stats`, { headers }, 45000, force);
       if (res.status === 429) {
-        setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
+        setRateLimitError("Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
         return;
       }
       if (!res.ok) return;
@@ -1883,7 +1883,7 @@ export default function AdminPanel() {
     try {
       const res = await cachedAdminFetch(`${API}/admin/transactions/pending`, { headers }, 2000, force);
       if (res.status === 429) {
-        setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
+        setRateLimitError("Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
         return;
       }
       if (!res.ok) return;
@@ -1916,7 +1916,7 @@ export default function AdminPanel() {
     try {
       const res = await cachedAdminFetch(`${API}/admin/transactions/hold`, { headers }, 2000, force);
       if (res.status === 429) {
-        setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
+        setRateLimitError("Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
         return;
       }
       if (!res.ok) return;
@@ -2022,7 +2022,7 @@ export default function AdminPanel() {
     try {
       const res = await cachedAdminFetch(`${API}/admin/users`, { headers }, 8000, force);
       if (res.status === 429) {
-        setRateLimitError("⚠️ Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
+        setRateLimitError("Server Rate Limit (429): Bahut zyada requests ho gayi hain. Kripya 30 seconds wait karein.");
         return;
       }
       if (!res.ok) return;
@@ -2334,9 +2334,9 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        showToast("✅ Premium Wallet & Referral Settings saved!", "success");
+        showToast("Premium Wallet & Referral Settings saved!", "success");
         if (data.settings) setPremiumSettings(data.settings);
-        setPremiumSettingsSuccess("✅ Settings updated successfully!");
+        setPremiumSettingsSuccess("Settings updated successfully!");
         setTimeout(() => setPremiumSettingsSuccess(""), 4000);
       } else {
         showToast(data.message || "Failed to update premium settings", "error");
@@ -2437,7 +2437,7 @@ export default function AdminPanel() {
         localStorage.setItem("educa_admin_backup_history", JSON.stringify(updatedHistory));
       } catch {}
 
-      showToast(`Encrypted Backup Downloaded (${data.sizeKb} KB) ✅`, "success");
+      showToast(`Encrypted Backup Downloaded (${data.sizeKb} KB) `, "success");
     } catch {
       showToast("Network error creating backup", "error");
     } finally {
@@ -2508,7 +2508,7 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        showToast("✅ Admin Deposit Details (UPI & Bank) save ho gayi!", "success");
+        showToast("Admin Deposit Details (UPI & Bank) save ho gayi!", "success");
         if (data.depositDetails) setDepositDetails(data.depositDetails);
         apiCache.clear();
       } else {
@@ -2794,7 +2794,7 @@ export default function AdminPanel() {
         playSoundRef.current?.();
 
         // Instant toast notification
-        showToast(`🔔 ${data.title || "New Alert"}: ${data.message}`);
+        showToast(`${data.title || "New Alert"}: ${data.message}`);
 
         // Add to notification list
         setNotifications((prev) => [data, ...prev]);
@@ -2853,7 +2853,7 @@ export default function AdminPanel() {
           const now = Date.now();
           if (now - lastTap > 2500) {
             lastTap = now;
-            showToast("⚠️ Form me data bhara hua hai. Dobara back dabayein cancel karne ke liye.", "info");
+            showToast("Form me data bhara hua hai. Dobara back dabayein cancel karne ke liye.", "info");
             return "dirty_prevented";
           }
         }
@@ -3094,11 +3094,11 @@ export default function AdminPanel() {
         mustChangePassword: resetPasswordMustChange,
         educaSynced: data.educaSynced
       });
-      showToast(`🔑 ${resetPasswordModalUser.name} ka password reset ho gaya!`, "success");
+      showToast(`${resetPasswordModalUser.name} ka password reset ho gaya!`, "success");
       apiCache.clear();
       loadUsers(true);
     } catch (err) {
-      showToast(`⚠️ ${err.message}`, "error");
+      showToast(`${err.message}`, "error");
     } finally {
       setResetPasswordLoading(false);
     }
@@ -3144,12 +3144,12 @@ export default function AdminPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to assign desk role");
       const summary = isStaff ? assignStaffDepts.join(" + ") : "Normal Customer";
-      showToast(`👔 ${assignStaffModalUser.name} ka desk role update ho gaya: ${summary}!`, "success");
+      showToast(`${assignStaffModalUser.name} ka desk role update ho gaya: ${summary}!`, "success");
       apiCache.clear();
       loadUsers(true);
       setAssignStaffModalUser(null);
     } catch (err) {
-      showToast(`⚠️ ${err.message}`, "error");
+      showToast(`${err.message}`, "error");
     } finally {
       setAssignStaffLoading(false);
     }
@@ -3456,7 +3456,7 @@ export default function AdminPanel() {
       });
       const d = await res.json();
       if (res.ok) {
-        showToast(`✅ ${currentDept.name || deptKey} commission updated to ${rateNum}${currentDept.unit || '%'}`);
+        showToast(`${currentDept.name || deptKey} commission updated to ${rateNum}${currentDept.unit || '%'}`);
       } else {
         showToast(d.message || "Failed to update commission", "error");
       }
@@ -3514,9 +3514,9 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast("🎉 " + data.message, "success");
+        showToast("" + data.message, "success");
       } else {
-        showToast("❌ " + (data.message || "R2 Connection failed"), "error");
+        showToast("" + (data.message || "R2 Connection failed"), "error");
       }
     } catch (e) {
       showToast("Network error testing R2: " + e.message, "error");
@@ -3633,43 +3633,43 @@ export default function AdminPanel() {
   };
 
   const tabs = [
-    { key: "capital", label: "Capital & Fund Hub", icon: "📊" },
-    { key: "analytics", label: "Profit & Reserves", icon: "📈" },
-    { key: "staff", label: "Staff & Desks", icon: "👥" },
-    { key: "dept-commission", label: "Department Commission", icon: "💼" },
-    { key: "activity-log", label: "Audit Activity Log", icon: "🛡️" },
+    { key: "capital", label: "Capital & Fund Hub", icon: "" },
+    { key: "analytics", label: "Profit & Reserves", icon: "" },
+    { key: "staff", label: "Staff & Desks", icon: "" },
+    { key: "dept-commission", label: "Department Commission", icon: "" },
+    { key: "activity-log", label: "Audit Activity Log", icon: "" },
     { key: "pending", label: "Pending", icon: "⏳", badge: totalPendingDeskCount },
-    { key: "kyc", label: "KYC Requests", icon: "📄", badge: pendingKycCount },
-    { key: "history", label: "Audit History", icon: "📜" },
-    { key: "alerts", label: "Live Alerts", icon: "🔔", badge: unreadNotifs },
-    { key: "agents", label: "Agent Partners", icon: "🤝", badge: pendingAgentsCount },
-    { key: "loans", label: "Loans", icon: "🏦", badge: pendingLoans.length || undefined },
-    { key: "issue-loan", label: "Issue Loan Desk", icon: "➕🏦" },
-    { key: "lending", label: "Lending Accounts", icon: "🤝", badge: pendingBonds.length || bonds.length || undefined },
-    { key: "users", label: "Users & Accounts", icon: "👥" },
-    { key: "devices", label: "App Lock", icon: "🔒", badge: devices.filter(d => d.adminStatus === "active").length },
-    { key: "settings", label: "Settings", icon: "⚙️" },
+    { key: "kyc", label: "KYC Requests", icon: "", badge: pendingKycCount },
+    { key: "history", label: "Audit History", icon: "" },
+    { key: "alerts", label: "Live Alerts", icon: "", badge: unreadNotifs },
+    { key: "agents", label: "Agent Partners", icon: "", badge: pendingAgentsCount },
+    { key: "loans", label: "Loans", icon: "", badge: pendingLoans.length || undefined },
+    { key: "issue-loan", label: "Issue Loan Desk", icon: "" },
+    { key: "lending", label: "Lending Accounts", icon: "", badge: pendingBonds.length || bonds.length || undefined },
+    { key: "users", label: "Users & Accounts", icon: "" },
+    { key: "devices", label: "App Lock", icon: "", badge: devices.filter(d => d.adminStatus === "active").length },
+    { key: "settings", label: "Settings", icon: "" },
   ];
 
   // Dedicated Multi-Category Audit History State & Constants
   const AUDIT_CATEGORIES = [
-    { key: "all", label: "All Activities", icon: "🌐" },
-    { key: "deposit", label: "Deposits", icon: "💰" },
-    { key: "withdrawal", label: "Withdrawals", icon: "💸" },
-    { key: "transfer", label: "P2P Transfers", icon: "🔄" },
-    { key: "kyc", label: "All KYC", icon: "📄" },
-    { key: "normal_kyc", label: "Normal KYC", icon: "👤" },
-    { key: "loan_kyc", label: "Loan KYC", icon: "🏦" },
-    { key: "loan", label: "Loans", icon: "📑" },
-    { key: "agent", label: "Agent Partners", icon: "🤝" },
-    { key: "yield", label: "12% Daily Yield", icon: "📈" },
+    { key: "all", label: "All Activities", icon: "" },
+    { key: "deposit", label: "Deposits", icon: "" },
+    { key: "withdrawal", label: "Withdrawals", icon: "" },
+    { key: "transfer", label: "P2P Transfers", icon: "" },
+    { key: "kyc", label: "All KYC", icon: "" },
+    { key: "normal_kyc", label: "Normal KYC", icon: "" },
+    { key: "loan_kyc", label: "Loan KYC", icon: "" },
+    { key: "loan", label: "Loans", icon: "" },
+    { key: "agent", label: "Agent Partners", icon: "" },
+    { key: "yield", label: "12% Daily Yield", icon: "" },
   ];
 
   const AUDIT_STATUSES = [
-    { key: "all", label: "All Statuses", icon: "🌐" },
-    { key: "approved", label: "Approved / Done", icon: "✅" },
+    { key: "all", label: "All Statuses", icon: "" },
+    { key: "approved", label: "Approved / Done", icon: "" },
     { key: "pending", label: "Pending", icon: "⏳" },
-    { key: "rejected", label: "Rejected", icon: "❌" },
+    { key: "rejected", label: "Rejected", icon: "" },
   ];
 
   const getAuditCacheKey = (cat = "all", stat = "all") => `educa_admin_audit_${cat}_${stat}`;
@@ -3696,7 +3696,7 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok) {
-        setToast({ text: `✅ ${data.message || "24h Profit alerts sent to depositors!"}`, type: "success" });
+        setToast({ text: `${data.message || "24h Profit alerts sent to depositors!"}`, type: "success" });
         loadAuditHistory(true);
       } else {
         setToast({ text: data.message || "Failed to dispatch alerts", type: "error" });
@@ -3716,14 +3716,14 @@ export default function AdminPanel() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          title: "🔔 Educa Admin Notification",
+          title: "Educa Admin Notification",
           message: "FCM Push & Device Alert Live Test! Sabhi connected phones pe alert deliver ho gaya hai.",
           deviceId: "all"
         })
       });
       const data = await res.json();
       if (res.ok) {
-        setToast({ text: "🔔 Notification phone pe bhej di gayi hai!", type: "success" });
+        setToast({ text: "Notification phone pe bhej di gayi hai!", type: "success" });
       } else {
         setToast({ text: data.message || "Failed to dispatch alert", type: "error" });
       }
@@ -4022,12 +4022,12 @@ export default function AdminPanel() {
   const isMetricsLoading = false;
 
   const statCards = [
-    { icon: "🏦", label: "Fintech Reserves", value: <LiveAdminReservesTicker deposits={totalReservesBase} baseProfit={totalProfitBase} />, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading, isLive: true },
-    { icon: "💰", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: isMetricsLoading, isLive: true },
-    { icon: "⚡", label: "Profit Credited", value: <LiveAdminProfitTicker baseProfit={totalProfitBase} deposits={totalDepositsDisplay} />, g: "from-blue-600 to-cyan-600", isLoading: isMetricsLoading, isLive: true },
-    { icon: "👥", label: "Total Users", value: resolvedTotalUsers, g: "from-indigo-600 to-violet-600", isLoading: isMetricsLoading, isLive: true },
+    { icon: "", label: "Fintech Reserves", value: <LiveAdminReservesTicker deposits={totalReservesBase} baseProfit={totalProfitBase} />, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading, isLive: true },
+    { icon: "", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: isMetricsLoading, isLive: true },
+    { icon: "", label: "Profit Credited", value: <LiveAdminProfitTicker baseProfit={totalProfitBase} deposits={totalDepositsDisplay} />, g: "from-blue-600 to-cyan-600", isLoading: isMetricsLoading, isLive: true },
+    { icon: "", label: "Total Users", value: resolvedTotalUsers, g: "from-indigo-600 to-violet-600", isLoading: isMetricsLoading, isLive: true },
     { icon: "⏳", label: "Pending Txns", value: resolvedPendingTxns, g: "from-amber-500 to-orange-500", isLoading: isMetricsLoading, isLive: true },
-    { icon: "📑", label: "Active Loans", value: resolvedActiveLoans, g: "from-sky-500 to-blue-600", isLoading: isMetricsLoading, isLive: true },
+    { icon: "", label: "Active Loans", value: resolvedActiveLoans, g: "from-sky-500 to-blue-600", isLoading: isMetricsLoading, isLive: true },
   ];
 
   return (
@@ -4131,7 +4131,7 @@ export default function AdminPanel() {
             className="text-center text-[11px] text-gray-400 py-1 z-10"
             onClick={(e) => e.stopPropagation()}
           >
-            Tap image to zoom in • Double tap to toggle 2x • Pinch / Use 🔍+ buttons
+            Tap image to zoom in • Double tap to toggle 2x • Pinch / Use + buttons
           </div>
         </div>
       )}
@@ -4175,9 +4175,8 @@ export default function AdminPanel() {
                   : "text-slate-300 hover:bg-slate-800 hover:text-white"
               }`}
             >
-              <span className="flex items-center gap-2.5">
-                <span className="text-base shrink-0">{icon}</span>
-                {!isSidebarCollapsed && <span className="truncate">{label}</span>}
+              <span className="flex items-center gap-2.5 min-w-0">
+                <span className="truncate">{isSidebarCollapsed ? label.slice(0, 3) : label}</span>
               </span>
               {!!badge && (
                 isSidebarCollapsed ? (
@@ -4198,7 +4197,7 @@ export default function AdminPanel() {
               title={isSidebarCollapsed ? "Department Desks" : undefined}
               className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
             >
-              <span>🏢</span>
+              
               {!isSidebarCollapsed && <span className="truncate">Department Desks</span>}
             </Link>
             <Link
@@ -4206,7 +4205,7 @@ export default function AdminPanel() {
               title={isSidebarCollapsed ? "Customer App View" : undefined}
               className="w-full flex items-center justify-center gap-2 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition text-xs font-bold active:scale-95 cursor-pointer shadow-xs"
             >
-              <span>📱</span>
+              
               {!isSidebarCollapsed && <span className="truncate">Customer App View</span>}
             </Link>
             {!isSidebarCollapsed && (
@@ -4225,7 +4224,7 @@ export default function AdminPanel() {
               title={isSidebarCollapsed ? "Clear Cache" : undefined}
               className="w-full px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
             >
-              <span>🧹</span>
+              
               {!isSidebarCollapsed && <span>Clear Cache</span>}
             </button>
             <button
@@ -4234,7 +4233,7 @@ export default function AdminPanel() {
               title={isSidebarCollapsed ? "Logout" : undefined}
               className="w-full px-2.5 py-1.5 bg-rose-600/90 hover:bg-rose-600 text-white rounded-lg transition text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
             >
-              <span>🚪</span>
+              
               {!isSidebarCollapsed && <span>Logout</span>}
             </button>
           </div>
@@ -4268,7 +4267,7 @@ export default function AdminPanel() {
         <header className="hidden lg:flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
           <div className="flex items-center gap-3">
             <h2 className="text-slate-900 font-bold text-base capitalize flex items-center gap-2">
-              <span>{tabs.find(t => t.key === tab)?.icon || "📊"}</span>
+              <span>{tabs.find(t => t.key === tab)?.icon || ""}</span>
               <span>{tabs.find(t => t.key === tab)?.label || "Dashboard"}</span>
             </h2>
             <span className="text-xs text-slate-400 font-medium">| Educa Executive Console</span>
@@ -4280,7 +4279,7 @@ export default function AdminPanel() {
           {rateLimitError && (
             <div className="mb-4 sm:mb-6 p-4 bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-sm animate-in fade-in">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">⚠️</span>
+                <span className="text-2xl"></span>
                 <div>
                   <p className="text-xs sm:text-sm font-black">{rateLimitError}</p>
                   <p className="text-[11px] text-amber-800 mt-0.5">Existing table aur data bilkul safe hai. 30 second baad retry karein.</p>
@@ -4292,7 +4291,7 @@ export default function AdminPanel() {
                 disabled={isRetrying}
                 className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 shadow-xs"
               >
-                <span>{isRetrying ? "⏳ Refreshing..." : "🔄 Retry Now"}</span>
+                <span>{isRetrying ? "⏳ Refreshing..." : "Retry Now"}</span>
               </button>
             </div>
           )}
@@ -4383,7 +4382,6 @@ export default function AdminPanel() {
                         }`}
                       >
                         <span className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-base shrink-0">{icon}</span>
                           <span className="truncate">{label}</span>
                         </span>
                         {!!badge && (
@@ -4403,7 +4401,6 @@ export default function AdminPanel() {
                       className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-[0.98] cursor-pointer"
                     >
                       <span className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-base shrink-0">🏢</span>
                         <span className="truncate">Department Desks</span>
                       </span>
                       <span className="text-slate-400 text-xs font-bold">→</span>
@@ -4414,7 +4411,6 @@ export default function AdminPanel() {
                       className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-[0.98] cursor-pointer"
                     >
                       <span className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-base shrink-0">📱</span>
                         <span className="truncate">Customer App View</span>
                       </span>
                       <span className="text-slate-400 text-xs font-bold">→</span>
@@ -4428,7 +4424,6 @@ export default function AdminPanel() {
                       className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition active:scale-[0.98] cursor-pointer"
                     >
                       <span className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-base shrink-0">🚪</span>
                         <span className="truncate">Logout</span>
                       </span>
                     </button>
@@ -4522,28 +4517,28 @@ export default function AdminPanel() {
             // Determine active items list
             let activeItems = [];
             let activeCategoryLabel = "";
-            let activeCategoryIcon = "🏛️";
+            let activeCategoryIcon = "";
 
             if (capitalSubCategory === "loans") {
               activeItems = allLoanItems.filter(i => matchesTime(i.createdAt || i.approvedAt) && matchesSearch(i));
               activeCategoryLabel = "Loans (Udhaar & EMI Portfolio Ledger)";
-              activeCategoryIcon = "🏛️";
+              activeCategoryIcon = "";
             } else if (capitalSubCategory === "investments") {
               activeItems = allInvestmentItems.filter(i => matchesTime(i.createdAt || i.startDate) && matchesSearch(i));
               activeCategoryLabel = "Investments & Lending Bonds Ledger";
-              activeCategoryIcon = "💎";
+              activeCategoryIcon = "";
             } else if (capitalSubCategory === "cashout") {
               activeItems = allCashOutItems.filter(i => matchesTime(i.createdAt) && matchesSearch(i));
               activeCategoryLabel = "Cash-Out (Withdrawals & Payouts Ledger)";
-              activeCategoryIcon = "💸";
+              activeCategoryIcon = "";
             } else if (capitalSubCategory === "deposits") {
               activeItems = allDepositItems.filter(i => matchesTime(i.createdAt) && matchesSearch(i));
               activeCategoryLabel = "Add Money (Deposits & UPI Inflow Ledger)";
-              activeCategoryIcon = "💰";
+              activeCategoryIcon = "";
             } else if (capitalSubCategory === "profit") {
               activeItems = allProfitItems.filter(i => matchesTime(i.createdAt) && matchesSearch(i));
               activeCategoryLabel = "Net Profit & Daily Yield Distributions";
-              activeCategoryIcon = "📈";
+              activeCategoryIcon = "";
             }
 
             const activeTotalAmount = activeItems.reduce((sum, item) => {
@@ -4559,11 +4554,11 @@ export default function AdminPanel() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar flex-1">
                       {[
-                        { key: "loans", label: "Loan", icon: "🏛️", count: allLoanItems.length },
-                        { key: "investments", label: "Investment", icon: "💎", count: allInvestmentItems.length },
-                        { key: "cashout", label: "Cashout", icon: "💸", count: allCashOutItems.length },
-                        { key: "deposits", label: "Add Money", icon: "💰", count: allDepositItems.length },
-                        { key: "profit", label: "Net Profit", icon: "📈", count: allProfitItems.length },
+                        { key: "loans", label: "Loan", icon: "", count: allLoanItems.length },
+                        { key: "investments", label: "Investment", icon: "", count: allInvestmentItems.length },
+                        { key: "cashout", label: "Cashout", icon: "", count: allCashOutItems.length },
+                        { key: "deposits", label: "Add Money", icon: "", count: allDepositItems.length },
+                        { key: "profit", label: "Net Profit", icon: "", count: allProfitItems.length },
                       ].map((c) => {
                         const isSel = capitalSubCategory === c.key;
                         return (
@@ -4596,7 +4591,7 @@ export default function AdminPanel() {
                       className="min-h-[44px] px-3 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer shrink-0"
                       title="Refresh Capital Hub data"
                     >
-                      <span>{capitalLoading ? "⏳" : "🔄"}</span>
+                      <span>{capitalLoading ? "⏳" : ""}</span>
                       <span className="hidden sm:inline">{capitalLoading ? "Refreshing..." : "Refresh"}</span>
                     </button>
                   </div>
@@ -4609,7 +4604,7 @@ export default function AdminPanel() {
                         type="text"
                         value={capitalSearch}
                         onChange={(e) => setCapitalSearch(e.target.value)}
-                        placeholder={`🔍 Search in ${capitalSubCategory} by Name, Phone, UTR...`}
+                        placeholder={`Search in ${capitalSubCategory} by Name, Phone, UTR...`}
                         className="w-full min-h-[44px] pl-3.5 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                       />
                       {capitalSearch && (
@@ -4627,9 +4622,9 @@ export default function AdminPanel() {
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar shrink-0">
                       {[
                         { key: "all", label: "Sabhi (All)" },
-                        { key: "today", label: "📅 Aaj (Today)" },
+                        { key: "today", label: "Aaj (Today)" },
                         { key: "7days", label: "⏱️ Pichle 7 Din" },
-                        { key: "month", label: "🗓️ Is Mahine" },
+                        { key: "month", label: "Is Mahine" },
                       ].map((tf) => {
                         const isTimeActive = capitalTimeFilter === tf.key;
                         return (
@@ -4663,7 +4658,7 @@ export default function AdminPanel() {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-blue-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>📤</span> Total Diya Gaya (Disbursed)
+                           Total Diya Gaya (Disbursed)
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-slate-900 font-mono">
@@ -4677,14 +4672,14 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>📥</span> Wapas Kitna Aaya (Recovered)
+                           Wapas Kitna Aaya (Recovered)
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-emerald-700 font-mono">
                             ₹{loanRecovered.toLocaleString("en-IN")}
                           </span>
                           <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                            ✅ Collected
+                            Collected
                           </span>
                         </div>
                       </div>
@@ -4705,7 +4700,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-indigo-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-indigo-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>🏛️</span> Active Udhaar Accounts
+                           Active Udhaar Accounts
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-indigo-950 font-mono">
@@ -4730,7 +4725,7 @@ export default function AdminPanel() {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-purple-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-purple-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>💎</span> Total Principal Nivesh
+                           Total Principal Nivesh
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-purple-950 font-mono">
@@ -4744,7 +4739,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>📈</span> Distributed Yield / Return
+                           Distributed Yield / Return
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-emerald-700 font-mono">
@@ -4758,7 +4753,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-indigo-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-indigo-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>🤝</span> Active Investment Bonds
+                           Active Investment Bonds
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-indigo-950 font-mono">
@@ -4772,7 +4767,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>👥</span> Total Investor Base
+                           Total Investor Base
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-slate-900 font-mono">
@@ -4797,7 +4792,7 @@ export default function AdminPanel() {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-rose-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-rose-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>💸</span> Approved Cash-Out
+                           Approved Cash-Out
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-rose-900 font-mono">
@@ -4825,7 +4820,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>📊</span> Total Payout Txns
+                           Total Payout Txns
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-slate-900 font-mono">
@@ -4839,7 +4834,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-blue-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>👥</span> Unique Payout Users
+                           Unique Payout Users
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-blue-900 font-mono">
@@ -4864,7 +4859,7 @@ export default function AdminPanel() {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>💰</span> Approved Inflow (Added)
+                           Approved Inflow (Added)
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-emerald-800 font-mono">
@@ -4892,7 +4887,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-blue-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>👥</span> Unique Deposit Users
+                           Unique Deposit Users
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-blue-900 font-mono">
@@ -4906,7 +4901,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>📋</span> Total Deposit Txns
+                           Total Deposit Txns
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-slate-900 font-mono">
@@ -4929,7 +4924,7 @@ export default function AdminPanel() {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>📈</span> Total Distributed Profit
+                           Total Distributed Profit
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-emerald-800 font-mono">
@@ -4943,7 +4938,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-blue-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>👥</span> Beneficiary Accounts
+                           Beneficiary Accounts
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-blue-900 font-mono">
@@ -4957,7 +4952,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-purple-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-purple-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>⚖️</span> System Net Liquidity
+                           System Net Liquidity
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-purple-950 font-mono">
@@ -4971,7 +4966,7 @@ export default function AdminPanel() {
 
                       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
                         <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                          <span>📋</span> Total Yield Entries
+                           Total Yield Entries
                         </span>
                         <div className="mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
                           <span className="text-base sm:text-xl font-black text-slate-900 font-mono">
@@ -5010,7 +5005,7 @@ export default function AdminPanel() {
                   {/* Empty state or item records */}
                   {activeItems.length === 0 ? (
                     <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-2">
-                      <div className="text-3xl">🔍</div>
+                      <div className="text-3xl"></div>
                       <p className="text-xs font-bold text-slate-600">
                         {capitalSearch || capitalTimeFilter !== "all"
                           ? "Is search filter ke mutabiq koi entry nahi mili."
@@ -5068,7 +5063,7 @@ export default function AdminPanel() {
                                     ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
                                     : "bg-amber-100 text-amber-800"
                                 }`}>
-                                  {isClosed ? "✓ Closed" : item.status === "active" ? "🟢 Active" : "⏳ Pending"}
+                                  {isClosed ? "✓ Closed" : item.status === "active" ? "Active" : "⏳ Pending"}
                                 </span>
                               </div>
 
@@ -5088,7 +5083,7 @@ export default function AdminPanel() {
                               </div>
 
                               <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                                <span>📅 {dateFormatted} · {item.tenureMonths || 12}M Tenor</span>
+                                <span>{dateFormatted} · {item.tenureMonths || 12}M Tenor</span>
                                 <button
                                   type="button"
                                   onClick={() => switchTab("loans")}
@@ -5122,7 +5117,7 @@ export default function AdminPanel() {
                                 <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${
                                   item.status === "active" ? "bg-purple-100 text-purple-800 border border-purple-200" : "bg-emerald-100 text-emerald-800"
                                 }`}>
-                                  {item.status === "active" ? "💎 Active Bond" : "✓ Matured"}
+                                  {item.status === "active" ? "Active Bond" : "✓ Matured"}
                                 </span>
                               </div>
 
@@ -5138,7 +5133,7 @@ export default function AdminPanel() {
                               </div>
 
                               <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                                <span className="truncate">🏷️ {item.planName || "Fixed Growth Bond"} · 📅 {dateFormatted}</span>
+                                <span className="truncate">{item.planName || "Fixed Growth Bond"} · {dateFormatted}</span>
                                 <button
                                   type="button"
                                   onClick={() => switchTab("lending")}
@@ -5195,7 +5190,7 @@ export default function AdminPanel() {
                               </div>
 
                               <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                                <span>📅 {dateFormatted}</span>
+                                <span>{dateFormatted}</span>
                                 {isPending && (
                                   <button
                                     type="button"
@@ -5249,7 +5244,7 @@ export default function AdminPanel() {
                               </div>
 
                               <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                                <span>📅 {dateFormatted}</span>
+                                <span>{dateFormatted}</span>
                                 {(item.proofUrl || item.screenshotUrl) && (
                                   <a
                                     href={item.proofUrl || item.screenshotUrl}
@@ -5301,7 +5296,7 @@ export default function AdminPanel() {
                             </div>
 
                             <div className="text-[11px] text-slate-500 pt-1">
-                              📅 {dateFormatted}
+                              {dateFormatted}
                             </div>
                           </div>
                         );
@@ -5326,7 +5321,7 @@ export default function AdminPanel() {
                   className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-md shadow-blue-500/20"
                   title="Open Staff & ID Maker to create department IDs"
                 >
-                  <span>👔</span>
+                  
                   <span>Create Staff ID / Assign Role</span>
                   <span className="bg-amber-400 text-slate-900 text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase">NEW</span>
                 </button>
@@ -5338,7 +5333,7 @@ export default function AdminPanel() {
                   disabled={loadingAnalytics}
                   className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <span>{loadingAnalytics ? "⏳" : "🔄"}</span>
+                  <span>{loadingAnalytics ? "⏳" : ""}</span>
                   <span>{loadingAnalytics ? "Refreshing..." : "Refresh Data"}</span>
                 </button>
               </div>
@@ -5348,7 +5343,7 @@ export default function AdminPanel() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-3">
                   <div>
                     <h3 className="text-lg font-black font-display text-gray-900 flex items-center gap-2">
-                      <span>📊</span> Daily Profit & Capital Growth Chart
+                       Daily Profit & Capital Growth Chart
                     </h3>
                     <p className="text-xs text-gray-500">
                       Compounding 12% p.a. savings yield credited daily to active customer accounts (1% monthly ÷ calendar days)
@@ -5361,7 +5356,7 @@ export default function AdminPanel() {
                         chartMode === "daily" ? "bg-white text-blue-700 shadow-xs" : "text-gray-500 hover:text-gray-900"
                       }`}
                     >
-                      📊 Daily Yield Added
+                      Daily Yield Added
                     </button>
                     <button
                       onClick={() => setChartMode("cumulative")}
@@ -5369,7 +5364,7 @@ export default function AdminPanel() {
                         chartMode === "cumulative" ? "bg-white text-blue-700 shadow-xs" : "text-gray-500 hover:text-gray-900"
                       }`}
                     >
-                      📈 Cumulative Growth
+                      Cumulative Growth
                     </button>
                   </div>
                 </div>
@@ -5383,10 +5378,10 @@ export default function AdminPanel() {
                       return (
                         <div className="py-14 flex flex-col items-center justify-center text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
                           <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-3 shadow-xs">
-                            📊
+                            
                           </div>
                           <p className="font-extrabold text-gray-800 text-sm">
-                            {loadingAnalytics ? "🔄 Live Profit Data Sync Ho Raha Hai..." : "No Profit Yield History Yet"}
+                            {loadingAnalytics ? "Live Profit Data Sync Ho Raha Hai..." : "No Profit Yield History Yet"}
                           </p>
                           <p className="text-xs text-gray-400 mt-1 max-w-sm">
                             {loadingAnalytics ? "Server se taaza record load ho raha hai, kripya thoda wait karein..." : "Daily interest calculations will automatically plot here as customer balances accrue yield."}
@@ -5724,7 +5719,7 @@ export default function AdminPanel() {
                   return (
                     <div className="mt-4 p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in">
                       <div className="flex items-center gap-3">
-                        <span className="text-xl">📅</span>
+                        <span className="text-xl"></span>
                         <div>
                           <span className="font-extrabold text-slate-900 text-sm">{activeBar.displayDate}</span>
                           <p className="text-[11px] text-slate-600">12% p.a. Savings Compounding Yield</p>
@@ -5761,7 +5756,7 @@ export default function AdminPanel() {
                 <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-5">
                   <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                     <h3 className="text-base font-black font-display text-gray-900 flex items-center gap-2">
-                      <span className="text-lg">🏛️</span> Capital Allocation & Sources
+                      <span className="text-lg"></span> Capital Allocation & Sources
                     </h3>
                     <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2.5 py-1 rounded-xl border border-gray-200">
                       Total Pool: ₹{Number(totalDepositsDisplay > 0 ? (totalDepositsDisplay + totalProfitBase) : (analytics?.stats?.netFintechReserve || stats?.netFintechReserve || cachedReserves || 26670026.7471)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -5796,7 +5791,7 @@ export default function AdminPanel() {
                           <div className="p-4 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-gray-200 hover:shadow-xs transition-all flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center text-lg shrink-0">
-                                📥
+                                
                               </div>
                               <div className="min-w-0">
                                 <p className="font-extrabold text-xs text-gray-900 truncate">Direct Customer Deposits</p>
@@ -5817,7 +5812,7 @@ export default function AdminPanel() {
                           <div className="p-4 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-gray-200 hover:shadow-xs transition-all flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center text-lg shrink-0">
-                                📈
+                                
                               </div>
                               <div className="min-w-0">
                                 <p className="font-extrabold text-xs text-gray-900 truncate">12% p.a. Savings Yield</p>
@@ -5871,7 +5866,7 @@ export default function AdminPanel() {
                                   : "bg-blue-50 text-blue-600 border-blue-100"
                               }`}
                             >
-                              {isDeposit ? "📥" : "⚡"}
+                              {isDeposit ? "" : ""}
                             </div>
 
                             <div className="flex-1 min-w-0">
@@ -5893,7 +5888,7 @@ export default function AdminPanel() {
                                 {item.description}
                               </p>
                               <p className="text-[10px] text-gray-400 mt-1 font-medium">
-                                🗓️ {new Date(item.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                {new Date(item.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                               </p>
                             </div>
                           </div>
@@ -5901,7 +5896,7 @@ export default function AdminPanel() {
                       })
                     ) : (
                       <div className="py-12 text-center text-gray-400">
-                        <span className="text-3xl block mb-2">{loadingAnalytics ? "🔄" : "📋"}</span>
+                        <span className="text-3xl block mb-2">{loadingAnalytics ? "" : ""}</span>
                         <p className="font-bold text-xs text-gray-600">
                           {loadingAnalytics ? "Live Capital Activity Sync Ho Rahi Hai..." : "Abhi koi capital activity record nahi hui hai"}
                         </p>
@@ -5921,7 +5916,7 @@ export default function AdminPanel() {
                 <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
                   <div>
                     <h3 className="text-base font-black font-display text-gray-900 flex items-center gap-2">
-                      <span>📜</span> Day-by-Day Profit Breakdown Ledger
+                       Day-by-Day Profit Breakdown Ledger
                     </h3>
                     <p className="text-xs text-gray-500">Har din ka alag-alag credit record date aur remarks ke sath</p>
                   </div>
@@ -5934,7 +5929,7 @@ export default function AdminPanel() {
                 <div className="sm:hidden space-y-2.5">
                   {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
                     <div className="py-8 text-center text-gray-400 text-xs font-medium bg-slate-50 rounded-xl border border-slate-200">
-                      {loadingAnalytics ? "🔄 Live ledger sync ho raha hai..." : "Koi daily profit yield abhi tak record nahi hua hai."}
+                      {loadingAnalytics ? "Live ledger sync ho raha hai..." : "Koi daily profit yield abhi tak record nahi hua hai."}
                     </div>
                   ) : (
                     analytics.dailyProfitChart.map((row, idx) => {
@@ -5961,14 +5956,14 @@ export default function AdminPanel() {
                               )}
                             </div>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isToday ? "bg-emerald-500 text-white shadow-2xs" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
-                              {isToday ? "⚡ Live Crediting" : "✓ Credited"}
+                              {isToday ? "Live Crediting" : "✓ Credited"}
                             </span>
                           </div>
 
                           {/* Din Ke Hisaab Se Total Deposit Banner */}
                           <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs">
                             <div className="flex items-center gap-2">
-                              <span className="text-base">💰</span>
+                              <span className="text-base"></span>
                               <div>
                                 <span className="text-[10px] text-slate-500 font-bold block">Us Din Ka Total Deposit:</span>
                                 <span className="font-mono font-black text-slate-900 text-xs">
@@ -5991,17 +5986,17 @@ export default function AdminPanel() {
                           {isExpanded && hasDeposits && (
                             <div className="p-2.5 bg-blue-50/60 rounded-xl border border-blue-200 space-y-2 animate-in fade-in duration-150">
                               <div className="flex items-center justify-between text-[10px] font-black text-blue-900 uppercase tracking-wider border-b border-blue-200/70 pb-1">
-                                <span>📋 Approved Deposits ({depositsList.length}):</span>
+                                <span>Approved Deposits ({depositsList.length}):</span>
                                 <span>12% p.a. Calculation</span>
                               </div>
                               {depositsList.map((dep, dIdx) => (
                                 <div key={dep.id || dIdx} className="p-2.5 bg-white rounded-lg border border-blue-100 text-[11px] space-y-1.5 shadow-2xs">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                                      <span className="text-[10px] text-slate-400 font-mono">🕒 {dep.time || "Approved"}</span>
+                                      <span className="text-[10px] text-slate-400 font-mono">{dep.time || "Approved"}</span>
                                       <span>•</span>
                                       <span className="text-slate-900 font-extrabold flex items-center gap-1">
-                                        <span>👤</span>
+                                        
                                         <span>{dep.userName || dep.user || "Depositor"}</span>
                                       </span>
                                     </div>
@@ -6013,7 +6008,7 @@ export default function AdminPanel() {
                                   </div>
                                   {(dep.userPhone || dep.accountNumber) && (
                                     <div className="flex items-center justify-between text-[9px] text-slate-400 font-mono">
-                                      {dep.userPhone && <span>📞 {dep.userPhone}</span>}
+                                      {dep.userPhone && <span>{dep.userPhone}</span>}
                                       {dep.accountNumber && <span>A/C: {dep.accountNumber}</span>}
                                     </div>
                                   )}
@@ -6025,7 +6020,7 @@ export default function AdminPanel() {
                                         className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 hover:bg-blue-50 text-blue-700 border border-slate-200 rounded text-[9px] font-bold cursor-pointer active:scale-95"
                                       >
                                         <img src={dep.proofUrl} alt="Receipt" className="w-3 h-3 object-cover rounded" />
-                                        <span>View Receipt Photo 🔍</span>
+                                        <span>View Receipt Photo </span>
                                       </button>
                                     </div>
                                   )}
@@ -6088,7 +6083,7 @@ export default function AdminPanel() {
                       {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
                         <tr>
                           <td colSpan="5" className="py-8 text-center text-gray-400 font-medium">
-                            {loadingAnalytics ? "🔄 Live ledger sync ho raha hai..." : "Koi daily profit yield abhi tak record nahi hua hai."}
+                            {loadingAnalytics ? "Live ledger sync ho raha hai..." : "Koi daily profit yield abhi tak record nahi hua hai."}
                           </td>
                         </tr>
                       ) : (
@@ -6131,7 +6126,7 @@ export default function AdminPanel() {
                                     <div className="flex items-center gap-2 flex-wrap">
                                       {dayDepositTotal > 0 ? (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-mono font-black text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-                                          <span>💰</span>
+                                          
                                           <span>+₹{dayDepositTotal.toLocaleString("en-IN")}</span>
                                         </span>
                                       ) : (
@@ -6196,7 +6191,7 @@ export default function AdminPanel() {
                                     <div className="bg-white rounded-xl border border-blue-200/80 p-3 space-y-2 shadow-2xs">
                                       <div className="flex items-center justify-between text-xs font-bold text-blue-900 border-b border-slate-100 pb-1.5">
                                         <span className="flex items-center gap-1.5">
-                                          <span>📋</span>
+                                          
                                           <span>Approved Deposits on {row.displayDate || row.date} ({depositsList.length})</span>
                                         </span>
                                         <span className="font-mono text-xs font-black text-emerald-700">
@@ -6208,7 +6203,7 @@ export default function AdminPanel() {
                                           <div key={dep.id || dIdx} className="p-2.5 bg-slate-50/90 rounded-lg border border-slate-200 text-xs space-y-1.5">
                                             <div className="flex items-center justify-between font-bold">
                                               <span className="text-slate-900 font-extrabold flex items-center gap-1 truncate">
-                                                <span>👤</span>
+                                                
                                                 <span className="truncate">{dep.userName || dep.user || "Depositor"}</span>
                                               </span>
                                               <span className="font-mono font-black text-emerald-600 shrink-0 ml-2">
@@ -6216,7 +6211,7 @@ export default function AdminPanel() {
                                               </span>
                                             </div>
                                             <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                                              <span>🕒 {dep.time || "Approved"}</span>
+                                              <span>{dep.time || "Approved"}</span>
                                               <span>{dep.rateText || "12% p.a."}</span>
                                             </div>
                                             {(dep.utrNumber || dep.utr) && (
@@ -6226,7 +6221,7 @@ export default function AdminPanel() {
                                             )}
                                             {(dep.userPhone || dep.accountNumber) && (
                                               <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                                                {dep.userPhone && <span>📞 {dep.userPhone}</span>}
+                                                {dep.userPhone && <span>{dep.userPhone}</span>}
                                                 {dep.accountNumber && <span>A/C: {dep.accountNumber}</span>}
                                               </div>
                                             )}
@@ -6238,7 +6233,7 @@ export default function AdminPanel() {
                                                   className="inline-flex items-center gap-1 px-2 py-0.5 bg-white hover:bg-blue-50 text-blue-700 border border-slate-200 rounded text-[10px] font-bold cursor-pointer active:scale-95"
                                                 >
                                                   <img src={dep.proofUrl} alt="Receipt" className="w-3.5 h-3.5 object-cover rounded" />
-                                                  <span>View Receipt Photo 🔍</span>
+                                                  <span>View Receipt Photo </span>
                                                 </button>
                                               </div>
                                             )}
@@ -6266,7 +6261,7 @@ export default function AdminPanel() {
               {/* Active Deposit Credentials Info Banner */}
               <div className="mb-5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-xl">💳</span>
+                  <span className="text-xl"></span>
                   <div>
                     <span className="font-extrabold text-slate-900">Active Deposit Credentials:</span>
                     <span className="text-slate-700 ml-1">
@@ -6278,7 +6273,7 @@ export default function AdminPanel() {
                   onClick={() => switchTab("settings")}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-[11px] shadow-xs transition"
                 >
-                  ⚙️ Update UPI / Bank
+                  Update UPI / Bank
                 </button>
               </div>
 
@@ -6294,7 +6289,7 @@ export default function AdminPanel() {
                         : "text-slate-500 hover:text-slate-900"
                     }`}
                   >
-                    <span>💰 Deposits ({pending.length})</span>
+                    <span>Deposits ({pending.length})</span>
                   </button>
 
                   <button
@@ -6309,7 +6304,7 @@ export default function AdminPanel() {
                         : "text-blue-700 hover:text-blue-900 hover:bg-blue-50"
                     }`}
                   >
-                    <span>🏦 Loans</span>
+                    <span>Loans</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                       pendingLoans.length > 0
                         ? pendingSubTab === "loans"
@@ -6333,7 +6328,7 @@ export default function AdminPanel() {
                         : "text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50"
                     }`}
                   >
-                    <span>🤝 Bonds</span>
+                    <span>Bonds</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                       pendingBonds.length > 0
                         ? pendingSubTab === "bonds"
@@ -6357,7 +6352,7 @@ export default function AdminPanel() {
                         : "text-rose-600 hover:text-rose-800 hover:bg-rose-50"
                     }`}
                   >
-                    <span>⚠️ On Hold</span>
+                    <span>On Hold</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                       (holdData?.holdCount || 0) > 0
                         ? pendingSubTab === "hold"
@@ -6381,7 +6376,7 @@ export default function AdminPanel() {
                         : "text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50"
                     }`}
                   >
-                    <span>✅ Approved Requests</span>
+                    <span>Approved Requests</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                       approvedRequests.length > 0
                         ? pendingSubTab === "approved"
@@ -6406,7 +6401,7 @@ export default function AdminPanel() {
                     }}
                     className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-1 shadow-2xs"
                   >
-                    <span>🔄 Refresh</span>
+                    <span>Refresh</span>
                   </button>
                 </div>
               </div>
@@ -6430,7 +6425,7 @@ export default function AdminPanel() {
                       <div className="p-6 bg-blue-50/70 border-2 border-blue-200 rounded-2xl space-y-3">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <span className="text-3xl">🏦</span>
+                            <span className="text-3xl"></span>
                             <div>
                               <h4 className="font-black text-slate-900 text-sm sm:text-base">
                                 {pendingLoans.length} Loan Application(s) Approval ke liye pending hain!
@@ -6452,7 +6447,7 @@ export default function AdminPanel() {
                       </div>
                     ) : (
                       <div className="py-10 text-center space-y-3 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
-                        <span className="text-4xl block">🎉</span>
+                        <span className="text-4xl block"></span>
                         <p className="font-extrabold text-gray-800 text-sm">No Pending Transactions</p>
                         <p className="text-xs text-gray-400">Sabhi deposit aur withdrawal requests process ho chuki hain.</p>
                         {pendingBonds.length > 0 && (
@@ -6462,7 +6457,7 @@ export default function AdminPanel() {
                               onClick={() => setPendingSubTab("bonds")}
                               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
                             >
-                              🤝 {pendingBonds.length} Pending Bond(s) Dekhein
+                              {pendingBonds.length} Pending Bond(s) Dekhein
                             </button>
                           </div>
                         )}
@@ -6509,7 +6504,7 @@ export default function AdminPanel() {
                                         onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
                                         className="text-[11px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
                                       >
-                                        View Receipt 🔍
+                                        View Receipt 
                                       </button>
                                     </div>
                                   )}
@@ -6522,7 +6517,7 @@ export default function AdminPanel() {
                                         onClick={() => { navigator.clipboard?.writeText(t.paymentDetails.upiId); showToast("UPI ID Copied!", "success"); }}
                                         className="text-[10px] text-blue-600 hover:text-blue-800 cursor-pointer px-1 py-0.2 bg-blue-50 rounded border border-blue-200"
                                       >
-                                        📋 Copy
+                                        Copy
                                       </button>
                                     </div>
                                   )}
@@ -6539,7 +6534,7 @@ export default function AdminPanel() {
                                         onClick={() => { setLightboxImg(t.paymentDetails.qrCodeUrl); setZoomLevel(1); }}
                                         className="text-[11px] text-purple-700 hover:text-purple-900 font-bold underline cursor-pointer"
                                       >
-                                        User QR Code 📷
+                                        User QR Code 
                                       </button>
                                     </div>
                                   )}
@@ -6607,7 +6602,7 @@ export default function AdminPanel() {
                                   onClick={() => { setLightboxImg(t.proofUrl || t.screenshotUrl); setZoomLevel(1); }}
                                   className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold"
                                 >
-                                  🔍 Zoom
+                                  Zoom
                                 </button>
                               </div>
                             )}
@@ -6621,7 +6616,7 @@ export default function AdminPanel() {
                                     onClick={() => { navigator.clipboard?.writeText(t.paymentDetails.upiId); showToast("UPI ID Copied!", "success"); }}
                                     className="text-[10px] text-blue-600 px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded font-bold"
                                   >
-                                    📋 Copy
+                                    Copy
                                   </button>
                                 </div>
                               </div>
@@ -6645,7 +6640,7 @@ export default function AdminPanel() {
                                   onClick={() => { setLightboxImg(t.paymentDetails.qrCodeUrl); setZoomLevel(1); }}
                                   className="px-2 py-1 bg-white text-purple-700 border border-purple-200 rounded-lg text-xs font-bold"
                                 >
-                                  📷 Zoom QR
+                                  Zoom QR
                                 </button>
                               </div>
                             )}
@@ -6674,7 +6669,7 @@ export default function AdminPanel() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
-                        <span>🏦</span>
+                        
                         <span>Pending Loan Requests</span>
                         <span className="px-2 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-800">
                           {pendingLoans.length}
@@ -6689,7 +6684,7 @@ export default function AdminPanel() {
                       onClick={() => loadLoans(true)}
                       className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-1 shadow-2xs"
                     >
-                      <span>🔄 Refresh Loans</span>
+                      <span>Refresh Loans</span>
                     </button>
                   </div>
 
@@ -6697,7 +6692,7 @@ export default function AdminPanel() {
                   <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-xs shrink-0">
-                        ⚡
+                        
                       </div>
                       <div>
                         <h4 className="text-xs sm:text-sm font-black text-slate-900">
@@ -6713,13 +6708,13 @@ export default function AdminPanel() {
                       onClick={() => switchTab("issue-loan")}
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 shadow-xs shrink-0"
                     >
-                      <span>➕</span> Open Issue Loan Desk →
+                       Open Issue Loan Desk →
                     </button>
                   </div>
 
                   {pendingLoans.length === 0 ? (
                     <div className="py-12 text-center space-y-3 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
-                      <span className="text-4xl block">🎉</span>
+                      <span className="text-4xl block"></span>
                       <p className="font-extrabold text-gray-800 text-sm">No Pending Loan Requests</p>
                       <p className="text-xs text-gray-400">Sabhi loan applications process ho chuki hain.</p>
                       <div className="pt-2">
@@ -6728,7 +6723,7 @@ export default function AdminPanel() {
                           onClick={() => switchTab("loans")}
                           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer inline-flex items-center gap-1.5"
                         >
-                          <span>🏛️</span> Active Loans Ledger Dekhein ({loans.length})
+                           Active Loans Ledger Dekhein ({loans.length})
                         </button>
                       </div>
                     </div>
@@ -6748,7 +6743,7 @@ export default function AdminPanel() {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
-                                  🏦
+                                  
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2 flex-wrap">
@@ -6761,7 +6756,7 @@ export default function AdminPanel() {
                                     </span>
                                   </div>
                                   <p className="text-xs text-gray-500 mt-0.5">
-                                    📞 {l.userId?.phone || docs.applicantPhone || "N/A"} • ✉️ {l.userId?.email || docs.applicantEmail || "N/A"}
+                                    {l.userId?.phone || docs.applicantPhone || "N/A"} • {l.userId?.email || docs.applicantEmail || "N/A"}
                                   </p>
                                 </div>
                               </div>
@@ -6815,7 +6810,7 @@ export default function AdminPanel() {
                               <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2">
                                 <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                                   <span className="flex items-center gap-1.5">
-                                    <span>📄</span> Submitted Verification Documents
+                                     Submitted Verification Documents
                                   </span>
                                   {docs.bankAccountNumber && (
                                     <span className="text-[11px] font-mono text-slate-600">
@@ -6830,7 +6825,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.doc1Url || docs.aadharUrl); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>🆔</span> Aadhaar (Front) 🔍
+                                      <span>🆔</span> Aadhaar (Front) 
                                     </button>
                                   )}
                                   {(docs.doc1BackUrl || docs.aadharBackUrl) && (
@@ -6839,7 +6834,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.doc1BackUrl || docs.aadharBackUrl); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>🆔</span> Aadhaar (Back) 🔍
+                                      <span>🆔</span> Aadhaar (Back) 
                                     </button>
                                   )}
                                   {(docs.doc2Url || docs.panUrl) && (
@@ -6848,7 +6843,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.doc2Url || docs.panUrl); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>💳</span> PAN Card (Front) 🔍
+                                       PAN Card (Front) 
                                     </button>
                                   )}
                                   {(docs.doc2BackUrl || docs.panBackUrl) && (
@@ -6857,7 +6852,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.doc2BackUrl || docs.panBackUrl); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>💳</span> PAN Card (Back) 🔍
+                                       PAN Card (Back) 
                                     </button>
                                   )}
                                   {(docs.chequeUrl || docs.chequeFrontUrl) && (
@@ -6866,7 +6861,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.chequeUrl || docs.chequeFrontUrl); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>🏦</span> Bearer Cheque (Front) 🔍
+                                       Bearer Cheque (Front) 
                                     </button>
                                   )}
                                   {docs.chequeBackUrl && (
@@ -6875,7 +6870,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.chequeBackUrl); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>🏦</span> Bearer Cheque (Back) 🔍
+                                       Bearer Cheque (Back) 
                                     </button>
                                   )}
                                   {docs.studentProofUrl && (
@@ -6884,7 +6879,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.studentProofUrl); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>🎓</span> Student Proof 🔍
+                                       Student Proof 
                                     </button>
                                   )}
                                 </div>
@@ -6895,7 +6890,7 @@ export default function AdminPanel() {
                             <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3 space-y-3">
                               <div className="flex flex-wrap items-center justify-between gap-1">
                                 <span className="text-xs font-black text-amber-900 flex items-center gap-1.5">
-                                  <span>⚡</span> Disbursal & EMI Option (Click karke EMI Time aur % Breakdown dekhein):
+                                   Disbursal & EMI Option (Click karke EMI Time aur % Breakdown dekhein):
                                 </span>
                                 <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-200">
                                   3 Options Available
@@ -6928,7 +6923,7 @@ export default function AdminPanel() {
                                   }`}
                                 >
                                   <div className="flex items-center justify-between gap-1">
-                                    <span className="font-bold text-xs text-amber-950 block">🟡 1st EMI Advance Kaatein</span>
+                                    <span className="font-bold text-xs text-amber-950 block">1st EMI Advance Kaatein</span>
                                     <span className="text-[9px] font-black bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded">ADVANCE CUT</span>
                                   </div>
                                   <span className="text-[11px] text-amber-800 block mt-1">Milega: ₹{advancePayout.toLocaleString("en-IN")}. Kist #1 paid ho jayegi.</span>
@@ -6967,7 +6962,7 @@ export default function AdminPanel() {
                                 }}
                                 className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
                               >
-                                <span>✅ Approve & Disburse (₹{currentDisburseAmount.toLocaleString("en-IN")})</span>
+                                <span>Approve & Disburse (₹{currentDisburseAmount.toLocaleString("en-IN")})</span>
                               </button>
                               <button
                                 type="button"
@@ -6994,7 +6989,7 @@ export default function AdminPanel() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
-                        <span>🤝</span>
+                        
                         <span>Pending Bond & Lending Requests</span>
                         <span className="px-2 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-800">
                           {pendingBonds.length}
@@ -7009,13 +7004,13 @@ export default function AdminPanel() {
                       onClick={() => loadBonds(true)}
                       className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-1 shadow-2xs"
                     >
-                      <span>🔄 Refresh Bonds</span>
+                      <span>Refresh Bonds</span>
                     </button>
                   </div>
 
                   {pendingBonds.length === 0 ? (
                     <div className="py-12 text-center space-y-2 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
-                      <span className="text-4xl block">🎉</span>
+                      <span className="text-4xl block"></span>
                       <p className="font-extrabold text-gray-800 text-sm">No Pending Bond Requests</p>
                       <p className="text-xs text-gray-400">Sabhi bond aur lending applications process ho chuki hain.</p>
                     </div>
@@ -7028,7 +7023,7 @@ export default function AdminPanel() {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
-                                  🤝
+                                  
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2 flex-wrap">
@@ -7041,7 +7036,7 @@ export default function AdminPanel() {
                                     </span>
                                   </div>
                                   <p className="text-xs text-gray-500 mt-0.5">
-                                    📞 {b.userId?.phone || docs.applicantPhone || "N/A"} • ✉️ {b.userId?.email || docs.applicantEmail || "N/A"}
+                                    {b.userId?.phone || docs.applicantPhone || "N/A"} • {b.userId?.email || docs.applicantEmail || "N/A"}
                                   </p>
                                 </div>
                               </div>
@@ -7072,7 +7067,7 @@ export default function AdminPanel() {
                             {/* Documents */}
                             {(docs.aadharUrl || docs.doc1Url || docs.panUrl || docs.doc2Url || docs.chequeUrl) && (
                               <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2">
-                                <span className="text-xs font-bold text-slate-800 block">📄 Submitted Investor Documents:</span>
+                                <span className="text-xs font-bold text-slate-800 block">Submitted Investor Documents:</span>
                                 <div className="flex flex-wrap gap-2">
                                   {(docs.aadharUrl || docs.doc1Url) && (
                                     <button
@@ -7080,7 +7075,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.aadharUrl || docs.doc1Url); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>🆔</span> Aadhaar (Front) 🔍
+                                      <span>🆔</span> Aadhaar (Front) 
                                     </button>
                                   )}
                                   {(docs.aadharBackUrl || docs.doc1BackUrl) && (
@@ -7089,7 +7084,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.aadharBackUrl || docs.doc1BackUrl); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>🆔</span> Aadhaar (Back) 🔍
+                                      <span>🆔</span> Aadhaar (Back) 
                                     </button>
                                   )}
                                   {(docs.panUrl || docs.doc2Url) && (
@@ -7098,7 +7093,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.panUrl || docs.doc2Url); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>💳</span> PAN Card 🔍
+                                       PAN Card 
                                     </button>
                                   )}
                                   {docs.chequeUrl && (
@@ -7107,7 +7102,7 @@ export default function AdminPanel() {
                                       onClick={() => { setLightboxImg(docs.chequeUrl); setZoomLevel(1); }}
                                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
                                     >
-                                      <span>🏦</span> Cheque 🔍
+                                       Cheque 
                                     </button>
                                   )}
                                 </div>
@@ -7127,7 +7122,7 @@ export default function AdminPanel() {
                                     <span>Approving...</span>
                                   </>
                                 ) : (
-                                  <span>✅ Approve Bond</span>
+                                  <span>Approve Bond</span>
                                 )}
                               </button>
                               <button
@@ -7154,7 +7149,7 @@ export default function AdminPanel() {
                 <div className="space-y-6">
                   {/* Anti-Fraud Protection Information Banner */}
                   <div className="p-3.5 bg-gradient-to-r from-rose-50 via-amber-50 to-orange-50 border border-rose-200 rounded-2xl flex items-start gap-3 shadow-2xs">
-                    <span className="text-2xl shrink-0">🛡️</span>
+                    <span className="text-2xl shrink-0"></span>
                     <div className="space-y-1 text-xs">
                       <p className="font-black text-rose-950 flex items-center gap-1.5">
                         <span>Duplicate UTR Anti-Fraud & Hold System</span>
@@ -7173,7 +7168,7 @@ export default function AdminPanel() {
                     </div>
                   ) : (!holdData.groups || holdData.groups.length === 0) ? (
                     <div className="py-14 text-center space-y-2 border-2 border-dashed border-gray-200 rounded-3xl bg-slate-50/50">
-                      <span className="text-4xl block">🎉</span>
+                      <span className="text-4xl block"></span>
                       <p className="font-extrabold text-gray-800 text-sm">Koi Duplicate UTR Conflict Nahi Hai!</p>
                       <p className="text-xs text-gray-500">Sabhi deposit requests ke UTR unique aur verified hain.</p>
                     </div>
@@ -7191,14 +7186,14 @@ export default function AdminPanel() {
                                 UTR: {group.utrNumber}
                               </span>
                               <span className="text-xs sm:text-sm font-extrabold text-gray-900">
-                                🚨 {group.totalCount} Conflicting Requests Found
+                                {group.totalCount} Conflicting Requests Found
                               </span>
                             </div>
 
                             <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-bold">
                               {group.holdCount > 0 && (
                                 <span className="px-2.5 py-0.5 bg-rose-100 text-rose-900 border border-rose-300 rounded-lg">
-                                  ⚠️ {group.holdCount} ON HOLD
+                                  {group.holdCount} ON HOLD
                                 </span>
                               )}
                               {group.approvedCount > 0 && (
@@ -7254,8 +7249,8 @@ export default function AdminPanel() {
                                         )}
                                       </div>
                                       <div className="text-[11px] text-gray-600 mt-0.5 flex flex-wrap gap-x-3">
-                                        <span>📞 {item.userId?.phone || "No phone"}</span>
-                                        <span>✉️ {item.userId?.email || ""}</span>
+                                        <span>{item.userId?.phone || "No phone"}</span>
+                                        <span>{item.userId?.email || ""}</span>
                                       </div>
                                     </div>
 
@@ -7263,7 +7258,7 @@ export default function AdminPanel() {
                                     <div className="shrink-0">
                                       {isHold && (
                                         <span className="px-2.5 py-1 bg-rose-600 text-white rounded-xl text-[10px] font-black tracking-wider uppercase inline-flex items-center gap-1 shadow-2xs animate-pulse">
-                                          <span>⚠️</span> ON HOLD
+                                           ON HOLD
                                         </span>
                                       )}
                                       {isApproved && (
@@ -7326,7 +7321,7 @@ export default function AdminPanel() {
                                         onClick={() => { setLightboxImg(item.proofUrl || item.screenshotUrl); setZoomLevel(1); }}
                                         className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition cursor-pointer"
                                       >
-                                        🔍 Full Zoom
+                                        Full Zoom
                                       </button>
                                     </div>
                                   )}
@@ -7341,7 +7336,7 @@ export default function AdminPanel() {
                                   {/* Approver Details if Approved */}
                                   {isApproved && (
                                     <div className="text-[11px] text-emerald-800 bg-emerald-100/60 px-2.5 py-1 rounded-lg flex items-center justify-between">
-                                      <span>🛡️ Approved by {item.approverName || item.approvedBy?.name || "Admin"}</span>
+                                      <span>Approved by {item.approverName || item.approvedBy?.name || "Admin"}</span>
                                       {item.approvedAt && (
                                         <span className="font-mono text-[10px]">
                                           {new Date(item.approvedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
@@ -7423,7 +7418,7 @@ export default function AdminPanel() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 border border-emerald-200 p-4 rounded-2xl shadow-2xs">
                       <div>
                         <h3 className="text-base sm:text-lg font-bold font-display text-emerald-950 flex items-center gap-2">
-                          <span>✅</span> Approved Requests Console
+                           Approved Requests Console
                         </h3>
                         <p className="text-xs text-emerald-800 mt-0.5 font-medium">
                           Approved deposits, withdrawals, normal KYC, barrier cheque KYC, loans and bonds.
@@ -7436,7 +7431,7 @@ export default function AdminPanel() {
                           disabled={approvedLoading}
                           className="px-3.5 py-2 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
                         >
-                          <span className={approvedLoading ? "animate-spin" : ""}>🔄</span>
+                          <span className={approvedLoading ? "animate-spin" : ""}></span>
                           <span>Refresh</span>
                         </button>
                       </div>
@@ -7464,7 +7459,7 @@ export default function AdminPanel() {
                             : "bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-200"
                         }`}
                       >
-                        💰 Deposits ({depCount})
+                        Deposits ({depCount})
                       </button>
                       <button
                         type="button"
@@ -7475,7 +7470,7 @@ export default function AdminPanel() {
                             : "bg-white text-blue-800 hover:bg-blue-50 border border-blue-200"
                         }`}
                       >
-                        💸 Withdrawals ({withCount})
+                        Withdrawals ({withCount})
                       </button>
                       <button
                         type="button"
@@ -7497,7 +7492,7 @@ export default function AdminPanel() {
                             : "bg-white text-purple-800 hover:bg-purple-50 border border-purple-200"
                         }`}
                       >
-                        🏛️ Full KYC / Barrier ({fullKycCount})
+                        Full KYC / Barrier ({fullKycCount})
                       </button>
                       <button
                         type="button"
@@ -7508,7 +7503,7 @@ export default function AdminPanel() {
                             : "bg-white text-indigo-800 hover:bg-indigo-50 border border-indigo-200"
                         }`}
                       >
-                        🏦 Loans ({loanCount})
+                        Loans ({loanCount})
                       </button>
                       <button
                         type="button"
@@ -7519,14 +7514,14 @@ export default function AdminPanel() {
                             : "bg-white text-violet-800 hover:bg-violet-50 border border-violet-200"
                         }`}
                       >
-                        🤝 Bonds ({bondCount})
+                        Bonds ({bondCount})
                       </button>
                     </div>
 
                     {/* Search Bar */}
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
-                        🔍
+                        
                       </span>
                       <input
                         type="text"
@@ -7540,12 +7535,12 @@ export default function AdminPanel() {
                     {/* Content List */}
                     {approvedLoading && approvedRequests.length === 0 ? (
                       <div className="py-14 text-center text-slate-500 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2">
-                        <div className="text-2xl animate-spin inline-block">🔄</div>
+                        <div className="text-2xl animate-spin inline-block"></div>
                         <p className="text-xs font-bold text-slate-700">Approved records sync ho rahe hain...</p>
                       </div>
                     ) : filtered.length === 0 ? (
                       <div className="py-14 text-center text-gray-400 bg-slate-50 rounded-2xl border border-dashed border-gray-200">
-                        <span className="text-3xl block mb-2">📋</span>
+                        <span className="text-3xl block mb-2"></span>
                         <p className="text-sm font-semibold">Koi approved record nahi mila is filter ke sath.</p>
                         <p className="text-xs text-gray-400 mt-1">Try changing filter pills or clearing search.</p>
                       </div>
@@ -7571,7 +7566,7 @@ export default function AdminPanel() {
                             ? "bg-indigo-100 text-indigo-800 border-indigo-300"
                             : "bg-violet-100 text-violet-800 border-violet-300";
 
-                          const icon = isDeposit ? "💰" : isWithdrawal ? "💸" : isNormalKyc ? "🪪" : isFullKyc ? "🏛️" : isLoan ? "🏦" : "🤝";
+                          const icon = isDeposit ? "" : isWithdrawal ? "" : isNormalKyc ? "🪪" : isFullKyc ? "" : isLoan ? "" : "";
 
                           return (
                             <div key={item.id || idx} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3 transition hover:border-slate-300">
@@ -7587,7 +7582,7 @@ export default function AdminPanel() {
                                   <span>{item.approvedAt ? new Date(item.approvedAt).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Approved"}</span>
                                   {item.turnaround && (
                                     <span className="ml-2 font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                      ⚡ {item.turnaround}
+                                      {item.turnaround}
                                     </span>
                                   )}
                                 </div>
@@ -7605,8 +7600,8 @@ export default function AdminPanel() {
                                     )}
                                   </div>
                                   <div className="text-[11px] text-slate-600 mt-0.5 flex flex-wrap gap-x-3">
-                                    <span>📞 {item.userPhone || "N/A"}</span>
-                                    <span>✉️ {item.userEmail || "N/A"}</span>
+                                    <span>{item.userPhone || "N/A"}</span>
+                                    <span>{item.userEmail || "N/A"}</span>
                                   </div>
                                 </div>
 
@@ -7647,7 +7642,7 @@ export default function AdminPanel() {
                                           onClick={() => viewKycDocInLightbox(item, "doc1Url")}
                                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer active:scale-95"
                                         >
-                                          <span>🪪</span> UID Front 🔍
+                                          <span>🪪</span> UID Front 
                                         </button>
                                       )}
                                       {item.documents.doc1BackUrl && (
@@ -7656,7 +7651,7 @@ export default function AdminPanel() {
                                           onClick={() => viewKycDocInLightbox(item, "doc1BackUrl")}
                                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer active:scale-95"
                                         >
-                                          <span>🔄</span> UID Back 🔍
+                                           UID Back 
                                         </button>
                                       )}
                                       {item.documents.doc2Url && (
@@ -7665,7 +7660,7 @@ export default function AdminPanel() {
                                           onClick={() => viewKycDocInLightbox(item, "doc2Url")}
                                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer active:scale-95"
                                         >
-                                          <span>📑</span> {item.subCategory === "loan_lending_kyc" ? "Cheque Front" : "PAN Front"} 🔍
+                                           {item.subCategory === "loan_lending_kyc" ? "Cheque Front" : "PAN Front"} 
                                         </button>
                                       )}
                                       {item.documents.doc2BackUrl && (
@@ -7674,7 +7669,7 @@ export default function AdminPanel() {
                                           onClick={() => viewKycDocInLightbox(item, "doc2BackUrl")}
                                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer active:scale-95"
                                         >
-                                          <span>📄</span> {item.subCategory === "loan_lending_kyc" ? "Cheque Back" : "PAN Back"} 🔍
+                                           {item.subCategory === "loan_lending_kyc" ? "Cheque Back" : "PAN Back"} 
                                         </button>
                                       )}
                                     </>
@@ -7686,7 +7681,7 @@ export default function AdminPanel() {
                                       onClick={() => viewProofInLightbox(item)}
                                       className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-blue-700 transition cursor-pointer active:scale-95"
                                     >
-                                      <span>🧾</span> Evidence Receipt 🔍
+                                       Evidence Receipt 
                                     </button>
                                   )}
                                   {(item.hasAdminEvidence || item.adminEvidenceUrl) && (
@@ -7695,7 +7690,7 @@ export default function AdminPanel() {
                                       onClick={() => viewProofInLightbox(item, "admin_evidence")}
                                       className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg text-[10px] font-bold text-emerald-800 transition cursor-pointer active:scale-95"
                                     >
-                                      <span>✅</span> Admin Payout Proof 🔍
+                                       Admin Payout Proof 
                                     </button>
                                   )}
                                   {(item.hasUserQr || item.paymentDetails?.qrCodeUrl) && (
@@ -7704,7 +7699,7 @@ export default function AdminPanel() {
                                       onClick={() => viewProofInLightbox(item, "qr")}
                                       className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-lg text-[10px] font-bold text-purple-800 transition cursor-pointer active:scale-95"
                                     >
-                                      <span>📷</span> User QR 🔍
+                                       User QR 
                                     </button>
                                   )}
                                   {item.utrNumber && (
@@ -7715,7 +7710,7 @@ export default function AdminPanel() {
                                 </div>
 
                                 <div className="text-[10px] text-slate-400 font-medium ml-auto flex items-center gap-1">
-                                  <span>{item.approverDevice || "💻 Admin Console"}</span>
+                                  <span>{item.approverDevice || "Admin Console"}</span>
                                   <span>• Approved by {item.approverName || "Admin"}</span>
                                 </div>
                               </div>
@@ -7737,7 +7732,7 @@ export default function AdminPanel() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div>
                   <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
-                    <span>📄</span> User KYC Verification Requests
+                     User KYC Verification Requests
                   </h3>
                   <p className="text-xs text-gray-500">
                     Review submitted Aadhaar, PAN, Address & documents. Write admin notes and approve or reject.
@@ -7756,7 +7751,7 @@ export default function AdminPanel() {
                     className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold shadow-2xs active:scale-90 active:ring-2 active:ring-blue-400 transition-all flex items-center gap-1.5 cursor-pointer select-none"
                     title="Instant live sync with server"
                   >
-                    <span>⚡</span> Live Sync
+                     Live Sync
                   </button>
 
                   <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl select-none transition active:scale-95">
@@ -7775,7 +7770,7 @@ export default function AdminPanel() {
                       onClick={() => exportKycToCsv()}
                       className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-90 active:ring-2 active:ring-emerald-400 transition flex items-center gap-1.5 cursor-pointer select-none"
                     >
-                      <span>📥</span> Export Selected ({selectedKycIds.size})
+                       Export Selected ({selectedKycIds.size})
                     </button>
                   )}
 
@@ -7784,7 +7779,7 @@ export default function AdminPanel() {
                     onClick={() => exportKycToCsv(filteredKycUsers)}
                     className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs active:scale-90 active:ring-2 active:ring-emerald-400 transition flex items-center gap-1.5 cursor-pointer select-none"
                   >
-                    <span>📥</span> Export All ({filteredKycUsers.length})
+                     Export All ({filteredKycUsers.length})
                   </button>
                 </div>
               </div>
@@ -7848,7 +7843,7 @@ export default function AdminPanel() {
                 if (filteredKycUsers.length === 0) {
                   return (
                     <div className="py-16 text-center text-gray-400">
-                      <span className="text-4xl block mb-2">📄</span>
+                      <span className="text-4xl block mb-2"></span>
                       <p className="text-sm font-semibold">No KYC submissions found matching this filter.</p>
                     </div>
                   );
@@ -7912,7 +7907,7 @@ export default function AdminPanel() {
                                   ⏱️ {formatLiveTimeElapsed(u.kycDocuments?.submittedAt || u.createdAt)}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
-                                  🕒 {u.kycDocuments?.submittedAt ? new Date(u.kycDocuments.submittedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Recent"}
+                                  {u.kycDocuments?.submittedAt ? new Date(u.kycDocuments.submittedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Recent"}
                                 </span>
                               </div>
                               <p className="text-xs text-slate-500 truncate mt-0.5">
@@ -7931,7 +7926,7 @@ export default function AdminPanel() {
                             }}
                             className="shrink-0 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-90 active:ring-2 active:ring-emerald-400 cursor-pointer shadow-2xs select-none"
                           >
-                            <span>📥</span>
+                            
                             <span className="hidden sm:inline">Excel</span>
                           </button>
                         </div>
@@ -7958,7 +7953,7 @@ export default function AdminPanel() {
                           )}
                           {(u.address || u.kycDocuments?.address) && (
                             <span className="truncate max-w-full sm:max-w-md text-slate-500">
-                              📍 {u.address || u.kycDocuments?.address}
+                              {u.address || u.kycDocuments?.address}
                             </span>
                           )}
                         </div>
@@ -7966,10 +7961,10 @@ export default function AdminPanel() {
                         {/* Admin Remarks if any */}
                         {u.kycDocuments?.adminRemarks && (
                           <div className="text-[11px] text-blue-700 font-medium bg-blue-50/80 px-2.5 py-1 rounded-xl border border-blue-100 flex items-center gap-1.5">
-                            <span>💬 Note:</span>
+                            <span>Note:</span>
                             <span className="truncate">{u.kycDocuments.adminRemarks}</span>
                             {(u.kycStatus === "verified" || u.kycStatus === "rejected" || u.kycDocuments?.isNoteLocked) && (
-                              <span className="text-[9px] text-slate-400 font-bold ml-auto shrink-0">🔒 Locked</span>
+                              <span className="text-[9px] text-slate-400 font-bold ml-auto shrink-0">Locked</span>
                             )}
                           </div>
                         )}
@@ -8005,7 +8000,7 @@ export default function AdminPanel() {
                                 }}
                                 className="text-[10px] font-bold text-blue-600 hover:text-blue-800 active:scale-90 transition flex items-center gap-1 cursor-pointer select-none"
                               >
-                                🔍 Fullscreen Lightbox
+                                Fullscreen Lightbox
                               </button>
                             </div>
                           </div>
@@ -8069,7 +8064,7 @@ export default function AdminPanel() {
                               : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 ring-2 ring-blue-400/40"
                           }`}
                         >
-                          <span className="text-sm">{u.kycStatus === "rejected" ? "🚫" : u.kycStatus === "verified" ? "✓" : "🔍"}</span>
+                          <span className="text-sm">{u.kycStatus === "rejected" ? "" : u.kycStatus === "verified" ? "✓" : ""}</span>
                           <span>{u.kycStatus === "rejected" ? "Rejected — View Details" : u.kycStatus === "verified" ? "Verified — View Details" : "Review & Verify KYC"}</span>
                         </button>
                       </div>
@@ -8089,7 +8084,7 @@ export default function AdminPanel() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center text-base shadow-xs shrink-0">
-                    📜
+                    
                   </div>
                   <div>
                     <h3 className="text-base sm:text-lg font-bold font-display text-slate-900 leading-tight">
@@ -8123,7 +8118,7 @@ export default function AdminPanel() {
                     className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 disabled:opacity-50 shadow-xs"
                     title="Send 24h Daily Profit notification to depositors' phones"
                   >
-                    <span>🔔</span>
+                    
                     <span>{sendingYieldAlert ? "Dispatching..." : "Send 24h Profit Alert"}</span>
                   </button>
 
@@ -8134,7 +8129,7 @@ export default function AdminPanel() {
                     disabled={historyLoading}
                     className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 disabled:opacity-50 border border-slate-200 shadow-2xs"
                   >
-                    <span className={historyLoading ? "animate-spin" : ""}>🔄</span>
+                    <span className={historyLoading ? "animate-spin" : ""}></span>
                     <span className="hidden sm:inline">Refresh</span>
                   </button>
                 </div>
@@ -8144,7 +8139,7 @@ export default function AdminPanel() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="relative flex-1 max-w-lg">
                   <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
-                    🔍
+                    
                   </span>
                   <input
                     type="text"
@@ -8183,7 +8178,7 @@ export default function AdminPanel() {
                         : "bg-white hover:bg-slate-50 border-slate-200 text-slate-800"
                     }`}
                   >
-                    <span className="text-sm">⚡</span>
+                    <span className="text-sm"></span>
                     <span className="truncate max-w-[170px] sm:max-w-none">
                       {historyCategory !== "all" || historyStatus !== "all"
                         ? `${AUDIT_CATEGORIES.find(c => c.key === historyCategory)?.label || "Filtered"} • ${historyStatus === "all" ? "All" : historyStatus}`
@@ -8216,7 +8211,7 @@ export default function AdminPanel() {
                         <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-slate-100 shrink-0">
                           <div className="flex items-center gap-2">
                             <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold">
-                              ⚡
+                              
                             </span>
                             <div>
                               <h4 className="text-xs font-extrabold text-slate-900 leading-tight">
@@ -8256,7 +8251,7 @@ export default function AdminPanel() {
                           <div>
                             <div className="flex items-center justify-between mb-1.5 px-0.5">
                               <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                📂 1. Select Category
+                                1. Select Category
                               </label>
                               <span className="text-[10px] font-extrabold text-blue-600">
                                 {AUDIT_CATEGORIES.find(c => c.key === tempCategory)?.label}
@@ -8294,7 +8289,7 @@ export default function AdminPanel() {
                           {/* 2. Status Lifecycle Selection */}
                           <div className="pt-2.5 border-t border-slate-100">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5 px-0.5">
-                              🚦 2. Transaction Status
+                              2. Transaction Status
                             </label>
                             <div className="grid grid-cols-2 gap-1.5">
                               {AUDIT_STATUSES.map(s => {
@@ -8427,13 +8422,13 @@ export default function AdminPanel() {
               {/* Audit History Records Table */}
               {historyLoading && auditHistory.length === 0 ? (
                 <div className="py-16 text-center text-slate-500 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2">
-                  <div className="text-2xl animate-spin inline-block">🔄</div>
+                  <div className="text-2xl animate-spin inline-block"></div>
                   <p className="text-xs font-bold text-slate-700">Audit records sync ho rahe hain...</p>
                   <p className="text-[11px] text-slate-400">Live transactions database se load ho rahi hain</p>
                 </div>
               ) : auditHistory.length === 0 ? (
                 <div className="py-16 text-center text-gray-400 bg-slate-50 rounded-2xl border border-dashed border-gray-200">
-                  <span className="text-4xl block mb-2">📜</span>
+                  <span className="text-4xl block mb-2"></span>
                   <p className="text-sm font-semibold">No audit records found matching this filter.</p>
                   <p className="text-xs text-gray-400 mt-1">Try changing category or clearing search query.</p>
                 </div>
@@ -8472,13 +8467,13 @@ export default function AdminPanel() {
                                 ? "bg-purple-50 text-purple-700 border border-purple-200/80"
                                 : "bg-teal-50 text-teal-700 border border-teal-200/80"
                             }`}>
-                              {item.category === "deposit" ? "💰 Deposit" :
-                               item.category === "withdrawal" ? "💸 Withdrawal" :
-                               item.category === "transfer" ? "🔄 Transfer" :
+                              {item.category === "deposit" ? "Deposit" :
+                               item.category === "withdrawal" ? "Withdrawal" :
+                               item.category === "transfer" ? "Transfer" :
                                item.category === "kyc"
-                                 ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan KYC" : "📄 Normal KYC" :
-                               item.category === "loan" ? "📑 Loan" :
-                               item.category === "agent" ? "🤝 Agent" : "📈 Yield"}
+                                 ? item.subCategory === "loan_lending_kyc" ? "Loan KYC" : "Normal KYC" :
+                               item.category === "loan" ? "Loan" :
+                               item.category === "agent" ? "Agent" : "Yield"}
                             </span>
 
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
@@ -8539,21 +8534,21 @@ export default function AdminPanel() {
                           {/* Row 4: Request vs Approval Audit Timestamps & Approver Device Badge */}
                           <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 text-[10px] font-mono space-y-1">
                             <div className="flex items-center justify-between text-slate-600">
-                              <span className="text-slate-400">{item.category === "agent" ? "📝 Applied:" : "📥 Requested:"}</span>
+                              <span className="text-slate-400">{item.category === "agent" ? "Applied:" : "Requested:"}</span>
                               <span className="font-bold text-slate-800">{isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Recent"}</span>
                             </div>
                             {isApproved && item.approvedAt && (() => {
                               const ad = new Date(item.approvedAt);
                               return (
                                 <div className="flex items-center justify-between text-emerald-800">
-                                  <span>✅ Approved:</span>
+                                  <span>Approved:</span>
                                   <span className="font-bold">{!isNaN(ad.getTime()) ? ad.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + ad.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Approved"} {item.turnaround ? `(${item.turnaround})` : ""}</span>
                                 </div>
                               );
                             })()}
                             {isApproved && (item.approverName || item.approverDevice) && (
                               <div className="text-[9px] text-slate-600 font-bold pt-0.5 border-t border-slate-200/60 flex items-center gap-1 truncate">
-                                <span>🛡️</span>
+                                
                                 <span className="truncate">{item.approverName || "Admin"} • {item.approverDevice || "Web Console"}</span>
                               </div>
                             )}
@@ -8577,9 +8572,9 @@ export default function AdminPanel() {
                               >
                                 {item.proofUrl && item.proofUrl.startsWith("http") ? (
                                   <img src={item.proofUrl} alt="Evidence" className="w-4 h-4 object-cover rounded border border-slate-200" />
-                                ) : <span>🧾</span>}
+                                ) : null}
                                 <span>Evidence Photo / Receipt</span>
-                                <span>🔍</span>
+                                
                               </button>
                             </div>
                           )}
@@ -8591,9 +8586,9 @@ export default function AdminPanel() {
                                 onClick={() => viewProofInLightbox(item, "admin_evidence")}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold border border-emerald-300 transition cursor-pointer active:scale-95 shadow-2xs"
                               >
-                                <span>✅</span>
+                                
                                 <span>Admin Payout Proof</span>
-                                <span>🔍</span>
+                                
                               </button>
                             </div>
                           )}
@@ -8605,9 +8600,9 @@ export default function AdminPanel() {
                                 onClick={() => viewProofInLightbox(item, "qr")}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-[10px] font-bold border border-purple-300 transition cursor-pointer active:scale-95 shadow-2xs"
                               >
-                                <span>📷</span>
+                                
                                 <span>User Payment QR</span>
-                                <span>🔍</span>
+                                
                               </button>
                             </div>
                           )}
@@ -8625,7 +8620,7 @@ export default function AdminPanel() {
                                     <img src={item.documents.doc1Url} alt="UID Front" className="w-3.5 h-3.5 object-cover rounded" />
                                   ) : <span>🪪</span>}
                                   <span>UID Front</span>
-                                  <span>🔍</span>
+                                  
                                 </button>
                               )}
                               {item.documents.doc1BackUrl && (
@@ -8636,9 +8631,9 @@ export default function AdminPanel() {
                                 >
                                   {item.documents.doc1BackUrl.startsWith("data:image") ? (
                                     <img src={item.documents.doc1BackUrl} alt="UID Back" className="w-3.5 h-3.5 object-cover rounded" />
-                                  ) : <span>🔄</span>}
+                                  ) : null}
                                   <span>UID Back</span>
-                                  <span>🔍</span>
+                                  
                                 </button>
                               )}
                               {item.documents.doc2Url && (
@@ -8649,9 +8644,9 @@ export default function AdminPanel() {
                                 >
                                   {item.documents.doc2Url.startsWith("data:image") ? (
                                     <img src={item.documents.doc2Url} alt="Doc 2" className="w-3.5 h-3.5 object-cover rounded" />
-                                  ) : <span>📑</span>}
+                                  ) : null}
                                   <span>{item.subCategory === "loan_lending_kyc" ? "Cheque" : "PAN"}</span>
-                                  <span>🔍</span>
+                                  
                                 </button>
                               )}
                               {item.documents.doc2BackUrl && (
@@ -8662,9 +8657,9 @@ export default function AdminPanel() {
                                 >
                                   {item.documents.doc2BackUrl.startsWith("data:image") ? (
                                     <img src={item.documents.doc2BackUrl} alt="Doc 2 Back" className="w-3.5 h-3.5 object-cover rounded" />
-                                  ) : <span>📄</span>}
+                                  ) : null}
                                   <span>{item.subCategory === "loan_lending_kyc" ? "Cheque Back" : "PAN Back"}</span>
-                                  <span>🔍</span>
+                                  
                                 </button>
                               )}
                             </div>
@@ -8704,7 +8699,7 @@ export default function AdminPanel() {
                               <td className="py-3.5 px-3.5 font-mono text-[11px] text-slate-600 align-top">
                                 <div className="space-y-0.5">
                                   <span className="block font-bold text-slate-900" title="Request Time">
-                                    {item.category === "agent" ? "📝 Applied: " : "📥 Req: "}{isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent"}
+                                    {item.category === "agent" ? "Applied: " : "Req: "}{isDateValid ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent"}
                                   </span>
                                   <span className="text-[10px] text-slate-400 block">
                                     {isDateValid ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}
@@ -8714,14 +8709,14 @@ export default function AdminPanel() {
                                     const isAdValid = !isNaN(ad.getTime());
                                     return (
                                       <span className="block text-[10px] text-emerald-700 font-semibold mt-1" title="Approval Time">
-                                        ✅ Appr: {isAdValid ? ad.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + ad.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Approved"}
+                                        Appr: {isAdValid ? ad.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " + ad.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Approved"}
                                         {item.turnaround ? ` (${item.turnaround})` : ""}
                                       </span>
                                     );
                                   })()}
                                   {isApproved && (item.approverName || item.approverDevice) && (
                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[9px] font-bold mt-1 max-w-[145px] truncate">
-                                      <span>🛡️</span>
+                                      
                                       <span className="truncate">{item.approverName || "Admin"} • {item.approverDevice || "Web"}</span>
                                     </span>
                                   )}
@@ -8747,13 +8742,13 @@ export default function AdminPanel() {
                                     ? "bg-purple-50 text-purple-700 border border-purple-200/80"
                                     : "bg-teal-50 text-teal-700 border border-teal-200/80"
                                 }`}>
-                                  {item.category === "deposit" ? "💰 Deposit" :
-                                   item.category === "withdrawal" ? "💸 Withdrawal" :
-                                   item.category === "transfer" ? "🔄 Transfer" :
+                                  {item.category === "deposit" ? "Deposit" :
+                                   item.category === "withdrawal" ? "Withdrawal" :
+                                   item.category === "transfer" ? "Transfer" :
                                    item.category === "kyc"
-                                     ? item.subCategory === "loan_lending_kyc" ? "🏦 Loan KYC" : "📄 Normal KYC" :
-                                   item.category === "loan" ? "📑 Loan" :
-                                   item.category === "agent" ? "🤝 Agent" : "📈 Yield"}
+                                     ? item.subCategory === "loan_lending_kyc" ? "Loan KYC" : "Normal KYC" :
+                                   item.category === "loan" ? "Loan" :
+                                   item.category === "agent" ? "Agent" : "Yield"}
                                 </span>
                                 <p className="font-extrabold text-slate-900 text-xs mt-1 leading-snug">{item.title}</p>
                               </td>
@@ -8836,9 +8831,9 @@ export default function AdminPanel() {
                                     >
                                       {item.proofUrl && item.proofUrl.startsWith("http") ? (
                                         <img src={item.proofUrl} alt="Evidence" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
-                                      ) : <span>🧾</span>}
+                                      ) : null}
                                       <span>Evidence Receipt</span>
-                                      <span>🔍</span>
+                                      
                                     </button>
                                   </div>
                                 )}
@@ -8850,9 +8845,9 @@ export default function AdminPanel() {
                                       onClick={() => viewProofInLightbox(item, "admin_evidence")}
                                       className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg text-[10px] font-bold text-emerald-800 cursor-pointer transition active:scale-95 shadow-2xs"
                                     >
-                                      <span>✅</span>
+                                      
                                       <span>Admin Payout Proof</span>
-                                      <span>🔍</span>
+                                      
                                     </button>
                                   </div>
                                 )}
@@ -8864,9 +8859,9 @@ export default function AdminPanel() {
                                       onClick={() => viewProofInLightbox(item, "qr")}
                                       className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-lg text-[10px] font-bold text-purple-800 cursor-pointer transition active:scale-95 shadow-2xs"
                                     >
-                                      <span>📷</span>
+                                      
                                       <span>User Payment QR</span>
-                                      <span>🔍</span>
+                                      
                                     </button>
                                   </div>
                                 )}
@@ -8890,7 +8885,7 @@ export default function AdminPanel() {
                                                 <img src={item.documents.doc1Url} alt="UID Front" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
                                               ) : <span>🪪</span>}
                                               <span>UID Front</span>
-                                              <span className="text-slate-400 group-hover/doc:text-blue-600">🔍</span>
+                                              <span className="text-slate-400 group-hover/doc:text-blue-600"></span>
                                             </button>
                                           )}
                                           {item.documents.doc1BackUrl && (
@@ -8901,9 +8896,9 @@ export default function AdminPanel() {
                                             >
                                               {item.documents.doc1BackUrl.startsWith("data:image") ? (
                                                 <img src={item.documents.doc1BackUrl} alt="UID Back" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
-                                              ) : <span>🔄</span>}
+                                              ) : null}
                                               <span>UID Back</span>
-                                              <span className="text-slate-400 group-hover/doc:text-blue-600">🔍</span>
+                                              <span className="text-slate-400 group-hover/doc:text-blue-600"></span>
                                             </button>
                                           )}
                                           {item.documents.doc2Url && (
@@ -8914,9 +8909,9 @@ export default function AdminPanel() {
                                             >
                                               {item.documents.doc2Url.startsWith("data:image") ? (
                                                 <img src={item.documents.doc2Url} alt="Doc2 Front" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
-                                              ) : <span>📑</span>}
+                                              ) : null}
                                               <span>{item.subCategory === "loan_lending_kyc" ? "Cheque Front" : "PAN Front"}</span>
-                                              <span className="text-slate-400 group-hover/doc:text-blue-600">🔍</span>
+                                              <span className="text-slate-400 group-hover/doc:text-blue-600"></span>
                                             </button>
                                           )}
                                           {item.documents.doc2BackUrl && (
@@ -8927,16 +8922,16 @@ export default function AdminPanel() {
                                             >
                                               {item.documents.doc2BackUrl.startsWith("data:image") ? (
                                                 <img src={item.documents.doc2BackUrl} alt="Doc2 Back" className="w-3.5 h-3.5 object-cover rounded border border-slate-200" />
-                                              ) : <span>📄</span>}
+                                              ) : null}
                                               <span>{item.subCategory === "loan_lending_kyc" ? "Cheque Back" : "PAN Back"}</span>
-                                              <span className="text-slate-400 group-hover/doc:text-blue-600">🔍</span>
+                                              <span className="text-slate-400 group-hover/doc:text-blue-600"></span>
                                             </button>
                                           )}
                                         </div>
                                       </div>
                                     ) : (
                                       <div className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
-                                        <span>📷</span> Photos Not Uploaded (Pending Submission)
+                                         Photos Not Uploaded (Pending Submission)
                                       </div>
                                     )}
                                   </div>
@@ -8986,7 +8981,7 @@ export default function AdminPanel() {
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    ⚡ Referral & Earnings Directory (Paginated)
+                    Referral & Earnings Directory (Paginated)
                   </button>
                   <button
                     type="button"
@@ -8997,7 +8992,7 @@ export default function AdminPanel() {
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    📋 Partner Applications & Approvals ({agents.length})
+                    Partner Applications & Approvals ({agents.length})
                   </button>
                 </div>
               </div>
@@ -9019,7 +9014,7 @@ export default function AdminPanel() {
                         }}
                         className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                       />
-                      <span className="absolute left-3 top-2.5 text-gray-400 text-xs">🔍</span>
+                      <span className="absolute left-3 top-2.5 text-gray-400 text-xs"></span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -9029,7 +9024,7 @@ export default function AdminPanel() {
                         disabled={loadingPaginatedAgents}
                         className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                       >
-                        <span>{loadingPaginatedAgents ? "⏳" : "🔄"}</span>
+                        <span>{loadingPaginatedAgents ? "⏳" : ""}</span>
                         <span>Refresh</span>
                       </button>
                       <span className="text-xs font-bold text-gray-500">
@@ -9079,7 +9074,7 @@ export default function AdminPanel() {
                               </td>
                               <td className="px-4 py-3 text-center">
                                 <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-50 text-indigo-700">
-                                  👥 {ag.referralCount || 0}
+                                  {ag.referralCount || 0}
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-right">
@@ -9138,7 +9133,7 @@ export default function AdminPanel() {
                   <div className="mb-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-base">⚡</span>
+                    <span className="text-base"></span>
                     <h4 className="text-xs sm:text-sm font-extrabold text-slate-900">
                       Loan Pre-Closure 3-Way Sharing Rule (User • Agent • Company)
                     </h4>
@@ -9149,7 +9144,7 @@ export default function AdminPanel() {
                 </div>
                 <div className="text-[11px] sm:text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-xl border border-slate-200/80">
                   <p className="font-bold text-slate-900 mb-1">
-                    📌 <strong>Official Pre-Closure Rules:</strong>
+                    <strong>Official Pre-Closure Rules:</strong>
                   </p>
                   <ul className="list-disc list-inside space-y-1 text-slate-600">
                     <li><strong>9 Kist Rule:</strong> Agar 9th installment se pehle close hoga to hi fayda/discount hoga. (9 ya uske baad discount zero).</li>
@@ -9233,7 +9228,7 @@ export default function AdminPanel() {
               </div>
 
               {filteredAgents.length === 0 ? (
-                <p className="py-12 text-center text-gray-400 text-sm">No agent records found for this filter 🤝</p>
+                <p className="py-12 text-center text-gray-400 text-sm">No agent records found for this filter </p>
               ) : (
                 <div className="space-y-4">
                   {filteredAgents.map(a => {
@@ -9273,12 +9268,12 @@ export default function AdminPanel() {
                               </span>
                             </div>
                             <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center">
-                              <span>📞 <a href={`tel:${a.phone}`} className="text-blue-600 font-bold hover:underline">{a.phone}</a></span>
-                              <span>✉️ {a.email}</span>
-                              {prof.city && <span>📍 {prof.city}</span>}
+                              <span><a href={`tel:${a.phone}`} className="text-blue-600 font-bold hover:underline">{a.phone}</a></span>
+                              <span>{a.email}</span>
+                              {prof.city && <span>{prof.city}</span>}
                               {a.nominatedBy && (
                                 <span className="bg-purple-100 text-purple-950 px-2 py-0.5 rounded-md font-extrabold border border-purple-300 text-[11px] flex items-center gap-1">
-                                  <span>👥</span> Nominated as Sub-Agent by: <strong className="text-purple-900">{a.nominatedBy.name}</strong> ({a.nominatedBy.phone})
+                                   Nominated as Sub-Agent by: <strong className="text-purple-900">{a.nominatedBy.name}</strong> ({a.nominatedBy.phone})
                                 </span>
                               )}
                             </div>
@@ -9289,7 +9284,7 @@ export default function AdminPanel() {
                               href={`tel:${a.phone}`}
                               className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1"
                             >
-                              📞 Call Applicant
+                              Call Applicant
                             </a>
                             {isPending ? (
                               <button
@@ -9307,7 +9302,7 @@ export default function AdminPanel() {
                           <div className="w-full mt-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-2xl space-y-2">
                             <div className="flex flex-wrap items-center justify-between gap-1">
                               <span className="text-xs font-black text-amber-950 flex items-center gap-1.5">
-                                <span>⚡</span> Is Naye Agent Ke Liye 4 Commissions Set Karein:
+                                 Is Naye Agent Ke Liye 4 Commissions Set Karein:
                               </span>
                               <span className="text-[10px] bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded-full">
                                 Admin Custom Approval
@@ -9315,7 +9310,7 @@ export default function AdminPanel() {
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                               <div className="p-2 bg-white rounded-xl border border-blue-200 shadow-2xs">
-                                <span className="text-[10px] font-bold text-blue-900 block mb-1">🏦 Loan %</span>
+                                <span className="text-[10px] font-bold text-blue-900 block mb-1">Loan %</span>
                                 <div className="flex items-center gap-1">
                                   <input
                                     type="number"
@@ -9341,7 +9336,7 @@ export default function AdminPanel() {
                                 </div>
                               </div>
                               <div className="p-2 bg-white rounded-xl border border-emerald-200 shadow-2xs">
-                                <span className="text-[10px] font-bold text-emerald-900 block mb-1">🤝 Lending %</span>
+                                <span className="text-[10px] font-bold text-emerald-900 block mb-1">Lending %</span>
                                 <div className="flex items-center gap-1">
                                   <input
                                     type="number"
@@ -9367,7 +9362,7 @@ export default function AdminPanel() {
                                 </div>
                               </div>
                               <div className="p-2 bg-white rounded-xl border border-amber-200 shadow-2xs">
-                                <span className="text-[10px] font-bold text-amber-900 block mb-1">📈 Debt %</span>
+                                <span className="text-[10px] font-bold text-amber-900 block mb-1">Debt %</span>
                                 <div className="flex items-center gap-1">
                                   <input
                                     type="number"
@@ -9393,7 +9388,7 @@ export default function AdminPanel() {
                                 </div>
                               </div>
                               <div className="p-2 bg-white rounded-xl border border-purple-200 shadow-2xs">
-                                <span className="text-[10px] font-bold text-purple-900 block mb-1">📜 Bond %</span>
+                                <span className="text-[10px] font-bold text-purple-900 block mb-1">Bond %</span>
                                 <div className="flex items-center gap-1">
                                   <input
                                     type="number"
@@ -9421,7 +9416,7 @@ export default function AdminPanel() {
                             </div>
                             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-amber-200">
                               <span className="text-[11px] text-amber-900 font-medium">
-                                💳 P2P Wallet Transfers: <strong>0%</strong> (Nahi milega)
+                                P2P Wallet Transfers: <strong>0%</strong> (Nahi milega)
                               </span>
                               <button
                                 onClick={() => approveAgent(a._id, undefined, {
@@ -9456,11 +9451,11 @@ export default function AdminPanel() {
                               <span className="font-bold text-gray-800 text-xs">
                                 {isTeamModel ? (
                                   <span className="text-amber-700 font-black flex items-center gap-1.5">
-                                    <span>👥</span> Team Model (Hierarchy Allowed)
+                                     Team Model (Hierarchy Allowed)
                                   </span>
                                 ) : (
                                   <span className="text-blue-700 font-black flex items-center gap-1.5">
-                                    <span>👤</span> Solo Direct (Independent Agent)
+                                     Solo Direct (Independent Agent)
                                   </span>
                                 )}
                               </span>
@@ -9490,7 +9485,7 @@ export default function AdminPanel() {
                         <div className="mt-3 p-3 bg-white rounded-xl border border-gray-200/90 shadow-2xs space-y-2.5">
                           <div className="flex flex-wrap items-center justify-between gap-1 border-b border-gray-100 pb-2">
                             <span className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
-                              <span>⚙️</span> Multi-Category Commission Control (Bada / Ghata Sakte Hain)
+                               Multi-Category Commission Control (Bada / Ghata Sakte Hain)
                             </span>
                             <span className="text-[10px] text-gray-500 font-semibold bg-gray-100 px-2 py-0.5 rounded-full">
                               Per-Product Commission
@@ -9500,7 +9495,7 @@ export default function AdminPanel() {
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                             {/* 1. Loan Commission */}
                             <div className="p-2.5 bg-blue-50/70 border border-blue-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-blue-900 block mb-1">🏦 Loan</span>
+                              <span className="text-[11px] font-bold text-blue-900 block mb-1">Loan</span>
                               <div className="flex items-center gap-1">
                                 <input
                                   type="number"
@@ -9528,7 +9523,7 @@ export default function AdminPanel() {
 
                             {/* 2. Peer Lending Commission */}
                             <div className="p-2.5 bg-emerald-50/70 border border-emerald-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-emerald-900 block mb-1">🤝 Lending Account</span>
+                              <span className="text-[11px] font-bold text-emerald-900 block mb-1">Lending Account</span>
                               <div className="flex items-center gap-1">
                                 <input
                                   type="number"
@@ -9556,7 +9551,7 @@ export default function AdminPanel() {
 
                             {/* 3. Debt Account Commission */}
                             <div className="p-2.5 bg-amber-50/70 border border-amber-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-amber-900 block mb-1">📈 Debt Account</span>
+                              <span className="text-[11px] font-bold text-amber-900 block mb-1">Debt Account</span>
                               <div className="flex items-center gap-1">
                                 <input
                                   type="number"
@@ -9584,7 +9579,7 @@ export default function AdminPanel() {
 
                             {/* 4. Bond Commission */}
                             <div className="p-2.5 bg-purple-50/70 border border-purple-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-purple-900 block mb-1">📜 Bonds (365 Days)</span>
+                              <span className="text-[11px] font-bold text-purple-900 block mb-1">Bonds (365 Days)</span>
                               <div className="flex items-center gap-1">
                                 <input
                                   type="number"
@@ -9613,7 +9608,7 @@ export default function AdminPanel() {
 
                           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100">
                             <span className="text-[11px] text-gray-500">
-                              💳 Wallet P2P Transfers: <strong className="text-gray-700">0% (Nahi milega)</strong>
+                              Wallet P2P Transfers: <strong className="text-gray-700">0% (Nahi milega)</strong>
                             </span>
                             <button
                               type="button"
@@ -9630,7 +9625,7 @@ export default function AdminPanel() {
                               disabled={savingAgentCommission[a._id]}
                               className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
                             >
-                              <span>💾</span> {savingAgentCommission[a._id] ? "Updating..." : "Save Commission Rates"}
+                               {savingAgentCommission[a._id] ? "Updating..." : "Save Commission Rates"}
                             </button>
                           </div>
                         </div>
@@ -9639,7 +9634,7 @@ export default function AdminPanel() {
                         <div className="mt-3 p-3 bg-gradient-to-r from-slate-50 to-indigo-50/40 rounded-xl border border-indigo-100">
                           <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2.5">
                             <span className="font-extrabold text-xs text-indigo-950 flex items-center gap-1.5">
-                              <span>📊</span> Kamai Vivran (Agent Earnings by Source)
+                               Kamai Vivran (Agent Earnings by Source)
                             </span>
                             <span className="text-xs font-black font-mono text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-300">
                               Kul Kamai: ₹{(a.earningsBreakdown?.total || a.referralEarnings || 0).toLocaleString("en-IN")}
@@ -9648,7 +9643,7 @@ export default function AdminPanel() {
 
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                             <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs">
-                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">🏦 Loan</span>
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">Loan</span>
                               <div className="font-black font-mono text-blue-700 text-sm">
                                 ₹{(a.earningsBreakdown?.loan || 0).toLocaleString("en-IN")}
                               </div>
@@ -9656,7 +9651,7 @@ export default function AdminPanel() {
                             </div>
 
                             <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs">
-                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">🤝 Lending Account</span>
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">Lending Account</span>
                               <div className="font-black font-mono text-emerald-700 text-sm">
                                 ₹{(a.earningsBreakdown?.lending || 0).toLocaleString("en-IN")}
                               </div>
@@ -9664,7 +9659,7 @@ export default function AdminPanel() {
                             </div>
 
                             <div className="bg-white p-2.5 rounded-xl border border-amber-100 shadow-2xs">
-                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">📈 Debt Account</span>
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">Debt Account</span>
                               <div className="font-black font-mono text-amber-700 text-sm">
                                 ₹{(a.earningsBreakdown?.investment || 0).toLocaleString("en-IN")}
                               </div>
@@ -9672,7 +9667,7 @@ export default function AdminPanel() {
                             </div>
 
                             <div className="bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs">
-                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">📜 Bonds</span>
+                              <span className="text-[10px] text-gray-500 font-bold block mb-0.5">Bonds</span>
                               <div className="font-black font-mono text-purple-700 text-sm">
                                 ₹{(a.earningsBreakdown?.bond || 0).toLocaleString("en-IN")}
                               </div>
@@ -9686,7 +9681,7 @@ export default function AdminPanel() {
                           <div className="mt-3 p-3 bg-white rounded-xl border border-gray-200 text-xs space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-gray-800 flex items-center gap-1.5 text-[11px]">
-                                <span>👥</span> Attached Team & Customer Network ({a.referredMembers.length})
+                                 Attached Team & Customer Network ({a.referredMembers.length})
                               </span>
                               <span className="text-[10px] text-gray-500 font-medium">Click to Reassign Agent</span>
                             </div>
@@ -9702,7 +9697,7 @@ export default function AdminPanel() {
                                       className="px-2.5 py-1.5 bg-gray-50 hover:bg-indigo-50/70 border border-gray-200 hover:border-indigo-300 rounded-xl text-[10px] font-bold text-gray-800 flex items-center gap-2 shadow-2xs transition"
                                     >
                                       <div className="flex items-center gap-1.5">
-                                        <span>{isMemberAgent ? (memberIsTeam ? "👥" : "👤") : "👤"}</span>
+                                        <span>{isMemberAgent ? (memberIsTeam ? "" : "") : ""}</span>
                                         <span>{m.name}</span>
                                         <span className="text-gray-400 font-mono text-[9px]">({m.phone || m.email})</span>
                                         {isMemberAgent && (
@@ -9757,7 +9752,7 @@ export default function AdminPanel() {
                                             className="px-2 py-0.5 bg-amber-50 hover:bg-amber-600 text-amber-800 hover:text-white border border-amber-300 hover:border-amber-600 rounded-md text-[9px] font-extrabold transition cursor-pointer flex items-center gap-1 shadow-2xs active:scale-95"
                                             title="Promote to Sub-Agent in Team Model"
                                           >
-                                            <span>👑</span> Make Team Agent
+                                             Make Team Agent
                                           </button>
                                         )}
                                       </div>
@@ -9787,7 +9782,7 @@ export default function AdminPanel() {
                 </div>
                 {pendingKycCount > 0 && (
                   <span className="px-3 py-1 bg-amber-100 border border-amber-300 text-amber-900 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
-                    <span>📄</span> {pendingKycCount} KYC Pending Approval
+                     {pendingKycCount} KYC Pending Approval
                   </span>
                 )}
               </div>
@@ -9814,7 +9809,7 @@ export default function AdminPanel() {
                       : "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
                   }`}
                 >
-                  👤 Regular Customers ({users.filter(u => u.role !== "agent" && u.agentProfile?.status !== "approved").length})
+                  Regular Customers ({users.filter(u => u.role !== "agent" && u.agentProfile?.status !== "approved").length})
                 </button>
                 <button
                   type="button"
@@ -9825,7 +9820,7 @@ export default function AdminPanel() {
                       : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
                   }`}
                 >
-                  🤝 Agents Only ({users.filter(u => u.role === "agent" || u.agentProfile?.status === "approved").length})
+                  Agents Only ({users.filter(u => u.role === "agent" || u.agentProfile?.status === "approved").length})
                 </button>
 
                 <button
@@ -9838,7 +9833,7 @@ export default function AdminPanel() {
                   }`}
                   title={isApyLocked ? "Tap 5 times to unlock Custom APY editor" : "Click to lock Custom APY editor"}
                 >
-                  <span>{isApyLocked ? "🔒" : "🔓"}</span>
+                  <span>{isApyLocked ? "" : ""}</span>
                   <span>{isApyLocked ? `APY Locked (${5 - apyTapCount} taps)` : "APY Unlocked (Lock Now)"}</span>
                 </button>
               </div>
@@ -9877,12 +9872,12 @@ export default function AdminPanel() {
                                 <p className="font-bold text-sm text-gray-900 leading-tight">{u.name}</p>
                                 {(u.role === "agent" || u.agentProfile?.status === "approved") && (
                                   <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
-                                    🤝 Agent
+                                    Agent
                                   </span>
                                 )}
                                 {u.role === "staff" && (
                                   <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-purple-100 text-purple-900 border border-purple-300" title={`Staff departments: ${(u.staffProfile?.departments || []).join(", ")}`}>
-                                    👔 Staff ({u.staffProfile?.departments?.length ? u.staffProfile.departments.join(", ") : "Desk"})
+                                    Staff ({u.staffProfile?.departments?.length ? u.staffProfile.departments.join(", ") : "Desk"})
                                   </span>
                                 )}
                               </div>
@@ -9933,7 +9928,7 @@ export default function AdminPanel() {
                                       onClick={() => setPreviewKycUser(u)}
                                       className="inline-flex items-center gap-1 text-[11px] text-blue-700 font-bold bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 cursor-pointer transition active:scale-95"
                                     >
-                                      📄 View Submitted Docs
+                                      View Submitted Docs
                                     </button>
                                   )}
                                 </div>
@@ -9970,7 +9965,7 @@ export default function AdminPanel() {
                                     className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold border border-slate-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
                                     title="Tap 5 times to unlock APY editor"
                                   >
-                                    <span>🔒</span>
+                                    
                                     <span>Locked ({5 - apyTapCount})</span>
                                   </button>
                                 </div>
@@ -10000,7 +9995,7 @@ export default function AdminPanel() {
                                     className="px-1.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[10px] font-bold cursor-pointer"
                                     title="Lock editor"
                                   >
-                                    🔒
+                                    
                                   </button>
                                 </div>
                               )}
@@ -10012,11 +10007,11 @@ export default function AdminPanel() {
                                 <div className="flex items-center gap-1.5">
                                   {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? (
                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-amber-400 to-yellow-400 text-black shadow-xs flex items-center gap-1">
-                                      <span>👑</span> PLATINUM
+                                       PLATINUM
                                     </span>
                                   ) : (
                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 flex items-center gap-1">
-                                      <span>🥈</span> SILVER
+                                       SILVER
                                     </span>
                                   )}
                                   <span className="text-[10px] text-gray-400 font-mono font-bold">
@@ -10031,7 +10026,7 @@ export default function AdminPanel() {
                                       : "bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100"
                                   }`}
                                 >
-                                  {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? "Revoke VIP" : "👑 Unlock VIP"}
+                                  {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? "Revoke VIP" : "Unlock VIP"}
                                 </button>
                               </div>
                             </td>
@@ -10040,13 +10035,13 @@ export default function AdminPanel() {
                             <td className="py-4 px-4 align-top">
                               <div className="flex items-center gap-1 pt-0.5">
                                 <span className="px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded text-[10px] font-bold" title="Savings (12% APY)">
-                                  🏦 Savings
+                                  Savings
                                 </span>
                                 <span className={`px-1.5 py-0.5 border rounded text-[10px] font-bold ${u.wallets?.debit?.active ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-100 border-gray-200 text-gray-400"}`} title="Debit Wallet">
-                                  💳 Debit
+                                  Debit
                                 </span>
                                 <span className={`px-1.5 py-0.5 border rounded text-[10px] font-bold ${u.wallets?.lending?.active ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-100 border-gray-200 text-gray-400"}`} title="Lending Wallet">
-                                  🤝 Loans
+                                  Loans
                                 </span>
                               </div>
                             </td>
@@ -10083,7 +10078,7 @@ export default function AdminPanel() {
                                     <LiveUserProfitCell user={u} />
                                   </span>
                                   <p className="text-[10px] text-emerald-600 font-mono mt-0.5 font-semibold">
-                                    🟢 Live Ticking
+                                    Live Ticking
                                   </p>
                                 </div>
                               ) : (
@@ -10119,7 +10114,7 @@ export default function AdminPanel() {
                               ) : lineage.agentName ? (
                                 <div className="pt-0.5">
                                   <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded text-[11px] font-bold">
-                                    🤝 {lineage.agentName}
+                                    {lineage.agentName}
                                   </span>
                                   {lineage.agentCode && (
                                     <p className="text-[10px] text-gray-500 font-mono mt-0.5">Code: {lineage.agentCode}</p>
@@ -10136,15 +10131,15 @@ export default function AdminPanel() {
                             <td className="py-4 px-4 align-top">
                               <div className="space-y-1">
                                 <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${u.isBlocked ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-                                  {u.isBlocked ? "🔴 Blocked" : "🟢 Active"}
+                                  {u.isBlocked ? "Blocked" : "Active"}
                                 </span>
                                 {u.isUninstallProtected ? (
                                   <span className="block px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
-                                    🔒 Uninstall Blocked
+                                    Uninstall Blocked
                                   </span>
                                 ) : (
                                   <span className="block px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
-                                    📱 Normal
+                                    Normal
                                   </span>
                                 )}
                               </div>
@@ -10168,21 +10163,21 @@ export default function AdminPanel() {
                                   }`}
                                   title={u.isUninstallProtected ? "App uninstall is blocked. Click to allow uninstall." : "Click to lock and prevent user from uninstalling app."}
                                 >
-                                  {u.isUninstallProtected ? "🔒 Unlock Uninstall" : "🛡️ Block Uninstall"}
+                                  {u.isUninstallProtected ? "Unlock Uninstall" : "Block Uninstall"}
                                 </button>
                                 <button
                                   onClick={() => openResetPasswordModal(u)}
                                   className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
                                   title="Reset user password with temporary credentials and forced change"
                                 >
-                                  🔑 Reset Password
+                                  Reset Password
                                 </button>
                                 <button
                                   onClick={() => openAssignStaffModal(u)}
                                   className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-purple-950 bg-purple-100 hover:bg-purple-200 border border-purple-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
                                   title="Assign Staff Desk Role (Loan, KYC, Deposit, Withdrawal, etc.)"
                                 >
-                                  👔 Assign Desk Role
+                                  Assign Desk Role
                                 </button>
                               </div>
                             </td>
@@ -10210,7 +10205,7 @@ export default function AdminPanel() {
                               )}
                               {u.role === "staff" && (
                                 <span className="px-2 py-0.5 rounded text-[10px] font-black bg-purple-100 text-purple-900 border border-purple-300 uppercase tracking-wide shrink-0" title={`Staff departments: ${(u.staffProfile?.departments || []).join(", ")}`}>
-                                  👔 Staff ({u.staffProfile?.departments?.length ? u.staffProfile.departments.join(", ") : "Desk"})
+                                  Staff ({u.staffProfile?.departments?.length ? u.staffProfile.departments.join(", ") : "Desk"})
                                 </span>
                               )}
                             </div>
@@ -10231,7 +10226,7 @@ export default function AdminPanel() {
                             </span>
                             {u.isUninstallProtected && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
-                                🔒 Lock
+                                Lock
                               </span>
                             )}
                           </div>
@@ -10257,7 +10252,7 @@ export default function AdminPanel() {
                                 onClick={() => setPreviewKycUser(u)}
                                 className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold border border-blue-200 transition active:scale-95"
                               >
-                                📄 View Submitted Docs
+                                View Submitted Docs
                               </button>
                             )}
                           </div>
@@ -10284,7 +10279,7 @@ export default function AdminPanel() {
                                   className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[10px] font-bold border border-slate-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
                                   title="Tap 5 times to unlock APY editor"
                                 >
-                                  <span>🔒</span>
+                                  
                                   <span>Locked ({5 - apyTapCount})</span>
                                 </button>
                               </div>
@@ -10312,7 +10307,7 @@ export default function AdminPanel() {
                                   className="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded text-[10px] font-bold cursor-pointer"
                                   title="Lock editor"
                                 >
-                                  🔒
+                                  
                                 </button>
                               </div>
                             )}
@@ -10328,7 +10323,7 @@ export default function AdminPanel() {
                                   : "bg-slate-100 text-slate-700 border border-slate-300"
                               }`}
                             >
-                              {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? "👑 Platinum (VIP)" : "🥈 Silver (Unlock VIP)"}
+                              {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? "Platinum (VIP)" : "Silver (Unlock VIP)"}
                             </button>
                           </div>
                         </div>
@@ -10379,7 +10374,7 @@ export default function AdminPanel() {
                         <div className="w-full mb-3 p-2.5 bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-slate-50 border border-blue-200/80 rounded-xl shadow-2xs">
                           <div className="flex items-center justify-between gap-2 mb-1.5">
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="text-amber-500 text-xs">⚡</span>
+                              <span className="text-amber-500 text-xs"></span>
                               <span className="font-extrabold text-slate-800 text-xs leading-none">24H Expected Yield</span>
                             </div>
                             <div className="text-right shrink-0">
@@ -10409,20 +10404,20 @@ export default function AdminPanel() {
                               u.isUninstallProtected ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
                             }`}
                           >
-                            {u.isUninstallProtected ? "🔒 Unlock Uninstall" : "🛡️ Block Uninstall"}
+                            {u.isUninstallProtected ? "Unlock Uninstall" : "Block Uninstall"}
                           </button>
                         </div>
                         <button
                           onClick={() => openResetPasswordModal(u)}
                           className="w-full mt-2 py-2 rounded-xl text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
                         >
-                          🔑 Reset User Password
+                          Reset User Password
                         </button>
                         <button
                           onClick={() => openAssignStaffModal(u)}
                           className="w-full mt-2 py-2 rounded-xl text-xs font-bold text-purple-950 bg-purple-100 hover:bg-purple-200 border border-purple-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
                         >
-                          👔 Assign Desk Role (Tum Loan/KYC/Deposit wale ho)
+                          Assign Desk Role (Tum Loan/KYC/Deposit wale ho)
                         </button>
                       </div>
                     ); })}
@@ -10437,11 +10432,11 @@ export default function AdminPanel() {
             <div className="bg-white rounded-2xl shadow-sm p-3.5 sm:p-6 border border-gray-100">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 sm:gap-3 mb-4 sm:mb-6">
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold font-display">📱 App Devices & Remote Parental Bedtime Lock</h3>
+                  <h3 className="text-base sm:text-lg font-bold font-display">App Devices & Remote Parental Bedtime Lock</h3>
                   <p className="text-xs text-gray-500">Jab bacha app chalayega, to uska device yahan dikhega. Aap yahan se 1-click me Bedtime Lock laga ya hata sakte hain.</p>
                 </div>
                 <button onClick={loadDevices} className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition cursor-pointer self-start sm:self-auto">
-                  🔄 Refresh Devices
+                  Refresh Devices
                 </button>
               </div>
 
@@ -10449,7 +10444,7 @@ export default function AdminPanel() {
               <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 rounded-2xl bg-blue-50/80 border border-blue-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-base sm:text-lg font-bold shadow-xs shrink-0">
-                    🔑
+                    
                   </div>
                   <div>
                     <h4 className="text-xs sm:text-sm font-bold text-blue-950">Parent / Admin Secret Unlock PIN</h4>
@@ -10466,7 +10461,7 @@ export default function AdminPanel() {
 
               {devices.length === 0 ? (
                 <div className="text-center py-10 sm:py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  <p className="text-3xl mb-2">📱</p>
+                  <p className="text-3xl mb-2"></p>
                   <p className="text-gray-500 text-sm font-semibold">No app devices connected yet</p>
                   <p className="text-gray-400 text-xs mt-1">Jab koi user Android app me login ya signup karega, to uska device auto-connect hokar yahan aa jayega.</p>
                 </div>
@@ -10492,7 +10487,7 @@ export default function AdminPanel() {
                               <p className="text-xs text-gray-400 font-mono truncate max-w-[180px]">{d.userEmail || d.deviceId}</p>
                             </td>
                             <td className="py-3.5 px-3 text-xs text-gray-600 font-medium">
-                              📱 {d.deviceName || "Android Phone"}
+                              {d.deviceName || "Android Phone"}
                             </td>
                             <td className="py-3.5 px-3 text-xs text-gray-400">
                               {d.lastSeenAt ? new Date(d.lastSeenAt).toLocaleTimeString() : "Recent"}
@@ -10504,7 +10499,7 @@ export default function AdminPanel() {
                                   : "bg-gray-100 text-gray-600 border border-gray-200"
                               }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${d.adminStatus === "active" ? "bg-green-500" : "bg-gray-400"}`}></span>
-                                {d.adminStatus === "active" ? "🔒 LOCKED (Uninstall Blocked)" : "🔓 UNLOCKED"}
+                                {d.adminStatus === "active" ? "LOCKED (Uninstall Blocked)" : "UNLOCKED"}
                               </span>
                             </td>
                             <td className="py-3.5 px-3 text-right">
@@ -10513,14 +10508,14 @@ export default function AdminPanel() {
                                   onClick={() => unlockDevice(d.deviceId)}
                                   className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
                                 >
-                                  🔓 Unlock Device (Allow Uninstall)
+                                  Unlock Device (Allow Uninstall)
                                 </button>
                               ) : (
                                 <button
                                   onClick={() => lockDevice(d.deviceId)}
                                   className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
                                 >
-                                  🔒 Lock Device (Send OS Prompt)
+                                  Lock Device (Send OS Prompt)
                                 </button>
                               )}
                             </td>
@@ -10545,14 +10540,14 @@ export default function AdminPanel() {
                               : "bg-gray-100 text-gray-600 border border-gray-200"
                           }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${d.adminStatus === "active" ? "bg-green-500" : "bg-gray-400"}`}></span>
-                            {d.adminStatus === "active" ? "🔒 LOCKED" : "🔓 UNLOCKED"}
+                            {d.adminStatus === "active" ? "LOCKED" : "UNLOCKED"}
                           </span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-gray-200/70 text-gray-600">
                           <div>
                             <span className="text-gray-400 block text-[10px] uppercase font-bold">Device Model</span>
-                            <span className="font-semibold text-gray-800 truncate block">📱 {d.deviceName || "Android Phone"}</span>
+                            <span className="font-semibold text-gray-800 truncate block">{d.deviceName || "Android Phone"}</span>
                           </div>
                           <div>
                             <span className="text-gray-400 block text-[10px] uppercase font-bold">Last Seen</span>
@@ -10566,14 +10561,14 @@ export default function AdminPanel() {
                               onClick={() => unlockDevice(d.deviceId)}
                               className="w-full py-2.5 px-3 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                             >
-                              🔓 Unlock Device (Allow Uninstall)
+                              Unlock Device (Allow Uninstall)
                             </button>
                           ) : (
                             <button
                               onClick={() => lockDevice(d.deviceId)}
                               className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                             >
-                              🔒 Lock Device (Send OS Prompt)
+                              Lock Device (Send OS Prompt)
                             </button>
                           )}
                         </div>
@@ -10591,7 +10586,7 @@ export default function AdminPanel() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-5 pb-3 border-b border-gray-100">
                 <div>
                   <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
-                    <span>🏛️</span>
+                    
                     <span>Loan Applications & Ledger</span>
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-800">
                       {loans.length}
@@ -10606,7 +10601,7 @@ export default function AdminPanel() {
                   onClick={() => switchTab("issue-loan")}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
                 >
-                  <span>⚡➕</span> Issue Loan / Apply on Behalf
+                   Issue Loan / Apply on Behalf
                 </button>
               </div>
 
@@ -10675,7 +10670,7 @@ export default function AdminPanel() {
                                   ? "bg-teal-100 text-teal-800 border border-teal-200"
                                   : "bg-blue-100 text-blue-800 border border-blue-200"
                               }`}>
-                                {l.loanType === "student" ? "🎓 Student" : l.loanType === "micro_business" ? "🏪 Micro" : "👤 Personal"}
+                                {l.loanType === "student" ? "Student" : l.loanType === "micro_business" ? "Micro" : "Personal"}
                               </span>
                             </div>
                             <p className="text-xs text-gray-400">{l.userId?.email} • Phone: {l.userId?.phone || "N/A"}</p>
@@ -10723,7 +10718,7 @@ export default function AdminPanel() {
                           }`}>
                             <div>
                               <span className="font-extrabold flex items-center gap-1.5">
-                                <span>{l.penaltyWaived ? "⏸️" : "⚠️"}</span>
+                                <span>{l.penaltyWaived ? "⏸️" : ""}</span>
                                 <span>{l.penaltyWaived ? "Overdue Penalty Waived / On Hold" : `Active Overdue Penalty: ₹${Number(l.penaltyDue || 0).toLocaleString("en-IN")}`}</span>
                               </span>
                               <p className="text-[11px] opacity-80 mt-0.5">
@@ -10756,7 +10751,7 @@ export default function AdminPanel() {
                               <div className="mb-3.5 p-3 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-xs space-y-1">
                                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                                   <div className="flex items-center gap-1.5 font-black text-emerald-950">
-                                    <span className="text-sm">💵</span>
+                                    <span className="text-sm"></span>
                                     <span>User Ke Account Me Jayega (In-Hand):</span>
                                     <span className="font-mono text-sm font-black text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-lg border border-emerald-300/60">
                                       ₹{inHand.toLocaleString("en-IN")}
@@ -10791,14 +10786,14 @@ export default function AdminPanel() {
                         })()}
                         {l.referralCommissionPaid && (
                           <div className="mb-3 text-xs bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-orange-700 font-semibold">
-                            🎯 Referral commission ₹{l.referralCommissionAmount} paid on this loan
+                            Referral commission ₹{l.referralCommissionAmount} paid on this loan
                           </div>
                         )}
                         {l.earlyClosed && (
                           <div className="mb-3 text-xs bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-950 space-y-1.5">
                             <div className="flex items-center justify-between font-bold">
                               <span className="flex items-center gap-1.5">
-                                <span>⚡</span> Early Pre-Closed (Foreclosure 3-Way Split)
+                                 Early Pre-Closed (Foreclosure 3-Way Split)
                               </span>
                               <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-extrabold uppercase">
                                 {l.precloseDiscountPercent ? `${l.precloseDiscountPercent}% Total Pool` : 'Closed Early'}
@@ -10807,15 +10802,15 @@ export default function AdminPanel() {
                             {l.precloseTotalPool > 0 ? (
                               <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-emerald-200/60 text-[11px]">
                                 <div className="bg-white/90 p-2 rounded-lg border border-emerald-100 shadow-2xs">
-                                  <span className="text-gray-500 block text-[10px] font-semibold">👤 User Discount</span>
+                                  <span className="text-gray-500 block text-[10px] font-semibold">User Discount</span>
                                   <strong className="text-emerald-700 text-xs">₹{(l.precloseUserDiscount || 0).toLocaleString("en-IN")}</strong>
                                 </div>
                                 <div className="bg-white/90 p-2 rounded-lg border border-emerald-100 shadow-2xs">
-                                  <span className="text-gray-500 block text-[10px] font-semibold">🤝 Agent Benefit</span>
+                                  <span className="text-gray-500 block text-[10px] font-semibold">Agent Benefit</span>
                                   <strong className="text-amber-700 text-xs">₹{(l.precloseAgentBenefit || 0).toLocaleString("en-IN")}</strong>
                                 </div>
                                 <div className="bg-white/90 p-2 rounded-lg border border-emerald-100 shadow-2xs">
-                                  <span className="text-gray-500 block text-[10px] font-semibold">🏢 Company Profit</span>
+                                  <span className="text-gray-500 block text-[10px] font-semibold">Company Profit</span>
                                   <strong className="text-blue-700 text-xs">₹{(l.precloseCompanyProfit || 0).toLocaleString("en-IN")}</strong>
                                 </div>
                               </div>
@@ -10845,7 +10840,7 @@ export default function AdminPanel() {
                             <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2 mb-3">
                               <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                                 <span className="flex items-center gap-1.5">
-                                  <span>📄</span> Submitted Loan Verification Documents
+                                   Submitted Loan Verification Documents
                                 </span>
                                 {l.hasChequeFacility && (
                                   <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold">
@@ -10860,7 +10855,7 @@ export default function AdminPanel() {
                                     onClick={() => { setLightboxImg(offlineProof); setZoomLevel(1); }}
                                     className="flex items-center justify-center gap-1 px-2 py-2 bg-emerald-50 border border-emerald-300 rounded-lg text-[11px] font-bold text-emerald-900 hover:bg-emerald-100 transition active:scale-95 cursor-pointer shadow-2xs"
                                   >
-                                    <span>🧾</span> Offline Slip 🔍
+                                     Offline Slip 
                                   </button>
                                 )}
                                 {aadharFront && (
@@ -10869,7 +10864,7 @@ export default function AdminPanel() {
                                     onClick={() => { setLightboxImg(aadharFront); setZoomLevel(1); }}
                                     className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
                                   >
-                                    <span>🆔</span> Aadhaar (Front) 🔍
+                                    <span>🆔</span> Aadhaar (Front) 
                                   </button>
                                 )}
                                 {aadharBack && (
@@ -10878,7 +10873,7 @@ export default function AdminPanel() {
                                     onClick={() => { setLightboxImg(aadharBack); setZoomLevel(1); }}
                                     className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
                                   >
-                                    <span>🆔</span> Aadhaar (Back) 🔍
+                                    <span>🆔</span> Aadhaar (Back) 
                                   </button>
                                 )}
                                 {panFront && (
@@ -10887,7 +10882,7 @@ export default function AdminPanel() {
                                     onClick={() => { setLightboxImg(panFront); setZoomLevel(1); }}
                                     className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
                                   >
-                                    <span>💳</span> PAN (Front) 🔍
+                                     PAN (Front) 
                                   </button>
                                 )}
                                 {panBack && (
@@ -10896,7 +10891,7 @@ export default function AdminPanel() {
                                     onClick={() => { setLightboxImg(panBack); setZoomLevel(1); }}
                                     className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
                                   >
-                                    <span>💳</span> PAN (Back) 🔍
+                                     PAN (Back) 
                                   </button>
                                 )}
                                 {chequeFront && (
@@ -10905,7 +10900,7 @@ export default function AdminPanel() {
                                     onClick={() => { setLightboxImg(chequeFront); setZoomLevel(1); }}
                                     className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-amber-300 rounded-lg text-[11px] font-semibold text-amber-900 hover:bg-amber-50 transition active:scale-95 cursor-pointer shadow-2xs"
                                   >
-                                    <span>🏦</span> Cheque (Front) 🔍
+                                     Cheque (Front) 
                                   </button>
                                 )}
                                 {chequeBack && (
@@ -10914,7 +10909,7 @@ export default function AdminPanel() {
                                     onClick={() => { setLightboxImg(chequeBack); setZoomLevel(1); }}
                                     className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-amber-300 rounded-lg text-[11px] font-semibold text-amber-900 hover:bg-amber-50 transition active:scale-95 cursor-pointer shadow-2xs"
                                   >
-                                    <span>🏦</span> Cheque (Back) 🔍
+                                     Cheque (Back) 
                                   </button>
                                 )}
                                 {studentFront && (
@@ -10923,7 +10918,7 @@ export default function AdminPanel() {
                                     onClick={() => { setLightboxImg(studentFront); setZoomLevel(1); }}
                                     className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-sky-200 rounded-lg text-[11px] font-semibold text-sky-800 hover:bg-sky-50 transition active:scale-95 cursor-pointer shadow-2xs"
                                   >
-                                    <span>🎓</span> Student ID (Front) 🔍
+                                     Student ID (Front) 
                                   </button>
                                 )}
                                 {studentBack && (
@@ -10932,7 +10927,7 @@ export default function AdminPanel() {
                                     onClick={() => { setLightboxImg(studentBack); setZoomLevel(1); }}
                                     className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-sky-200 rounded-lg text-[11px] font-semibold text-sky-800 hover:bg-sky-50 transition active:scale-95 cursor-pointer shadow-2xs"
                                   >
-                                    <span>🎓</span> Student ID (Back) 🔍
+                                     Student ID (Back) 
                                   </button>
                                 )}
                               </div>
@@ -10954,7 +10949,7 @@ export default function AdminPanel() {
                               <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5 shadow-2xs">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
                                   <div className="flex items-start sm:items-center gap-2">
-                                    <span className="text-base sm:text-lg shrink-0 mt-0.5 sm:mt-0">⚙️</span>
+                                    <span className="text-base sm:text-lg shrink-0 mt-0.5 sm:mt-0"></span>
                                     <div>
                                       <h5 className="text-xs font-black text-gray-900 leading-tight">
                                         Pehli Installment Setting (Admin Choice)
@@ -10972,7 +10967,7 @@ export default function AdminPanel() {
                                         ? "bg-amber-100 text-amber-800 border-amber-300"
                                         : "bg-sky-100 text-sky-800 border-sky-300"
                                     }`}>
-                                      {chosenOpt === "none" ? "🟢 NA LEIN (Pura Paisa)" : chosenOpt === "deduct" ? "🟡 Advance Kaatein" : "🔵 Waive/Maaf"}
+                                      {chosenOpt === "none" ? "NA LEIN (Pura Paisa)" : chosenOpt === "deduct" ? "Advance Kaatein" : "Waive/Maaf"}
                                     </span>
                                   </div>
                                 </div>
@@ -10993,7 +10988,7 @@ export default function AdminPanel() {
                                   >
                                     <div className="flex items-center justify-between gap-1 mb-1">
                                       <span className="font-black text-xs text-emerald-950 flex items-center gap-1">
-                                        <span>🟢 Pehli Kist NA lein</span>
+                                        <span>Pehli Kist NA lein</span>
                                       </span>
                                       <span className="text-[9px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-black shrink-0 whitespace-nowrap">
                                         RECOMMENDED
@@ -11022,7 +11017,7 @@ export default function AdminPanel() {
                                   >
                                     <div className="flex items-center justify-between gap-1 mb-1">
                                       <span className="font-black text-xs text-amber-950 flex items-center gap-1">
-                                        <span>🟡 Pehli Kist Advance Kaatein</span>
+                                        <span>Pehli Kist Advance Kaatein</span>
                                       </span>
                                       <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-black shrink-0 whitespace-nowrap">
                                         ADVANCE
@@ -11053,7 +11048,7 @@ export default function AdminPanel() {
                                   className="relative overflow-visible w-full sm:flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
                                 >
                                   {adminHeroFlyId === l._id && <AdminLoanHeroFlyBadge />}
-                                  <span>✅ Approve & Disburse (₹{currentDisburseAmount.toLocaleString("en-IN")})</span>
+                                  <span>Approve & Disburse (₹{currentDisburseAmount.toLocaleString("en-IN")})</span>
                                 </button>
                                 <button
                                   type="button"
@@ -11084,11 +11079,11 @@ export default function AdminPanel() {
                               className="w-full py-2 px-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 flex items-center justify-between transition cursor-pointer"
                             >
                               <span className="flex items-center gap-2">
-                                <span>📅</span>
+                                
                                 <span>Installment Schedule ({paidCount}/{totalCount} Paid)</span>
                                 {submittedCount > 0 && (
                                   <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold animate-pulse">
-                                    ⚠️ {submittedCount} Submitted for Review
+                                    {submittedCount} Submitted for Review
                                   </span>
                                 )}
                               </span>
@@ -11138,7 +11133,7 @@ export default function AdminPanel() {
                                           </div>
                                           {isOverdue && (
                                             <div className="text-[10px] text-rose-700 font-bold">
-                                              ⚠️ 10:00 AM cutoff miss hui • Agli kist me rolled over (+2% penalty)
+                                              10:00 AM cutoff miss hui • Agli kist me rolled over (+2% penalty)
                                             </div>
                                           )}
                                           {isPaid && (
@@ -11174,7 +11169,7 @@ export default function AdminPanel() {
                                               onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
                                               className="w-full py-1 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold border border-emerald-300 flex items-center justify-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
                                             >
-                                              <span>🧾</span> View Payment Slip / Receipt 🔍
+                                               View Payment Slip / Receipt 
                                             </button>
                                           )}
                                           {isSubmitted && (
@@ -11185,7 +11180,7 @@ export default function AdminPanel() {
                                                   onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
                                                   className="w-full py-1 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold border border-blue-200 flex items-center justify-center gap-1 cursor-pointer"
                                                 >
-                                                  <span>🖼</span> View Proof (Front)
+                                                   View Proof (Front)
                                                 </button>
                                               )}
                                               {inst.proofBackUrl && (
@@ -11194,7 +11189,7 @@ export default function AdminPanel() {
                                                   onClick={() => { setLightboxImg(inst.proofBackUrl); setZoomLevel(1); }}
                                                   className="w-full py-1 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold border border-blue-200 flex items-center justify-center gap-1 cursor-pointer"
                                                 >
-                                                  <span>🖼</span> View Proof (Back)
+                                                   View Proof (Back)
                                                 </button>
                                               )}
                                               <button
@@ -11209,7 +11204,7 @@ export default function AdminPanel() {
                                                     <span>Approving...</span>
                                                   </>
                                                 ) : (
-                                                  <span>✅ Approve Installment</span>
+                                                  <span>Approve Installment</span>
                                                 )}
                                               </button>
                                             </>
@@ -11227,7 +11222,7 @@ export default function AdminPanel() {
                                               })}
                                               className="w-full py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-[10px] font-bold border border-slate-300 transition cursor-pointer"
                                             >
-                                              ⚡ Mark Paid (Admin Override)
+                                              Mark Paid (Admin Override)
                                             </button>
                                           )}
                                         </div>
@@ -11368,7 +11363,7 @@ export default function AdminPanel() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-100">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl">➕🏦</span>
+                      <span className="text-2xl"></span>
                       <h3 className="text-base sm:text-lg font-bold font-display text-gray-900">
                         Admin Loan Desk — Apply On Behalf
                       </h3>
@@ -11385,7 +11380,7 @@ export default function AdminPanel() {
                     onClick={() => switchTab("loans")}
                     className="self-start sm:self-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer active:scale-95 shadow-2xs"
                   >
-                    <span>← 🏛️</span> Back to Loans Desk ({loans.length})
+                    <span>← </span> Back to Loans Desk ({loans.length})
                   </button>
                 </div>
 
@@ -11408,7 +11403,7 @@ export default function AdminPanel() {
                               : "text-gray-500 hover:text-gray-900"
                           }`}
                         >
-                          <span>👤</span> Existing Customer / Agent's User
+                           Existing Customer / Agent's User
                         </button>
                         <button
                           type="button"
@@ -11433,7 +11428,7 @@ export default function AdminPanel() {
                             <div className="p-3.5 bg-emerald-50 border-2 border-emerald-400 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
-                                  👤
+                                  
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2 flex-wrap">
@@ -11446,9 +11441,9 @@ export default function AdminPanel() {
                                     </span>
                                   </div>
                                   <div className="text-xs text-emerald-800/90 mt-0.5 flex flex-wrap gap-x-3">
-                                    <span>📞 {issueSelectedUser.phone}</span>
-                                    <span>✉️ {issueSelectedUser.email}</span>
-                                    <span>💰 Balance: ₹{Number(issueSelectedUser.balance || 0).toLocaleString("en-IN")}</span>
+                                    <span>{issueSelectedUser.phone}</span>
+                                    <span>{issueSelectedUser.email}</span>
+                                    <span>Balance: ₹{Number(issueSelectedUser.balance || 0).toLocaleString("en-IN")}</span>
                                   </div>
                                   {(() => {
                                     const lin = getUserLineage(issueSelectedUser, users, agents);
@@ -11477,7 +11472,7 @@ export default function AdminPanel() {
                                           }}
                                           className="px-2.5 py-1 bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 rounded-xl text-[11px] font-bold transition cursor-pointer shadow-2xs"
                                         >
-                                          ✏️ Reassign / Link Agent
+                                          Reassign / Link Agent
                                         </button>
                                       </div>
                                     );
@@ -11498,7 +11493,7 @@ export default function AdminPanel() {
                               <div className="p-3 bg-rose-50 border-2 border-rose-300 rounded-xl space-y-1 shadow-2xs">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-xs font-black text-rose-900 flex items-center gap-1">
-                                    <span>⚠️</span> Incomplete Borrower Details Detected ({missingBorrowerFields.length} Missing):
+                                     Incomplete Borrower Details Detected ({missingBorrowerFields.length} Missing):
                                   </span>
                                   {missingBorrowerFields.map(f => (
                                     <span key={f.key} className="px-2 py-0.5 bg-rose-200 text-rose-950 rounded-md font-black text-[10px] border border-rose-300">
@@ -11525,7 +11520,7 @@ export default function AdminPanel() {
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/70 pb-2.5">
                                       <div className="flex items-center gap-2.5">
                                         <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shadow-2xs">
-                                          🛡️
+                                          
                                         </div>
                                         <div>
                                           <div className="flex items-center gap-2">
@@ -11546,7 +11541,7 @@ export default function AdminPanel() {
                                     {/* Detailed breakdown of all previous loans */}
                                     <div className="space-y-2">
                                       <div className="flex items-center justify-between text-[11px] font-black text-emerald-950">
-                                        <span>📊 Purane Loans Ki Puri Jankari ({userPrevLoans.length}):</span>
+                                        <span>Purane Loans Ki Puri Jankari ({userPrevLoans.length}):</span>
                                         <span className="text-[10px] text-emerald-700 font-bold">Total Borrowed History</span>
                                       </div>
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-0.5 no-scrollbar">
@@ -11571,7 +11566,7 @@ export default function AdminPanel() {
                                                 <div>
                                                   <div className="flex items-center gap-1.5">
                                                     <span className="text-xs font-black text-gray-900">
-                                                      #{idx + 1} {pl.loanType === "student" ? "🎓 Student" : pl.loanType === "micro_business" || pl.loanType === "micro" ? "🏪 Micro" : "👤 Personal"} Loan
+                                                      #{idx + 1} {pl.loanType === "student" ? "Student" : pl.loanType === "micro_business" || pl.loanType === "micro" ? "Micro" : "Personal"} Loan
                                                     </span>
                                                     <span className={`text-[9px] font-black px-1.5 py-0.2 rounded border uppercase ${badgeColor}`}>
                                                       {pl.status}
@@ -11632,7 +11627,7 @@ export default function AdminPanel() {
 
                                               {/* Footer date & cheque info */}
                                               <div className="flex items-center justify-between text-[9px] text-gray-500 pt-1 border-t border-gray-100">
-                                                <span>📅 {pl.createdAt ? new Date(pl.createdAt).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : "N/A"}</span>
+                                                <span>{pl.createdAt ? new Date(pl.createdAt).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : "N/A"}</span>
                                                 {pl.chequeNumber || pl.documents?.chequeNumber ? (
                                                   <span className="font-mono font-bold text-gray-700 bg-gray-100 px-1.5 py-0.2 rounded">
                                                     Cheque: #{pl.chequeNumber || pl.documents?.chequeNumber}
@@ -11657,7 +11652,7 @@ export default function AdminPanel() {
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-2.5">
                                       <div className="flex items-center gap-2.5">
                                         <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-base shadow-2xs">
-                                          ⚠️
+                                          
                                         </div>
                                         <div>
                                           <div className="flex items-center gap-2">
@@ -11689,9 +11684,9 @@ export default function AdminPanel() {
                                       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2">
                                         {[
                                           { key: "doc1Url", label: "Aadhaar Front", icon: "🪪", fallbackUrl: issueSelectedUser.kycDocuments?.doc1Url || issueSelectedUser.kycDocuments?.docUrl },
-                                          { key: "doc1BackUrl", label: "Aadhaar Back", icon: "🔄", fallbackUrl: issueSelectedUser.kycDocuments?.doc1BackUrl },
-                                          { key: "doc2Url", label: "PAN Card Front", icon: "📑", fallbackUrl: issueSelectedUser.kycDocuments?.doc2Url },
-                                          { key: "doc2BackUrl", label: "PAN Card Back", icon: "📄", fallbackUrl: issueSelectedUser.kycDocuments?.doc2BackUrl },
+                                          { key: "doc1BackUrl", label: "Aadhaar Back", icon: "", fallbackUrl: issueSelectedUser.kycDocuments?.doc1BackUrl },
+                                          { key: "doc2Url", label: "PAN Card Front", icon: "", fallbackUrl: issueSelectedUser.kycDocuments?.doc2Url },
+                                          { key: "doc2BackUrl", label: "PAN Card Back", icon: "", fallbackUrl: issueSelectedUser.kycDocuments?.doc2BackUrl },
                                         ].map(doc => {
                                           const fileUrl = issueDocuments[doc.key] || doc.fallbackUrl;
                                           return (
@@ -11709,7 +11704,7 @@ export default function AdminPanel() {
                                                 <div className="space-y-1">
                                                   <div className="relative group w-full h-16 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-gray-200">
                                                     {fileUrl.startsWith("data:application/pdf") ? (
-                                                      <span className="text-[10px] font-bold text-blue-700">📄 PDF Document</span>
+                                                      <span className="text-[10px] font-bold text-blue-700">PDF Document</span>
                                                     ) : (
                                                       <img
                                                         src={fileUrl}
@@ -11723,7 +11718,7 @@ export default function AdminPanel() {
                                                       onClick={() => { setLightboxImg(fileUrl); setZoomLevel(1); }}
                                                       className="absolute bottom-1 right-1 bg-black/60 hover:bg-black/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-xs transition cursor-pointer"
                                                     >
-                                                      <span>🔍</span> Zoom
+                                                       Zoom
                                                     </button>
                                                   </div>
                                                 </div>
@@ -11748,7 +11743,7 @@ export default function AdminPanel() {
                                     <div className="p-3 bg-white border border-amber-200 rounded-xl space-y-2">
                                        <div className="flex items-center justify-between">
                                          <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
-                                           <span>📝</span> Borrower Contact & ID Numbers (Review / Fill / Edit)
+                                            Borrower Contact & ID Numbers (Review / Fill / Edit)
                                          </span>
                                          <span className="text-[10px] text-gray-500 font-bold">Auto-fills to Loan Record</span>
                                        </div>
@@ -11847,16 +11842,16 @@ export default function AdminPanel() {
                                     <div className="p-3 bg-white border border-amber-300 rounded-xl space-y-2">
                                       <div className="flex items-center justify-between">
                                         <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
-                                          <span>🏦</span> Compulsory Barrier Cheque Details for Loan / Lending
+                                           Compulsory Barrier Cheque Details for Loan / Lending
                                         </span>
-                                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">📷 Photos Only (Secure Storage • Any MB Size)</span>
+                                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Photos Only (Secure Storage • Any MB Size)</span>
                                       </div>
 
                                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                         {/* Cheque Front */}
                                         <div className="p-2.5 bg-slate-50 border border-gray-200 rounded-lg space-y-1.5">
                                           <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
-                                            <span>🏦 Cheque Front Image</span>
+                                            <span>Cheque Front Image</span>
                                             {issueDocuments.chequeUrl ? (
                                               <span className="text-emerald-600 text-[10px] font-black">✓ Uploaded</span>
                                             ) : (
@@ -11871,7 +11866,7 @@ export default function AdminPanel() {
                                                 className="max-h-full max-w-full object-contain cursor-zoom-in"
                                                 onClick={() => { setLightboxImg(issueDocuments.chequeUrl); setZoomLevel(1); }}
                                               />
-                                              <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">🔍 Zoom</span>
+                                              <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">Zoom</span>
                                             </div>
                                           )}
                                           <input
@@ -11885,7 +11880,7 @@ export default function AdminPanel() {
                                         {/* Cheque Back */}
                                         <div className="p-2.5 bg-slate-50 border border-gray-200 rounded-lg space-y-1.5">
                                           <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
-                                            <span>🔄 Cheque Back Image</span>
+                                            <span>Cheque Back Image</span>
                                             {issueDocuments.chequeBackUrl ? (
                                               <span className="text-emerald-600 text-[10px] font-black">✓ Uploaded</span>
                                             ) : (
@@ -11900,7 +11895,7 @@ export default function AdminPanel() {
                                                 className="max-h-full max-w-full object-contain cursor-zoom-in"
                                                 onClick={() => { setLightboxImg(issueDocuments.chequeBackUrl); setZoomLevel(1); }}
                                               />
-                                              <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">🔍 Zoom</span>
+                                              <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">Zoom</span>
                                             </div>
                                           )}
                                           <input
@@ -11915,7 +11910,7 @@ export default function AdminPanel() {
                                         <div className="p-2.5 bg-slate-50 border border-gray-200 rounded-lg space-y-1.5 flex flex-col justify-between">
                                           <div>
                                             <label className="text-[11px] font-bold text-gray-800 block">
-                                              🔢 Barrier Cheque Number <span className="text-rose-500">*</span>
+                                              Barrier Cheque Number <span className="text-rose-500">*</span>
                                             </label>
                                             <span className="text-[9px] text-gray-500 block">Bank cheque par likha 6-digit number</span>
                                           </div>
@@ -11938,7 +11933,7 @@ export default function AdminPanel() {
                                 <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-2xl space-y-3">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-lg">📁</span>
+                                      <span className="text-lg"></span>
                                       <div>
                                         <span className="text-xs font-black text-amber-950 block">
                                           First Time Borrower — Full Loan KYC Required (Aadhaar, PAN & Cheque)
@@ -11948,17 +11943,17 @@ export default function AdminPanel() {
                                         </span>
                                       </div>
                                     </div>
-                                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 hidden sm:inline">📷 Photos Only (Secure Storage • Any MB Size)</span>
+                                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 hidden sm:inline">Photos Only (Secure Storage • Any MB Size)</span>
                                   </div>
 
                                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2">
                                     {[
                                       { key: "doc1Url", label: "Aadhaar Card Front", icon: "🪪" },
-                                      { key: "doc1BackUrl", label: "Aadhaar Card Back", icon: "🔄" },
-                                      { key: "doc2Url", label: "PAN Card Front", icon: "📑" },
-                                      { key: "doc2BackUrl", label: "PAN Card Back", icon: "📄" },
-                                      { key: "chequeUrl", label: "Barrier Cheque Front", icon: "🏦" },
-                                      { key: "chequeBackUrl", label: "Barrier Cheque Back", icon: "🔄" },
+                                      { key: "doc1BackUrl", label: "Aadhaar Card Back", icon: "" },
+                                      { key: "doc2Url", label: "PAN Card Front", icon: "" },
+                                      { key: "doc2BackUrl", label: "PAN Card Back", icon: "" },
+                                      { key: "chequeUrl", label: "Barrier Cheque Front", icon: "" },
+                                      { key: "chequeBackUrl", label: "Barrier Cheque Back", icon: "" },
                                     ].map(doc => (
                                       <div key={doc.key} className="p-2.5 bg-white border border-amber-200 rounded-xl space-y-1.5">
                                         <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
@@ -11977,7 +11972,7 @@ export default function AdminPanel() {
                                               className="max-h-full max-w-full object-contain cursor-zoom-in"
                                               onClick={() => { setLightboxImg(issueDocuments[doc.key]); setZoomLevel(1); }}
                                             />
-                                            <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">🔍 Zoom</span>
+                                            <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">Zoom</span>
                                           </div>
                                         )}
                                         <input
@@ -11994,7 +11989,7 @@ export default function AdminPanel() {
                                   <div className="p-2.5 bg-white border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                     <div>
                                       <span className="text-xs font-bold text-gray-800 block">
-                                        🔢 Barrier Cheque Number (Compulsory for Loan Security)
+                                        Barrier Cheque Number (Compulsory for Loan Security)
                                       </span>
                                       <span className="text-[10px] text-gray-500">Security barrier cheque ka 6-digit number enter karein</span>
                                     </div>
@@ -12028,13 +12023,13 @@ export default function AdminPanel() {
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="text-[11px] font-black text-slate-700 flex items-center gap-1">
-                                    <span>👥</span> Kis Ka (Hierarchy):
+                                     Kis Ka (Hierarchy):
                                   </span>
                                   {[
                                     { key: "all", label: "Sabhi Users" },
-                                    { key: "direct", label: "👤 Direct" },
-                                    { key: "agent", label: "🤝 Agent" },
-                                    { key: "subagent", label: "👑 Sub-Agent" },
+                                    { key: "direct", label: "Direct" },
+                                    { key: "agent", label: "Agent" },
+                                    { key: "subagent", label: "Sub-Agent" },
                                   ].map((f) => (
                                     <button
                                       key={f.key}
@@ -12070,7 +12065,7 @@ export default function AdminPanel() {
                               <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/70">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="text-[11px] font-black text-slate-700 flex items-center gap-1">
-                                    <span>🕒</span> Kab Ka (Date/Time):
+                                     Kab Ka (Date/Time):
                                   </span>
                                   {[
                                     { key: "all", label: "All Time" },
@@ -12138,20 +12133,20 @@ export default function AdminPanel() {
                                             if (uLoans.length > 0) {
                                               return (
                                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
-                                                  🛡️ {uLoans.length} Purane Loan
+                                                  {uLoans.length} Purane Loan
                                                 </span>
                                               );
                                             }
                                             if (u.kycStatus === "verified" || Boolean(u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl)) {
                                               return (
                                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                                  ⚠️ Normal KYC (Cheque Chahiye)
+                                                  Normal KYC (Cheque Chahiye)
                                                 </span>
                                               );
                                             }
                                             return (
                                               <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-100 text-gray-500">
-                                                📁 No KYC
+                                                No KYC
                                               </span>
                                             );
                                           })()}
@@ -12172,7 +12167,7 @@ export default function AdminPanel() {
                                           className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200 transition cursor-pointer active:scale-95"
                                           title="Reassign or Link Agent"
                                         >
-                                          ✏️ Agent
+                                          Agent
                                         </button>
                                         <span className="text-xs font-bold text-blue-600 group-hover:translate-x-0.5 transition">
                                           Select →
@@ -12331,16 +12326,16 @@ export default function AdminPanel() {
                             <label className="text-[11px] font-bold text-gray-800 block">
                               Upload Full Loan KYC Documents (Aadhaar, PAN & Barrier Cheque)
                             </label>
-                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">📷 Photos Only (Secure Storage • Any MB Size)</span>
+                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Photos Only (Secure Storage • Any MB Size)</span>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                             {[
                               { key: "doc1Url", label: "Aadhaar Card Front", icon: "🪪" },
-                              { key: "doc1BackUrl", label: "Aadhaar Card Back", icon: "🔄" },
-                              { key: "doc2Url", label: "PAN Card Front", icon: "📑" },
-                              { key: "doc2BackUrl", label: "PAN Card Back", icon: "📄" },
-                              { key: "chequeUrl", label: "Barrier Cheque Front", icon: "🏦" },
-                              { key: "chequeBackUrl", label: "Barrier Cheque Back", icon: "🔄" },
+                              { key: "doc1BackUrl", label: "Aadhaar Card Back", icon: "" },
+                              { key: "doc2Url", label: "PAN Card Front", icon: "" },
+                              { key: "doc2BackUrl", label: "PAN Card Back", icon: "" },
+                              { key: "chequeUrl", label: "Barrier Cheque Front", icon: "" },
+                              { key: "chequeBackUrl", label: "Barrier Cheque Back", icon: "" },
                             ].map(doc => (
                               <div key={doc.key} className="p-2.5 bg-slate-50 border border-gray-200 rounded-xl space-y-1.5">
                                 <div className="flex items-center justify-between text-[11px] font-bold text-gray-800">
@@ -12355,7 +12350,7 @@ export default function AdminPanel() {
                                       className="max-h-full max-w-full object-contain cursor-zoom-in"
                                       onClick={() => { setLightboxImg(issueDocuments[doc.key]); setZoomLevel(1); }}
                                     />
-                                    <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">🔍 Zoom</span>
+                                    <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 rounded">Zoom</span>
                                   </div>
                                 )}
                                 <input
@@ -12372,7 +12367,7 @@ export default function AdminPanel() {
                           <div className="p-2.5 bg-slate-50 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
                               <span className="text-[11px] font-bold text-gray-800 block">
-                                🔢 Barrier Cheque Number (Compulsory for Loan Security)
+                                Barrier Cheque Number (Compulsory for Loan Security)
                               </span>
                               <span className="text-[9px] text-gray-500">Security barrier cheque ka 6-digit number enter karein</span>
                             </div>
@@ -12403,9 +12398,9 @@ export default function AdminPanel() {
                       </label>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                         {[
-                          { id: "personal", label: "👤 Personal Loan", desc: "Personal & emergency cash needs", defaultPurpose: "Personal Financial Need" },
-                          { id: "student", label: "🎓 Student Loan", desc: "Tuition, coaching & book fees", defaultPurpose: "Student Education & Fees" },
-                          { id: "micro", label: "🏪 Micro Enterprise", desc: "Dukan & small business working capital", defaultPurpose: "Micro Business Working Capital" }
+                          { id: "personal", label: "Personal Loan", desc: "Personal & emergency cash needs", defaultPurpose: "Personal Financial Need" },
+                          { id: "student", label: "Student Loan", desc: "Tuition, coaching & book fees", defaultPurpose: "Student Education & Fees" },
+                          { id: "micro", label: "Micro Enterprise", desc: "Dukan & small business working capital", defaultPurpose: "Micro Business Working Capital" }
                         ].map((cat) => (
                           <button
                             key={cat.id}
@@ -12620,7 +12615,7 @@ export default function AdminPanel() {
                     <div className="p-3.5 bg-blue-50/70 rounded-xl border border-blue-200 space-y-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <span className="text-xs font-black text-blue-900 flex items-center gap-1.5">
-                          <span>⚡</span> Offline Record / Pehle Se Bhari Kistein (Backfill)
+                           Offline Record / Pehle Se Bhari Kistein (Backfill)
                         </span>
                         <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
                           Admin Direct Control
@@ -12705,7 +12700,7 @@ export default function AdminPanel() {
                       <div className="p-3 bg-white/80 rounded-xl border border-blue-200/70 space-y-2">
                         <div className="flex items-center justify-between">
                           <label className="text-[11px] font-bold text-blue-950 flex items-center gap-1.5">
-                            <span>🧾</span> Offline Payment Evidence / Slip (Photo / Receipt)
+                             Offline Payment Evidence / Slip (Photo / Receipt)
                           </label>
                           {issueBackfillEvidenceUrl && (
                             <button
@@ -12719,7 +12714,7 @@ export default function AdminPanel() {
                         </div>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                           <label className="px-3 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition shrink-0 active:scale-95 shadow-2xs">
-                            <span>📷</span> Attach Evidence / Receipt
+                             Attach Evidence / Receipt
                             <input
                               type="file"
                               accept="image/*"
@@ -12736,7 +12731,7 @@ export default function AdminPanel() {
                                 onClick={() => { setLightboxImg(issueBackfillEvidenceUrl); setZoomLevel(1); }}
                                 className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 transition cursor-pointer shrink-0"
                               >
-                                View 🔍
+                                View 
                               </button>
                             </div>
                           ) : (
@@ -12755,7 +12750,7 @@ export default function AdminPanel() {
                           className="w-full p-3 bg-white hover:bg-slate-50 rounded-xl border border-blue-200 flex items-center justify-between transition cursor-pointer text-xs font-bold text-blue-950 shadow-2xs"
                         >
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span>📋</span>
+                            
                             <span>Saari Kistein Schedule & Admin Paid Control ({count} Total Kist)</span>
                             <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${paidNum > 0 ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
                               {paidNum} Paid / {count - paidNum} Pending
@@ -12769,7 +12764,7 @@ export default function AdminPanel() {
                         {showAllInstallmentsCollapse && (
                           <div className="p-3 bg-white/95 rounded-xl border border-blue-200/80 space-y-2.5 animate-in fade-in duration-150">
                             <p className="text-[11px] text-gray-500">
-                              Aap yaha se kisi bhi kist par <strong>Admin: Mark as Paid ✅</strong> dabakar use bhari hui mark kar sakte hain:
+                              Aap yaha se kisi bhi kist par <strong>Admin: Mark as Paid </strong> dabakar use bhari hui mark kar sakte hain:
                             </p>
                             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                               {Array.from({ length: count }, (_, idx) => {
@@ -12805,7 +12800,7 @@ export default function AdminPanel() {
                                             ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
                                             : "bg-amber-100 text-amber-800 border border-amber-200"
                                         }`}>
-                                          {isPaid ? "✅ Bhari Hui (Paid)" : "⏳ Pending (Due)"}
+                                          {isPaid ? "Bhari Hui (Paid)" : "⏳ Pending (Due)"}
                                         </span>
                                         {!isPaid && (
                                           <span className="text-[11px] text-slate-500 hidden sm:inline">
@@ -12829,7 +12824,7 @@ export default function AdminPanel() {
                                             onClick={() => updateBackfillCount(kistNo, installmentAmt)}
                                             className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer transition shrink-0"
                                           >
-                                            <span>⚡</span> Admin: Mark as Paid ✅
+                                             Admin: Mark as Paid 
                                           </button>
                                         )}
                                       </div>
@@ -12863,11 +12858,11 @@ export default function AdminPanel() {
                                               onChange={(e) => updateBackfillInstallmentField(idx, "paymentMethod", e.target.value)}
                                               className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 font-semibold"
                                             >
-                                              <option value="cash">💵 Cash at Office</option>
-                                              <option value="upi">📱 UPI / QR</option>
-                                              <option value="bank_transfer">🏦 Bank Transfer</option>
-                                              <option value="cheque">🧾 Cheque</option>
-                                              <option value="offline">⚡ Offline Recorded</option>
+                                              <option value="cash">Cash at Office</option>
+                                              <option value="upi">UPI / QR</option>
+                                              <option value="bank_transfer">Bank Transfer</option>
+                                              <option value="cheque">Cheque</option>
+                                              <option value="offline">Offline Recorded</option>
                                             </select>
                                           </div>
                                           <div>
@@ -12884,7 +12879,7 @@ export default function AdminPanel() {
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-emerald-200/60 text-xs">
                                           <div className="flex items-center gap-2 flex-wrap">
                                             <label className="px-2 py-1 bg-white hover:bg-emerald-50 border border-emerald-300 rounded-lg text-[11px] font-bold text-emerald-800 cursor-pointer flex items-center gap-1 shadow-2xs">
-                                              <span>📷</span> Kist Slip Photo
+                                               Kist Slip Photo
                                               <input
                                                 type="file"
                                                 accept="image/*"
@@ -12898,7 +12893,7 @@ export default function AdminPanel() {
                                                 onClick={() => { setLightboxImg(paidItem.evidenceUrl); setZoomLevel(1); }}
                                                 className="text-[10px] text-emerald-700 font-bold underline flex items-center gap-0.5 cursor-pointer"
                                               >
-                                                <span>✓</span> View Receipt (Zoom 🔍)
+                                                <span>✓</span> View Receipt (Zoom )
                                               </button>
                                             )}
                                           </div>
@@ -12931,7 +12926,7 @@ export default function AdminPanel() {
                           />
                           <div className="space-y-1">
                             <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
-                              <span>💵</span> Loan lene wale ke app wallet me paise transfer karein (Disburse)
+                               Loan lene wale ke app wallet me paise transfer karein (Disburse)
                             </span>
                             <p className="text-[11px] text-gray-600 font-normal leading-relaxed">
                               • <strong>Naya Loan:</strong> Isse check (✓) rakhein taaki loan lene wale ke app wallet me paise credit hon.<br />
@@ -12984,9 +12979,9 @@ export default function AdminPanel() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-200">
                       <p className="text-[11px] text-slate-600 leading-relaxed max-w-xl">
                         {Number(issuePaidInstallmentsCount) > 0 ? (
-                          <span>⚡ <strong>Backfill Mode:</strong> Aapne <strong>{issuePaidInstallmentsCount} kistein</strong> pehle se bhari hui set ki hain. Yeh loan submit hote hi seedha <strong>ACTIVE</strong> ho jayega aur borrower ki KYC auto-approve ho jayegi!</span>
+                          <span><strong>Backfill Mode:</strong> Aapne <strong>{issuePaidInstallmentsCount} kistein</strong> pehle se bhari hui set ki hain. Yeh loan submit hote hi seedha <strong>ACTIVE</strong> ho jayega aur borrower ki KYC auto-approve ho jayegi!</span>
                         ) : (
-                          <span>💡 <strong>Note:</strong> Yeh loan submit hone ke baad direct disburse nahi hoga. Request <strong>Pending Loan Applications</strong> queue me jayegi jahan aap borrower ke documents aur details verify karke <strong>Approve</strong> karenge.</span>
+                          <span><strong>Note:</strong> Yeh loan submit hone ke baad direct disburse nahi hoga. Request <strong>Pending Loan Applications</strong> queue me jayegi jahan aap borrower ke documents aur details verify karke <strong>Approve</strong> karenge.</span>
                         )}
                       </p>
 
@@ -13003,9 +12998,9 @@ export default function AdminPanel() {
                             <span>Processing...</span>
                           </>
                         ) : Number(issuePaidInstallmentsCount) > 0 ? (
-                          <span>⚡ Create Active Backfilled Loan</span>
+                          <span>Create Active Backfilled Loan</span>
                         ) : (
-                          <span>🚀 Submit Loan Request for Admin Review</span>
+                          <span>Submit Loan Request for Admin Review</span>
                         )}
                       </button>
                     </div>
@@ -13019,7 +13014,7 @@ export default function AdminPanel() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100">
                 <div>
                   <h3 className="text-lg font-bold font-display flex items-center gap-2">
-                    <span>🤝</span> Lending Investment Accounts ({bonds.length})
+                     Lending Investment Accounts ({bonds.length})
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-500">
                     Compulsory KYC, Barrier Cheque, Nominee, UPI & Banking Details for Fixed Monthly Payout Accounts.
@@ -13030,7 +13025,7 @@ export default function AdminPanel() {
                     onClick={loadBonds}
                     className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                   >
-                    <span>🔄</span> Refresh
+                     Refresh
                   </button>
                 </div>
               </div>
@@ -13074,7 +13069,7 @@ export default function AdminPanel() {
 
               {bonds.length === 0 ? (
                 <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
-                  <span className="text-4xl block mb-2">🤝</span>
+                  <span className="text-4xl block mb-2"></span>
                   <p className="font-semibold text-gray-600">No lending accounts yet</p>
                   <p className="text-xs mt-1">Jab users ₹3,500/mo (40m) ya ₹2,500/mo (80m) lending plan activate karenge, yahan unke documents aur account number show honge.</p>
                 </div>
@@ -13095,7 +13090,7 @@ export default function AdminPanel() {
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
-                              🤝
+                              
                             </div>
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
@@ -13111,7 +13106,7 @@ export default function AdminPanel() {
                                 </span>
                               </div>
                               <p className="text-xs text-gray-500 mt-0.5">
-                                📞 {b.userId?.phone || docs.applicantPhone || "N/A"} • ✉️ {b.userId?.email || docs.applicantEmail || "N/A"}
+                                {b.userId?.phone || docs.applicantPhone || "N/A"} • {b.userId?.email || docs.applicantEmail || "N/A"}
                               </p>
                             </div>
                           </div>
@@ -13144,7 +13139,7 @@ export default function AdminPanel() {
                         <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                           <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                             <span className="flex items-center gap-1.5">
-                              <span>📄</span> Compulsory Documents (Aadhaar, PAN & Barrier Cheque)
+                               Compulsory Documents (Aadhaar, PAN & Barrier Cheque)
                             </span>
                           </div>
 
@@ -13155,7 +13150,7 @@ export default function AdminPanel() {
                                 onClick={() => { setLightboxImg(aadharFront); setZoomLevel(1); }}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 hover:bg-slate-100 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
-                                🆔 Aadhaar Front 🔍
+                                🆔 Aadhaar Front 
                               </button>
                             ) : (
                               <span className="text-xs text-rose-500 bg-rose-50 px-2 py-1 rounded">No Aadhaar Front</span>
@@ -13166,7 +13161,7 @@ export default function AdminPanel() {
                                 onClick={() => { setLightboxImg(aadharBack); setZoomLevel(1); }}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 hover:bg-slate-100 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
-                                🆔 Aadhaar Back 🔍
+                                🆔 Aadhaar Back 
                               </button>
                             )}
 
@@ -13176,7 +13171,7 @@ export default function AdminPanel() {
                                 onClick={() => { setLightboxImg(panFront); setZoomLevel(1); }}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 hover:bg-slate-100 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
-                                💳 PAN Front 🔍
+                                PAN Front 
                               </button>
                             ) : (
                               <span className="text-xs text-rose-500 bg-rose-50 px-2 py-1 rounded">No PAN Front</span>
@@ -13187,7 +13182,7 @@ export default function AdminPanel() {
                                 onClick={() => { setLightboxImg(panBack); setZoomLevel(1); }}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 hover:bg-slate-100 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
-                                💳 PAN Back 🔍
+                                PAN Back 
                               </button>
                             )}
 
@@ -13197,7 +13192,7 @@ export default function AdminPanel() {
                                 onClick={() => { setLightboxImg(chequeFront); setZoomLevel(1); }}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-900 hover:bg-amber-50 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
-                                📑 Barrier Cheque Front 🔍
+                                Barrier Cheque Front 
                               </button>
                             ) : (
                               <span className="text-xs text-rose-500 bg-rose-50 px-2 py-1 rounded">No Cheque Front</span>
@@ -13208,7 +13203,7 @@ export default function AdminPanel() {
                                 onClick={() => { setLightboxImg(chequeBack); setZoomLevel(1); }}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-900 hover:bg-amber-50 shadow-2xs transition cursor-pointer flex items-center justify-center"
                               >
-                                📑 Barrier Cheque Back 🔍
+                                Barrier Cheque Back 
                               </button>
                             )}
                           </div>
@@ -13219,7 +13214,7 @@ export default function AdminPanel() {
                           {/* Bank & UPI */}
                           <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-1.5">
                             <span className="font-black text-gray-800 flex items-center gap-1.5">
-                              <span>🏦</span> Bank & UPI Payout Destination
+                               Bank & UPI Payout Destination
                             </span>
                             <div className="grid grid-cols-2 gap-2 text-gray-700">
                               <div><span className="text-gray-400">Bank:</span> <strong className="font-semibold">{docs.bankName || "N/A"}</strong></div>
@@ -13232,7 +13227,7 @@ export default function AdminPanel() {
                           {/* Nominee & Contact */}
                           <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-1.5">
                             <span className="font-black text-gray-800 flex items-center gap-1.5">
-                              <span>🛡️</span> Nominee & Applicant Contact
+                               Nominee & Applicant Contact
                             </span>
                             <div className="grid grid-cols-2 gap-2 text-gray-700">
                               <div><span className="text-gray-400">Nominee:</span> <strong className="font-semibold">{docs.nomineeName || "N/A"}</strong></div>
@@ -13256,7 +13251,7 @@ export default function AdminPanel() {
               <div className="flex items-center justify-between flex-wrap gap-3 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100">
                 <div>
                   <h3 className="text-lg font-bold font-display flex items-center gap-2">
-                    <span>🔔</span> Real-Time Alerts & Loan Queries
+                     Real-Time Alerts & Loan Queries
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-500">
                     Live updates via Server-Sent Events with audio sound chime on Chrome & Mobile!
@@ -13267,7 +13262,7 @@ export default function AdminPanel() {
                     onClick={playNotificationSound}
                     className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
                   >
-                    <span>🔊</span> Test Sound
+                     Test Sound
                   </button>
                   <button
                     onClick={async () => {
@@ -13285,7 +13280,7 @@ export default function AdminPanel() {
 
               {notifications.length === 0 ? (
                 <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
-                  <span className="text-4xl block mb-2">🔕</span>
+                  <span className="text-4xl block mb-2"></span>
                   <p className="font-semibold text-gray-600">No notifications yet</p>
                   <p className="text-xs mt-1">Naye user register karenge ya loan query bhejenge to live sound ke saath yahan aayega.</p>
                 </div>
@@ -13300,7 +13295,7 @@ export default function AdminPanel() {
                     >
                       <div className="flex gap-3 items-start">
                         <span className="text-2xl mt-0.5">
-                          {n.type === "loan_query" ? "💰" : n.type === "new_user" ? "👤" : n.type === "loan_apply" ? "🏦" : "🔔"}
+                          {n.type === "loan_query" ? "" : n.type === "new_user" ? "" : n.type === "loan_apply" ? "" : ""}
                         </span>
                         <div>
                           <div className="flex items-center gap-2">
@@ -13319,12 +13314,12 @@ export default function AdminPanel() {
                                   href={`tel:${n.data.phone}`}
                                   className="px-2 py-1 bg-green-100 text-green-800 rounded-md font-semibold hover:underline"
                                 >
-                                  📞 Call: {n.data.phone}
+                                  Call: {n.data.phone}
                                 </a>
                               )}
                               {n.data.email && (
                                 <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md">
-                                  ✉️ {n.data.email}
+                                  {n.data.email}
                                 </span>
                               )}
                               {n.data.amount && (
@@ -13380,7 +13375,7 @@ export default function AdminPanel() {
               <div className="flex items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex-wrap">
                 <div>
                   <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
-                    <span>📱</span> Real-Time App Phone Alert Test
+                     Real-Time App Phone Alert Test
                   </h3>
                   <p className="text-xs text-gray-500">Connected users aur devices ko instant test push notification bhejein</p>
                 </div>
@@ -13391,7 +13386,7 @@ export default function AdminPanel() {
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   title="Send instant push notification test to all connected phones"
                 >
-                  <span>🔔</span>
+                  
                   <span>{sendingTestPush ? "Sending Alert..." : "Test Phone Alert"}</span>
                 </button>
               </div>
@@ -13401,7 +13396,7 @@ export default function AdminPanel() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-2 mb-5">
                   <div>
                     <h3 className="text-lg font-black font-display text-gray-900 flex items-center gap-2">
-                      <span>💳</span> Admin Deposit Credentials (UPI & Bank Details)
+                       Admin Deposit Credentials (UPI & Bank Details)
                     </h3>
                     <p className="text-xs text-gray-500">
                       Jab users app me "Add Money" pe click karenge, to unhe yahi UPI ID aur Bank details dikhai dengi. Payment verify karke aap "Pending" tab me Approve karenge.
@@ -13514,7 +13509,7 @@ export default function AdminPanel() {
                       disabled={savingDepositDetails}
                       className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-sm shadow-md transition active:scale-95 flex items-center gap-2"
                     >
-                      <span>{savingDepositDetails ? "⏳" : "💾"}</span>
+                      <span>{savingDepositDetails ? "⏳" : ""}</span>
                       <span>{savingDepositDetails ? "Saving Details..." : "Save Deposit Credentials"}</span>
                     </button>
                   </form>
@@ -13522,7 +13517,7 @@ export default function AdminPanel() {
                   {/* Live Mobile App Preview */}
                   <div className="lg:col-span-5 bg-slate-50 text-slate-900 rounded-2xl p-4.5 border border-slate-200/90 shadow-2xs space-y-3 self-start">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">📱 Live Customer App Preview</p>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">Live Customer App Preview</p>
                       <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
                         Add Money Sheet
                       </span>
@@ -13696,7 +13691,7 @@ export default function AdminPanel() {
                       disabled={savingPremiumSettings}
                       className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95 flex items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      <span>{savingPremiumSettings ? "⏳" : "💾"}</span>
+                      <span>{savingPremiumSettings ? "⏳" : ""}</span>
                       <span>{savingPremiumSettings ? "Saving Settings..." : "Save Premium Settings"}</span>
                     </button>
                     <button
@@ -13704,7 +13699,7 @@ export default function AdminPanel() {
                       onClick={() => loadPremiumSettings(true)}
                       className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition cursor-pointer"
                     >
-                      🔄 Reload
+                      Reload
                     </button>
                   </div>
                 </form>
@@ -13714,12 +13709,12 @@ export default function AdminPanel() {
               <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-lg font-bold font-display flex items-center gap-2 text-slate-900">
-                    <span>🔐</span> Custom User APY Editor Security Lock
+                     Custom User APY Editor Security Lock
                   </h3>
                   <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
                     isApyLocked ? "bg-rose-100 text-rose-800 border border-rose-200" : "bg-emerald-100 text-emerald-800 border border-emerald-200"
                   }`}>
-                    {isApyLocked ? "🔒 LOCKED (Protected)" : "🔓 UNLOCKED (Editable)"}
+                    {isApyLocked ? "LOCKED (Protected)" : "UNLOCKED (Editable)"}
                   </span>
                 </div>
                 <p className="text-sm text-slate-500 mb-4">
@@ -13736,7 +13731,7 @@ export default function AdminPanel() {
                         : "bg-rose-600 hover:bg-rose-700 text-white"
                     }`}
                   >
-                    <span>{isApyLocked ? "🔒" : "🔓"}</span>
+                    <span>{isApyLocked ? "" : ""}</span>
                     <span>
                       {isApyLocked
                         ? `Tap to Unlock (${5 - apyTapCount} taps remaining)`
@@ -13751,7 +13746,7 @@ export default function AdminPanel() {
 
               {/* Interest Rate */}
               <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
-                <h3 className="text-lg font-bold font-display mb-1 text-slate-900">📈 Loan Interest Rate</h3>
+                <h3 className="text-lg font-bold font-display mb-1 text-slate-900">Loan Interest Rate</h3>
                 <p className="text-sm text-slate-500 mb-5">Sirf <strong>naye loans</strong> affect honge. Purane loans ka rate kabhi nahi badlega.</p>
                 <div className="flex items-center gap-6 mb-5 flex-wrap">
                   <div className="bg-blue-50 border border-blue-200 rounded-xl px-6 py-4 text-center">
@@ -13774,7 +13769,7 @@ export default function AdminPanel() {
               <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-lg font-bold font-display flex items-center gap-2 text-gray-900">
-                    <span>📁</span> Google Drive KYC Integration
+                     Google Drive KYC Integration
                   </h3>
                   <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                     Cloud Auto-Sync
@@ -13825,7 +13820,7 @@ export default function AdminPanel() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center text-lg">
-                      ⚡
+                      
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-900 flex items-center gap-2">
@@ -13846,7 +13841,7 @@ export default function AdminPanel() {
                 </div>
 
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
-                  <p className="font-bold">⚡ Kyu use karein Cloudflare R2:</p>
+                  <p className="font-bold">Kyu use karein Cloudflare R2:</p>
                   <p className="text-[11px] text-amber-800 leading-relaxed">
                     Google Drive slow redirects (2–4s) aur MongoDB base64 bloat ki jagah Cloudflare Edge CDN se photos <strong>50ms me khulti hain</strong>. Cloudflare R2 me 10GB free storage milti hai aur bandwidth 100% free hoti hai.
                   </p>
@@ -13925,7 +13920,7 @@ export default function AdminPanel() {
                     onClick={handleSaveR2}
                     className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white font-bold text-xs rounded-xl transition shadow-md shadow-orange-600/20 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                   >
-                    {r2Saving ? "Saving..." : "💾 Save R2 Credentials"}
+                    {r2Saving ? "Saving..." : "Save R2 Credentials"}
                   </button>
 
                   <button
@@ -13940,7 +13935,7 @@ export default function AdminPanel() {
                       </>
                     ) : (
                       <>
-                        <span>🧪</span>
+                        
                         <span>Test Connection</span>
                       </>
                     )}
@@ -13953,7 +13948,7 @@ export default function AdminPanel() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
                   <div>
                     <h4 className="text-base sm:text-lg font-black font-display text-gray-900 flex items-center gap-2">
-                      <span>📦</span>
+                      
                       <span>Instant Encrypted System Backup (सुरक्षित स्थानीय बैकअप)</span>
                     </h4>
                     <p className="text-xs text-gray-500 mt-0.5">
@@ -13974,7 +13969,7 @@ export default function AdminPanel() {
                       disabled={backupLoading}
                       className="min-h-[44px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-xs transition flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50"
                     >
-                      <span>{backupLoading ? "⏳" : "⚡📥"}</span>
+                      <span>{backupLoading ? "⏳" : ""}</span>
                       <span>{backupLoading ? "Downloading Backup..." : "Abhi Fresh Encrypted Backup Lelein"}</span>
                     </button>
                   </div>
@@ -13983,7 +13978,7 @@ export default function AdminPanel() {
                 {/* Backup History Table */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-bold text-gray-700">
-                    <span>📜 Local Backup Log (Kab Kab Backup Hua Hai):</span>
+                    <span>Local Backup Log (Kab Kab Backup Hua Hai):</span>
                     <span className="text-gray-400 text-[11px]">{backupHistory.length} Backups Saved</span>
                   </div>
 
@@ -14006,7 +14001,7 @@ export default function AdminPanel() {
                           {backupHistory.map((b) => (
                             <tr key={b.id || b.timestamp} className="hover:bg-slate-50/70 transition">
                               <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
-                                📅 {b.dateStr || new Date(b.timestamp).toLocaleString("en-IN")}
+                                {b.dateStr || new Date(b.timestamp).toLocaleString("en-IN")}
                               </td>
                               <td className="py-2.5 px-3 font-mono font-bold text-blue-700 whitespace-nowrap">
                                 {b.filename || "educa_backup.enc"} <span className="text-[10px] text-gray-500 font-normal">({b.sizeKb || "18.4"} KB)</span>
@@ -14014,10 +14009,10 @@ export default function AdminPanel() {
                               <td className="py-2.5 px-3 text-slate-700">
                                 {b.summary ? (
                                   <span className="inline-flex flex-wrap gap-1.5 text-[11px]">
-                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 font-semibold">👥 {b.summary ? (users.length > 0 ? Math.min(b.summary.usersCount, users.length) : (b.summary.usersCount > 20 ? 20 : b.summary.usersCount)) : (users.length > 0 ? users.length : 20)} Users</span>
-                                    <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 font-semibold">🏦 {b.summary.loansCount} Loans</span>
-                                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 font-semibold">💎 {b.summary.bondsCount} Bonds</span>
-                                    <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold">💳 {b.summary.txnsCount} Txns</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 font-semibold">{b.summary ? (users.length > 0 ? Math.min(b.summary.usersCount, users.length) : (b.summary.usersCount > 20 ? 20 : b.summary.usersCount)) : (users.length > 0 ? users.length : 20)} Users</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 font-semibold">{b.summary.loansCount} Loans</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 font-semibold">{b.summary.bondsCount} Bonds</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold">{b.summary.txnsCount} Txns</span>
                                   </span>
                                 ) : (
                                   <span className="text-gray-400">Full System Snapshot</span>
@@ -14025,7 +14020,7 @@ export default function AdminPanel() {
                               </td>
                               <td className="py-2.5 px-3">
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                  🔒 AES-256 Encrypted
+                                  AES-256 Encrypted
                                 </span>
                               </td>
                             </tr>
@@ -14046,7 +14041,7 @@ export default function AdminPanel() {
               <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-7 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-blue-800/50">
                 <div>
                   <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                    <span className="text-2xl p-2 rounded-2xl bg-white/10 backdrop-blur-xs">💼</span>
+                    <span className="text-2xl p-2 rounded-2xl bg-white/10 backdrop-blur-xs"></span>
                     <h2 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white">
                       Department Commission Master
                     </h2>
@@ -14064,7 +14059,7 @@ export default function AdminPanel() {
                   disabled={loadingCommissions}
                   className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold border border-white/20 transition active:scale-95 flex items-center gap-2 cursor-pointer self-start sm:self-auto disabled:opacity-50 shrink-0"
                 >
-                  <span className={loadingCommissions ? "animate-spin" : ""}>🔄</span>
+                  <span className={loadingCommissions ? "animate-spin" : ""}></span>
                   <span>{loadingCommissions ? "Loading..." : "Sync Fresh"}</span>
                 </button>
               </div>
@@ -14079,16 +14074,11 @@ export default function AdminPanel() {
                     <div>
                       {/* Top identity */}
                       <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center text-lg font-black shrink-0">
-                            {key === "loan" ? "🏦" : key === "deposit" ? "💳" : key === "withdrawal" ? "💸" : key === "kyc" ? "🪪" : key === "lending" ? "📈" : "📜"}
+                        <div>
+                          <h4 className="text-sm font-black text-gray-900 leading-tight">{key === "lending" ? "Lending" : key === "bond" ? "Bonds" : dept.name}</h4>
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mt-0.5">
+                            Basis: {dept.basis}
                           </span>
-                          <div>
-                            <h4 className="text-sm font-black text-gray-900 leading-tight">{key === "lending" ? "Lending" : key === "bond" ? "Bonds" : dept.name}</h4>
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mt-0.5">
-                              Basis: {dept.basis}
-                            </span>
-                          </div>
                         </div>
                         <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
                           {dept.rate}{dept.unit || '%'}
@@ -14180,7 +14170,7 @@ export default function AdminPanel() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-black text-lg text-gray-900 flex items-center gap-1.5">
-                    <span>📄</span> KYC: {previewKycUser.name}
+                     KYC: {previewKycUser.name}
                   </h3>
                   <span
                     title={`Submitted: ${new Date(previewKycUser.kycDocuments?.submittedAt || previewKycUser.createdAt).toLocaleString("en-IN")}`}
@@ -14268,7 +14258,7 @@ export default function AdminPanel() {
               {/* Secure Document Vault Status */}
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">🔒</span>
+                  <span className="text-base"></span>
                   <span className="font-bold text-slate-800">Submitted Documents Vault:</span>
                   <span className="text-slate-600 text-[11px]">Directly stored & permanently locked (tamper-proof)</span>
                 </div>
@@ -14310,7 +14300,7 @@ export default function AdminPanel() {
                               onClick={() => { setLightboxImg(doc1Front); setZoomLevel(1); }}
                             />
                           )}
-                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Front</div>
+                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Front</div>
                         </div>
                       </div>
                     ) : (
@@ -14340,7 +14330,7 @@ export default function AdminPanel() {
                               onClick={() => { setLightboxImg(doc1Back); setZoomLevel(1); }}
                             />
                           )}
-                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Back</div>
+                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Back</div>
                         </div>
                       </div>
                     ) : null;
@@ -14351,7 +14341,7 @@ export default function AdminPanel() {
                 <div className="space-y-2 p-3 bg-gray-50 border border-gray-200 rounded-2xl">
                   <span className="text-xs font-bold text-slate-900 block flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <span>💳</span> Doc 2: {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "Bank Cheque" : "PAN Card"}
+                       Doc 2: {previewKycUser.kycDocuments?.doc2Type === "cheque" ? "Bank Cheque" : "PAN Card"}
                     </span>
                     <span className="text-[10px] text-blue-600 font-semibold">Front & Back</span>
                   </span>
@@ -14378,7 +14368,7 @@ export default function AdminPanel() {
                               onClick={() => { setLightboxImg(doc2Front); setZoomLevel(1); }}
                             />
                           )}
-                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Front</div>
+                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Front</div>
                         </div>
                       </div>
                     ) : (
@@ -14408,7 +14398,7 @@ export default function AdminPanel() {
                               onClick={() => { setLightboxImg(doc2Back); setZoomLevel(1); }}
                             />
                           )}
-                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">🔍 Zoom Back</div>
+                          <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Back</div>
                         </div>
                       </div>
                     ) : null;
@@ -14424,7 +14414,7 @@ export default function AdminPanel() {
                     <span>Admin Review Remarks / Verification Note:</span>
                     {(previewKycUser.kycStatus === "verified" || previewKycUser.kycStatus === "rejected" || previewKycUser.kycDocuments?.isNoteLocked) && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold flex items-center gap-1 border border-amber-200">
-                        🔒 Note Locked (Decision Finalized)
+                        Note Locked (Decision Finalized)
                       </span>
                     )}
                   </span>
@@ -14490,7 +14480,7 @@ export default function AdminPanel() {
                   onClick={() => showToast(`User ${previewKycUser.name} KYC is already rejected.`, "info")}
                   className="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold select-none flex items-center gap-1.5 cursor-pointer active:scale-90 transition"
                 >
-                  <span>🔒</span> KYC Rejected — Note Locked
+                   KYC Rejected — Note Locked
                 </button>
               ) : previewKycUser.kycStatus === "verified" ? (
                 <button
@@ -14513,13 +14503,13 @@ export default function AdminPanel() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-xl">✅</span>
+                <span className="text-xl"></span>
                 <div>
                   <h3 className="font-extrabold text-sm sm:text-base text-gray-900 leading-tight">
                     Approve Transaction Payout
                   </h3>
                   <p className="text-[11px] text-gray-500 font-medium">
-                    {approveTxnModal.type === "withdrawal" ? "💸 Withdrawal Payout Verification" : "💰 Deposit Approval Verification"}
+                    {approveTxnModal.type === "withdrawal" ? "Withdrawal Payout Verification" : "Deposit Approval Verification"}
                   </p>
                 </div>
               </div>
@@ -14566,7 +14556,7 @@ export default function AdminPanel() {
                         onClick={() => { navigator.clipboard?.writeText(approveTxnModal.paymentDetails.upiId); showToast("UPI ID Copied!", "success"); }}
                         className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-bold hover:bg-blue-100 cursor-pointer"
                       >
-                        📋 Copy
+                        Copy
                       </button>
                     </div>
                   </div>
@@ -14591,7 +14581,7 @@ export default function AdminPanel() {
                       onClick={() => { setLightboxImg(approveTxnModal.paymentDetails.qrCodeUrl); setZoomLevel(1); }}
                       className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-bold hover:bg-purple-100 cursor-pointer"
                     >
-                      🔍 Fullscreen QR
+                      Fullscreen QR
                     </button>
                   </div>
                 )}
@@ -14617,7 +14607,7 @@ export default function AdminPanel() {
                       onClick={() => { setLightboxImg(approveTxnModal.proofUrl || approveTxnModal.screenshotUrl); setZoomLevel(1); }}
                       className="text-blue-600 font-bold underline cursor-pointer"
                     >
-                      View Receipt 🔍
+                      View Receipt 
                     </button>
                   </div>
                 )}
@@ -14668,7 +14658,7 @@ export default function AdminPanel() {
                   </div>
                 ) : (
                   <label className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-gray-50/50 hover:bg-blue-50/30 transition text-xs font-bold text-gray-600">
-                    <span>📎 Upload Payment Screenshot / Receipt</span>
+                    <span>Upload Payment Screenshot / Receipt</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -14841,7 +14831,7 @@ export default function AdminPanel() {
           <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-xl">⚡</span>
+                <span className="text-xl"></span>
                 <h3 className="font-extrabold text-base text-gray-900">
                   Mark Installment #{adminPayModal.installmentNo} as Paid
                 </h3>
@@ -14895,7 +14885,7 @@ export default function AdminPanel() {
                 </label>
                 <div className="flex items-center gap-2 flex-wrap">
                   <label className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold border border-blue-200 cursor-pointer flex items-center gap-1.5 transition active:scale-95">
-                    <span>📷</span> Slip Photo Upload Karein
+                     Slip Photo Upload Karein
                     <input
                       type="file"
                       accept="image/*"
@@ -14934,7 +14924,7 @@ export default function AdminPanel() {
                         onClick={() => { setLightboxImg(adminPayModal.proofUrl); setZoomLevel(1); }}
                         className="text-xs text-blue-600 hover:text-blue-800 underline font-bold flex items-center gap-1 cursor-pointer"
                       >
-                        <span>🔍</span> View Slip
+                         View Slip
                       </button>
                       <button
                         type="button"
@@ -14977,7 +14967,7 @@ export default function AdminPanel() {
           <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🤝</span>
+                <span className="text-xl"></span>
                 <div>
                   <h3 className="font-extrabold text-base text-gray-900 leading-tight">
                     Link / Reassign Agent
@@ -15012,14 +15002,14 @@ export default function AdminPanel() {
                 onChange={(e) => setSelectedAgentForAssign(e.target.value)}
                 className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
               >
-                <option value="">👤 -- Direct Customer (No Agent / Platform Direct) --</option>
+                <option value="">-- Direct Customer (No Agent / Platform Direct) --</option>
                 {agents.map(a => {
                   const prof = a.agentProfile || {};
                   const isTeam = prof.commissionModel === "team_1";
                   const refInfo = a.referredBy ? ` (Sub of ${typeof a.referredBy === 'object' ? a.referredBy.name : 'Master'})` : "";
                   return (
                     <option key={a._id} value={a._id}>
-                      🤝 {a.name} ({a.phone}) — {isTeam ? "👑 Team Agent" : "👤 Solo"}{refInfo}
+                      {a.name} ({a.phone}) — {isTeam ? "Team Agent" : "Solo"}{refInfo}
                     </option>
                   );
                 })}
@@ -15053,7 +15043,7 @@ export default function AdminPanel() {
           <div className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-3.5 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🏦</span>
+                <span className="text-xl"></span>
                 <div>
                   <h3 className="font-extrabold text-sm sm:text-base text-gray-900 leading-tight">
                     Approve & Disburse Loan
@@ -15114,7 +15104,7 @@ export default function AdminPanel() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="font-extrabold text-emerald-950 flex items-center justify-between gap-1">
-                      <span className="text-xs">🟢 Pehli Installment NA lein</span>
+                      <span className="text-xs">Pehli Installment NA lein</span>
                       <span className="text-[9px] sm:text-[10px] bg-emerald-200 text-emerald-900 px-1.5 sm:px-2 py-0.5 rounded-full font-black shrink-0 whitespace-nowrap">RECOMMENDED</span>
                     </div>
                     <p className="text-[11px] text-gray-700 mt-1 font-medium">
@@ -15142,7 +15132,7 @@ export default function AdminPanel() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="font-extrabold text-amber-950 flex items-center justify-between gap-1">
-                      <span className="text-xs">🟡 Advance Kaatein</span>
+                      <span className="text-xs">Advance Kaatein</span>
                       <span className="text-[9px] sm:text-[10px] bg-amber-200 text-amber-900 px-1.5 sm:px-2 py-0.5 rounded-full font-black shrink-0 whitespace-nowrap">ADVANCE CUT</span>
                     </div>
                     <p className="text-[11px] text-gray-700 mt-1 font-medium">
@@ -15170,7 +15160,7 @@ export default function AdminPanel() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="font-extrabold text-sky-950 flex items-center justify-between gap-1">
-                      <span className="text-xs">🔵 Waive / Maaf Karein</span>
+                      <span className="text-xs">Waive / Maaf Karein</span>
                       <span className="text-[9px] sm:text-[10px] bg-sky-100 text-sky-800 border border-sky-200 px-1.5 sm:px-2 py-0.5 rounded-full font-black shrink-0 whitespace-nowrap">WAIVER</span>
                     </div>
                     <p className="text-[11px] text-gray-700 mt-1 font-medium">
@@ -15215,7 +15205,7 @@ export default function AdminPanel() {
             {/* Custom First EMI Start Date Input */}
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
               <label className="block text-xs font-bold text-gray-800 mb-1">
-                📅 Pehli Kist Ki Date Set Karein (Optional First Due Date):
+                Pehli Kist Ki Date Set Karein (Optional First Due Date):
               </label>
               <input
                 type="date"
@@ -15242,7 +15232,7 @@ export default function AdminPanel() {
                 />
                 <div className="space-y-1">
                   <span className="text-xs font-black text-gray-900 flex items-center gap-1.5">
-                    <span>💵</span> Loan lene wale ke app wallet me paise transfer karein (Disburse)
+                     Loan lene wale ke app wallet me paise transfer karein (Disburse)
                   </span>
                   <p className="text-[11px] text-gray-600 font-normal leading-relaxed">
                     • <strong>Naya Loan:</strong> Isse check (✓) rakhein taaki loan lene wale ke app wallet me paise credit hon.<br />
@@ -15292,7 +15282,7 @@ export default function AdminPanel() {
           <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150 space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🔑</span>
+                <span className="text-xl"></span>
                 <div>
                   <h3 className="font-extrabold text-base text-gray-900 leading-tight">
                     Reset User Password
@@ -15315,7 +15305,7 @@ export default function AdminPanel() {
               <div className="space-y-3">
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-950 space-y-2">
                   <div className="flex items-center gap-2 font-black text-sm text-emerald-800">
-                    <span>✅</span> Password Successfully Reset!
+                     Password Successfully Reset!
                   </div>
                   <p className="text-xs text-emerald-900 leading-relaxed">
                     Naya temporary password safaltapoorvak assign ho gaya hai.
@@ -15337,11 +15327,11 @@ export default function AdminPanel() {
                       onClick={() => {
                         const msg = `Namaste ${resetPasswordSuccessData.user.name},\n\nAapka Educa Fintech login password reset kar diya gaya hai:\n• Login ID: ${resetPasswordSuccessData.user.phone || resetPasswordSuccessData.user.email}\n• Temp Password: ${resetPasswordSuccessData.tempPassword}\n\nLogin karke apna naya personal password turant set karein.`;
                         navigator.clipboard?.writeText(msg);
-                        showToast("📋 Message copied to clipboard!", "success");
+                        showToast("Message copied to clipboard!", "success");
                       }}
                       className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold cursor-pointer"
                     >
-                      📋 Copy Full Message
+                      Copy Full Message
                     </button>
                   </div>
                   <pre className="p-2.5 bg-white border border-gray-200 rounded-lg text-[11px] font-mono text-gray-800 whitespace-pre-wrap">
@@ -15380,7 +15370,7 @@ Login karke apna naya personal password turant set karein.`}
                       onClick={() => setResetPasswordInput("Educa@" + Math.floor(1000 + Math.random() * 9000))}
                       className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
                     >
-                      🎲 Generate Random
+                      Generate Random
                     </button>
                   </div>
                   <input
@@ -15427,7 +15417,7 @@ Login karke apna naya personal password turant set karein.`}
                     disabled={resetPasswordLoading || !resetPasswordInput.trim()}
                     className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold shadow-md active:scale-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    {resetPasswordLoading ? "Resetting..." : "🔑 Confirm Reset"}
+                    {resetPasswordLoading ? "Resetting..." : "Confirm Reset"}
                   </button>
                 </div>
               </form>
@@ -15443,7 +15433,7 @@ Login karke apna naya personal password turant set karein.`}
             <div className="flex justify-between items-start border-b border-gray-100 pb-3">
               <div>
                 <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
-                  <span>👔</span> Assign Staff Desk Role
+                   Assign Staff Desk Role
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
                   Choose which department this user will handle: <strong className="text-gray-800">{assignStaffModalUser.name}</strong>
@@ -15463,7 +15453,7 @@ Login karke apna naya personal password turant set karein.`}
             </div>
 
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl text-xs text-purple-950 space-y-1">
-              <p className="font-bold">🎯 &ldquo;Tum Yeh Wale Ho&rdquo; Multi-Role Assignment</p>
+              <p className="font-bold">&ldquo;Tum Yeh Wale Ho&rdquo; Multi-Role Assignment</p>
               <p className="text-[11px] text-purple-900 leading-relaxed">
                 Aap ek user ko multiple desks bhi de sakte hain (jaise Loan + KYC). Staff user login karte hi apne sabhi assigned desks par access kar sakega.
               </p>
@@ -15480,40 +15470,40 @@ Login karke apna naya personal password turant set karein.`}
                     onClick={() => setAssignStaffDepts(["loan", "kyc", "deposit", "withdrawal", "lending", "bond"])}
                     className="px-2 py-0.5 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded text-[10px] font-bold cursor-pointer"
                   >
-                    🌟 All Desks
+                    All Desks
                   </button>
                   <button
                     type="button"
                     onClick={() => setAssignStaffDepts(["loan", "kyc"])}
                     className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-[10px] font-bold cursor-pointer"
                   >
-                    📄 Loan + 🪪 KYC
+                    Loan + 🪪 KYC
                   </button>
                   <button
                     type="button"
                     onClick={() => setAssignStaffDepts(["deposit", "withdrawal"])}
                     className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[10px] font-bold cursor-pointer"
                   >
-                    🤝 Cashier
+                    Cashier
                   </button>
                   <button
                     type="button"
                     onClick={() => setAssignStaffDepts([])}
                     className="px-2 py-0.5 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded text-[10px] font-bold cursor-pointer"
                   >
-                    🚫 Remove Role (Customer)
+                    Remove Role (Customer)
                   </button>
                 </div>
               </div>
 
               <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                 {[
-                  { id: "loan", label: "📄 Loan Desk (Tum Loan wale ho)", sub: "Loans review, approve/reject & disbursal" },
+                  { id: "loan", label: "Loan Desk (Tum Loan wale ho)", sub: "Loans review, approve/reject & disbursal" },
                   { id: "kyc", label: "🪪 KYC Desk (Tum KYC wale ho)", sub: "Aadhaar & PAN verification & approval" },
-                  { id: "deposit", label: "💰 Deposit Desk (Tum Deposit wale ho)", sub: "Bank UTR transfers verify & credit" },
-                  { id: "withdrawal", label: "💸 Withdrawal Desk (Tum Withdrawal wale ho)", sub: "Customer payouts & bank cash-outs" },
-                  { id: "lending", label: "🤝 P2P Lending Desk", sub: "P2P borrower & lender requests" },
-                  { id: "bond", label: "📈 Bonds & FD Desk", sub: "Fixed yield bonds & applications" }
+                  { id: "deposit", label: "Deposit Desk (Tum Deposit wale ho)", sub: "Bank UTR transfers verify & credit" },
+                  { id: "withdrawal", label: "Withdrawal Desk (Tum Withdrawal wale ho)", sub: "Customer payouts & bank cash-outs" },
+                  { id: "lending", label: "P2P Lending Desk", sub: "P2P borrower & lender requests" },
+                  { id: "bond", label: "Bonds & FD Desk", sub: "Fixed yield bonds & applications" }
                 ].map((item) => {
                   const isChecked = assignStaffDepts.includes(item.id);
                   return (
@@ -15579,8 +15569,8 @@ Login karke apna naya personal password turant set karein.`}
                 {assignStaffLoading
                   ? "Updating..."
                   : assignStaffDepts.length === 0
-                  ? "🚫 Make Normal Customer"
-                  : "✅ Confirm Desk Assignment"}
+                  ? "Make Normal Customer"
+                  : "Confirm Desk Assignment"}
               </button>
             </div>
           </div>

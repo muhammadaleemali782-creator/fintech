@@ -95,7 +95,7 @@ export default function AccountsPage() {
           <div className="grid md:grid-cols-2 gap-10">
             <div className="bg-blue-50/50 p-6 sm:p-8 rounded-3xl border border-blue-100">
               <h3 className="text-xl font-extrabold text-blue-950 mb-4 flex items-center gap-2">
-                <span>🎯</span> Eligibility Criteria
+                 Eligibility Criteria
               </h3>
               <ul className="space-y-3 text-sm text-gray-700">
                 <li className="flex items-center gap-2"><span className="text-blue-600 font-bold">•</span> Age must be 18 years or above (Student accounts from 16+).</li>
@@ -107,7 +107,7 @@ export default function AccountsPage() {
 
             <div className="bg-emerald-50/50 p-6 sm:p-8 rounded-3xl border border-emerald-100">
               <h3 className="text-xl font-extrabold text-emerald-950 mb-4 flex items-center gap-2">
-                <span>📄</span> Documents Required
+                 Documents Required
               </h3>
               <ul className="space-y-3 text-sm text-gray-700">
                 <li className="flex items-center gap-2"><span className="text-emerald-600 font-bold">•</span> Aadhaar Card (For fast e-KYC verification).</li>

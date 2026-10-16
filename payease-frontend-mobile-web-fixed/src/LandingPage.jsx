@@ -300,7 +300,7 @@ function InteractiveYieldSpeedometer({ isHindi }) {
         <div className="mt-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 via-blue-50/30 to-emerald-50/30 border border-slate-200 transition-all">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-base sm:text-lg">💡</span>
+              <span className="text-base sm:text-lg"></span>
               <h4 className="text-xs sm:text-sm font-black text-[#0A192F] uppercase tracking-wide">
                 {tier === 18 ? "18% Wealth Bond — Kaise Milega?" : "12% Liquid Savings — Kaise Milega?"}
               </h4>
@@ -341,7 +341,7 @@ function InteractiveYieldSpeedometer({ isHindi }) {
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 border-t border-slate-200/60 gap-2">
             <div className="text-[11px] text-slate-600 font-medium flex items-center gap-1.5">
-              <span>🛡️</span>
+              
               <span>100% Educa Reserve Liquidity Pool se secured • Guaranteed returns</span>
             </div>
             <Link
@@ -435,7 +435,7 @@ function HeroSection({ onLogin, isHindi }) {
                 onClick={() => document.getElementById("emi-calculator")?.scrollIntoView({ behavior: "smooth" })}
                 className="text-[#1D6AE5] font-bold hover:underline cursor-pointer flex items-center gap-1"
               >
-                <span>📊</span> {isHindi ? "कैलकुलेटर" : "Installments Calc"}
+                 {isHindi ? "कैलकुलेटर" : "Installments Calc"}
               </button>
             </div>
           </div>
@@ -458,7 +458,7 @@ function HeroSection({ onLogin, isHindi }) {
           <div className="lg:col-span-7 space-y-4">
             <div className="p-5 sm:p-6 bg-white rounded-3xl border border-[#E8EDF5] shadow-lg shadow-blue-900/5">
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-3xl">💎</span>
+                <span className="text-3xl"></span>
                 <div>
                   <h3 className="font-extrabold text-lg text-[#0C1B3A]">
                     {isHindi ? "12% बचत खाता — उच्चतम ब्याज दर" : "12% Savings Account — Highest Liquid Returns"}
@@ -488,7 +488,7 @@ function HeroSection({ onLogin, isHindi }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="p-4 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center gap-3">
-                <span className="text-3xl">📱</span>
+                <span className="text-3xl"></span>
                 <div>
                   <h4 className="font-bold text-sm text-[#0C1B3A]">₹199 Recharge Loan</h4>
                   <p className="text-xs text-gray-500">
@@ -497,7 +497,7 @@ function HeroSection({ onLogin, isHindi }) {
                 </div>
               </div>
               <div className="p-4 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center gap-3">
-                <span className="text-3xl">🏬</span>
+                <span className="text-3xl"></span>
                 <div>
                   <h4 className="font-bold text-sm text-[#0C1B3A]">Micro Business & Personal Loan</h4>
                   <p className="text-xs text-gray-500">
@@ -607,7 +607,7 @@ function QuickLoanQueryCard({ isHindi }) {
           </h3>
         </div>
         <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
-          🔔
+          
         </div>
       </div>
 
@@ -619,7 +619,7 @@ function QuickLoanQueryCard({ isHindi }) {
 
       {status.state === "success" ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-center">
-          <span className="text-3xl block mb-2">🎉</span>
+          <span className="text-3xl block mb-2"></span>
           <h4 className="font-bold text-emerald-800 text-sm">
             {isHindi ? "सफलतापूर्वक सबमिट हुआ!" : "Query Submitted Successfully!"}
           </h4>
@@ -738,7 +738,7 @@ function EmiCalculatorSection({ onLogin, isHindi }) {
       <div className="max-w-7xl mx-auto px-5 md:px-8">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-blue-50 text-[#1D6AE5] border border-blue-200">
-            📊 Smart Planning
+            Smart Planning
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-[#0C1B3A] tracking-tight mt-3 mb-3">
             {isHindi ? "एड्यूका किस्त कैलकुलेटर" : "Educa Easy Installments Calculator"}
@@ -760,7 +760,7 @@ function EmiCalculatorSection({ onLogin, isHindi }) {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              🏦 Personal Loan (10-Day Cycle)
+              Personal Loan (10-Day Cycle)
             </button>
             <button
               type="button"
@@ -771,7 +771,7 @@ function EmiCalculatorSection({ onLogin, isHindi }) {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              🏬 Micro Business (Daily Kist)
+              Micro Business (Daily Kist)
             </button>
           </div>
         </div>
@@ -925,7 +925,7 @@ function ServicesSection({ onLogin, isHindi }) {
   const cards = [
     {
       id: "savings-card",
-      icon: "🏦",
+      icon: "",
       badge: "12% ANNUAL INTEREST",
       badgeColor: "bg-amber-100 text-amber-800 border border-amber-300",
       title: "12% Liquid Savings Account",
@@ -942,7 +942,7 @@ function ServicesSection({ onLogin, isHindi }) {
     },
     {
       id: "fixed-bond-card",
-      icon: "📜",
+      icon: "",
       badge: "18% FIXED PROFIT",
       badgeColor: "bg-emerald-100 text-emerald-800 border border-emerald-300",
       title: "365-Day Fixed Bond (18% Profit)",
@@ -959,7 +959,7 @@ function ServicesSection({ onLogin, isHindi }) {
     },
     {
       id: "lending-bond-card",
-      icon: "💎",
+      icon: "",
       badge: "MONTHLY CASHFLOW",
       badgeColor: "bg-indigo-100 text-indigo-800 border border-indigo-200",
       title: "Monthly Lending Bonds (40 & 80 Mo)",
@@ -976,7 +976,7 @@ function ServicesSection({ onLogin, isHindi }) {
     },
     {
       id: "loans-card",
-      icon: "🏬",
+      icon: "",
       badge: "MICRO-CREDIT & LOANS",
       badgeColor: "bg-blue-100 text-[#1D6AE5] border border-blue-200",
       title: "Personal & Business Loans",
@@ -998,7 +998,7 @@ function ServicesSection({ onLogin, isHindi }) {
       <div className="max-w-7xl mx-auto px-5 md:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
-            🔥 Everything Under One Roof
+            Everything Under One Roof
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-[#0C1B3A] tracking-tight mt-3 mb-3">
             {isHindi
@@ -1062,7 +1062,7 @@ function AboutSection({ onLogin, isHindi }) {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-blue-50 text-[#1D6AE5] border border-blue-200">
-              ✦ About Educa Fintech
+              About Educa Fintech
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-[#0C1B3A] tracking-tight mt-3 mb-5 leading-snug">
               {isHindi
@@ -1095,21 +1095,21 @@ function AboutSection({ onLogin, isHindi }) {
 
             <div className="mt-8 flex flex-wrap gap-4">
               <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-sm">
-                <span className="text-2xl">🔒</span>
+                <span className="text-2xl"></span>
                 <div>
                   <div className="text-xs font-bold text-[#0C1B3A]">RBI Guidelines</div>
                   <div className="text-[10px] text-gray-400">Strict Compliance</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-sm">
-                <span className="text-2xl">⚡</span>
+                <span className="text-2xl"></span>
                 <div>
                   <div className="text-xs font-bold text-[#0C1B3A]">Instant Payout</div>
                   <div className="text-[10px] text-gray-400">Direct to Bank / UPI</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-sm">
-                <span className="text-2xl">📈</span>
+                <span className="text-2xl"></span>
                 <div>
                   <div className="text-xs font-bold text-[#0C1B3A]">12% Annual Yield</div>
                   <div className="text-[10px] text-gray-400">Daily Accrual</div>

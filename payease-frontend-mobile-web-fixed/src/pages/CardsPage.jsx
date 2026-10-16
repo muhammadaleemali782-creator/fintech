@@ -67,7 +67,7 @@ export default function CardsPage() {
           {/* PLATINUM CARD TEASER */}
           <div className="bg-[#0D1117] text-white rounded-3xl p-8 border border-amber-500/30 shadow-2xl flex flex-col justify-between hover:shadow-amber-500/10 transition relative">
             <div className="absolute -top-3 right-6 bg-gradient-to-r from-amber-400 to-amber-600 text-gray-950 text-[10px] font-black px-3 py-1 rounded-full shadow-md uppercase">
-              👑 VIP Tier
+              VIP Tier
             </div>
             <div>
               <div className="h-48 rounded-2xl bg-gradient-to-tr from-black via-zinc-900 to-neutral-800 p-6 text-white flex flex-col justify-between shadow-xl mb-6 border border-amber-500/40 relative overflow-hidden">

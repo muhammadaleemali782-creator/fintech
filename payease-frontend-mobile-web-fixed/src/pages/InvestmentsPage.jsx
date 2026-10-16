@@ -102,7 +102,7 @@ export default function InvestmentsPage() {
       <section className="py-10 bg-gray-50 border-t border-gray-200 text-center px-4">
         <div className="max-w-3xl mx-auto space-y-2">
           <p className="text-xs text-gray-500">
-            ⚠️ <strong>Risk Disclosure:</strong> All investment accounts are audited and backed by verifiable capital reserves and structured lending portfolios.
+            <strong>Risk Disclosure:</strong> All investment accounts are audited and backed by verifiable capital reserves and structured lending portfolios.
           </p>
         </div>
       </section>

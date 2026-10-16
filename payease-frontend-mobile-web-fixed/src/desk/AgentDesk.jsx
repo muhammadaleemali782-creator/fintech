@@ -291,7 +291,7 @@ export default function AgentDesk() {
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 text-xs font-bold text-white transition-all ${
           toast.type === "error" ? "bg-rose-600" : toast.type === "success" ? "bg-emerald-600" : "bg-gray-900"
         }`}>
-          <span>{toast.type === "error" ? "⚠️" : toast.type === "success" ? "✅" : "ℹ️"}</span>
+          <span>{toast.type === "error" ? "" : toast.type === "success" ? "" : "ℹ️"}</span>
           <span>{toast.text}</span>
           <button onClick={() => setToast({ text: "", type: "" })} className="ml-2 text-white/80 hover:text-white">✕</button>
         </div>
@@ -513,7 +513,7 @@ export default function AgentDesk() {
             {/* 5 Core Agent Metrics */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <div className="bg-white border border-gray-200 rounded-2xl p-3.5 shadow-2xs">
-                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">💰 Total Deposit</span>
+                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Total Deposit</span>
                 <div className="text-lg sm:text-2xl font-black font-mono text-emerald-600">
                   ₹{(agentMetrics?.stats?.totalDeposits || 0).toLocaleString("en-IN")}
                 </div>
@@ -521,7 +521,7 @@ export default function AgentDesk() {
               </div>
 
               <div className="bg-white border border-gray-200 rounded-2xl p-3.5 shadow-2xs">
-                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">📤 Total Disbursal</span>
+                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Total Disbursal</span>
                 <div className="text-lg sm:text-2xl font-black font-mono text-blue-600">
                   ₹{(agentMetrics?.stats?.totalDisbursal || 0).toLocaleString("en-IN")}
                 </div>
@@ -529,7 +529,7 @@ export default function AgentDesk() {
               </div>
 
               <div className="bg-white border border-gray-200 rounded-2xl p-3.5 shadow-2xs">
-                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">📥 Total Collection</span>
+                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Total Collection</span>
                 <div className="text-lg sm:text-2xl font-black font-mono text-cyan-700">
                   ₹{(agentMetrics?.stats?.totalCollection || 0).toLocaleString("en-IN")}
                 </div>
@@ -537,7 +537,7 @@ export default function AgentDesk() {
               </div>
 
               <div className="bg-white border border-gray-200 rounded-2xl p-3.5 shadow-2xs">
-                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">⚠️ Total Due</span>
+                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Total Due</span>
                 <div className="text-lg sm:text-2xl font-black font-mono text-rose-600">
                   ₹{(agentMetrics?.stats?.totalDue || 0).toLocaleString("en-IN")}
                 </div>
@@ -545,7 +545,7 @@ export default function AgentDesk() {
               </div>
 
               <div className="bg-white border border-gray-200 rounded-2xl p-3.5 shadow-2xs col-span-2 sm:col-span-1">
-                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">🔄 Pre-Closing</span>
+                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Pre-Closing</span>
                 <div className="text-lg sm:text-2xl font-black font-mono text-amber-700">
                   {agentMetrics?.stats?.preClosingCount || 0}
                 </div>
@@ -559,7 +559,7 @@ export default function AgentDesk() {
             <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl text-xs space-y-2 text-amber-950">
               <div className="flex items-center justify-between">
                 <span className="font-extrabold text-amber-900 flex items-center gap-1.5 text-sm">
-                  <span>⚡</span> Early Loan Pre-Closure Benefits
+                   Early Loan Pre-Closure Benefits
                 </span>
                 <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full font-bold">
                   Extra Commission
@@ -569,7 +569,7 @@ export default function AgentDesk() {
                 Agar aapka referred borrower loan ko <strong>samay se pehle (9 kiston se pehle)</strong> close karta hai, to borrower ko loan me vishesh discount milta hai aur aapko bhi instant early settlement bonus credit hota hai!
               </p>
               <div className="p-2.5 bg-white rounded-xl border border-amber-200 text-xs text-amber-900 flex items-center justify-between">
-                <span>💡 Jitna jaldi pre-close hoga, borrower aur aap dono ko utna fayda milega!</span>
+                <span>Jitna jaldi pre-close hoga, borrower aur aap dono ko utna fayda milega!</span>
                 <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md font-bold">
                   Auto Payout
                 </span>
@@ -788,7 +788,7 @@ export default function AgentDesk() {
               <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-2xl text-xs space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="font-extrabold text-purple-900 flex items-center gap-1.5 text-sm">
-                    <span>👥</span> My Sub-Agent Network ({agentMetrics?.subAgents?.length || agentMetrics?.stats?.teamMembersCount || 0})
+                     My Sub-Agent Network ({agentMetrics?.subAgents?.length || agentMetrics?.stats?.teamMembersCount || 0})
                   </span>
                   <span className="text-[10px] bg-purple-100 text-purple-800 border border-purple-200 px-2.5 py-0.5 rounded-full font-bold">
                     Team Model
@@ -827,7 +827,7 @@ export default function AgentDesk() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm sm:text-base font-extrabold text-gray-900 flex items-center gap-1.5">
-                    <span>👥</span> Referred Customers ({agentMetrics?.customers?.length || 0})
+                     Referred Customers ({agentMetrics?.customers?.length || 0})
                   </h3>
                   <span className="text-[10px] text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full font-semibold border border-blue-200">
                     Individual Breakdown
@@ -890,35 +890,35 @@ export default function AgentDesk() {
                         {/* Customer 5 Metrics */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
                           <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                            <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">💰 Deposit</span>
+                            <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">Deposit</span>
                             <span className="font-mono font-bold text-emerald-600">
                               ₹{(c.totalDeposit || 0).toLocaleString("en-IN")}
                             </span>
                           </div>
 
                           <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                            <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">📤 Disbursed</span>
+                            <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">Disbursed</span>
                             <span className="font-mono font-bold text-blue-600">
                               ₹{(c.totalDisbursal || 0).toLocaleString("en-IN")}
                             </span>
                           </div>
 
                           <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                            <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">📥 Collection</span>
+                            <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">Collection</span>
                             <span className="font-mono font-bold text-cyan-700">
                               ₹{(c.totalCollection || 0).toLocaleString("en-IN")}
                             </span>
                           </div>
 
                           <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                            <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">⚠️ Total Due</span>
+                            <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">Total Due</span>
                             <span className="font-mono font-bold text-rose-600">
                               ₹{(c.totalDue || 0).toLocaleString("en-IN")}
                             </span>
                           </div>
 
                           <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100 col-span-2 sm:col-span-1">
-                            <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">🔄 Pre-Closing</span>
+                            <span className="text-[9px] text-gray-500 uppercase font-bold block mb-0.5">Pre-Closing</span>
                             <span className="font-mono font-bold text-amber-700">
                               {c.preClosingCount || 0}
                             </span>
@@ -945,7 +945,7 @@ export default function AgentDesk() {
                             }}
                             className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition active:scale-95 cursor-pointer flex items-center gap-1"
                           >
-                            <span>✏️</span> Limit Badhayein
+                             Limit Badhayein
                           </button>
                         </div>
                       </div>
@@ -971,7 +971,7 @@ export default function AgentDesk() {
           open={addCustomerModalOpen}
           onClose={() => setAddCustomerModalOpen(false)}
           title="Onboard Customer Under My Portfolio"
-          icon="👥"
+          icon=""
         >
           <form onSubmit={handleAddCustomer} className="space-y-4">
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between">
@@ -1073,7 +1073,7 @@ export default function AgentDesk() {
           open={nominateSubAgentModalOpen}
           onClose={() => setNominateSubAgentModalOpen(false)}
           title="Nominate Sub-Agent Under My Team"
-          icon="🤝"
+          icon=""
         >
           <form onSubmit={handleNominateSubAgent} className="space-y-4">
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl flex items-center justify-between">
@@ -1181,7 +1181,7 @@ export default function AgentDesk() {
                   <span>Submitting Nomination to Admin...</span>
                 ) : (
                   <>
-                    <span>👥</span>
+                    
                     <span>Submit Sub-Agent Nomination to Admin →</span>
                   </>
                 )}
@@ -1199,7 +1199,7 @@ export default function AgentDesk() {
           open={broadcastModalOpen}
           onClose={() => setBroadcastModalOpen(false)}
           title="Send Mass Broadcast Message"
-          icon="📢"
+          icon=""
         >
           <div className="space-y-4">
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
@@ -1225,13 +1225,13 @@ export default function AgentDesk() {
                     msg: "Namaste! Aapke loan ki installment date najdeek hai. Kripya samay par kist jama karein taaki aapka account clean rahe."
                   },
                   {
-                    label: "⚡ Pre-Closure Offer",
-                    title: "⚡ Pre-Closure Discount Offer",
+                    label: "Pre-Closure Offer",
+                    title: "Pre-Closure Discount Offer",
                     msg: "Special Notice: Aap apna loan samay se pehle pre-close kar sakte hain aur extra interest bacha sakte hain. Turant sampark karein."
                   },
                   {
-                    label: "📢 Agent Notice",
-                    title: "📢 Official Notice from Agent",
+                    label: "Agent Notice",
+                    title: "Official Notice from Agent",
                     msg: "Namaste! Educa Fintech account aur loan payments ke sambandh me kisi bhi sahayata ke liye aap mujhse sidhe sampark kar sakte hain."
                   }
                 ].map((tmpl, idx) => (
@@ -1285,7 +1285,7 @@ export default function AgentDesk() {
                   <span>Sending broadcast to all customers...</span>
                 ) : (
                   <>
-                    <span>📢</span>
+                    
                     <span>Send to All {agentMetrics?.stats?.customerCount || agentMetrics?.customers?.length || 0} Customers (1-Click)</span>
                   </>
                 )}
@@ -1303,7 +1303,7 @@ export default function AgentDesk() {
           <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-200 space-y-4 text-gray-900 animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
               <h4 className="font-extrabold text-sm text-gray-900 flex items-center gap-1.5">
-                <span>📈</span> Customer Loan Limit Badhayein
+                 Customer Loan Limit Badhayein
               </h4>
               <button
                 type="button"

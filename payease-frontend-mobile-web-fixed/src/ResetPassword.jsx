@@ -96,7 +96,7 @@ export default function ResetPassword() {
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
         <div className="text-center mb-6">
           <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl mx-auto mb-3 shadow-inner">
-            🔐
+            
           </div>
           <h1 className="text-xl font-black text-slate-900">
             Naya Password Banayein
@@ -114,7 +114,7 @@ export default function ResetPassword() {
                 : "bg-rose-50 text-rose-800 border border-rose-200"
             }`}
           >
-            <span>{message.type === "success" ? "✓" : "⚠️"}</span>
+            <span>{message.type === "success" ? "✓" : ""}</span>
             <span className="flex-1">{message.text}</span>
           </div>
         )}
@@ -205,7 +205,7 @@ export default function ResetPassword() {
       </div>
 
       <div className="text-center text-[11px] text-slate-400 mt-6">
-        🔒 256-bit Bank Grade Encrypted Recovery System
+        256-bit Bank Grade Encrypted Recovery System
       </div>
     </div>
   );

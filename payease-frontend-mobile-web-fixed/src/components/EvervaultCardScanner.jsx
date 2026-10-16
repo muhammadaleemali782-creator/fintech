@@ -12,7 +12,7 @@ const cardDefs = [
     tagline: "No bank in the world offers 12% on savings",
     number: "•••• •••• •••• 1200",
     valid: "PERPETUAL",
-    icon: "🏦",
+    icon: "",
     scanLines: [
       "// PROTOCOL: 12% LIQUID SAVINGS VAULT",
       "STATUS: ACTIVE • ZERO MINIMUM BALANCE",
@@ -33,7 +33,7 @@ const cardDefs = [
     tagline: "Instant ₹199 UPI credit for your phone",
     number: "•••• •••• •••• 0199",
     valid: "INSTANT",
-    icon: "📱",
+    icon: "",
     scanLines: [
       "// PROTOCOL: ₹199 INSTANT RECHARGE MICRO LOAN",
       "STATUS: SANCTIONED • PRE-APPROVED ACCESS",
@@ -54,7 +54,7 @@ const cardDefs = [
     tagline: "Apni bike ka sapna pura karein",
     number: "•••• •••• •••• 8840",
     valid: "36 MONTHS",
-    icon: "🏍️",
+    icon: "",
     scanLines: [
       "// PROTOCOL: TWO-WHEELER VEHICLE LOAN",
       "STATUS: PRE-QUALIFIED UP TO ₹1,50,000",
@@ -75,7 +75,7 @@ const cardDefs = [
     tagline: "Direct school fee payment with 0% advance",
     number: "•••• •••• •••• 5521",
     valid: "QUARTERLY",
-    icon: "🎒",
+    icon: "",
     scanLines: [
       "// PROTOCOL: STUDENT EDUCATION EMI AID",
       "STATUS: 100% PARENT RELIEF SANCTIONED",
@@ -96,7 +96,7 @@ const cardDefs = [
     tagline: "Earn monthly passive fintech returns",
     number: "•••• •••• •••• 9999",
     valid: "PREMIUM",
-    icon: "📈",
+    icon: "",
     scanLines: [
       "// PROTOCOL: 18% FIXED WEALTH BOND",
       "STATUS: GUARANTEED MATURITY RETURN",

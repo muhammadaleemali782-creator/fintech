@@ -7,7 +7,7 @@ export default function PlatinumCardPage() {
       <section className="py-16 bg-[#080B10] text-white text-center px-4 border-b border-gray-800">
         <div className="max-w-4xl mx-auto space-y-4">
           <span className="inline-block px-3.5 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/40 text-xs font-black rounded-full uppercase tracking-wider">
-            👑 Exclusive Obsidian Metal Card
+            Exclusive Obsidian Metal Card
           </span>
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
             Educa <span className="bg-gradient-to-r from-amber-300 via-amber-400 to-amber-600 bg-clip-text text-transparent">Platinum VIP Card</span>
@@ -66,7 +66,7 @@ export default function PlatinumCardPage() {
             </div>
 
             <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900">
-              💡 <strong>Instant Unlock Tip:</strong> Time par apne ₹199 micro-loans ya school loans repay karke aapka VIP meter 4/4 loans complete hote hi Platinum VIP card unlock ho jata hai!
+              <strong>Instant Unlock Tip:</strong> Time par apne ₹199 micro-loans ya school loans repay karke aapka VIP meter 4/4 loans complete hote hi Platinum VIP card unlock ho jata hai!
             </div>
 
             <Link

@@ -75,7 +75,7 @@ export default class ErrorBoundary extends React.Component {
 
             <div className="p-3.5 bg-blue-50/70 border border-blue-100 rounded-2xl text-xs text-blue-900 mb-6 text-left w-full space-y-1">
               <div className="font-bold flex items-center gap-1.5">
-                <span>🛡️</span>
+                
                 <span>Session Safe Recovery</span>
               </div>
               <p className="text-[11px] text-blue-700 leading-relaxed font-medium">
@@ -89,7 +89,7 @@ export default class ErrorBoundary extends React.Component {
                 onClick={this.handleReload}
                 className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>🔄</span>
+                
                 <span>Refresh & Reload App</span>
               </button>
 
@@ -98,7 +98,7 @@ export default class ErrorBoundary extends React.Component {
                 onClick={this.handleGoHome}
                 className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>🏠</span>
+                
                 <span>Back to Login</span>
               </button>
             </div>

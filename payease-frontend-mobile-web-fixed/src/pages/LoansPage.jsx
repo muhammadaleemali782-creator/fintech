@@ -36,7 +36,7 @@ export default function LoansPage() {
       interest: "1.34% per 10-Day Installment",
       badge: "10-Day Cycle",
       desc: "Flexible 18 installments scheduled on 1st, 11th, and 21st. First time ₹5,000 without cheque, ₹10,000 with cheque. Early closure before 9th installment unlocks 1:1 profit reward.",
-      icon: "🏦",
+      icon: "",
     },
     {
       title: "Micro Business Loan (Daily)",
@@ -44,7 +44,7 @@ export default function LoansPage() {
       interest: "18% to 36% (Daily Collection)",
       badge: "Daily Collection",
       desc: "Designed for retailers and local merchants. Transparent daily tiers: 60 days (18%), 80 days (24%), 100 days (30%), 120 days (36%). Same-day fast disbursal.",
-      icon: "🏬",
+      icon: "",
     },
     {
       title: "Instant Micro-Credit",
@@ -52,7 +52,7 @@ export default function LoansPage() {
       interest: "0% Interest for 15 Days (₹199)",
       badge: "Instant Disbursal",
       desc: "Emergency micro-recharge loan with 0% interest on ₹199 for 15 days. Repay on time to build credit score and unlock higher credit limits.",
-      icon: "⚡",
+      icon: "",
     },
   ];
 
@@ -119,7 +119,7 @@ export default function LoansPage() {
                   loanType === "personal" ? "bg-white text-gray-900 shadow-md" : "text-gray-300 hover:text-white"
                 }`}
               >
-                🏦 Personal Loan (10-Day Cycle)
+                Personal Loan (10-Day Cycle)
               </button>
               <button
                 type="button"
@@ -128,7 +128,7 @@ export default function LoansPage() {
                   loanType === "micro_business" ? "bg-amber-500 text-gray-950 shadow-md font-black" : "text-gray-300 hover:text-white"
                 }`}
               >
-                🏬 Micro Business (Daily Collection)
+                Micro Business (Daily Collection)
               </button>
             </div>
           </div>
@@ -179,9 +179,9 @@ export default function LoansPage() {
                 </div>
 
                 <div className="text-xs text-gray-300 bg-black/20 p-3.5 rounded-xl border border-white/10 space-y-1">
-                  <div>⚡ <strong>1.34% per installment</strong> interest rate.</div>
-                  <div>📅 Collection strictly on <strong>1st, 11th & 21st</strong> of every month.</div>
-                  <div>🔄 <strong>Early Closure:</strong> 9th installment se pehle close karne par agent ko 1:1 profit bonus.</div>
+                  <div><strong>1.34% per installment</strong> interest rate.</div>
+                  <div>Collection strictly on <strong>1st, 11th & 21st</strong> of every month.</div>
+                  <div><strong>Early Closure:</strong> 9th installment se pehle close karne par agent ko 1:1 profit bonus.</div>
                 </div>
               </div>
 
@@ -277,8 +277,8 @@ export default function LoansPage() {
                 </div>
 
                 <div className="text-xs text-gray-300 bg-black/20 p-3.5 rounded-xl border border-white/10 space-y-1">
-                  <div>🏬 <strong>Daily Collection Mode:</strong> Har roz aasan collection bina kisi monthly load ke.</div>
-                  <div>⚡ <strong>Same-Day Payout:</strong> 24 ghante ke andar direct business account me transfer.</div>
+                  <div><strong>Daily Collection Mode:</strong> Har roz aasan collection bina kisi monthly load ke.</div>
+                  <div><strong>Same-Day Payout:</strong> 24 ghante ke andar direct business account me transfer.</div>
                 </div>
               </div>
 

@@ -3,12 +3,12 @@ import { API } from "../config";
 import { tokenStorage } from "../utils/tokenStorage";
 
 const ALL_DEPARTMENTS = [
-  { id: "loan", label: "📄 Loan Desk (Tum Loan wale ho)", sub: "Loans review, approve/reject & disbursal", icon: "📄" },
+  { id: "loan", label: "Loan Desk (Tum Loan wale ho)", sub: "Loans review, approve/reject & disbursal", icon: "" },
   { id: "kyc", label: "🪪 KYC Desk (Tum KYC wale ho)", sub: "Aadhaar & PAN verification & approval", icon: "🪪" },
-  { id: "deposit", label: "💰 Deposit Desk (Tum Deposit wale ho)", sub: "Bank UTR transfers verify & credit", icon: "💰" },
-  { id: "withdrawal", label: "💸 Withdrawal Desk (Tum Withdrawal wale ho)", sub: "Customer payouts & bank cash-outs", icon: "💸" },
-  { id: "lending", label: "🤝 P2P Lending Desk", sub: "P2P borrower & lender transactions", icon: "🤝" },
-  { id: "bond", label: "📈 Bonds & FD Desk", sub: "Fixed yield bonds & debentures", icon: "📈" }
+  { id: "deposit", label: "Deposit Desk (Tum Deposit wale ho)", sub: "Bank UTR transfers verify & credit", icon: "" },
+  { id: "withdrawal", label: "Withdrawal Desk (Tum Withdrawal wale ho)", sub: "Customer payouts & bank cash-outs", icon: "" },
+  { id: "lending", label: "P2P Lending Desk", sub: "P2P borrower & lender transactions", icon: "" },
+  { id: "bond", label: "Bonds & FD Desk", sub: "Fixed yield bonds & debentures", icon: "" }
 ];
 
 const DEPT_PERMISSIONS = {
@@ -276,7 +276,7 @@ export default function StaffManager() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
           <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
-            <span>👥 Staff & Department Desks Management</span>
+            <span>Staff & Department Desks Management</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             Create staff accounts, configure department access, set approval limits, and control sessions.
@@ -298,7 +298,7 @@ export default function StaffManager() {
           }}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center gap-1.5 cursor-pointer"
         >
-          <span>➕</span>
+          
           <span>Create Staff Account</span>
         </button>
       </div>
@@ -308,7 +308,7 @@ export default function StaffManager() {
         <div className="bg-emerald-950/40 border border-emerald-500/50 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
           <div>
             <div className="font-black text-emerald-400 text-sm flex items-center gap-1.5">
-              <span>🎉 Staff Account Created Successfully!</span>
+              <span>Staff Account Created Successfully!</span>
             </div>
             <p className="text-slate-300 mt-1">
               <strong>Name:</strong> {createdCredentials.name} • <strong>Email:</strong> {createdCredentials.email}
@@ -324,13 +324,13 @@ export default function StaffManager() {
             <button
               onClick={() => {
                 navigator.clipboard.writeText(
-                  `🏢 Educa Fintech Staff Desk ID:\n👤 Name: ${createdCredentials.name}\n👔 Assigned Role: ${createdCredentials.deskLabel || 'Staff'}\n📧 Login ID: ${createdCredentials.email}\n🔑 Password: ${createdCredentials.tempPassword}\n🌐 Login Link: ${window.location.origin}/login\n\n(Aapka Staff ID taiyar hai. Link par jaakar email aur password se login karein.)`
+                  `Educa Fintech Staff Desk ID:\nName: ${createdCredentials.name}\nAssigned Role: ${createdCredentials.deskLabel || 'Staff'}\nLogin ID: ${createdCredentials.email}\nPassword: ${createdCredentials.tempPassword}\nLogin Link: ${window.location.origin}/login\n\n(Aapka Staff ID taiyar hai. Link par jaakar email aur password se login karein.)`
                 );
                 showToast("Staff ID & Password copied! Ready to paste in WhatsApp/SMS.");
               }}
               className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-lg text-xs shadow-md shadow-emerald-600/30 transition active:scale-95 flex items-center gap-1"
             >
-              <span>📋</span> Copy for WhatsApp
+               Copy for WhatsApp
             </button>
             <button
               onClick={() => setCreatedCredentials(null)}
@@ -345,7 +345,7 @@ export default function StaffManager() {
       {/* Search and Filter Controls */}
       <div className="flex items-center justify-between gap-3 bg-slate-950 p-2.5 rounded-2xl border border-slate-800">
         <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></span>
           <input
             type="text"
             value={search}
@@ -358,7 +358,7 @@ export default function StaffManager() {
           onClick={fetchStaff}
           className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold"
         >
-          🔄 Refresh
+          Refresh
         </button>
       </div>
 
@@ -440,7 +440,7 @@ export default function StaffManager() {
                     onClick={() => openEditModal(staff)}
                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition"
                   >
-                    ✏️ Edit Desks
+                    Edit Desks
                   </button>
 
                   <div className="flex items-center gap-2">
@@ -449,7 +449,7 @@ export default function StaffManager() {
                       className="px-2.5 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition"
                       title="Invalidate all active sessions immediately"
                     >
-                      🚪 Force Logout
+                      Force Logout
                     </button>
                     <button
                       onClick={() => handleToggleActive(staff)}
@@ -553,21 +553,21 @@ export default function StaffManager() {
                     onClick={() => applyDeptsShortcut(["loan", "kyc", "deposit", "withdrawal", "lending", "bond"])}
                     className="px-2 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/40 rounded-lg text-[10px] font-bold"
                   >
-                    🌟 All Desks
+                    All Desks
                   </button>
                   <button
                     type="button"
                     onClick={() => applyDeptsShortcut(["loan", "kyc"])}
                     className="px-2 py-1 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 rounded-lg text-[10px] font-bold"
                   >
-                    📄 Loan + 🪪 KYC
+                    Loan + 🪪 KYC
                   </button>
                   <button
                     type="button"
                     onClick={() => applyDeptsShortcut(["deposit", "withdrawal"])}
                     className="px-2 py-1 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/40 rounded-lg text-[10px] font-bold"
                   >
-                    🤝 Cashier
+                    Cashier
                   </button>
                   <button
                     type="button"

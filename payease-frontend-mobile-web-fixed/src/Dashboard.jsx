@@ -4921,17 +4921,13 @@ export default function Dashboard() {
     {
       key: "home",
       label: txt.navHome,
-      icon: (
-        <svg className="w-5 h-5 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
-      ),
+      icon: <img src="/icons/nav-home.png" alt="Home" className="w-[22px] h-[22px] object-contain" />,
       onClick: () => { setModal(null); setAccountModal(null); setShowLoans(false); setNavTab("home"); window.scrollTo({ top: 0, behavior: "smooth" }); }
     },
     {
       key: "loans",
       label: txt.navLoans,
-      icon: <img src="/icons/nav-loans.png" alt="Loans" className="w-5 h-5 object-contain" />,
+      icon: <img src="/icons/nav-loans.png" alt="Loans" className="w-[22px] h-[22px] object-contain" />,
       onClick: openLoansHub
     },
     {
@@ -4944,13 +4940,13 @@ export default function Dashboard() {
     {
       key: "investments",
       label: txt.navInvestments || "Investments",
-      icon: <img src="/icons/nav-investments.png" alt="Investments" className="w-5 h-5 object-contain" />,
+      icon: <img src="/icons/nav-investments.png" alt="Investments" className="w-[22px] h-[22px] object-contain" />,
       onClick: () => setAccountModal("investment_hub")
     },
     {
       key: "profile",
       label: txt.navProfile,
-      icon: <img src="/icons/nav-profile.png" alt="Profile" className="w-5 h-5 object-contain" />,
+      icon: <img src="/icons/nav-profile.png" alt="Profile" className="w-[22px] h-[22px] object-contain" />,
       onClick: () => setModal("profile")
     },
   ];
@@ -5602,9 +5598,6 @@ export default function Dashboard() {
                   </span>
                   <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white border border-amber-200 text-amber-800 shadow-2xs">
                     Micro Business
-                  </span>
-                  <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 shadow-2xs font-mono">
-                    Avail Quota: ₹{(loanDepartmentPool.availablePool !== undefined ? loanDepartmentPool.availablePool : 1000000).toLocaleString("en-IN")}
                   </span>
                 </div>
               </div>

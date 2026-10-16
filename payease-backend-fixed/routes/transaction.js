@@ -298,6 +298,8 @@ router.post('/deposit', protect, async (req, res) => {
           message: 'Aap already is UTR ki request bhej chuke ho. Kripya verification ka intezar karein.'
         });
       }
+    }
+
     // Fast Cloudflare R2 Upload for deposit evidence (zero DB bloat + edge CDN speed)
     let storedProof = finalProof;
     if (finalProof && finalProof.startsWith('data:')) {

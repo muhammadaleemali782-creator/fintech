@@ -119,6 +119,11 @@ function parseBase64Data(dataUri) {
 async function uploadToR2(input, folder = 'uploads', filenamePrefix = 'asset', explicitMime = '') {
   if (!input) return '';
 
+  // R2 upload disabled / skipped as requested (direct pass-through)
+  if (process.env.ENABLE_R2 !== 'true') {
+    return input;
+  }
+
   // If already an HTTP/HTTPS URL, don't re-upload
   if (typeof input === 'string' && /^https?:\/\//i.test(input)) {
     return input;

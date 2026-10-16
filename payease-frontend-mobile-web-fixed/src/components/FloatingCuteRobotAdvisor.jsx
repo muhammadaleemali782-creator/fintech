@@ -27,23 +27,6 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
         }`}
         style={{ willChange: "transform, opacity" }}
       >
-        {/* Transparent close button '✕' to tuck away */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsPeek(true);
-          }}
-          aria-label="Screen side me chupayein"
-          className="absolute -top-1 -left-1 z-20 w-5 h-5 rounded-full bg-transparent border-0 shadow-none text-gray-400 hover:text-gray-700 flex items-center justify-center transition active:scale-75 cursor-pointer"
-          title="Chupayein"
-        >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-
         {/* Robot Image (Click to open chat) */}
         <div
           onClick={onOpen}

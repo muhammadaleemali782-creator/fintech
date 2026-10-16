@@ -1,6 +1,6 @@
 // Service Worker for Educa Fintech PWA
-// v10: app-shell navigation is now stale-while-revalidate (opens instantly from cache, refreshes in background).
-const CACHE_NAME = 'educa-fintech-v10';
+// v12: Network-first for app shell navigation (ensures updates apply immediately, falls back to cache offline).
+const CACHE_NAME = 'educa-fintech-v12';
 const SHELL_URL = '/index.html';
 
 self.addEventListener('install', (event) => {
@@ -36,27 +36,20 @@ function isHtmlOk(response) {
   );
 }
 
-// Stale-while-revalidate for the app shell:
-//  - cached shell exists  -> return it IMMEDIATELY (no waiting on a slow / sleeping network),
-//                            and refresh the cached copy in the background for the next open
-//  - nothing cached yet   -> normal network request (first ever visit)
+// Network-first for app shell navigation:
+// - online: fetch latest index.html directly from network, update cache, and return immediately
+// - offline / network failure: fallback to cached shell
 async function handleAppNavigation(event) {
   const cache = await caches.open(CACHE_NAME);
-  const cachedShell = await cache.match(SHELL_URL);
-
-  const refresh = fetch(event.request).then((response) => {
-    if (isHtmlOk(response)) cache.put(SHELL_URL, response.clone());
-    return response;
-  });
-
-  if (cachedShell) {
-    event.waitUntil(refresh.catch(() => {})); // keep the worker alive until the background refresh ends
-    return cachedShell;
-  }
-
   try {
-    return await refresh;
+    const response = await fetch(event.request);
+    if (isHtmlOk(response)) {
+      cache.put(SHELL_URL, response.clone());
+    }
+    return response;
   } catch (_) {
+    const cachedShell = await cache.match(SHELL_URL);
+    if (cachedShell) return cachedShell;
     return new Response('Offline', { status: 503, statusText: 'Offline' });
   }
 }

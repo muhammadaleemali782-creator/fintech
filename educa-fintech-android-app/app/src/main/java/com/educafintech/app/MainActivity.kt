@@ -553,6 +553,9 @@ class MainActivity : AppCompatActivity() {
         val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
         @Suppress("DEPRECATION")
         val isOnline = cm?.activeNetworkInfo?.isConnectedOrConnecting == true
+        if (isOnline) {
+            webView.clearCache(false)
+        }
         settings.cacheMode = if (isOnline) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = false

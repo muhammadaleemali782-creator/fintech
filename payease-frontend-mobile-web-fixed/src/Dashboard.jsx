@@ -5155,15 +5155,15 @@ export default function Dashboard() {
         const depts = profile?.departments || [];
         return isActive && Array.isArray(depts) && depts.length > 0;
       })() && (
-        <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 border-b border-blue-500/40 text-white px-3.5 sm:px-6 py-2.5 flex items-center justify-between text-xs sticky top-0 z-50 shadow-md">
-          <div className="flex items-center gap-2 font-bold min-w-0">
-            <span className="text-base shrink-0">🛡️</span>
+        <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 border-b border-blue-500/40 text-white px-3 sm:px-5 py-1 sm:py-1.5 flex items-center justify-between text-[11px] sticky top-0 z-50 shadow-xs">
+          <div className="flex items-center gap-1.5 font-bold min-w-0">
+            <span className="text-sm shrink-0">🛡️</span>
             <span className="truncate">Staff Account Active</span>
-            <span className="hidden sm:inline text-blue-300 font-normal">| Department Desks Portal</span>
+            <span className="hidden sm:inline text-blue-300 font-normal">| Department Desks</span>
           </div>
           <a
             href="/desk"
-            className="shrink-0 px-3 py-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black rounded-lg shadow-sm flex items-center gap-1 transition"
+            className="shrink-0 px-2.5 py-0.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-[10px] rounded-full shadow-2xs flex items-center gap-1 transition"
           >
             Open Staff Desk →
           </a>
@@ -5172,83 +5172,84 @@ export default function Dashboard() {
 
       {/* ADMIN PERSISTENCE BANNER */}
       {(userStored.role === "admin" || userProfile?.role === "admin") && (
-        <div className="bg-gradient-to-r from-gray-950 via-indigo-950 to-gray-950 border-b border-indigo-500/40 text-white px-3.5 sm:px-6 py-2.5 flex items-center justify-between text-xs sticky top-0 z-50 shadow-md">
-          <div className="flex items-center gap-2 font-bold min-w-0">
-            <span className="text-base shrink-0"></span>
+        <div className="bg-gradient-to-r from-gray-950 via-indigo-950 to-gray-950 border-b border-indigo-500/40 text-white px-3 sm:px-5 py-1 sm:py-1.5 flex items-center justify-between text-[11px] sticky top-0 z-50 shadow-xs">
+          <div className="flex items-center gap-1.5 font-bold min-w-0">
             <span className="truncate">Administrator Account Active</span>
-            <span className="hidden sm:inline text-indigo-300 font-normal">| Full Platform Controls</span>
+            <span className="hidden sm:inline text-indigo-300 font-normal">| Controls</span>
           </div>
           <a
             href="/admin"
-            className="shrink-0 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-black rounded-lg shadow-sm flex items-center gap-1 transition"
+            className="shrink-0 px-2.5 py-0.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-[10px] rounded-full shadow-2xs flex items-center gap-1 transition"
           >
-             Open Admin Panel →
+            Open Admin Panel →
           </a>
         </div>
       )}
 
-      {/* AGENT PERSISTENCE BANNER */}
+      {/* AGENT PERSISTENCE BANNER (Ultra Slim & Sleek) */}
       {isAgent && (
-        <div className="bg-white border-b border-gray-200 text-gray-900 px-3.5 sm:px-6 py-2 flex items-center justify-between text-xs sticky top-0 z-50 shadow-xs">
-          <div className="flex items-center gap-2 font-bold min-w-0">
-            <span className="truncate text-gray-900 font-extrabold text-xs">Agent Account Active</span>
-            <span className="hidden sm:inline text-gray-500 font-normal">
+        <div className="bg-slate-50 border-b border-slate-200 text-slate-800 px-3 sm:px-5 py-1 flex items-center justify-between text-[11px] sticky top-0 z-50">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+            <span className="truncate text-slate-800 font-bold text-[11px]">Agent Account Active</span>
+            <span className="hidden sm:inline text-slate-400 font-normal text-[10px]">
               • {agentMetrics?.stats?.customerCount ?? 0} Customers
             </span>
           </div>
           <button
             type="button"
             onClick={() => navigate("/agent-desk")}
-            className="shrink-0 px-2 py-0.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-[10px] rounded-md shadow-2xs flex items-center gap-1 transition cursor-pointer"
+            className="shrink-0 px-2.5 py-0.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-[10px] rounded-full shadow-2xs flex items-center gap-1 transition cursor-pointer"
           >
-             Open Desk →
+            Open Desk →
           </button>
         </div>
       )}
 
-      {/* NAVBAR */}
-      <nav className="bg-white shadow-sm sticky top-0 z-30 border-b border-gray-100 safe-top w-full">
-        <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
-          <div className="flex items-center gap-2.5 min-w-0 shrink-0">
-            <img src="/icon-192.png" alt="Educa Fintech" className="w-8 h-8 shrink-0 rounded-full object-contain border border-gray-200 bg-white shadow-xs" />
+      {/* NAVBAR (Sleek, Professional, Compact) */}
+      <nav className="bg-white/95 backdrop-blur-md shadow-2xs sticky top-0 z-30 border-b border-slate-100 safe-top w-full">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-5 py-1.5 sm:py-2 flex justify-between items-center">
+          <div className="flex items-center gap-2 min-w-0 shrink-0">
+            <img src="/icon-192.png" alt="Educa Fintech" className="w-6.5 h-6.5 sm:w-7 sm:h-7 shrink-0 rounded-lg object-contain border border-slate-200/80 bg-white shadow-2xs" />
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-black font-display bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent leading-none whitespace-nowrap">
-                {txt.appTitle}
+              <h1 className="text-[14px] sm:text-[15px] font-extrabold tracking-tight text-slate-900 leading-none whitespace-nowrap flex items-center gap-1 select-none">
+                <span>Educa</span>
+                <span className="text-blue-600">Fintech</span>
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2">
 
             {(userStored.role === "admin" || userProfile?.role === "admin") && (
               <a
                 href="/admin"
-                className="px-2.5 sm:px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95"
+                className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg font-bold text-[11px] flex items-center gap-1 transition active:scale-95"
                 title="Return to Admin Panel"
               >
-                 <span>Admin</span>
+                <span>Admin</span>
               </a>
             )}
 
-            {/* Collapsible Language Selector - Ultra Compact (EN / HI / HN) */}
+            {/* Collapsible Language Selector - Ultra Sleek & Compact */}
             <div className="relative" ref={langDropdownRef}>
               <button
                 type="button"
                 onClick={() => setLangDropdownOpen(prev => !prev)}
-                className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
+                className="px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg font-bold text-[11px] flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
                 title="Select Language / भाषा चुनें"
                 aria-haspopup="true"
                 aria-expanded={langDropdownOpen}
               >
-                <span className="font-extrabold uppercase">
+                <span className="font-extrabold uppercase text-[10px]">
                   {lang === "hindi" ? "HI" : lang === "english" ? "EN" : "HN"}
                 </span>
                 <svg
-                  className={`w-3 h-3 text-blue-600 transition-transform duration-200 ${langDropdownOpen ? "rotate-180" : ""}`}
+                  className={`w-2.5 h-2.5 text-slate-500 transition-transform duration-200 ${langDropdownOpen ? "rotate-180" : ""}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
 

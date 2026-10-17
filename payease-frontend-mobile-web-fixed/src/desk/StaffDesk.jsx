@@ -797,19 +797,26 @@ export default function StaffDesk() {
       };
     }
 
-    let pending = 0, approved = 0, rejected = 0;
+    let pending = 0, approved = 0, rejected = 0, agentLoans = 0, directLoans = 0;
     list.forEach(item => {
       const s = String(item.status || "pending").toLowerCase();
       if (["pending", "hold"].includes(s)) pending++;
       else if (["approved", "completed", "active", "verified"].includes(s)) approved++;
       else if (s === "rejected") rejected++;
+
+      if (activeTab === "loan") {
+        if (item.userId?.referredBy || item.referredBy) agentLoans++;
+        else directLoans++;
+      }
     });
 
     return {
       all: list.length,
       pending,
       approved,
-      rejected
+      rejected,
+      agentLoans,
+      directLoans
     };
   }, [queues, activeTab]);
 
@@ -862,6 +869,11 @@ export default function StaffDesk() {
           if (!full) return false;
         }
       } else if (statusFilter !== "all") {
+        if (activeTab === "loan") {
+          const hasAgent = Boolean(item.userId?.referredBy || item.referredBy);
+          if (statusFilter === "agent_loans" && !hasAgent) return false;
+          if (statusFilter === "direct_loans" && hasAgent) return false;
+        }
         const itemStatus = (item.status || "pending").toLowerCase();
         if (statusFilter === "pending" && !["pending", "hold"].includes(itemStatus)) return false;
         if (statusFilter === "approved" && !["approved", "completed", "active"].includes(itemStatus)) return false;
@@ -875,8 +887,11 @@ export default function StaffDesk() {
         const userPhone = (item.phone || item.userId?.phone || item.userPhone || "").toLowerCase();
         const ref = (item.reference || item.referenceId || item.utrNumber || item.accountNumber || item._id || item.aadharNumber || "").toLowerCase();
         const amountStr = String(item.amount || item.principalAmount || "");
+        const agentName = (item.userId?.referredBy?.name || item.referredBy?.name || "").toLowerCase();
+        const agentPhone = (item.userId?.referredBy?.phone || item.referredBy?.phone || "").toLowerCase();
+        const agentCode = (item.userId?.referredBy?.referralCode || item.referredBy?.referralCode || "").toLowerCase();
 
-        return userName.includes(q) || userEmail.includes(q) || userPhone.includes(q) || ref.includes(q) || amountStr.includes(q);
+        return userName.includes(q) || userEmail.includes(q) || userPhone.includes(q) || ref.includes(q) || amountStr.includes(q) || agentName.includes(q) || agentPhone.includes(q) || agentCode.includes(q);
       }
 
       return true;
@@ -1090,6 +1105,15 @@ export default function StaffDesk() {
                   <option value="pending">Pending KYC ({filterCounts.pending})</option>
                   <option value="pending_full">Pending Full KYC ({filterCounts.pendingFull})</option>
                   <option value="pending_normal">Pending Normal KYC ({filterCounts.pendingNormal})</option>
+                </>
+              ) : activeTab === "loan" ? (
+                <>
+                  <option value="all">All Loans ({filterCounts.all})</option>
+                  <option value="pending">Pending Loans ({filterCounts.pending})</option>
+                  <option value="approved">Active / Approved ({filterCounts.approved})</option>
+                  <option value="rejected">Rejected ({filterCounts.rejected})</option>
+                  <option value="agent_loans">Agent Sourced Loans ({filterCounts.agentLoans || 0})</option>
+                  <option value="direct_loans">Direct (No Agent) ({filterCounts.directLoans || 0})</option>
                 </>
               ) : (
                 <>
@@ -1546,6 +1570,26 @@ export default function StaffDesk() {
                           <span className="text-gray-800 truncate max-w-[150px]">{item.purpose}</span>
                         </div>
                       )}
+                      {activeTab === "loan" && (() => {
+                        const agent = item.userId?.referredBy || item.referredBy;
+                        return (
+                          <div className="flex justify-between items-center py-1 px-2 rounded-lg bg-indigo-50/80 border border-indigo-100 my-0.5">
+                            <span className="text-[10px] font-bold text-indigo-700 flex items-center gap-1">
+                              <span>👤</span>
+                              <span>Agent:</span>
+                            </span>
+                            {agent ? (
+                              <span className="font-mono text-indigo-950 font-black text-[11px] truncate max-w-[170px]" title={`${agent.name || "Agent"} (${agent.phone || ""})`}>
+                                {agent.name || "Agent"} {agent.referralCode ? `(${agent.referralCode})` : ""}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic text-[10px]">
+                                Direct (No Agent)
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {(() => {
                         const procDate = item.approvedAt || (['approved', 'completed', 'active', 'verified', 'rejected'].includes(itemStatus) ? (item.handledBy?.at || item.updatedAt) : null);
                         const timing = formatTiming(item.createdAt || item.requestedAt || item.kycDocuments?.submittedAt, procDate);
@@ -1677,6 +1721,36 @@ export default function StaffDesk() {
                   <span className="font-bold text-blue-600 uppercase">{selectedItem.status || selectedItem.kycStatus || "pending"}</span>
                 </div>
               </div>
+
+              {/* Agent Sourcing Reference (Especially for Loan & Customer Records) */}
+              {(() => {
+                const agent = selectedItem.userId?.referredBy || selectedItem.referredBy;
+                if (activeTab === "loan" || agent) {
+                  return (
+                    <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50/80 rounded-2xl border border-blue-200 text-xs flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-blue-700 block tracking-wider">Agent Sourcing / Reference</span>
+                        {agent ? (
+                          <>
+                            <span className="font-extrabold text-blue-950 text-sm block">👤 {agent.name || "Agent"}</span>
+                            <span className="text-[11px] text-blue-800 font-mono block">
+                              Phone: {agent.phone || "—"} {agent.referralCode ? `• Code: ${agent.referralCode}` : ""}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500 italic text-[11px]">Direct Customer (No Agent Assigned / Head Office)</span>
+                        )}
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full font-bold text-[10px] border ${
+                        agent ? "bg-indigo-100 text-indigo-800 border-indigo-200" : "bg-gray-100 text-gray-600 border-gray-200"
+                      }`}>
+                        {agent ? "Agent Referral" : "Direct Sourcing"}
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {/* If Bank Change Request */}
               {selectedItem.type === "bank_change_request" ? (

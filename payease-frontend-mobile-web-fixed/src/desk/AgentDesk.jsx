@@ -682,42 +682,6 @@ export default function AgentDesk() {
         )}
 
 
-        {/* 3 Dedicated Page Tabs (Desktop) */}
-        <div className="hidden sm:flex items-center gap-1.5 bg-gray-200/80 p-1.5 rounded-2xl border border-gray-300">
-          <button
-            type="button"
-            onClick={() => setActiveTab("overview")}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === "overview"
-                ? "bg-white text-gray-900 shadow-xs"
-                : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
-            }`}
-          >
-            Overview & Dues
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("commissions")}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === "commissions"
-                ? "bg-white text-amber-800 shadow-xs"
-                : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
-            }`}
-          >
-            Rates & Commission
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("customers")}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === "customers"
-                ? "bg-white text-gray-900 shadow-xs"
-                : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
-            }`}
-          >
-            Customer Portfolio ({agentMetrics?.customers?.length || 0})
-          </button>
-        </div>
 
         {/* ══════════════════════════════════════════════════════
             TAB 1: OVERVIEW & DUES

@@ -5146,11 +5146,18 @@ export default function Dashboard() {
 
   return (
     <div className="bg-gray-50 min-h-[100dvh] w-full max-w-full overflow-x-hidden pb-safe-nav sm:pb-0 font-sans">
-      {/* STAFF PERSISTENCE BANNER */}
-      {(userStored.role === "staff" || userProfile?.role === "staff") && (
+      {/* STAFF PERSISTENCE BANNER (Only shown if staff has active assigned department desks) */}
+      {(() => {
+        const isStaff = userStored.role === "staff" || userProfile?.role === "staff";
+        if (!isStaff) return false;
+        const profile = userProfile?.staffProfile || userStored?.staffProfile;
+        const isActive = profile?.isActive !== false;
+        const depts = profile?.departments || [];
+        return isActive && Array.isArray(depts) && depts.length > 0;
+      })() && (
         <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 border-b border-blue-500/40 text-white px-3.5 sm:px-6 py-2.5 flex items-center justify-between text-xs sticky top-0 z-50 shadow-md">
           <div className="flex items-center gap-2 font-bold min-w-0">
-            <span className="text-base shrink-0"></span>
+            <span className="text-base shrink-0">🛡️</span>
             <span className="truncate">Staff Account Active</span>
             <span className="hidden sm:inline text-blue-300 font-normal">| Department Desks Portal</span>
           </div>
@@ -5158,7 +5165,7 @@ export default function Dashboard() {
             href="/desk"
             className="shrink-0 px-3 py-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black rounded-lg shadow-sm flex items-center gap-1 transition"
           >
-             Open Staff Desk →
+            Open Staff Desk →
           </a>
         </div>
       )}

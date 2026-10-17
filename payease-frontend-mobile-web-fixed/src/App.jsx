@@ -66,7 +66,15 @@ function PrivateRoute({ children, adminOnly = false, staffOrAdmin = false, agent
 
   if (!token) return <Navigate to="/login" replace />;
   if (adminOnly && user?.role !== "admin") return <Navigate to="/dashboard" replace />;
-  if (staffOrAdmin && !["admin", "staff"].includes(user?.role)) return <Navigate to="/dashboard" replace />;
+  if (staffOrAdmin) {
+    const hasStaffDesk = user?.role === "admin" || (
+      user?.role === "staff" &&
+      user?.staffProfile?.isActive !== false &&
+      Array.isArray(user?.staffProfile?.departments) &&
+      user.staffProfile.departments.length > 0
+    );
+    if (!hasStaffDesk) return <Navigate to="/dashboard" replace />;
+  }
   if (agentOnly && !["admin", "agent"].includes(user?.role) && user?.agentProfile?.status !== "approved") {
     return <Navigate to="/dashboard" replace />;
   }
@@ -130,10 +138,9 @@ function RootRoute() {
   const token = tokenStorage.getToken();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  // In App Mode: Direct login / admin / desk / dashboard, zero landing page
+  // In App Mode: Direct login / admin / dashboard, zero landing page
   if (isApp) {
     if (token) {
-      if (user.role === "staff") return <Navigate to="/desk" replace />;
       return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
     }
     return <Login isApp={true} />;

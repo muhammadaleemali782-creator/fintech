@@ -315,7 +315,7 @@ export default function Header() {
                 >
                    Customer Dashboard
                 </Link>
-                {(user.role === "admin" || user.role === "staff") && (
+                {(user.role === "admin" || (user.role === "staff" && user.staffProfile?.isActive !== false && Array.isArray(user.staffProfile?.departments) && user.staffProfile.departments.length > 0)) && (
                   <Link
                     to="/desk"
                     onClick={() => setMenuOpen(false)}

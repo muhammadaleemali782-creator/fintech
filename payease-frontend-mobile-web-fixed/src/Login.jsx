@@ -21,7 +21,7 @@ export default function Login({ isApp = false, initialTab = "login" }) {
       const token = tokenStorage.getToken();
       const user = JSON.parse(localStorage.getItem("user") || "null");
       if (token && user) {
-        const target = user.role === "admin" ? "/admin" : (user.role === "staff" ? "/desk" : "/dashboard");
+        const target = user.role === "admin" ? "/admin" : "/dashboard";
         navigate(target, { replace: true });
       }
     } catch {
@@ -87,7 +87,7 @@ export default function Login({ isApp = false, initialTab = "login" }) {
         }
       }
       showMsg("Login successful! Redirecting...", "success");
-      const target = data.user?.role === "admin" ? "/admin" : (data.user?.role === "staff" ? "/desk" : "/dashboard");
+      const target = data.user?.role === "admin" ? "/admin" : "/dashboard";
       setTimeout(() => {
         try {
           navigate(target, { replace: true });
@@ -134,7 +134,7 @@ export default function Login({ isApp = false, initialTab = "login" }) {
         }
       }
       showMsg("Logged in with Educa Mail (30 Days Active)! Redirecting...", "success");
-      const target = data.user?.role === "admin" ? "/admin" : (data.user?.role === "staff" ? "/desk" : "/dashboard");
+      const target = data.user?.role === "admin" ? "/admin" : "/dashboard";
       setTimeout(() => {
         try {
           navigate(target, { replace: true });

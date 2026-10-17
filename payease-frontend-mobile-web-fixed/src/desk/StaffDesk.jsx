@@ -44,6 +44,36 @@ export default function StaffDesk() {
     }
   }, [availableTabs, activeTab]);
 
+  // Security guard: If user is not admin and has no assigned department desks, redirect to dashboard immediately
+  useEffect(() => {
+    if (!isAdmin && (!isStaff || !allowedDepts || allowedDepts.length === 0)) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAdmin, isStaff, allowedDepts, navigate]);
+
+  // Live profile check on mount: If access was removed in backend, sync storage & exit desk immediately
+  useEffect(() => {
+    if (isAdmin || !token) return;
+    fetch(`${API}/user/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data._id) {
+          try {
+            const cur = JSON.parse(localStorage.getItem("user") || "{}");
+            localStorage.setItem("user", JSON.stringify({ ...cur, ...data }));
+          } catch {}
+          const depts = data.staffProfile?.departments || [];
+          const isStillActive = data.role === "staff" && data.staffProfile?.isActive !== false && depts.length > 0;
+          if (!isStillActive) {
+            navigate("/dashboard", { replace: true });
+          }
+        }
+      })
+      .catch(() => {});
+  }, [isAdmin, token, navigate]);
+
   // Cache-First Instant State (0ms Load)
   const initialQueues = useMemo(() => {
     try {
@@ -774,6 +804,10 @@ export default function StaffDesk() {
       expiresAt: item.claim.expiresAt
     };
   };
+
+  if (!isAdmin && (!isStaff || !allowedDepts || allowedDepts.length === 0)) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col antialiased selection:bg-blue-600 selection:text-white">

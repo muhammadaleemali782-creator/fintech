@@ -5210,7 +5210,7 @@ export default function Dashboard() {
       <nav className="bg-white/95 backdrop-blur-md shadow-2xs sticky top-0 z-30 border-b border-slate-100 safe-top w-full">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-5 py-1.5 sm:py-2 flex justify-between items-center">
           <div className="flex items-center gap-2 min-w-0 shrink-0">
-            <img src="/icon-192.png" alt="Educa Fintech" className="w-6.5 h-6.5 sm:w-7 sm:h-7 shrink-0 rounded-lg object-contain border border-slate-200/80 bg-white shadow-2xs" />
+            <img src="/icon-192.png" alt="Educa Fintech" className="w-7 h-7 shrink-0 rounded-lg object-contain border border-slate-200/80 bg-white shadow-2xs" style={{ width: "28px", height: "28px" }} />
             <div className="min-w-0">
               <h1 className="text-[14px] sm:text-[15px] font-extrabold tracking-tight text-slate-900 leading-none whitespace-nowrap flex items-center gap-1 select-none">
                 <span>Educa</span>

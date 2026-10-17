@@ -2715,11 +2715,27 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
 
     await Promise.all(promises);
 
+    let deptPool = null;
+    if (allowedDepts.includes('loan')) {
+      const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).lean();
+      const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
+      const activeLoansAgg = await Loan.aggregate([
+        { $match: { status: { $in: ['active', 'approved'] } } },
+        { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
+      ]);
+      const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
+      const activeLoansCount = activeLoansAgg[0]?.count || 0;
+      const availablePool = Math.max(0, totalPool - marketDisbursed);
+      const utilizationPercent = totalPool > 0 ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1))) : 0;
+      deptPool = { totalPool, marketDisbursed, availablePool, activeLoansCount, utilizationPercent, success: true };
+    }
+
     const payload = {
       success: true,
       allowedDepartments: allowedDepts,
       counts: queues.counts,
-      queues
+      queues,
+      deptPool
     };
 
     // Cache in memory for 8 seconds

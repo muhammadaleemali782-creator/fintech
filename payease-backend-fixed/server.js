@@ -327,6 +327,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/user', require('./routes/user'));
 app.use('/api/transaction', require('./routes/transaction'));
 app.use('/api/loan', require('./routes/loan'));
+app.use('/api/loans', require('./routes/loan'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/bond', require('./routes/bond'));

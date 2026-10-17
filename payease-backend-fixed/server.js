@@ -169,7 +169,7 @@ app.use((req, res, next) => {
 // Multi-document uploads (several base64 images per request): 25 MB.
 const BIG_BODY_PREFIXES = [
   '/api/user/kyc', '/api/user/update', '/api/user/custom-qr',
-  '/api/loan', '/api/bond',
+  '/api/loan', '/api/loans', '/api/bond',
   '/api/transaction/deposit', '/api/transaction/withdraw'
 ];
 // Admin/settings only carry a single evidence image (each file is capped at 5 MB by validateUpload): 10 MB.

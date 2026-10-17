@@ -2832,6 +2832,72 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
   }
 });
 
+// Loan Department Central Pool Admin Endpoints & Direct Aliases
+router.get(['/department-pool', '/loans/department-pool', '/loan/department-pool'], protect, async (req, res) => {
+  try {
+    const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).lean();
+    const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
+
+    const activeLoansAgg = await Loan.aggregate([
+      { $match: { status: { $in: ['active', 'approved'] } } },
+      { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
+    ]);
+
+    const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
+    const activeLoansCount = activeLoansAgg[0]?.count || 0;
+    const availablePool = Math.max(0, totalPool - marketDisbursed);
+    const utilizationPercent = totalPool > 0 ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1))) : 0;
+
+    res.json({
+      success: true,
+      totalPool,
+      marketDisbursed,
+      availablePool,
+      activeLoansCount,
+      utilizationPercent
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch loan pool' });
+  }
+});
+
+router.post(['/department-pool', '/loans/department-pool', '/loan/department-pool'], protect, admin, async (req, res) => {
+  try {
+    const { totalPool } = req.body;
+    const poolNum = Number(totalPool);
+    if (!Number.isFinite(poolNum) || poolNum < 0) {
+      return res.status(400).json({ success: false, message: 'Invalid pool amount' });
+    }
+
+    await Settings.findOneAndUpdate(
+      { key: 'loanDepartmentPool' },
+      { key: 'loanDepartmentPool', value: poolNum, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    const activeLoansAgg = await Loan.aggregate([
+      { $match: { status: { $in: ['active', 'approved'] } } },
+      { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
+    ]);
+    const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
+    const activeLoansCount = activeLoansAgg[0]?.count || 0;
+    const availablePool = Math.max(0, poolNum - marketDisbursed);
+    const utilizationPercent = poolNum > 0 ? Math.min(100, Number(((marketDisbursed / poolNum) * 100).toFixed(1))) : 0;
+
+    res.json({
+      success: true,
+      message: `✅ Loan Department Pool updated to ₹${poolNum.toLocaleString('en-IN')}`,
+      totalPool: poolNum,
+      marketDisbursed,
+      availablePool,
+      activeLoansCount,
+      utilizationPercent
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to update loan department pool' });
+  }
+});
+
 // On-demand proof fetching (zero queue bloat, instant response)
 router.get('/transaction/:id/proof', protect, staffOrAdmin, async (req, res) => {
   try {

@@ -131,9 +131,19 @@ export default function StaffDesk() {
 
   const fetchDeptPool = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/loan/department-pool`, {
+      let res = await fetch(`${API}/loan/department-pool`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (!res.ok) {
+        res = await fetch(`${API}/loans/department-pool`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      if (!res.ok) {
+        res = await fetch(`${API}/admin/department-pool`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
       const data = await res.json();
       if (data.success) {
         setDeptPool(data);

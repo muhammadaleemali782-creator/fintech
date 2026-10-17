@@ -2556,12 +2556,14 @@ export default function Dashboard() {
       setShowLoans(true);
     } catch {}
     loadActiveLoanDetails();
-    fetch(`${API}/loans/department-pool`, { headers }).then(r => r.json()).then(poolData => {
-      if (poolData && poolData.success) {
-        setLoanDepartmentPool(poolData);
-        appCache.set("educa_cached_loan_pool", poolData);
-      }
-    }).catch(() => {});
+    fetch(`${API}/loan/department-pool`, { headers })
+      .then(r => r.ok ? r.json() : fetch(`${API}/loans/department-pool`, { headers }).then(r2 => r2.json()))
+      .then(poolData => {
+        if (poolData && poolData.success) {
+          setLoanDepartmentPool(poolData);
+          appCache.set("educa_cached_loan_pool", poolData);
+        }
+      }).catch(() => {});
   };
 
   const openLoansHub = () => {

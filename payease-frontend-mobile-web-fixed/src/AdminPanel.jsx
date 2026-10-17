@@ -2079,12 +2079,14 @@ export default function AdminPanel() {
         appCache.set("educa_admin_cached_loans", d);
         appCache.set("educa_admin_cached_loans_count", d.length);
       }
-      fetch(`${API}/loans/department-pool`, { headers }).then(r => r.json()).then(poolData => {
-        if (poolData && poolData.success) {
-          setLoanDepartmentPool(poolData);
-          appCache.set("educa_admin_cached_loan_pool", poolData);
-        }
-      }).catch(() => {});
+      fetch(`${API}/loan/department-pool`, { headers })
+        .then(r => r.ok ? r.json() : fetch(`${API}/loans/department-pool`, { headers }).then(r2 => r2.json()))
+        .then(poolData => {
+          if (poolData && poolData.success) {
+            setLoanDepartmentPool(poolData);
+            appCache.set("educa_admin_cached_loan_pool", poolData);
+          }
+        }).catch(() => {});
     } catch {}
   }, []); // eslint-disable-line
 

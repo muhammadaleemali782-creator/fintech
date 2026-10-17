@@ -87,9 +87,19 @@ export default function StaffManager() {
   // Fetch Loan Department Central Pool
   const fetchDeptPool = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/loan/department-pool`, {
+      let res = await fetch(`${API}/loan/department-pool`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (!res.ok) {
+        res = await fetch(`${API}/loans/department-pool`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      if (!res.ok) {
+        res = await fetch(`${API}/admin/department-pool`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
       const data = await res.json();
       if (data.success) {
         setLoanDeptPool(data);
@@ -106,7 +116,7 @@ export default function StaffManager() {
     }
     setPoolSaving(true);
     try {
-      const res = await fetch(`${API}/loan/department-pool`, {
+      let res = await fetch(`${API}/loan/department-pool`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -114,6 +124,26 @@ export default function StaffManager() {
         },
         body: JSON.stringify({ totalPool: val })
       });
+      if (res.status === 404) {
+        res = await fetch(`${API}/loans/department-pool`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ totalPool: val })
+        });
+      }
+      if (res.status === 404) {
+        res = await fetch(`${API}/admin/department-pool`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ totalPool: val })
+        });
+      }
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to update pool");
       setLoanDeptPool(data);

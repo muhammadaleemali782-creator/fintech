@@ -5,8 +5,7 @@ import { useState, useEffect, useRef } from "react";
  * 
  * Free-floating 3D AI Robot advisor with Magnetic Edge Snapping & Wall-Docking.
  * - Draggable anywhere across the screen on both mobile touch and desktop.
- * - Magnetic snap: Touch release karte hi robot turant sabse nazdeek wali deewar (left ya right) par smoothly glide ho jata hai.
- * - Remembers dragged position in localStorage.
+ * - Magnetic snap: Touch chhodte hi robot turant sabse nazdeek wali deewar (left ya right) par smoothly glide ho jata hai.
  * - Clicking '✕': docks into whichever wall (left or right) it is closest to,
  *   tucking into that wall at the exact vertical height.
  * - A peeking waving robot hand stays docked at that wall edge.
@@ -42,21 +41,21 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
     };
   });
 
-  const dragRef = useRef({ isDown: false, startX: 0, startY: 0, posX: 0, posY: 0, moved: false });
+  const dragRef = useRef({
+    isDown: false,
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    posX: 0,
+    posY: 0,
+    hasMoved: false,
+  });
   const currentPosRef = useRef({ x: pos.x, y: pos.y });
-  const lastOpenTimeRef = useRef(0);
+  const dragEndedAtRef = useRef(0);
 
   useEffect(() => {
     currentPosRef.current = pos;
   }, [pos]);
-
-  // Debounced/safe open trigger to prevent duplicate calls from pointerup + click
-  const triggerOpen = () => {
-    const now = Date.now();
-    if (now - lastOpenTimeRef.current < 400) return;
-    lastOpenTimeRef.current = now;
-    onOpen?.();
-  };
 
   // Clamp position within viewport on resize
   useEffect(() => {
@@ -88,23 +87,25 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
       isDown: true,
       startX: e.clientX,
       startY: e.clientY,
+      startTime: Date.now(),
       posX: pos.x,
       posY: pos.y,
-      moved: false,
+      hasMoved: false,
     };
 
     const handlePointerMove = (moveEv) => {
       if (!dragRef.current.isDown) return;
       const dx = moveEv.clientX - dragRef.current.startX;
       const dy = moveEv.clientY - dragRef.current.startY;
+      const dist = Math.hypot(dx, dy);
 
-      // 15px threshold to ignore fingertip wobble on mobile touch screens
-      if (!dragRef.current.moved && Math.hypot(dx, dy) > 15) {
-        dragRef.current.moved = true;
+      // Distinguish drag from tap: Only drag if distance > 10px
+      if (!dragRef.current.hasMoved && dist > 10) {
+        dragRef.current.hasMoved = true;
         setIsDragging(true);
       }
 
-      if (dragRef.current.moved) {
+      if (dragRef.current.hasMoved) {
         const w = window.innerWidth || 360;
         const h = window.innerHeight || 640;
         const newX = Math.min(Math.max(8, dragRef.current.posX + dx), w - 76);
@@ -119,14 +120,15 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
 
-      const wasMoved = dragRef.current.moved;
+      const wasMoved = dragRef.current.hasMoved;
       dragRef.current.isDown = false;
 
       if (wasMoved) {
+        dragEndedAtRef.current = Date.now();
         setIsDragging(false);
         const w = window.innerWidth || 360;
         const latest = currentPosRef.current;
-        // Magnetic snap: Touch chhodte hi nearest wall (left ya right) par smoothly glide karega
+        // Magnetic snap: Snap to nearest wall on touch release
         const isCloserToLeft = latest.x < (w - 76) / 2;
         const snapX = isCloserToLeft ? 8 : (w - 76);
         const snappedPos = { x: snapX, y: latest.y };
@@ -136,8 +138,9 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
           localStorage.setItem("payease_robot_pos", JSON.stringify(snappedPos));
         } catch {}
       } else {
+        // Tap on the robot -> open chat immediately!
         setIsDragging(false);
-        triggerOpen();
+        onOpen?.();
       }
     };
 
@@ -148,8 +151,9 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
 
   const handleRobotClick = (e) => {
     if (e.target.closest("button")) return;
-    if (dragRef.current.moved) return;
-    triggerOpen();
+    if (Date.now() - dragEndedAtRef.current < 350) return;
+    if (dragRef.current.hasMoved) return;
+    onOpen?.();
   };
 
   return (
@@ -178,7 +182,7 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
         }`}
         title="AI Advisor (Tap to Chat)"
       >
-        <div className="relative group">
+        <div className="relative group pointer-events-auto">
           {/* Close 'X' Button - transparent, positioned on inside corner so it never clips off-screen */}
           <button
             type="button"

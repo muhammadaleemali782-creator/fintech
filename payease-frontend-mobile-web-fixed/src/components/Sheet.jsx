@@ -1,19 +1,30 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 // Responsive dialog: slides up as a bottom-sheet on mobile, centered modal on desktop.
 export default function Sheet({ open, onClose, title, icon, extraHeader = null, className = "", children }) {
+  const mountTimeRef = useRef(0);
+
   useEffect(() => {
     if (!open) return;
+    mountTimeRef.current = Date.now();
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
   if (!open) return null;
 
+  const handleBackdropClick = (e) => {
+    // Prevent ghost click / trailing tap from closing newly opened sheet
+    if (Date.now() - mountTimeRef.current < 400) return;
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={handleBackdropClick}
     >
       <div
         className={`w-full sm:max-w-md sm:w-full rounded-t-3xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 pb-[calc(env(safe-area-inset-bottom,16px)+16px)] sm:pb-6 max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto overscroll-contain touch-pan-y animate-[slideUp_.25s_ease-out] sm:animate-none bg-white text-gray-900 ${className}`}

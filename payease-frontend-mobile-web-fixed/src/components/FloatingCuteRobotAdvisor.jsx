@@ -3,8 +3,9 @@ import { useState, useEffect, useRef } from "react";
 /**
  * FloatingCuteRobotAdvisor
  * 
- * Free-floating 3D AI Robot advisor with PointerEvents drag & wall-docking.
+ * Free-floating 3D AI Robot advisor with Magnetic Edge Snapping & Wall-Docking.
  * - Draggable anywhere across the screen on both mobile touch and desktop.
+ * - Magnetic snap: Touch release karte hi robot turant sabse nazdeek wali deewar (left ya right) par smoothly glide ho jata hai.
  * - Remembers dragged position in localStorage.
  * - Clicking '✕': docks into whichever wall (left or right) it is closest to,
  *   tucking into that wall at the exact vertical height.
@@ -42,7 +43,12 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
   });
 
   const dragRef = useRef({ isDown: false, startX: 0, startY: 0, posX: 0, posY: 0, moved: false });
+  const currentPosRef = useRef({ x: pos.x, y: pos.y });
   const lastOpenTimeRef = useRef(0);
+
+  useEffect(() => {
+    currentPosRef.current = pos;
+  }, [pos]);
 
   // Debounced/safe open trigger to prevent duplicate calls from pointerup + click
   const triggerOpen = () => {
@@ -58,12 +64,10 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
       setPos((prev) => {
         const w = window.innerWidth || 360;
         const h = window.innerHeight || 640;
-        const clampedX = Math.min(Math.max(8, prev.x), Math.max(8, w - 76));
+        const isCloserToLeft = prev.x < (w - 76) / 2;
+        const snapX = isCloserToLeft ? 8 : (w - 76);
         const clampedY = Math.min(Math.max(60, prev.y), Math.max(60, h - 110));
-        if (clampedX !== prev.x || clampedY !== prev.y) {
-          return { x: clampedX, y: clampedY };
-        }
-        return prev;
+        return { x: snapX, y: clampedY };
       });
     };
     window.addEventListener("resize", handleResize);
@@ -105,6 +109,7 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
         const h = window.innerHeight || 640;
         const newX = Math.min(Math.max(8, dragRef.current.posX + dx), w - 76);
         const newY = Math.min(Math.max(60, dragRef.current.posY + dy), h - 110);
+        currentPosRef.current = { x: newX, y: newY };
         setPos({ x: newX, y: newY });
       }
     };
@@ -118,13 +123,18 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
       dragRef.current.isDown = false;
 
       if (wasMoved) {
-        setTimeout(() => setIsDragging(false), 50);
-        setPos((current) => {
-          try {
-            localStorage.setItem("payease_robot_pos", JSON.stringify(current));
-          } catch {}
-          return current;
-        });
+        setIsDragging(false);
+        const w = window.innerWidth || 360;
+        const latest = currentPosRef.current;
+        // Magnetic snap: Touch chhodte hi nearest wall (left ya right) par smoothly glide karega
+        const isCloserToLeft = latest.x < (w - 76) / 2;
+        const snapX = isCloserToLeft ? 8 : (w - 76);
+        const snappedPos = { x: snapX, y: latest.y };
+        setPos(snappedPos);
+        currentPosRef.current = snappedPos;
+        try {
+          localStorage.setItem("payease_robot_pos", JSON.stringify(snappedPos));
+        } catch {}
       } else {
         setIsDragging(false);
         triggerOpen();
@@ -144,7 +154,7 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
 
   return (
     <>
-      {/* 1. FULL ROBOT (Draggable anywhere across the screen, clickable to open chat) */}
+      {/* 1. FULL ROBOT (Draggable with smooth magnetic wall snap, clickable to open chat) */}
       <div
         onPointerDown={handlePointerDown}
         onClick={handleRobotClick}
@@ -153,6 +163,9 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
           top: `${pos.y}px`,
           touchAction: "none",
           userSelect: "none",
+          transition: isDragging
+            ? "none"
+            : "left 0.45s cubic-bezier(0.22, 1, 0.36, 1), top 0.45s cubic-bezier(0.22, 1, 0.36, 1), transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease",
         }}
         className={`fixed z-40 select-none cursor-pointer ${
           isDragging ? "cursor-grabbing" : "cursor-pointer"
@@ -162,7 +175,7 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
               ? "-translate-x-[calc(100%+40px)] opacity-0 pointer-events-none scale-90"
               : "translate-x-[calc(100%+40px)] opacity-0 pointer-events-none scale-90"
             : "translate-x-0 opacity-100 scale-100"
-        } ${isDragging ? "" : "transition-all duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)]"}`}
+        }`}
         title="AI Advisor (Tap to Chat)"
       >
         <div className="relative group">

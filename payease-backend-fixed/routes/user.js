@@ -1359,7 +1359,24 @@ router.post('/agent/add-customer', protect, async (req, res) => {
       return res.status(400).json({ message: 'Valid 10-digit mobile number enter karein (6-9 se shuru)' });
     }
 
-    const cleanEmail = email && email.trim() ? email.trim().toLowerCase() : `${cleanPhone}@educa.internal`;
+    let cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      const phoneSuffix = cleanPhone.slice(-4);
+      const firstName = (name || 'user').trim().toLowerCase().split(/\s+/)[0].replace(/[^a-z0-9]/g, '') || 'user';
+      let candidateEmail = `${firstName}${phoneSuffix}@educa.com`;
+      let count = 1;
+      while (await User.findOne({ email: candidateEmail })) {
+        candidateEmail = `${firstName}${phoneSuffix}${count}@educa.com`;
+        count++;
+      }
+      cleanEmail = candidateEmail;
+    } else {
+      if (cleanEmail.endsWith('@gmail.com')) {
+        cleanEmail = cleanEmail.replace(/@gmail\.com$/i, '@educa.com');
+      } else if (!cleanEmail.includes('@')) {
+        cleanEmail = `${cleanEmail}@educa.com`;
+      }
+    }
     const cleanPass = password && password.trim().length >= 6 ? password.trim() : '12345678';
 
     const existingUser = await User.findOne({
@@ -1394,6 +1411,7 @@ router.post('/agent/add-customer', protect, async (req, res) => {
         name: newUser.name,
         phone: newUser.phone,
         email: newUser.email,
+        tempPassword: cleanPass,
         accountNumber: newUser.accountNumber,
         loanLimit: newUser.loanLimit,
         createdAt: newUser.createdAt

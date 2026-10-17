@@ -678,6 +678,7 @@ export default function Dashboard() {
   const [addCustomerModalOpen, setAddCustomerModalOpen] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({ name: "", phone: "", email: "", password: "12345678" });
   const [submittingCustomer, setSubmittingCustomer] = useState(false);
+  const [createdCustomerData, setCreatedCustomerData] = useState(null);
   const [nominateSubAgentModalOpen, setNominateSubAgentModalOpen] = useState(false);
   const [subAgentForm, setSubAgentForm] = useState({ candidateUserId: "", name: "", phone: "", businessName: "", city: "" });
   const [submittingSubAgent, setSubmittingSubAgent] = useState(false);
@@ -2018,7 +2019,13 @@ export default function Dashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Customer add karne me error aaya");
       setToast({ text: data.message || "Customer safaltapoorvak link ho gaya!", type: "success" });
-      setAddCustomerModalOpen(false);
+      const cust = data.customer || {};
+      setCreatedCustomerData({
+        name: cust.name || newCustomerForm.name,
+        phone: cust.phone || cleanPhone,
+        email: cust.email || `${cleanPhone}@educa.com`,
+        tempPassword: cust.tempPassword || newCustomerForm.password || "12345678"
+      });
       setNewCustomerForm({ name: "", phone: "", email: "", password: "12345678" });
       loadAgentMetrics();
     } catch (err) {
@@ -12733,107 +12740,193 @@ export default function Dashboard() {
       {addCustomerModalOpen && (
         <Sheet
           open={addCustomerModalOpen}
-          onClose={() => setAddCustomerModalOpen(false)}
-          title="Onboard Customer Under My Portfolio"
+          onClose={() => {
+            setAddCustomerModalOpen(false);
+            setCreatedCustomerData(null);
+          }}
+          title={createdCustomerData ? "Customer Credentials & Share" : "Onboard Customer Under My Portfolio"}
           icon=""
         >
-          <form onSubmit={handleAgentAddCustomer} className="space-y-4">
-            <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/5 border border-emerald-300 rounded-2xl flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-emerald-800 uppercase font-black tracking-wider">Direct Referral Linking</span>
-                <h4 className="text-sm font-black text-emerald-950">
-                  New Customer Addition
-                </h4>
+          {createdCustomerData ? (
+            <div className="space-y-4">
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-2xs">
+                  ✓
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-sm font-black text-emerald-950">
+                    Customer Account Ready!
+                  </h4>
+                  <p className="text-[11px] text-emerald-800 font-medium">
+                    Naye customer ka account ban chuka hai. Direct WhatsApp bhejein ya details copy karein.
+                  </p>
+                </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500 text-slate-950 uppercase shadow-2xs font-mono">
-                Code: {userProfile.referralCode || "AGENT"}
-              </span>
-            </div>
 
-            <p className="text-[11px] text-slate-600 leading-tight">
-              Aap apne referral network ke antargat naye customer ko sidhe registered kar sakte hain. Customer ka account turant ban jayega aur aapke portfolio me link ho jayega.
-            </p>
+              {/* Customer Credentials Card */}
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3.5 space-y-2 text-xs">
+                <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+                  <span className="text-gray-500 font-bold text-[11px]">Grahak Ka Naam:</span>
+                  <span className="font-black text-gray-900 text-xs">{createdCustomerData.name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 font-bold text-[11px]">Mobile / Login ID:</span>
+                  <span className="font-mono font-black text-gray-900">{createdCustomerData.phone}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 font-bold text-[11px]">Official Educa Mail:</span>
+                  <span className="font-mono font-bold text-blue-700 text-[11px]">{createdCustomerData.email}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 font-bold text-[11px]">Temporary Password:</span>
+                  <span className="font-mono font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                    {createdCustomerData.tempPassword}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-gray-200">
+                  <span className="text-gray-500 font-bold text-[11px]">Download Link:</span>
+                  <span className="font-mono text-[10px] text-gray-700 truncate max-w-[170px]">
+                    /EducaFintech.apk
+                  </span>
+                </div>
+              </div>
 
-            {/* Customer Name */}
-            <div>
-              <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                Customer Full Name <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={newCustomerForm.name}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
-                placeholder="e.g. Ramesh Kumar"
-                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
+              {/* Two Primary Action Buttons */}
+              <div className="space-y-2 pt-1">
+                {/* 1. Direct WhatsApp Share without saving number */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const portalUrl = typeof window !== "undefined" ? window.location.origin : "https://educafintech.vercel.app";
+                    const apkUrl = `${portalUrl}/EducaFintech.apk`;
+                    const msg = `Namaste ${createdCustomerData.name} ji! 🙏\n\nAapka Educa Fintech account safaltapoorvak ban gaya hai.\n\n📱 *Login Mobile No:* ${createdCustomerData.phone}\n✉️ *Official Educa Mail:* ${createdCustomerData.email}\n🔑 *Temporary Password:* ${createdCustomerData.tempPassword}\n\n📲 *Download Official Android App:*\n${apkUrl}\n\n🌐 *Web Portal & Educa Mail Login:*\n${portalUrl}\n\n⚠️ *Kripya pehli baar login karke apna password turant badal lein.*`;
+                    const cleanP = String(createdCustomerData.phone).replace(/\D/g, "");
+                    const waUrl = `https://wa.me/91${cleanP}?text=${encodeURIComponent(msg)}`;
+                    window.open(waUrl, "_blank");
+                  }}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                >
+                  <span className="text-base">💬</span>
+                  <span>WhatsApp par Bhejein (Direct Without Saving)</span>
+                </button>
 
-            {/* Mobile Number */}
-            <div>
-              <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                10-Digit Mobile Number <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="tel"
-                required
-                maxLength={10}
-                value={newCustomerForm.phone}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value.replace(/\D/g, '') })}
-                placeholder="e.g. 9876543210"
-                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
+                {/* 2. Copy Credentials & Links */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const portalUrl = typeof window !== "undefined" ? window.location.origin : "https://educafintech.vercel.app";
+                    const apkUrl = `${portalUrl}/EducaFintech.apk`;
+                    const msg = `Namaste ${createdCustomerData.name} ji! 🙏\n\nAapka Educa Fintech account safaltapoorvak ban gaya hai.\n\n📱 Login Mobile No: ${createdCustomerData.phone}\n✉️ Official Educa Mail: ${createdCustomerData.email}\n🔑 Temporary Password: ${createdCustomerData.tempPassword}\n\n📲 Download Official Android App:\n${apkUrl}\n\n🌐 Web Portal & Educa Mail Login:\n${portalUrl}\n\nKripya pehli baar login karke apna password turant badal lein.`;
+                    navigator.clipboard.writeText(msg).then(() => {
+                      setToast({ text: "Details & Links copy ho gaye!", type: "success" });
+                    });
+                  }}
+                  className="w-full py-2.5 px-4 bg-gray-900 hover:bg-black active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                >
+                  <span>📋</span>
+                  <span>Credentials & Download Link Copy Karein</span>
+                </button>
+              </div>
 
-            {/* Email (Optional) */}
-            <div>
-              <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                Email Address (Optional)
-              </label>
-              <input
-                type="email"
-                value={newCustomerForm.email}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
-                placeholder="agar email na ho to khali chhod dein"
-                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
-              />
+              {/* Close Button */}
+              <div className="pt-1 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatedCustomerData(null);
+                    setAddCustomerModalOpen(false);
+                  }}
+                  className="text-xs font-bold text-gray-500 hover:text-gray-900 transition underline cursor-pointer"
+                >
+                  Band Karein (Done)
+                </button>
+              </div>
             </div>
+          ) : (
+            <form onSubmit={handleAgentAddCustomer} className="space-y-4">
+              <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/5 border border-emerald-300 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-emerald-800 uppercase font-black tracking-wider">Direct Referral Linking</span>
+                  <h4 className="text-sm font-black text-emerald-950">
+                    New Customer Addition
+                  </h4>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500 text-slate-950 uppercase shadow-2xs font-mono">
+                  Code: {userProfile.referralCode || "AGENT"}
+                </span>
+              </div>
 
-            {/* Initial Password */}
-            <div>
-              <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                Initial Login Password
-              </label>
-              <input
-                type="text"
-                value={newCustomerForm.password}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, password: e.target.value })}
-                placeholder="Default: 12345678"
-                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              <span className="text-[10px] text-gray-400 mt-0.5 block">
-                Customer is password se login kar sakta hai aur baad me change kar sakta hai.
-              </span>
-            </div>
+              <p className="text-[11px] text-slate-600 leading-tight">
+                Aap apne referral network ke antargat naye customer ko sidhe registered kar sakte hain. Customer ka account turant ban jayega aur aapke portfolio me link ho jayega.
+              </p>
 
-            {/* Submit Button */}
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={submittingCustomer}
-                className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl text-xs shadow-md transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
-              >
-                {submittingCustomer ? (
-                  <span>Registering & Linking Customer...</span>
-                ) : (
-                  <>
-                    <span>✓</span>
-                    <span>Create & Link Customer Under Me →</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+              {/* Customer Name */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  Customer Full Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newCustomerForm.name}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                  placeholder="e.g. Ramesh Kumar"
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Mobile Number */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  10-Digit Mobile Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  maxLength={10}
+                  value={newCustomerForm.phone}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value.replace(/\D/g, '') })}
+                  placeholder="e.g. 9876543210"
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Initial Password */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  Initial Login Password
+                </label>
+                <input
+                  type="text"
+                  value={newCustomerForm.password}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, password: e.target.value })}
+                  placeholder="Default: 12345678"
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <span className="text-[10px] text-gray-400 mt-0.5 block">
+                  Customer is password se login kar sakta hai aur baad me change kar sakta hai.
+                </span>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={submittingCustomer}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl text-xs shadow-md transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {submittingCustomer ? (
+                    <span>Registering & Linking Customer...</span>
+                  ) : (
+                    <>
+                      <span>✓</span>
+                      <span>Create & Link Customer Under Me →</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
         </Sheet>
       )}
 

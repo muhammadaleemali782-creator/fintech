@@ -112,23 +112,34 @@ export default function StaffDesk() {
     setKycSubTab("verifications");
   }, [activeTab]);
 
-  // Loan Department Central Pool State
-  const [deptPool, setDeptPool] = useState({
-    totalPool: 1000000,
-    marketDisbursed: 0,
-    availablePool: 1000000,
-    activeLoansCount: 0,
-    utilizationPercent: 0
-  });
+  // Cache-First Loan Department Central Pool State
+  const initialDeptPool = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("educa_staff_dept_pool");
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return {
+      totalPool: 1000000,
+      marketDisbursed: 0,
+      availablePool: 1000000,
+      activeLoansCount: 0,
+      utilizationPercent: 0
+    };
+  }, []);
+
+  const [deptPool, setDeptPool] = useState(initialDeptPool);
 
   const fetchDeptPool = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/loans/department-pool`, {
+      const res = await fetch(`${API}/loan/department-pool`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       if (data.success) {
         setDeptPool(data);
+        try {
+          localStorage.setItem("educa_staff_dept_pool", JSON.stringify(data));
+        } catch (_) {}
       }
     } catch (_) {}
   }, [token]);
@@ -167,6 +178,23 @@ export default function StaffDesk() {
       totalCount: list.length
     };
   }, [queues.loan]);
+
+  // Derived Live Central Loan Department Pool Calculations (Always accurate & auto-deducted)
+  const poolStats = useMemo(() => {
+    const totalPool = Number(deptPool.totalPool) || 1000000;
+    const marketDisbursed = Math.max(Number(deptPool.marketDisbursed) || 0, Number(loanStats.totalDisbursed) || 0);
+    const availablePool = Math.max(0, totalPool - marketDisbursed);
+    const utilizationPercent = totalPool > 0
+      ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1)))
+      : 0;
+
+    return {
+      totalPool,
+      marketDisbursed,
+      availablePool,
+      utilizationPercent
+    };
+  }, [deptPool, loanStats.totalDisbursed]);
 
   const depositStats = useMemo(() => {
     const list = queues.deposit || [];
@@ -301,6 +329,12 @@ export default function StaffDesk() {
       if (data.success && data.queues) {
         setQueues(data.queues);
         setCounts(data.counts || {});
+        if (data.deptPool) {
+          setDeptPool(data.deptPool);
+          try {
+            localStorage.setItem("educa_staff_dept_pool", JSON.stringify(data.deptPool));
+          } catch (_) {}
+        }
         fetchDeptPool();
         try {
           localStorage.setItem("educa_staff_desk_queues", JSON.stringify(data.queues));
@@ -1097,7 +1131,7 @@ export default function StaffDesk() {
                     Loan Department Central Pool
                   </span>
                   <div className="text-xl sm:text-2xl font-black font-mono">
-                    ₹{(deptPool.totalPool || 1000000).toLocaleString("en-IN")}
+                    ₹{poolStats.totalPool.toLocaleString("en-IN")}
                   </div>
                   <p className="text-[10px] text-blue-200/80">
                     Sabhi loan staff ko yahi central pool aur market me diya hua loan dikhega.
@@ -1107,13 +1141,13 @@ export default function StaffDesk() {
                   <div>
                     <span className="text-[10px] font-bold text-amber-300 uppercase block">Market Me Diya Loan</span>
                     <span className="text-sm sm:text-base font-black text-amber-200 font-mono">
-                      ₹{(deptPool.marketDisbursed || loanStats.totalDisbursed).toLocaleString("en-IN")}
+                      ₹{poolStats.marketDisbursed.toLocaleString("en-IN")}
                     </span>
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-emerald-300 uppercase block">Available Pool (Baki)</span>
                     <span className="text-sm sm:text-base font-black text-emerald-300 font-mono">
-                      ₹{(deptPool.availablePool !== undefined ? deptPool.availablePool : Math.max(0, 1000000 - loanStats.totalDisbursed)).toLocaleString("en-IN")}
+                      ₹{poolStats.availablePool.toLocaleString("en-IN")}
                     </span>
                   </div>
                 </div>
@@ -1122,13 +1156,13 @@ export default function StaffDesk() {
               {/* Pool Utilization Bar */}
               <div className="space-y-1">
                 <div className="flex justify-between text-[10px] text-blue-200">
-                  <span>Pool Disbursal: {deptPool.utilizationPercent || 0}%</span>
-                  <span>Baki Limit: ₹{(deptPool.availablePool !== undefined ? deptPool.availablePool : Math.max(0, 1000000 - loanStats.totalDisbursed)).toLocaleString("en-IN")}</span>
+                  <span>Pool Disbursal: {poolStats.utilizationPercent}%</span>
+                  <span>Baki Limit: ₹{poolStats.availablePool.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="w-full h-1.5 bg-blue-950 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-400 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, Math.max(0, deptPool.utilizationPercent || 0))}%` }}
+                    style={{ width: `${poolStats.utilizationPercent}%` }}
                   />
                 </div>
               </div>
@@ -1315,7 +1349,7 @@ export default function StaffDesk() {
               const amount = item.amount || item.principalAmount || 0;
               const itemStatus = String(item.status || item.kycStatus || "pending").toLowerCase();
               const isPendingItem = ["pending", "hold"].includes(itemStatus);
-              const isOverLimit = activeTab === "loan" && (deptPool.availablePool !== undefined) && amount > deptPool.availablePool;
+              const isOverLimit = activeTab === "loan" && amount > poolStats.availablePool;
               const isSelfAction = String(item.userId?._id || item.userId || "") === String(user?._id || user?.id || "");
               const canProcess = hasPermission(DEPT_CONFIG[activeTab]?.processPerm) && !isSelfAction;
               const hasDocs = !!(item.documents?.photoUrl || item.documents?.doc1Url || item.documents?.doc1BackUrl || item.documents?.doc2Url || item.documents?.chequeUrl || item.screenshotUrl || item.proofUrl || item.kycDocuments?.doc1Url);
@@ -1557,7 +1591,7 @@ export default function StaffDesk() {
                     )}
                     {isPendingItem && isOverLimit && (
                       <div className="mt-2 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold">
-                        Exceeds Loan Dept Pool (Available: ₹{deptPool.availablePool?.toLocaleString("en-IN")})
+                        Exceeds Loan Dept Pool (Available: ₹{poolStats.availablePool.toLocaleString("en-IN")})
                       </div>
                     )}
                   </div>

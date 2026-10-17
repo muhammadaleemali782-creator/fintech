@@ -87,7 +87,7 @@ export default function StaffManager() {
   // Fetch Loan Department Central Pool
   const fetchDeptPool = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/loans/department-pool`, {
+      const res = await fetch(`${API}/loan/department-pool`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -106,7 +106,7 @@ export default function StaffManager() {
     }
     setPoolSaving(true);
     try {
-      const res = await fetch(`${API}/loans/department-pool`, {
+      const res = await fetch(`${API}/loan/department-pool`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

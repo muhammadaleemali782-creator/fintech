@@ -350,7 +350,7 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
         if (['lending_40', 'lending_80'].includes(b.bondType)) return allowedDepts.includes('lending');
         return allowedDepts.includes('bond');
       });
-      const filteredUsers = allowedDepts.includes('kyc') ? cleanUsers.filter(u => u.kycStatus === 'pending') : [];
+      const filteredUsers = allowedDepts.includes('kyc') ? cleanUsers.filter(u => ['pending', 'verified', 'rejected'].includes(u.kycStatus) || u.aadharNumber || u.kycDocuments?.submittedAt) : [];
 
       const staffPayload = {
         success: true,
@@ -358,7 +358,7 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
         analytics: {
           pendingTxns: filteredPending.length,
           activeLoans: filteredLoans.filter(l => l.status === 'pending').length,
-          pendingKyc: filteredUsers.length
+          pendingKyc: filteredUsers.filter(u => u.kycStatus === 'pending').length
         },
         users: filteredUsers,
         pendingTxns: filteredPending,

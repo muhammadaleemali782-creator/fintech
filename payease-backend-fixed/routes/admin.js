@@ -2629,15 +2629,23 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
     // KYC Verification & Bank Change Request Queue
     if (allowedDepts.includes('kyc')) {
       promises.push(
-        User.find({ kycStatus: 'pending', role: { $ne: 'admin' } })
-          .select('name email phone aadharNumber panNumber address bankAccount kycStatus kycDocuments.submittedAt kycDocuments.doc1Url kycDocuments.doc1BackUrl kycDocuments.doc2Url kycDocuments.doc2BackUrl kycDocuments.chequeUrl createdAt accountNumber upiId cardStatus avatar photoUrl approvedAt kycApprovedAt updatedAt')
+        User.find({
+          role: { $ne: 'admin' },
+          $or: [
+            { kycStatus: { $in: ['pending', 'verified', 'rejected'] } },
+            { 'kycDocuments.submittedAt': { $ne: null } },
+            { 'kycDocuments.doc1Url': { $exists: true, $ne: '' } },
+            { aadharNumber: { $exists: true, $ne: null, $ne: '' } }
+          ]
+        })
+          .select('name email phone aadharNumber panNumber address bankAccount kycStatus kycDocuments createdAt accountNumber upiId cardStatus avatar photoUrl approvedAt kycApprovedAt kycVerifiedAt kycApprovedBy updatedAt')
           .sort({ 'kycDocuments.submittedAt': -1, createdAt: -1 })
-          .limit(60)
+          .limit(100)
           .maxTimeMS(8000)
           .lean()
           .then(users => {
             queues.kyc = users;
-            queues.counts.kyc = users.length;
+            queues.counts.kyc = users.filter(u => u.kycStatus === 'pending').length;
           })
           .catch(err => console.warn('Desk kyc queue notice:', err.message))
       );

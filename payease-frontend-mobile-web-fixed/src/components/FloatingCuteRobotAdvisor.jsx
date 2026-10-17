@@ -10,7 +10,7 @@ import { useState, useEffect, useRef } from "react";
  *   tucking into that wall at the exact vertical height.
  * - A peeking waving robot hand stays docked at that wall edge.
  * - Clicking the peeking hand pops the robot back out.
- * - Clicking the robot opens the AI Advisor chat (onOpen).
+ * - Clicking / tapping the robot reliably opens the AI Advisor chat (onOpen).
  */
 export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
   const [isPeek, setIsPeek] = useState(false);
@@ -33,15 +33,24 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
         }
       }
     } catch {}
-    const w = typeof window !== "undefined" ? window.innerWidth : 360;
-    const h = typeof window !== "undefined" ? window.innerHeight : 640;
+    const w = window.innerWidth || 360;
+    const h = window.innerHeight || 640;
     return {
       x: Math.max(8, w - 84),
       y: Math.max(60, h - 160),
     };
   });
 
-  const dragStartRef = useRef({ startX: 0, startY: 0, posX: 0, posY: 0, hasMoved: false });
+  const dragRef = useRef({ isDown: false, startX: 0, startY: 0, posX: 0, posY: 0, moved: false });
+  const lastOpenTimeRef = useRef(0);
+
+  // Debounced/safe open trigger to prevent duplicate calls from pointerup + click
+  const triggerOpen = () => {
+    const now = Date.now();
+    if (now - lastOpenTimeRef.current < 400) return;
+    lastOpenTimeRef.current = now;
+    onOpen?.();
+  };
 
   // Clamp position within viewport on resize
   useEffect(() => {
@@ -68,29 +77,34 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
   const dockSide = isLeftWall ? "left" : "right";
 
   const handlePointerDown = (e) => {
-    // Only primary mouse button or touch
     if (e.button !== undefined && e.button !== 0) return;
+    if (e.target.closest("button")) return;
 
-    dragStartRef.current = {
+    dragRef.current = {
+      isDown: true,
       startX: e.clientX,
       startY: e.clientY,
       posX: pos.x,
       posY: pos.y,
-      hasMoved: false,
+      moved: false,
     };
 
     const handlePointerMove = (moveEv) => {
-      const dx = moveEv.clientX - dragStartRef.current.startX;
-      const dy = moveEv.clientY - dragStartRef.current.startY;
-      if (!dragStartRef.current.hasMoved && Math.hypot(dx, dy) > 5) {
-        dragStartRef.current.hasMoved = true;
+      if (!dragRef.current.isDown) return;
+      const dx = moveEv.clientX - dragRef.current.startX;
+      const dy = moveEv.clientY - dragRef.current.startY;
+
+      // 15px threshold to ignore fingertip wobble on mobile touch screens
+      if (!dragRef.current.moved && Math.hypot(dx, dy) > 15) {
+        dragRef.current.moved = true;
         setIsDragging(true);
       }
-      if (dragStartRef.current.hasMoved) {
+
+      if (dragRef.current.moved) {
         const w = window.innerWidth || 360;
         const h = window.innerHeight || 640;
-        const newX = Math.min(Math.max(8, dragStartRef.current.posX + dx), w - 76);
-        const newY = Math.min(Math.max(60, dragStartRef.current.posY + dy), h - 110);
+        const newX = Math.min(Math.max(8, dragRef.current.posX + dx), w - 76);
+        const newY = Math.min(Math.max(60, dragRef.current.posY + dy), h - 110);
         setPos({ x: newX, y: newY });
       }
     };
@@ -100,7 +114,10 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
 
-      if (dragStartRef.current.hasMoved) {
+      const wasMoved = dragRef.current.moved;
+      dragRef.current.isDown = false;
+
+      if (wasMoved) {
         setTimeout(() => setIsDragging(false), 50);
         setPos((current) => {
           try {
@@ -110,7 +127,7 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
         });
       } else {
         setIsDragging(false);
-        onOpen?.();
+        triggerOpen();
       }
     };
 
@@ -119,19 +136,26 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
     window.addEventListener("pointercancel", handlePointerUp);
   };
 
+  const handleRobotClick = (e) => {
+    if (e.target.closest("button")) return;
+    if (dragRef.current.moved) return;
+    triggerOpen();
+  };
+
   return (
     <>
-      {/* 1. FULL ROBOT (Draggable anywhere across the screen) */}
+      {/* 1. FULL ROBOT (Draggable anywhere across the screen, clickable to open chat) */}
       <div
         onPointerDown={handlePointerDown}
+        onClick={handleRobotClick}
         style={{
           left: `${pos.x}px`,
           top: `${pos.y}px`,
           touchAction: "none",
           userSelect: "none",
         }}
-        className={`fixed z-40 select-none ${
-          isDragging ? "cursor-grabbing" : "cursor-grab"
+        className={`fixed z-40 select-none cursor-pointer ${
+          isDragging ? "cursor-grabbing" : "cursor-pointer"
         } ${
           isPeek
             ? dockSide === "left"
@@ -139,6 +163,7 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
               : "translate-x-[calc(100%+40px)] opacity-0 pointer-events-none scale-90"
             : "translate-x-0 opacity-100 scale-100"
         } ${isDragging ? "" : "transition-all duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)]"}`}
+        title="AI Advisor (Tap to Chat)"
       >
         <div className="relative group">
           {/* Close 'X' Button - transparent, positioned on inside corner so it never clips off-screen */}
@@ -150,12 +175,12 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
               setIsPeek(true);
             }}
             aria-label="Close AI Advisor"
-            className={`absolute z-30 w-5 h-5 flex items-center justify-center bg-transparent border-0 shadow-none text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all hover:scale-125 active:scale-90 cursor-pointer ${
+            className={`absolute z-30 w-6 h-6 flex items-center justify-center bg-transparent border-0 shadow-none text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all hover:scale-125 active:scale-90 cursor-pointer ${
               isLeftWall ? "-top-1 -right-1" : "-top-1 -left-1"
             }`}
             title="Deewar me chupayein (Hide into wall)"
           >
-            <svg className="w-3.5 h-3.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -167,7 +192,7 @@ export default function FloatingCuteRobotAdvisor({ onOpen, isOpen }) {
           <img
             src="/ai-robot.png"
             alt="AI Advisor Robot"
-            className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_8px_16px_rgba(34,211,238,0.35)] relative z-10 transition-transform duration-150 group-hover:scale-105"
+            className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_8px_16px_rgba(34,211,238,0.35)] relative z-10 transition-transform duration-150 group-hover:scale-105 active:scale-95 pointer-events-auto cursor-pointer"
             draggable={false}
           />
         </div>

@@ -694,21 +694,73 @@ export default function StaffDesk() {
     };
   };
 
+  // Helper to determine if KYC submission is Full KYC vs Normal KYC
+  const isFullKyc = (item) => {
+    return Boolean(
+      item.hasLoan ||
+      item.loanId ||
+      item.hasLending ||
+      item.lendingId ||
+      item.hasBond ||
+      item.bondId ||
+      item.documents?.chequeUrl ||
+      item.documents?.doc2Url ||
+      item.kycDocuments?.chequeUrl ||
+      item.kycDocuments?.doc2Url ||
+      item.panNumber ||
+      item.kycDocuments?.panNumber ||
+      item.kycDocuments?.chequeNumber ||
+      (item.kycType && item.kycType !== "normal") ||
+      (item.purpose && ["loan", "lending", "bond"].some(p => item.purpose.toLowerCase().includes(p)))
+    );
+  };
+
+  const getKycItemStatus = (item) => {
+    const s = String(item.status || item.kycStatus || "pending").toLowerCase();
+    if (["approved", "completed", "active", "verified"].includes(s)) return "approved";
+    if (s === "rejected") return "rejected";
+    return "pending";
+  };
+
   // Live Counts for Filter Dropdown (All, Pending, Approved, Rejected)
   const filterCounts = useMemo(() => {
     const list = queues[activeTab] || [];
     if (activeTab === "kyc") {
-      let normal = 0, loan = 0, lending = 0, bond = 0;
+      let pendingAll = 0, pendingFull = 0, pendingNormal = 0;
+      let approvedAll = 0, approvedFull = 0, approvedNormal = 0;
+      let rejectedAll = 0, rejectedFull = 0, rejectedNormal = 0;
+
       list.forEach(item => {
-        const hasLoan = Boolean(item.hasLoan || item.loanId || item.documents?.chequeUrl || item.kycDocuments?.chequeUrl || (item.purpose && item.purpose.toLowerCase().includes("loan")));
-        const hasLending = Boolean(item.hasLending || item.lendingId || (item.purpose && item.purpose.toLowerCase().includes("lending")));
-        const hasBond = Boolean(item.hasBond || item.bondId || (item.purpose && item.purpose.toLowerCase().includes("bond")));
-        if (hasLoan) loan++;
-        else if (hasLending) lending++;
-        else if (hasBond) bond++;
-        else normal++;
+        const full = isFullKyc(item);
+        const status = getKycItemStatus(item);
+
+        if (status === "pending") {
+          pendingAll++;
+          if (full) pendingFull++;
+          else pendingNormal++;
+        } else if (status === "approved") {
+          approvedAll++;
+          if (full) approvedFull++;
+          else approvedNormal++;
+        } else if (status === "rejected") {
+          rejectedAll++;
+          if (full) rejectedFull++;
+          else rejectedNormal++;
+        }
       });
-      return { all: list.length, normal, loan, lending, bond, pending: list.length, approved: 0, rejected: 0 };
+
+      return {
+        all: list.length,
+        pending: pendingAll,
+        pendingFull,
+        pendingNormal,
+        approved: approvedAll,
+        approvedFull,
+        approvedNormal,
+        rejected: rejectedAll,
+        rejectedFull,
+        rejectedNormal
+      };
     }
 
     let pending = 0, approved = 0, rejected = 0;
@@ -749,23 +801,31 @@ export default function StaffDesk() {
 
     return list.filter(item => {
       if (activeTab === "kyc") {
-        if (statusFilter === "normal_kyc") {
-          const isSpecialized = Boolean(item.hasLoan || item.loanId || item.hasLending || item.lendingId || item.hasBond || item.bondId || item.documents?.chequeUrl || item.kycDocuments?.chequeUrl || (item.kycType && item.kycType !== "normal"));
-          if (isSpecialized) return false;
-        } else if (statusFilter === "loan_kyc") {
-          const hasLoan = Boolean(item.hasLoan || item.loanId || item.documents?.chequeUrl || item.kycDocuments?.chequeUrl || (item.purpose && item.purpose.toLowerCase().includes("loan")));
-          if (!hasLoan && item.kycType && item.kycType !== "loan") return false;
-        } else if (statusFilter === "lending_kyc") {
-          const hasLending = Boolean(item.hasLending || item.lendingId || (item.purpose && item.purpose.toLowerCase().includes("lending")));
-          if (!hasLending && item.kycType && item.kycType !== "lending") return false;
-        } else if (statusFilter === "bond_kyc") {
-          const hasBond = Boolean(item.hasBond || item.bondId || (item.purpose && item.purpose.toLowerCase().includes("bond")));
-          if (!hasBond && item.kycType && item.kycType !== "bond") return false;
-        } else if (statusFilter !== "all") {
-          const itemStatus = (item.status || item.kycStatus || "pending").toLowerCase();
-          if (statusFilter === "pending" && !["pending", "hold"].includes(itemStatus)) return false;
-          if (statusFilter === "approved" && !["approved", "completed", "active", "verified"].includes(itemStatus)) return false;
-          if (statusFilter === "rejected" && itemStatus !== "rejected") return false;
+        const full = isFullKyc(item);
+        const status = getKycItemStatus(item);
+
+        if (statusFilter === "pending") {
+          if (status !== "pending") return false;
+        } else if (statusFilter === "pending_full") {
+          if (status !== "pending" || !full) return false;
+        } else if (statusFilter === "pending_normal") {
+          if (status !== "pending" || full) return false;
+        } else if (statusFilter === "approved") {
+          if (status !== "approved") return false;
+        } else if (statusFilter === "approved_full") {
+          if (status !== "approved" || !full) return false;
+        } else if (statusFilter === "approved_normal") {
+          if (status !== "approved" || full) return false;
+        } else if (statusFilter === "rejected") {
+          if (status !== "rejected") return false;
+        } else if (statusFilter === "rejected_full") {
+          if (status !== "rejected" || !full) return false;
+        } else if (statusFilter === "rejected_normal") {
+          if (status !== "rejected" || full) return false;
+        } else if (statusFilter === "normal_kyc") {
+          if (full) return false;
+        } else if (statusFilter === "loan_kyc" || statusFilter === "lending_kyc" || statusFilter === "bond_kyc") {
+          if (!full) return false;
         }
       } else if (statusFilter !== "all") {
         const itemStatus = (item.status || "pending").toLowerCase();
@@ -787,7 +847,7 @@ export default function StaffDesk() {
 
       return true;
     });
-  }, [queues, activeTab, statusFilter, searchTerm]);
+  }, [queues, activeTab, statusFilter, searchTerm, kycSubTab]);
 
   // Check claim status for an item
   const getClaimStatus = (item) => {
@@ -924,7 +984,7 @@ export default function StaffDesk() {
               }`}
             >
               <span>🪪</span>
-              <span>Full KYC Submissions</span>
+              <span>KYC Submissions</span>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                 kycSubTab === "verifications" ? "bg-white/20 text-white" : "bg-blue-50 text-blue-700 border border-blue-200"
               }`}>
@@ -959,7 +1019,7 @@ export default function StaffDesk() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={`Search ${activeTab === 'kyc' ? 'KYC (Normal, Loan, Lending, Bond)' : (DEPT_CONFIG[activeTab]?.label || 'queue')} by user, phone, account, ID...`}
+              placeholder={`Search ${activeTab === 'kyc' ? 'KYC (Full, Normal, Aadhaar, PAN)' : (DEPT_CONFIG[activeTab]?.label || 'queue')} by user, phone, account, ID...`}
               className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white transition"
             />
             {searchTerm && (
@@ -986,11 +1046,16 @@ export default function StaffDesk() {
             >
               {activeTab === "kyc" ? (
                 <>
-                  <option value="all">Full KYC (All) ({filterCounts.all})</option>
-                  <option value="normal_kyc">Normal KYC ({filterCounts.normal})</option>
-                  <option value="loan_kyc">Loan KYC ({filterCounts.loan})</option>
-                  <option value="lending_kyc">Lending KYC ({filterCounts.lending})</option>
-                  <option value="bond_kyc">Bond KYC ({filterCounts.bond})</option>
+                  <option value="all">All KYC ({filterCounts.all})</option>
+                  <option value="approved">Approved KYC ({filterCounts.approved})</option>
+                  <option value="approved_full">Approved Full KYC ({filterCounts.approvedFull})</option>
+                  <option value="approved_normal">Approved Normal KYC ({filterCounts.approvedNormal})</option>
+                  <option value="rejected">Rejected KYC ({filterCounts.rejected})</option>
+                  <option value="rejected_full">Rejected Full KYC ({filterCounts.rejectedFull})</option>
+                  <option value="rejected_normal">Rejected Normal KYC ({filterCounts.rejectedNormal})</option>
+                  <option value="pending">Pending KYC ({filterCounts.pending})</option>
+                  <option value="pending_full">Pending Full KYC ({filterCounts.pendingFull})</option>
+                  <option value="pending_normal">Pending Normal KYC ({filterCounts.pendingNormal})</option>
                 </>
               ) : (
                 <>
@@ -1362,11 +1427,13 @@ export default function StaffDesk() {
                         {activeTab === "kyc" && (
                           <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-bold">
                             {item.hasLoan || item.loanId || item.documents?.chequeUrl || item.kycDocuments?.chequeUrl || item.kycType === "loan"
-                              ? "Loan KYC"
+                              ? "Loan KYC (Full)"
                               : item.hasLending || item.lendingId || item.kycType === "lending"
-                              ? "Lending KYC"
+                              ? "Lending KYC (Full)"
                               : item.hasBond || item.bondId || item.kycType === "bond"
-                              ? "Bond KYC"
+                              ? "Bond KYC (Full)"
+                              : isFullKyc(item)
+                              ? "Full KYC"
                               : "Normal KYC"}
                           </span>
                         )}

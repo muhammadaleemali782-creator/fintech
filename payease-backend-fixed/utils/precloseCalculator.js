@@ -171,9 +171,13 @@ function calculatePrecloseBreakdown(params = {}) {
   const discount_amount = Number(((base_amount * total_discount_percent) / 100).toFixed(2));
 
   // Split discount pool:
-  // Agent's profit is 50% of discount price, Department profit = AGENT profit
+  // Agent's profit is 50% of discount price, Department profit = AGENT profit (Company funded)
   const agent_share_amount = Number(((discount_amount * agent_share_percent) / 100).toFixed(2));
   const loan_department_share_amount = Number((discount_amount - agent_share_amount).toFixed(2));
+
+  // Profit percentages (e.g. 1% discount => 0.5% agent + 0.5% dept, 2% => 1% + 1%)
+  const agent_profit_percent = Number(((total_discount_percent * agent_share_percent) / 100).toFixed(2));
+  const department_profit_percent = Number((total_discount_percent - agent_profit_percent).toFixed(2));
 
   const total_payable = Number(total_payable_amount) || (principal + interest_pool);
   const user_payable_amount = Math.max(0, Number((total_payable - discount_amount + penalty).toFixed(2)));
@@ -190,6 +194,8 @@ function calculatePrecloseBreakdown(params = {}) {
     kist_factor: discount_blocks,
     total_discount_percent,
     discount_amount,
+    agent_profit_percent,
+    department_profit_percent,
     agent_profit: agent_share_amount,
     agent_share_amount,
     department_profit: loan_department_share_amount,

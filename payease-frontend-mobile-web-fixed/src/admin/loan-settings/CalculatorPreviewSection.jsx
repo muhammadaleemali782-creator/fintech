@@ -240,23 +240,23 @@ export default function CalculatorPreviewSection({ settings, conditions }) {
 
           {/* 5. Agent Profit */}
           <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-1">
-            <span className="text-[10px] uppercase font-bold text-zinc-400 block">Agent Profit ({result.applied_settings.agent_share_percent}%)</span>
+            <span className="text-[10px] uppercase font-bold text-zinc-400 block">Agent Profit (Company Paid)</span>
             <span className="text-xl font-black text-zinc-100 font-mono block">
               ₹{(result.agent_profit ?? result.agent_share_amount).toLocaleString("en-IN")}
             </span>
-            <span className="text-[10px] text-zinc-500 block">
-              50% of customer discount
+            <span className="text-[10px] text-zinc-400 block font-mono">
+              {result.agent_profit_percent !== undefined ? `${result.agent_profit_percent}%` : "50%"} of loan (Company Paid)
             </span>
           </div>
 
           {/* 6. Department Profit */}
           <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-1">
-            <span className="text-[10px] uppercase font-bold text-zinc-400 block">Department Profit ({result.applied_settings.loan_department_share_percent}%)</span>
+            <span className="text-[10px] uppercase font-bold text-zinc-400 block">Department Profit (Company Paid)</span>
             <span className="text-xl font-black text-zinc-200 font-mono block">
               ₹{(result.department_profit ?? result.loan_department_share_amount).toLocaleString("en-IN")}
             </span>
-            <span className="text-[10px] text-zinc-500 block">
-              = Agent profit (50%)
+            <span className="text-[10px] text-zinc-400 block font-mono">
+              {result.department_profit_percent !== undefined ? `${result.department_profit_percent}%` : "50%"} of loan (Company Paid)
             </span>
           </div>
 

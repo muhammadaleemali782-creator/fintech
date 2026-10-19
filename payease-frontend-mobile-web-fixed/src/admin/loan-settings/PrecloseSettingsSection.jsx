@@ -123,11 +123,13 @@ export default function PrecloseSettingsSection({
         kistFactor: res.kist_factor || res.discount_blocks,
         discountPercent: res.total_discount_percent,
         discountAmount: res.discount_amount,
+        agentProfitPercent: res.agent_profit_percent !== undefined ? res.agent_profit_percent : Number(((res.total_discount_percent * agentShare) / 100).toFixed(2)),
+        deptProfitPercent: res.department_profit_percent !== undefined ? res.department_profit_percent : Number(((res.total_discount_percent * deptShare) / 100).toFixed(2)),
         agentProfit: res.agent_profit || res.agent_share_amount,
         deptProfit: res.department_profit || res.loan_department_share_amount
       };
     });
-  }, [activeTenures, currentSetting, selectedType, simulationLoanAmount]);
+  }, [activeTenures, currentSetting, selectedType, simulationLoanAmount, agentShare, deptShare]);
 
   return (
     <div className="space-y-6 pb-16">
@@ -150,10 +152,12 @@ export default function PrecloseSettingsSection({
             <span className="uppercase tracking-wider">Formula Logic (Preclose Calculation):</span>
           </div>
           <div className="font-mono text-[11px] text-zinc-200 space-y-1 bg-zinc-900/80 p-3 rounded-lg border border-zinc-800">
-            <div className="text-emerald-300 font-bold">TOTAL INSTALLMENT - 15 = (x) INSTALLMENT</div>
-            <div className="text-zinc-300">Discount for customer = (x / 3)% of loan amount</div>
-            <div className="text-zinc-300">Agent profit = 50% of discount price</div>
-            <div className="text-zinc-300">Department profit = AGENT profit (50%)</div>
+            <div className="text-emerald-300 font-bold">1. TOTAL INSTALLMENT - 15 = (x) INSTALLMENT</div>
+            <div className="text-zinc-200">2. Customer Discount = (x / 3)% of loan amount (waived for customer)</div>
+            <div className="text-amber-300 pt-1 font-semibold">3. Company Paid Reward (Total = Customer Discount Pool, 50-50 Split):</div>
+            <div className="text-zinc-300 pl-3">• Agent Profit = 50% of discount (e.g. 1% discount me se 0.5% of loan amount)</div>
+            <div className="text-zinc-300 pl-3">• Department Profit = 50% of discount (e.g. 1% discount me se 0.5% of loan amount)</div>
+            <div className="text-[10px] text-zinc-400 pl-3 pt-0.5">Yeh paisa Company apni taraf se Agent aur Department ko deti hai (0.5% + 0.5% = 1%).</div>
           </div>
         </div>
 
@@ -509,12 +513,12 @@ export default function PrecloseSettingsSection({
                 <th className="px-3.5 py-2.5 text-center">Factor (x / 3)</th>
                 <th className="px-3.5 py-2.5 text-center">Discount Rate</th>
                 <th className="px-3.5 py-2.5 text-right">Customer Discount</th>
-                <th className="px-3.5 py-2.5 text-right">Agent Profit ({agentShare}%)</th>
-                <th className="px-3.5 py-2.5 text-right">Dept Profit ({deptShare}%)</th>
+                <th className="px-3.5 py-2.5 text-right">Agent Profit (Company Paid)</th>
+                <th className="px-3.5 py-2.5 text-right">Dept Profit (Company Paid)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60 font-mono">
-              {tenureBreakdowns.map(({ tenure, mandatory, x_kist, kistFactor, discountPercent, discountAmount, agentProfit, deptProfit }) => (
+              {tenureBreakdowns.map(({ tenure, mandatory, x_kist, kistFactor, discountPercent, discountAmount, agentProfitPercent, deptProfitPercent, agentProfit, deptProfit }) => (
                 <tr key={tenure.count} className="hover:bg-zinc-800/40 transition">
                   <td className="px-3.5 py-3 font-sans font-bold text-white flex items-center gap-1.5">
                     <span className="text-zinc-400">🏷️</span>
@@ -535,16 +539,34 @@ export default function PrecloseSettingsSection({
                   <td className="px-3.5 py-3 text-right font-black text-emerald-400">
                     ₹{discountAmount.toLocaleString("en-IN")}
                   </td>
-                  <td className="px-3.5 py-3 text-right text-zinc-200">
-                    ₹{agentProfit.toLocaleString("en-IN")}
+                  <td className="px-3.5 py-3 text-right">
+                    <span className="font-mono font-bold text-zinc-100 block">
+                      ₹{agentProfit.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 block font-mono">
+                      {agentProfitPercent}%
+                    </span>
                   </td>
-                  <td className="px-3.5 py-3 text-right text-zinc-300">
-                    ₹{deptProfit.toLocaleString("en-IN")}
+                  <td className="px-3.5 py-3 text-right">
+                    <span className="font-mono font-bold text-zinc-200 block">
+                      ₹{deptProfit.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 block font-mono">
+                      {deptProfitPercent}%
+                    </span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Company Paid Reward Note */}
+        <div className="p-3.5 bg-zinc-950 rounded-xl border border-zinc-800 text-xs flex items-start gap-2.5">
+          <span className="text-base shrink-0">🏢</span>
+          <p className="text-[11px] text-zinc-300 leading-relaxed">
+            <strong className="text-white">Company Reward Policy:</strong> Yeh Agent aur Dept Profit Company apni taraf se de rahi hai. Jitna customer ko discount milta hai (e.g. 1%), utna hi total pool (1%) Company deti hai jo Agent aur Department me adha-adha (50%-50%, yani 0.5% Agent + 0.5% Dept) barabar bat-ta hai. Customer ke calculation me koi change nahi hai.
+          </p>
         </div>
       </div>
     </div>

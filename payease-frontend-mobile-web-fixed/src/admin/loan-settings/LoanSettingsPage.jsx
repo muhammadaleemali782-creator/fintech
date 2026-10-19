@@ -222,12 +222,6 @@ export default function LoanSettingsPage() {
             <span>📖</span>
             <span>Read Me</span>
           </button>
-          <button
-            onClick={handleBackToAdmin}
-            className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-bold"
-          >
-            ← Back
-          </button>
         </div>
       </header>
 

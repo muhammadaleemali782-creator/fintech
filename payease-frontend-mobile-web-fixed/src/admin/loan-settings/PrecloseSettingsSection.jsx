@@ -1,5 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { calculatePrecloseBreakdown } from "../../utils/precloseCalculator";
+import {
+  SYSTEM_LOAN_INSTALLMENTS,
+  SYSTEM_DAILY_TENURES
+} from "../../constants/loanSettingsDefaults";
 
 const LOAN_TYPES = [
   { id: "default", label: "Default (All Loan Types)" },
@@ -16,6 +20,7 @@ export default function PrecloseSettingsSection({
   const [selectedType, setSelectedType] = useState("default");
 
   const isDefaultSelected = selectedType === "default";
+  const activeTenures = selectedType === "micro_business" ? SYSTEM_DAILY_TENURES : SYSTEM_LOAN_INSTALLMENTS;
 
   // Resolve current active setting object based on selected loan type
   const currentSetting = useMemo(() => {
@@ -90,6 +95,33 @@ export default function PrecloseSettingsSection({
     });
   }, [currentSetting]);
 
+  // System Installment Tenures Preclose Matrix
+  const tenureBreakdowns = useMemo(() => {
+    const mandatory = Number(currentSetting.mandatory_installments_before_preclose ?? 15);
+    return activeTenures.map((t) => {
+      const paid = Math.min(t.count, mandatory);
+      const res = calculatePrecloseBreakdown({
+        total_installments: t.count,
+        paid_installments: paid,
+        interest_on_remaining_installments: 10000,
+        total_payable_amount: 110000,
+        loan_amount: 100000,
+        loan_type: selectedType,
+        settings: currentSetting
+      });
+      return {
+        tenure: t,
+        mandatory,
+        remaining: res.remaining_installments,
+        blocks: res.discount_blocks,
+        discountPercent: res.total_discount_percent,
+        discountAmount: res.discount_amount,
+        agentShare: res.agent_share_amount,
+        deptShare: res.loan_department_share_amount
+      };
+    });
+  }, [activeTenures, currentSetting, selectedType]);
+
   return (
     <div className="space-y-6">
       {/* Overview Banner */}
@@ -116,7 +148,7 @@ export default function PrecloseSettingsSection({
               onClick={() => setSelectedType(lt.id)}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer active:scale-95 ${
                 isSelected
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-black"
                   : "bg-slate-900 text-slate-400 hover:bg-slate-850 hover:text-slate-200 border border-slate-800"
               }`}
             >
@@ -127,6 +159,26 @@ export default function PrecloseSettingsSection({
             </button>
           );
         })}
+      </div>
+
+      {/* System Loan Installments Badges */}
+      <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🗓️</span>
+          <span className="font-bold text-slate-200">
+            System Available Installments ({selectedType === "micro_business" ? "Daily Tenures" : "15 - 18 - 21 - 24 Kist"}):
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {activeTenures.map((t) => (
+            <span
+              key={t.count}
+              className="px-2.5 py-1 rounded-xl bg-slate-950 border border-blue-500/30 text-blue-300 font-mono font-bold text-xs shadow-xs"
+            >
+              {t.label}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Override Notice if Sub-type is Selected */}
@@ -171,7 +223,25 @@ export default function PrecloseSettingsSection({
               }
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-blue-500"
             />
-            <p className="text-[11px] text-slate-400">
+            {/* Quick Set Buttons for System Installments */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[10px] text-slate-400 font-bold mr-1">Quick Set:</span>
+              {activeTenures.map((t) => (
+                <button
+                  key={t.count}
+                  type="button"
+                  onClick={() => handleFieldChange("mandatory_installments_before_preclose", t.count)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition cursor-pointer active:scale-95 ${
+                    Number(currentSetting.mandatory_installments_before_preclose) === t.count
+                      ? "bg-blue-600 text-white border-blue-500 shadow-xs"
+                      : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                  }`}
+                >
+                  {t.count} Kist
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
               Customer ko pehli <strong>{currentSetting.mandatory_installments_before_preclose ?? 15}</strong> kiston ka byaaj bharna mandatory hai.
             </p>
           </div>
@@ -312,6 +382,69 @@ export default function PrecloseSettingsSection({
             agent ko <strong className="text-blue-400">₹{sampleBreakdown.agent_share_amount}</strong>,{" "}
             loan department ko <strong className="text-indigo-400">₹{sampleBreakdown.loan_department_share_amount}</strong>
           </div>
+        </div>
+      </div>
+
+      {/* System Installments Preclose Breakdown Matrix Table */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-base">📊</span>
+            <h4 className="text-xs font-black uppercase text-slate-200 tracking-wider">
+              System Installments Preclose Matrix ({selectedType === "micro_business" ? "Daily Tenures" : "15 - 18 - 21 - 24 Kist"})
+            </h4>
+          </div>
+          <span className="text-[11px] text-slate-400 font-medium">
+            Simulation on ₹10,000 remaining interest (Mandatory: {currentSetting.mandatory_installments_before_preclose ?? 15} kist paid)
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-300">
+            <thead className="bg-slate-950 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-800">
+              <tr>
+                <th className="px-3.5 py-2.5">System Installments</th>
+                <th className="px-3.5 py-2.5 text-center">Mandatory Paid</th>
+                <th className="px-3.5 py-2.5 text-center">Remaining</th>
+                <th className="px-3.5 py-2.5 text-center">Discount Blocks</th>
+                <th className="px-3.5 py-2.5 text-center">Discount Rate</th>
+                <th className="px-3.5 py-2.5 text-right">User Discount</th>
+                <th className="px-3.5 py-2.5 text-right">Agent Share ({agentShare}%)</th>
+                <th className="px-3.5 py-2.5 text-right">Dept Share ({deptShare}%)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 font-mono">
+              {tenureBreakdowns.map(({ tenure, mandatory, remaining, blocks, discountPercent, discountAmount, agentShare: aShare, deptShare: dShare }) => (
+                <tr key={tenure.count} className="hover:bg-slate-800/40 transition">
+                  <td className="px-3.5 py-3 font-sans font-bold text-white flex items-center gap-1.5">
+                    <span className="text-blue-400">🏷️</span>
+                    <span>{tenure.label}</span>
+                  </td>
+                  <td className="px-3.5 py-3 text-center text-slate-400">
+                    {Math.min(tenure.count, mandatory)}
+                  </td>
+                  <td className="px-3.5 py-3 text-center font-bold text-white">
+                    {remaining}
+                  </td>
+                  <td className="px-3.5 py-3 text-center text-amber-400 font-bold">
+                    {blocks}
+                  </td>
+                  <td className="px-3.5 py-3 text-center font-bold text-emerald-400">
+                    {discountPercent}%
+                  </td>
+                  <td className="px-3.5 py-3 text-right font-black text-emerald-400">
+                    ₹{discountAmount.toLocaleString("en-IN")}
+                  </td>
+                  <td className="px-3.5 py-3 text-right text-blue-400">
+                    ₹{aShare.toLocaleString("en-IN")}
+                  </td>
+                  <td className="px-3.5 py-3 text-right text-indigo-400">
+                    ₹{dShare.toLocaleString("en-IN")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

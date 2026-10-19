@@ -11,6 +11,7 @@ export default function CommissionSettingsSection({ showToast }) {
   const canView = isAdmin || hasPermission("LOAN_AGENT_COMMISSION_VIEW") || hasPermission("loan.agent_commission_view");
   const canSet = isAdmin || hasPermission("LOAN_AGENT_COMMISSION_SET") || hasPermission("loan.agent_commission_set");
 
+  const [commissionCategory, setCommissionCategory] = useState("loan"); // 'loan' | 'investment'
   const [loading, setLoading] = useState(false);
   const [agents, setAgents] = useState([]);
   const [deptCommissionPercent, setDeptCommissionPercent] = useState(DEFAULT_LOAN_DEPARTMENT_COMMISSION_PERCENT);
@@ -19,8 +20,11 @@ export default function CommissionSettingsSection({ showToast }) {
   const [editRateInput, setEditRateInput] = useState("");
   const [savingAgentId, setSavingAgentId] = useState(null);
 
-  // Example loan amount for live calculation preview
-  const previewLoanAmount = 100000;
+  // Example amount for live calculation preview (₹1,00,000)
+  const previewAmount = 100000;
+
+  const isInvestment = commissionCategory === "investment";
+  const activePoolPercent = 5; // Standard 5% gross pool for both Loan Department and Investment
 
   const fetchAgentCommissions = useCallback(async () => {
     if (!canView) return;
@@ -48,7 +52,10 @@ export default function CommissionSettingsSection({ showToast }) {
 
   const handleStartEdit = (agent) => {
     setEditingAgentId(agent.agent_id);
-    setEditRateInput(String(agent.agent_commission_percent));
+    const currentRate = isInvestment
+      ? (agent.investment_commission_percent ?? 2)
+      : (agent.agent_commission_percent ?? 2);
+    setEditRateInput(String(currentRate));
   };
 
   const handleCancelEdit = () => {
@@ -63,10 +70,10 @@ export default function CommissionSettingsSection({ showToast }) {
       return;
     }
 
-    if (rate > deptCommissionPercent) {
+    if (rate > activePoolPercent) {
       if (showToast) {
         showToast(
-          `Agent commission (${rate}%) Loan Department commission (${deptCommissionPercent}%) se zyada nahi ho sakta!`,
+          `Agent commission (${rate}%) total pool (${activePoolPercent}%) se zyada nahi ho sakta!`,
           true
         );
       }
@@ -83,6 +90,7 @@ export default function CommissionSettingsSection({ showToast }) {
         },
         body: JSON.stringify({
           agent_id: agentId,
+          commission_type: commissionCategory,
           agent_commission_percent: rate
         })
       });
@@ -90,20 +98,27 @@ export default function CommissionSettingsSection({ showToast }) {
       if (!res.ok) throw new Error(data.message || "Failed to update commission");
 
       setAgents((prev) =>
-        prev.map((a) =>
-          a.agent_id === agentId
-            ? {
-                ...a,
-                agent_commission_percent: rate,
-                loan_department_net_percent: Math.max(0, Number((deptCommissionPercent - rate).toFixed(2))),
-                last_updated: new Date()
-              }
-            : a
-        )
+        prev.map((a) => {
+          if (a.agent_id !== agentId) return a;
+          if (isInvestment) {
+            return {
+              ...a,
+              investment_commission_percent: rate,
+              investment_department_net_percent: Math.max(0, Number((activePoolPercent - rate).toFixed(2))),
+              last_updated: new Date()
+            };
+          }
+          return {
+            ...a,
+            agent_commission_percent: rate,
+            loan_department_net_percent: Math.max(0, Number((activePoolPercent - rate).toFixed(2))),
+            last_updated: new Date()
+          };
+        })
       );
 
       setEditingAgentId(null);
-      if (showToast) showToast(data.message || "Agent commission updated successfully!");
+      if (showToast) showToast(data.message || `${isInvestment ? "Investment" : "Loan"} commission updated successfully!`);
     } catch (err) {
       if (showToast) showToast(err.message, true);
     } finally {
@@ -129,7 +144,7 @@ export default function CommissionSettingsSection({ showToast }) {
         <span className="text-3xl">🔒</span>
         <h3 className="text-sm font-bold text-slate-200">Access Restricted</h3>
         <p className="text-xs text-slate-400 max-w-md mx-auto">
-          Agent loan commission dekhne ke liye <code className="text-amber-400">LOAN_AGENT_COMMISSION_VIEW</code> permission zaroori hai.
+          Agent commission dekhne ke liye <code className="text-amber-400">LOAN_AGENT_COMMISSION_VIEW</code> permission zaroori hai.
         </p>
       </div>
     );
@@ -137,24 +152,77 @@ export default function CommissionSettingsSection({ showToast }) {
 
   return (
     <div className="space-y-6">
+      {/* Commission Category Selector (Loan vs Investment) */}
+      <div className="flex flex-wrap items-center gap-2.5 p-1.5 bg-slate-900 border border-slate-800 rounded-2xl w-fit">
+        <button
+          type="button"
+          onClick={() => {
+            setCommissionCategory("loan");
+            setEditingAgentId(null);
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer active:scale-95 ${
+            commissionCategory === "loan"
+              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-black"
+              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+          }`}
+        >
+          <span className="text-base">💼</span>
+          <span>Loan Commission</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setCommissionCategory("investment");
+            setEditingAgentId(null);
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer active:scale-95 ${
+            commissionCategory === "investment"
+              ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 font-black"
+              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+          }`}
+        >
+          <span className="text-base">📈</span>
+          <span>Investment Commission</span>
+        </button>
+      </div>
+
       {/* Overview Banner */}
-      <div className="p-5 bg-gradient-to-br from-blue-950/40 via-slate-900 to-indigo-950/30 border border-blue-500/30 rounded-2xl space-y-3">
+      <div
+        className={`p-5 rounded-2xl border space-y-3 ${
+          isInvestment
+            ? "bg-gradient-to-br from-emerald-950/40 via-slate-900 to-teal-950/30 border-emerald-500/30"
+            : "bg-gradient-to-br from-blue-950/40 via-slate-900 to-indigo-950/30 border-blue-500/30"
+        }`}
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xl">💼</span>
+              <span className="text-xl">{isInvestment ? "📈" : "💼"}</span>
               <h3 className="text-sm font-black text-white uppercase tracking-wider">
-                Loan Department Agent Commission Control
+                {isInvestment
+                  ? "Investment & Lending Agent Commission Control"
+                  : "Loan Department Agent Commission Control"}
               </h3>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Loan Department ko har disbursed loan par total <strong className="text-blue-400">{deptCommissionPercent}%</strong> commission milta hai. Department is me se apne registered agents ko commission distribute karta hai.
+              {isInvestment
+                ? `Customer ke investment / lending deposit par total gross pool ${activePoolPercent}% hai. Yahan se aap har agent ka investment referral commission set kar sakte hain.`
+                : `Loan Department ko har disbursed loan par total ${activePoolPercent}% commission milta hai. Department is me se apne registered agents ko commission distribute karta hai.`}
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <div className="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-center">
-              <span className="text-[10px] text-slate-400 block font-bold uppercase">Dept Total Pool</span>
-              <span className="text-lg font-black text-blue-400 font-mono">{deptCommissionPercent}%</span>
+              <span className="text-[10px] text-slate-400 block font-bold uppercase">
+                {isInvestment ? "Gross Pool" : "Dept Total Pool"}
+              </span>
+              <span
+                className={`text-lg font-black font-mono ${
+                  isInvestment ? "text-emerald-400" : "text-blue-400"
+                }`}
+              >
+                {activePoolPercent}%
+              </span>
             </div>
           </div>
         </div>
@@ -162,11 +230,14 @@ export default function CommissionSettingsSection({ showToast }) {
         {/* Info formula card */}
         <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-[11px] text-slate-300 flex flex-wrap items-center justify-between gap-2">
           <span className="flex items-center gap-1.5">
-            <span className="text-blue-400">ℹ️</span>
-            <span>Formula: <strong>Loan Dept Net Share</strong> = {deptCommissionPercent}% - Agent Commission %</span>
+            <span className={isInvestment ? "text-emerald-400" : "text-blue-400"}>ℹ️</span>
+            <span>
+              Formula: <strong>{isInvestment ? "Net Platform/Dept Share" : "Loan Dept Net Share"}</strong> ={" "}
+              {activePoolPercent}% - Agent Commission %
+            </span>
           </span>
           <span className="text-emerald-400 font-semibold text-[10px]">
-            ✓ Agent share cannot exceed {deptCommissionPercent}%
+            ✓ Agent share cannot exceed {activePoolPercent}%
           </span>
         </div>
       </div>
@@ -176,7 +247,7 @@ export default function CommissionSettingsSection({ showToast }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h4 className="text-xs font-black uppercase text-slate-300 tracking-wider">
-              Registered Loan Agents ({filteredAgents.length})
+              {isInvestment ? "Investment Agents" : "Registered Loan Agents"} ({filteredAgents.length})
             </h4>
             {loading && <span className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
           </div>
@@ -208,8 +279,12 @@ export default function CommissionSettingsSection({ showToast }) {
                 <tr>
                   <th className="px-4 py-3">Agent Name & Code</th>
                   <th className="px-4 py-3">Phone</th>
-                  <th className="px-4 py-3 text-center">Agent Commission</th>
-                  <th className="px-4 py-3 text-center">Dept Net Share</th>
+                  <th className="px-4 py-3 text-center">
+                    {isInvestment ? "Agent Investment Rate" : "Agent Loan Commission"}
+                  </th>
+                  <th className="px-4 py-3 text-center">
+                    {isInvestment ? "Platform Net Share" : "Dept Net Share"}
+                  </th>
                   <th className="px-4 py-3">Last Updated</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -225,13 +300,26 @@ export default function CommissionSettingsSection({ showToast }) {
                   filteredAgents.map((agent) => {
                     const isEditing = editingAgentId === agent.agent_id;
                     const parsedInput = Number(editRateInput);
+
+                    const baseRate = isInvestment
+                      ? (agent.investment_commission_percent ?? 2)
+                      : (agent.agent_commission_percent ?? 2);
+
                     const effectiveRate = isEditing
                       ? (Number.isFinite(parsedInput) ? parsedInput : 0)
-                      : agent.agent_commission_percent;
+                      : baseRate;
 
-                    const agentAmount = (previewLoanAmount * effectiveRate) / 100;
-                    const deptTotalAmount = (previewLoanAmount * deptCommissionPercent) / 100;
-                    const deptNetAmount = Math.max(0, deptTotalAmount - agentAmount);
+                    const agentAmount = (previewAmount * effectiveRate) / 100;
+                    const totalPoolAmount = (previewAmount * activePoolPercent) / 100;
+                    const netShareAmount = Math.max(0, totalPoolAmount - agentAmount);
+
+                    const currentNetRate = isInvestment
+                      ? (isEditing
+                          ? Math.max(0, Number((activePoolPercent - effectiveRate).toFixed(2)))
+                          : (agent.investment_department_net_percent ?? Math.max(0, Number((activePoolPercent - baseRate).toFixed(2)))))
+                      : (isEditing
+                          ? Math.max(0, Number((activePoolPercent - effectiveRate).toFixed(2)))
+                          : (agent.loan_department_net_percent ?? Math.max(0, Number((activePoolPercent - baseRate).toFixed(2)))));
 
                     return (
                       <React.Fragment key={agent.agent_id}>
@@ -254,7 +342,7 @@ export default function CommissionSettingsSection({ showToast }) {
                                 <input
                                   type="number"
                                   min="0"
-                                  max={deptCommissionPercent}
+                                  max={activePoolPercent}
                                   step="0.1"
                                   value={editRateInput}
                                   onChange={(e) => setEditRateInput(e.target.value)}
@@ -263,16 +351,20 @@ export default function CommissionSettingsSection({ showToast }) {
                                 <span className="font-bold text-slate-400">%</span>
                               </div>
                             ) : (
-                              <span className="inline-block px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30 font-bold font-mono">
-                                {agent.agent_commission_percent}%
+                              <span
+                                className={`inline-block px-2.5 py-1 rounded-full font-bold font-mono ${
+                                  isInvestment
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                                    : "bg-blue-500/10 text-blue-400 border border-blue-500/30"
+                                }`}
+                              >
+                                {baseRate}%
                               </span>
                             )}
                           </td>
                           <td className="px-4 py-3.5 text-center">
-                            <span className="inline-block px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold font-mono">
-                              {isEditing
-                                ? Math.max(0, Number((deptCommissionPercent - effectiveRate).toFixed(2)))
-                                : agent.loan_department_net_percent}%
+                            <span className="inline-block px-2.5 py-1 rounded-full bg-slate-800 text-slate-200 border border-slate-700 font-bold font-mono">
+                              {currentNetRate}%
                             </span>
                           </td>
                           <td className="px-4 py-3.5 text-[11px] text-slate-400">
@@ -322,15 +414,15 @@ export default function CommissionSettingsSection({ showToast }) {
                                 <div className="text-slate-300 flex items-center gap-1.5">
                                   <span className="text-amber-400">💡</span>
                                   <span>
-                                    Loan amount <strong>₹{previewLoanAmount.toLocaleString("en-IN")}</strong> par:
-                                    department total <strong>₹{deptTotalAmount.toLocaleString("en-IN")}</strong>,
+                                    {isInvestment ? "Investment" : "Loan"} amount <strong>₹{previewAmount.toLocaleString("en-IN")}</strong> par:
+                                    {" "}total pool <strong>₹{totalPoolAmount.toLocaleString("en-IN")}</strong>,
                                     agent ko <strong className="text-blue-400">₹{agentAmount.toLocaleString("en-IN")}</strong>,
-                                    department net <strong className="text-emerald-400">₹{deptNetAmount.toLocaleString("en-IN")}</strong>
+                                    net share <strong className="text-emerald-400">₹{netShareAmount.toLocaleString("en-IN")}</strong>
                                   </span>
                                 </div>
-                                {effectiveRate > deptCommissionPercent && (
+                                {effectiveRate > activePoolPercent && (
                                   <span className="text-rose-400 font-bold">
-                                    ⚠️ Rate cannot exceed {deptCommissionPercent}%
+                                    ⚠️ Rate cannot exceed {activePoolPercent}%
                                   </span>
                                 )}
                               </div>

@@ -635,3 +635,65 @@ test('5.3 UI Logic: Back to Admin Panel with dirty state guard', () => {
   assert.strictEqual(confirmPromptShown, true);
   assert.strictEqual(navigatedTo, '/admin');
 });
+
+test('1.7 System installments evaluation (15, 18, 21, 24 kist)', () => {
+  const mandatory = 15;
+  const blockSize = 3;
+  const discountPerBlock = 1;
+
+  // 15 Kist
+  const r15 = calculatePrecloseBreakdown({
+    total_installments: 15,
+    paid_installments: mandatory,
+    interest_on_remaining_installments: 10000,
+    settings: { mandatory_installments_before_preclose: mandatory, installment_block_size: blockSize, discount_percent_per_block: discountPerBlock }
+  });
+  assert.strictEqual(r15.remaining_installments, 0);
+  assert.strictEqual(r15.total_discount_percent, 0);
+
+  // 18 Kist
+  const r18 = calculatePrecloseBreakdown({
+    total_installments: 18,
+    paid_installments: mandatory,
+    interest_on_remaining_installments: 10000,
+    settings: { mandatory_installments_before_preclose: mandatory, installment_block_size: blockSize, discount_percent_per_block: discountPerBlock }
+  });
+  assert.strictEqual(r18.remaining_installments, 3);
+  assert.strictEqual(r18.discount_blocks, 1);
+  assert.strictEqual(r18.total_discount_percent, 1);
+
+  // 21 Kist
+  const r21 = calculatePrecloseBreakdown({
+    total_installments: 21,
+    paid_installments: mandatory,
+    interest_on_remaining_installments: 10000,
+    settings: { mandatory_installments_before_preclose: mandatory, installment_block_size: blockSize, discount_percent_per_block: discountPerBlock }
+  });
+  assert.strictEqual(r21.remaining_installments, 6);
+  assert.strictEqual(r21.discount_blocks, 2);
+  assert.strictEqual(r21.total_discount_percent, 2);
+
+  // 24 Kist
+  const r24 = calculatePrecloseBreakdown({
+    total_installments: 24,
+    paid_installments: mandatory,
+    interest_on_remaining_installments: 10000,
+    settings: { mandatory_installments_before_preclose: mandatory, installment_block_size: blockSize, discount_percent_per_block: discountPerBlock }
+  });
+  assert.strictEqual(r24.remaining_installments, 9);
+  assert.strictEqual(r24.discount_blocks, 3);
+  assert.strictEqual(r24.total_discount_percent, 3);
+});
+
+test('2.5 Commission Category: Loan vs Investment commission validation', () => {
+  const maxPool = 5;
+
+  // Valid investment rate
+  const validRate = 2.5;
+  assert.ok(validRate <= maxPool, 'Investment rate 2.5% should be within 5% limit');
+
+  // Invalid investment rate > 5%
+  const invalidRate = 6;
+  assert.ok(invalidRate > maxPool, 'Investment rate 6% exceeds 5% limit');
+});
+

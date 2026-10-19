@@ -69,6 +69,10 @@ router.get('/agent-commission', protect, requirePermission('LOAN_AGENT_COMMISSIO
       const deptNetPercent = Math.max(0, Number((deptCommissionPercent - agentCommissionPercent).toFixed(2)));
       const lastUpdated = setting?.updated_at || agent.updatedAt || agent.createdAt;
 
+      const investmentCommissionPercent = Number(agent.agentProfile?.commissions?.investment ?? DEFAULT_AGENT_COMMISSION_PERCENT);
+      const investmentDeptCommissionPercent = DEFAULT_LOAN_DEPARTMENT_COMMISSION_PERCENT; // 5%
+      const investmentDeptNetPercent = Math.max(0, Number((investmentDeptCommissionPercent - investmentCommissionPercent).toFixed(2)));
+
       return {
         agent_id: agent._id,
         agent_name: agent.name,
@@ -78,6 +82,9 @@ router.get('/agent-commission', protect, requirePermission('LOAN_AGENT_COMMISSIO
         agent_commission_percent: agentCommissionPercent,
         loan_department_commission_percent: deptCommissionPercent,
         loan_department_net_percent: deptNetPercent,
+        investment_commission_percent: investmentCommissionPercent,
+        investment_department_commission_percent: investmentDeptCommissionPercent,
+        investment_department_net_percent: investmentDeptNetPercent,
         last_updated: lastUpdated
       };
     });
@@ -85,6 +92,7 @@ router.get('/agent-commission', protect, requirePermission('LOAN_AGENT_COMMISSIO
     res.json({
       success: true,
       loan_department_commission_percent: DEFAULT_LOAN_DEPARTMENT_COMMISSION_PERCENT,
+      investment_department_commission_percent: DEFAULT_LOAN_DEPARTMENT_COMMISSION_PERCENT,
       agents: rows,
       pagination: {
         total: totalAgents,
@@ -98,10 +106,10 @@ router.get('/agent-commission', protect, requirePermission('LOAN_AGENT_COMMISSIO
   }
 });
 
-// PUT /api/loan-department/agent-commission - Set/Edit agent loan commission
+// PUT /api/loan-department/agent-commission - Set/Edit agent commission (loan or investment)
 router.put('/agent-commission', protect, requirePermission('LOAN_AGENT_COMMISSION_SET'), async (req, res) => {
   try {
-    const { agent_id, agent_commission_percent } = req.body;
+    const { agent_id, agent_commission_percent, commission_type = 'loan' } = req.body;
 
     if (!agent_id) {
       return res.status(400).json({ success: false, message: 'Agent ID is required' });
@@ -116,7 +124,7 @@ router.put('/agent-commission', protect, requirePermission('LOAN_AGENT_COMMISSIO
     if (commissionNum > maxAllowed) {
       return res.status(400).json({
         success: false,
-        message: `Agent commission percent cannot exceed Loan Department commission limit (${maxAllowed}%)`
+        message: `Agent ${commission_type} commission percent cannot exceed limit (${maxAllowed}%)`
       });
     }
 
@@ -125,8 +133,35 @@ router.put('/agent-commission', protect, requirePermission('LOAN_AGENT_COMMISSIO
       return res.status(404).json({ success: false, message: 'Agent not found' });
     }
 
-    // Upsert AgentLoanCommissionSetting
-    const updatedSetting = await AgentLoanCommissionSetting.findOneAndUpdate(
+    if (!agent.agentProfile) agent.agentProfile = {};
+    if (!agent.agentProfile.commissions) agent.agentProfile.commissions = {};
+
+    let updatedSetting = null;
+
+    if (commission_type === 'investment') {
+      agent.agentProfile.commissions.investment = commissionNum;
+      agent.markModified('agentProfile');
+      await agent.save();
+
+      const deptNetPercent = Math.max(0, Number((maxAllowed - commissionNum).toFixed(2)));
+
+      return res.json({
+        success: true,
+        message: `Agent investment commission updated to ${commissionNum}%`,
+        setting: {
+          agent_id: agent._id,
+          agent_name: agent.name,
+          commission_type: 'investment',
+          agent_commission_percent: commissionNum,
+          loan_department_commission_percent: maxAllowed,
+          loan_department_net_percent: deptNetPercent,
+          last_updated: new Date()
+        }
+      });
+    }
+
+    // Default: Loan Commission
+    updatedSetting = await AgentLoanCommissionSetting.findOneAndUpdate(
       { agent_id: agent._id },
       {
         agent_id: agent._id,
@@ -139,8 +174,6 @@ router.put('/agent-commission', protect, requirePermission('LOAN_AGENT_COMMISSIO
     );
 
     // Sync User.agentProfile.commissions.loan
-    if (!agent.agentProfile) agent.agentProfile = {};
-    if (!agent.agentProfile.commissions) agent.agentProfile.commissions = {};
     agent.agentProfile.commissions.loan = commissionNum;
     agent.markModified('agentProfile');
     await agent.save();
@@ -153,10 +186,11 @@ router.put('/agent-commission', protect, requirePermission('LOAN_AGENT_COMMISSIO
       setting: {
         agent_id: agent._id,
         agent_name: agent.name,
+        commission_type: 'loan',
         agent_commission_percent: commissionNum,
         loan_department_commission_percent: maxAllowed,
         loan_department_net_percent: deptNetPercent,
-        last_updated: updatedSetting.updated_at
+        last_updated: updatedSetting ? updatedSetting.updated_at : new Date()
       }
     });
   } catch (err) {

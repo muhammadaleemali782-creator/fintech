@@ -6,3 +6,18 @@ export const DEFAULT_AGENT_SHARE_PERCENT = 50;
 export const DEFAULT_LOAN_DEPARTMENT_SHARE_PERCENT = 50;
 export const DEFAULT_LOAN_DEPARTMENT_COMMISSION_PERCENT = 5;
 export const DEFAULT_AGENT_COMMISSION_PERCENT = 2;
+export const DEFAULT_INVESTMENT_COMMISSION_PERCENT = 2;
+
+export const SYSTEM_LOAN_INSTALLMENTS = [
+  { count: 15, days: 150, label: "15 Kist (150 Din)" },
+  { count: 18, days: 180, label: "18 Kist (180 Din)" },
+  { count: 21, days: 210, label: "21 Kist (210 Din)" },
+  { count: 24, days: 240, label: "24 Kist (240 Din)" }
+];
+
+export const SYSTEM_DAILY_TENURES = [
+  { count: 60, days: 60, label: "60 Din (Daily)" },
+  { count: 80, days: 80, label: "80 Din (Daily)" },
+  { count: 100, days: 100, label: "100 Din (Daily)" },
+  { count: 120, days: 120, label: "120 Din (Daily)" }
+];

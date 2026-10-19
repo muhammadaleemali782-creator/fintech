@@ -98,6 +98,25 @@ export default function CalculatorPreviewSection({ settings, conditions }) {
               onChange={(e) => setTotalInstallments(Number(e.target.value))}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
             />
+            <div className="flex flex-wrap items-center gap-1 mt-1.5">
+              {(selectedLoanType === "micro_business" ? [60, 80, 100, 120] : [15, 18, 21, 24]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => {
+                    setTotalInstallments(k);
+                    if (paidInstallments > k) setPaidInstallments(Math.min(15, k));
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition cursor-pointer active:scale-95 ${
+                    totalInstallments === k
+                      ? "bg-blue-600 text-white border-blue-500 shadow-xs"
+                      : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                  }`}
+                >
+                  {k} Kist
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>

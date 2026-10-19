@@ -111,19 +111,23 @@ export function calculatePrecloseBreakdown(params = {}) {
   }
 
   // Mandatory installments breakdown:
-  // If paid < mandatory, borrower is locked in to paying interest up to mandatory target.
+  // Image 2 Rule: TOTAL INSTALLMENT - 15 = (x) INSTALLMENT
   const mandatory_target = Math.min(totalInst, mandatory_installments);
+  const x_installments = Math.max(0, totalInst - mandatory_target);
   const mandatory_remaining_installments = Math.max(0, mandatory_target - paidInst);
   const discount_eligible_installments = Math.max(0, totalInst - Math.max(paidInst, mandatory_target));
 
-  // Calculate discount blocks & rate
-  const full_blocks = block_size > 0 ? Math.floor(remaining_installments / block_size) : 0;
+  // Determine effective discount factor (remaining_installments / block_size)
+  // When customer precloses after 15 kist, remaining_installments is exactly (Total - 15) = x
+  const effectiveKistCount = remaining_installments;
+
+  const full_blocks = block_size > 0 ? Math.floor(effectiveKistCount / block_size) : 0;
   let discount_blocks = full_blocks;
   let total_discount_percent = 0;
 
   if (allow_partial_blocks) {
-    if (block_size > 0 && remaining_installments > 0) {
-      const rawBlocks = remaining_installments / block_size;
+    if (block_size > 0 && effectiveKistCount > 0) {
+      const rawBlocks = effectiveKistCount / block_size;
       discount_blocks = Number(rawBlocks.toFixed(2));
       total_discount_percent = Number((rawBlocks * discount_percent_per_block).toFixed(2));
     } else {
@@ -140,28 +144,42 @@ export function calculatePrecloseBreakdown(params = {}) {
   }
 
   const interest_pool = Number(interest_on_remaining_installments) || 0;
+  const principal = Number(loan_amount) || 0;
   const penalty = Math.max(0, Number(penalty_amount) || 0);
+
+  // Discount base:
+  // If settings.discount_base is 'interest', calculate on interest_pool.
+  // Otherwise if principal > 0 and (settings.discount_base === 'loan_amount' or interest_pool === 0),
+  // calculate on principal as specified in Image 2: "Discount for customer = x/3 % of loan amount"
+  const discount_base_mode = settings.discount_base || (principal > 0 && interest_pool === 0 ? 'loan_amount' : (settings.discount_base || 'interest'));
+  let base_amount = interest_pool;
+  if (discount_base_mode === 'loan_amount' && principal > 0) {
+    base_amount = principal;
+  } else if (base_amount === 0 && principal > 0) {
+    base_amount = principal;
+  }
 
   // Break down mandatory interest vs discount eligible interest
   let mandatory_interest_amount = 0;
   let discount_eligible_interest = interest_pool;
-  if (remaining_installments > 0) {
+  if (remaining_installments > 0 && interest_pool > 0) {
     const interestPerInst = interest_pool / remaining_installments;
     mandatory_interest_amount = Number((interestPerInst * mandatory_remaining_installments).toFixed(2));
     discount_eligible_interest = Number((interest_pool - mandatory_interest_amount).toFixed(2));
   }
 
-  const discount_amount = Number(((interest_pool * total_discount_percent) / 100).toFixed(2));
+  const discount_amount = Number(((base_amount * total_discount_percent) / 100).toFixed(2));
 
   // Split discount pool:
-  // Note: agent_share_amount + loan_department_share_amount = discount_amount guaranteed
+  // Agent's profit is 50% of discount price, Department profit = AGENT profit
   const agent_share_amount = Number(((discount_amount * agent_share_percent) / 100).toFixed(2));
   const loan_department_share_amount = Number((discount_amount - agent_share_amount).toFixed(2));
 
-  const total_payable = Number(total_payable_amount) || 0;
+  const total_payable = Number(total_payable_amount) || (principal + interest_pool);
   const user_payable_amount = Math.max(0, Number((total_payable - discount_amount + penalty).toFixed(2)));
 
   return {
+    x_installments,
     remaining_installments,
     mandatory_remaining_installments,
     discount_eligible_installments,
@@ -169,9 +187,12 @@ export function calculatePrecloseBreakdown(params = {}) {
     penalty_amount: penalty,
     full_blocks,
     discount_blocks,
+    kist_factor: discount_blocks,
     total_discount_percent,
     discount_amount,
+    agent_profit: agent_share_amount,
     agent_share_amount,
+    department_profit: loan_department_share_amount,
     loan_department_share_amount,
     user_payable_amount,
     applied_settings: {
@@ -181,7 +202,8 @@ export function calculatePrecloseBreakdown(params = {}) {
       maximum_discount_percent,
       agent_share_percent,
       loan_department_share_percent,
-      allow_partial_blocks
+      allow_partial_blocks,
+      discount_base: discount_base_mode
     }
   };
 }

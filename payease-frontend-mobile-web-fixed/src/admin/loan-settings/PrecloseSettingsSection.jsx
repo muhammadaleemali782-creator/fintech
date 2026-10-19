@@ -95,7 +95,7 @@ export default function PrecloseSettingsSection({
     });
   }, [currentSetting]);
 
-  // System Installment Tenures Preclose Matrix
+  // System Installment Tenures Preclose Matrix (Formula: x = Total - 15, Discount = x/3% of Loan Amount)
   const tenureBreakdowns = useMemo(() => {
     const mandatory = Number(currentSetting.mandatory_installments_before_preclose ?? 15);
     return activeTenures.map((t) => {
@@ -103,21 +103,25 @@ export default function PrecloseSettingsSection({
       const res = calculatePrecloseBreakdown({
         total_installments: t.count,
         paid_installments: paid,
-        interest_on_remaining_installments: 10000,
-        total_payable_amount: 110000,
+        interest_on_remaining_installments: 0,
+        total_payable_amount: 100000,
         loan_amount: 100000,
         loan_type: selectedType,
-        settings: currentSetting
+        settings: {
+          ...currentSetting,
+          discount_base: 'loan_amount'
+        }
       });
       return {
         tenure: t,
         mandatory,
+        x_kist: res.x_installments,
         remaining: res.remaining_installments,
-        blocks: res.discount_blocks,
+        kistFactor: res.kist_factor || res.discount_blocks,
         discountPercent: res.total_discount_percent,
         discountAmount: res.discount_amount,
-        agentShare: res.agent_share_amount,
-        deptShare: res.loan_department_share_amount
+        agentProfit: res.agent_profit || res.agent_share_amount,
+        deptProfit: res.department_profit || res.loan_department_share_amount
       };
     });
   }, [activeTenures, currentSetting, selectedType]);
@@ -135,6 +139,20 @@ export default function PrecloseSettingsSection({
         <p className="text-xs text-zinc-400 leading-relaxed">
           Jab koi customer samay se pehle loan band (preclose) karta hai, toh bachi hui kiston ke byaaj par chhoot (discount) milti hai. Yeh discount pool Agent aur Loan Department ke beech set kiye gaye anupaat (ratio) me banta hai.
         </p>
+
+        {/* Exact Image 2 Formula Card */}
+        <div className="p-4 bg-zinc-950 rounded-xl border border-emerald-500/30 text-xs space-y-2">
+          <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+            <span>📐</span>
+            <span className="uppercase tracking-wider">Formula Logic (Preclose Calculation):</span>
+          </div>
+          <div className="font-mono text-[11px] text-zinc-200 space-y-1 bg-zinc-900/80 p-3 rounded-lg border border-zinc-800">
+            <div className="text-emerald-300 font-bold">TOTAL INSTALLMENT - 15 = (x) INSTALLMENT</div>
+            <div className="text-zinc-300">Discount for customer = (x / 3)% of loan amount</div>
+            <div className="text-zinc-300">Agent profit = 50% of discount price</div>
+            <div className="text-zinc-300">Department profit = AGENT profit (50%)</div>
+          </div>
+        </div>
 
         {/* Mandatory 15-Installment Rule Highlight */}
         <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 text-xs space-y-1.5">
@@ -257,10 +275,10 @@ export default function PrecloseSettingsSection({
             </p>
           </div>
 
-          {/* 2. Installment Block Size */}
+          {/* 2. Kist Divider Interval */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-zinc-300 block">
-              2. Installment Block Size
+              2. Kist Divider Interval (x / N, default 3)
             </label>
             <input
               type="number"
@@ -272,14 +290,14 @@ export default function PrecloseSettingsSection({
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-zinc-500"
             />
             <p className="text-[11px] text-zinc-400">
-              Har <strong>{currentSetting.installment_block_size ?? 3}</strong> remaining kiston ka 1 block banega.
+              Formula: Extra kiston ko <strong>{currentSetting.installment_block_size ?? 3}</strong> se divide kiya jayega (x / {currentSetting.installment_block_size ?? 3}).
             </p>
           </div>
 
-          {/* 3. Discount Percent Per Block */}
+          {/* 3. Discount Rate (% per 3 Kist) */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-zinc-300 block">
-              3. Discount Percent Per Block (%)
+              3. Discount Rate (% per 3 Kist)
             </label>
             <input
               type="number"
@@ -292,7 +310,7 @@ export default function PrecloseSettingsSection({
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-zinc-500"
             />
             <p className="text-[11px] text-zinc-400">
-              Har block par <strong>{currentSetting.discount_percent_per_block ?? 1}%</strong> ka interest discount milega.
+              Har 3 kist par <strong>{currentSetting.discount_percent_per_block ?? 1}%</strong> ka interest discount milega.
             </p>
           </div>
 
@@ -322,14 +340,14 @@ export default function PrecloseSettingsSection({
             <p className="text-[11px] text-zinc-400">
               {currentSetting.maximum_discount_percent
                 ? `Max discount ${currentSetting.maximum_discount_percent}% par cap ho jayega.`
-                : "No cap: Blocks ke hisab se poora discount calculate hoga."}
+                : "No cap: Kist factor ke hisab se poora discount calculate hoga."}
             </p>
           </div>
 
           {/* 5. Agent Share Percent */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-zinc-300 block">
-              5. Agent Share Percent (%)
+              5. Agent Profit Share (%)
             </label>
             <input
               type="number"
@@ -344,14 +362,14 @@ export default function PrecloseSettingsSection({
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-zinc-500"
             />
             <p className="text-[11px] text-zinc-400">
-              Total discount pool ka <strong>{agentShare}%</strong> hissa sourcing agent ko milega.
+              Customer discount ka <strong>{agentShare}%</strong> hissa Agent ka profit hoga.
             </p>
           </div>
 
           {/* 6. Loan Department Share Percent */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-zinc-300 block">
-              6. Loan Department Share Percent (%)
+              6. Loan Department Profit Share (%)
             </label>
             <input
               type="number"
@@ -366,12 +384,12 @@ export default function PrecloseSettingsSection({
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-zinc-500"
             />
             <p className="text-[11px] text-zinc-400">
-              Total discount pool ka <strong>{deptShare}%</strong> hissa Loan Department me retain hoga.
+              Customer discount ka <strong>{deptShare}%</strong> hissa Loan Department ka profit hoga.
             </p>
           </div>
         </div>
 
-        {/* 7. Proportional Partial Block Discount Option */}
+        {/* 7. Proportional Partial Discount Option */}
         <div className="p-3.5 bg-zinc-950 rounded-xl border border-zinc-800 flex items-start gap-3">
           <input
             type="checkbox"
@@ -382,10 +400,10 @@ export default function PrecloseSettingsSection({
           />
           <div className="space-y-0.5 text-xs">
             <label htmlFor="allowPartialBlocks" className="font-bold text-zinc-200 cursor-pointer block">
-              Allow Proportional Discount for Partial Remaining Installments (1, 2, 4, 5 Kist)
+              Allow Proportional Discount for Fractional Kist (1, 2, 4, 5 Kist)
             </label>
             <p className="text-[11px] text-zinc-400">
-              Jab enable ho, toh agar kisi customer ki 3 se kam kistein bachi hain (jaise 18 me se 16 bhar di aur 2 bachi), toh use 0% ke badle anupaatik chhoot (e.g. 2 kist par 0.67%, 1 kist par 0.33%) milegi.
+              Jab enable ho, toh agar kisi customer ki 3 se kam ya alag kistein bachi hain (jaise 18 me se 16 bhar di aur 2 bachi), toh use 0% ke badle anupaatik chhoot (e.g. 2 kist par 0.67%, 1 kist par 0.33%) milegi.
             </p>
           </div>
         </div>
@@ -406,11 +424,11 @@ export default function PrecloseSettingsSection({
           </div>
           <div className="text-xs text-zinc-300 leading-relaxed font-mono">
             Is value par: remaining <strong>{sampleBreakdown.remaining_installments}</strong> installments →{" "}
-            <strong>{sampleBreakdown.discount_blocks}</strong> blocks →{" "}
+            factor <strong>{sampleBreakdown.discount_blocks}</strong> (9 / 3) →{" "}
             <strong>{sampleBreakdown.total_discount_percent}%</strong> discount →{" "}
-            user ko chhoot <strong className="text-emerald-400">₹{sampleBreakdown.discount_amount}</strong>,{" "}
-            agent ko <strong className="text-zinc-100">₹{sampleBreakdown.agent_share_amount}</strong>,{" "}
-            loan department ko <strong className="text-zinc-300">₹{sampleBreakdown.loan_department_share_amount}</strong>
+            customer ko chhoot <strong className="text-emerald-400">₹{sampleBreakdown.discount_amount}</strong>,{" "}
+            agent profit <strong className="text-zinc-100">₹{sampleBreakdown.agent_profit || sampleBreakdown.agent_share_amount}</strong>,{" "}
+            department profit <strong className="text-zinc-300">₹{sampleBreakdown.department_profit || sampleBreakdown.loan_department_share_amount}</strong>
           </div>
         </div>
       </div>
@@ -425,7 +443,7 @@ export default function PrecloseSettingsSection({
             </h4>
           </div>
           <span className="text-[11px] text-zinc-400 font-medium">
-            Simulation on ₹10,000 remaining interest (Mandatory: {currentSetting.mandatory_installments_before_preclose ?? 15} kist paid)
+            Simulation on ₹1,00,000 Loan Amount (Formula: x = Total - 15, Discount = x/3%)
           </span>
         </div>
 
@@ -434,30 +452,30 @@ export default function PrecloseSettingsSection({
             <thead className="bg-zinc-950 text-[10px] uppercase font-bold text-zinc-400 border-b border-zinc-800">
               <tr>
                 <th className="px-3.5 py-2.5">System Installments</th>
-                <th className="px-3.5 py-2.5 text-center">Mandatory Paid</th>
-                <th className="px-3.5 py-2.5 text-center">Remaining</th>
-                <th className="px-3.5 py-2.5 text-center">Discount Blocks</th>
+                <th className="px-3.5 py-2.5 text-center">Mandatory Lock-in</th>
+                <th className="px-3.5 py-2.5 text-center">Extra Kist (x = Total - 15)</th>
+                <th className="px-3.5 py-2.5 text-center">Factor (x / 3)</th>
                 <th className="px-3.5 py-2.5 text-center">Discount Rate</th>
-                <th className="px-3.5 py-2.5 text-right">User Discount</th>
-                <th className="px-3.5 py-2.5 text-right">Agent Share ({agentShare}%)</th>
-                <th className="px-3.5 py-2.5 text-right">Dept Share ({deptShare}%)</th>
+                <th className="px-3.5 py-2.5 text-right">Customer Discount</th>
+                <th className="px-3.5 py-2.5 text-right">Agent Profit ({agentShare}%)</th>
+                <th className="px-3.5 py-2.5 text-right">Dept Profit ({deptShare}%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60 font-mono">
-              {tenureBreakdowns.map(({ tenure, mandatory, remaining, blocks, discountPercent, discountAmount, agentShare: aShare, deptShare: dShare }) => (
+              {tenureBreakdowns.map(({ tenure, mandatory, x_kist, kistFactor, discountPercent, discountAmount, agentProfit, deptProfit }) => (
                 <tr key={tenure.count} className="hover:bg-zinc-800/40 transition">
                   <td className="px-3.5 py-3 font-sans font-bold text-white flex items-center gap-1.5">
                     <span className="text-zinc-400">🏷️</span>
                     <span>{tenure.label}</span>
                   </td>
                   <td className="px-3.5 py-3 text-center text-zinc-400">
-                    {Math.min(tenure.count, mandatory)}
+                    {Math.min(tenure.count, mandatory)} Kist
                   </td>
                   <td className="px-3.5 py-3 text-center font-bold text-white">
-                    {remaining}
+                    {x_kist} Kist
                   </td>
                   <td className="px-3.5 py-3 text-center text-amber-400 font-bold">
-                    {blocks}
+                    {kistFactor}
                   </td>
                   <td className="px-3.5 py-3 text-center font-bold text-emerald-400">
                     {discountPercent}%
@@ -466,10 +484,10 @@ export default function PrecloseSettingsSection({
                     ₹{discountAmount.toLocaleString("en-IN")}
                   </td>
                   <td className="px-3.5 py-3 text-right text-zinc-200">
-                    ₹{aShare.toLocaleString("en-IN")}
+                    ₹{agentProfit.toLocaleString("en-IN")}
                   </td>
                   <td className="px-3.5 py-3 text-right text-zinc-300">
-                    ₹{dShare.toLocaleString("en-IN")}
+                    ₹{deptProfit.toLocaleString("en-IN")}
                   </td>
                 </tr>
               ))}

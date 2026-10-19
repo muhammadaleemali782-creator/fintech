@@ -16,10 +16,10 @@ const OPERATORS = [
 ];
 
 const ACTION_FIELDS = [
-  { value: "discount_percent_per_block", label: "Discount Percent Per Block (%)" },
-  { value: "agent_share_percent", label: "Agent Share Percent (%)" },
+  { value: "discount_percent_per_block", label: "Discount Rate (% per 3 Kist)" },
+  { value: "agent_share_percent", label: "Agent Profit Share (%)" },
   { value: "maximum_discount_percent", label: "Maximum Discount Percent Cap (%)" },
-  { value: "installment_block_size", label: "Installment Block Size" }
+  { value: "installment_block_size", label: "Kist Divider Interval (x / N, default 3)" }
 ];
 
 export default function CustomConditionsSection({

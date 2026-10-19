@@ -204,14 +204,14 @@ export default function CalculatorPreviewSection({ settings, conditions }) {
             </span>
           </div>
 
-          {/* 2. Discount Blocks */}
+          {/* 2. Kist Factor (x / 3) */}
           <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-1">
-            <span className="text-[10px] uppercase font-bold text-zinc-400 block">Discount Blocks</span>
+            <span className="text-[10px] uppercase font-bold text-zinc-400 block">Kist Factor (x / 3)</span>
             <span className="text-xl font-black text-amber-400 font-mono block">
-              {result.discount_blocks}
+              {result.kist_factor ?? result.discount_blocks}
             </span>
             <span className="text-[10px] text-zinc-500 block">
-              {result.applied_settings.allow_partial_blocks ? "Proportional Partial Blocks" : `Floor(${result.remaining_installments} / ${result.applied_settings.installment_block_size})`}
+              x = {result.x_installments ?? Math.max(0, totalInstallments - 15)} (Total - 15)
             </span>
           </div>
 
@@ -222,41 +222,41 @@ export default function CalculatorPreviewSection({ settings, conditions }) {
               {result.total_discount_percent}%
             </span>
             <span className="text-[10px] text-zinc-500 block">
-              {result.discount_blocks} × {result.applied_settings.discount_percent_per_block}%
+              ({result.kist_factor ?? result.discount_blocks}) × {result.applied_settings.discount_percent_per_block}%
               {result.applied_settings.maximum_discount_percent ? ` (Capped)` : ""}
             </span>
           </div>
 
           {/* 4. Total Discount Amount */}
           <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-1">
-            <span className="text-[10px] uppercase font-bold text-emerald-400 block">Total Discount Pool</span>
+            <span className="text-[10px] uppercase font-bold text-emerald-400 block">Customer Discount Pool</span>
             <span className="text-xl font-black text-emerald-400 font-mono block">
               ₹{result.discount_amount.toLocaleString("en-IN")}
             </span>
             <span className="text-[10px] text-zinc-400 block">
-              ₹{remainingInterest} ka {result.total_discount_percent}%
+              {result.total_discount_percent}% of base amount
             </span>
           </div>
 
-          {/* 5. Agent Share */}
+          {/* 5. Agent Profit */}
           <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-1">
-            <span className="text-[10px] uppercase font-bold text-zinc-400 block">Agent Share ({result.applied_settings.agent_share_percent}%)</span>
+            <span className="text-[10px] uppercase font-bold text-zinc-400 block">Agent Profit ({result.applied_settings.agent_share_percent}%)</span>
             <span className="text-xl font-black text-zinc-100 font-mono block">
-              ₹{result.agent_share_amount.toLocaleString("en-IN")}
+              ₹{(result.agent_profit ?? result.agent_share_amount).toLocaleString("en-IN")}
             </span>
             <span className="text-[10px] text-zinc-500 block">
-              {result.applied_settings.agent_share_percent}% of discount pool
+              50% of customer discount
             </span>
           </div>
 
-          {/* 6. Loan Department Share */}
+          {/* 6. Department Profit */}
           <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-1">
-            <span className="text-[10px] uppercase font-bold text-zinc-400 block">Loan Dept Net Share ({result.applied_settings.loan_department_share_percent}%)</span>
+            <span className="text-[10px] uppercase font-bold text-zinc-400 block">Department Profit ({result.applied_settings.loan_department_share_percent}%)</span>
             <span className="text-xl font-black text-zinc-200 font-mono block">
-              ₹{result.loan_department_share_amount.toLocaleString("en-IN")}
+              ₹{(result.department_profit ?? result.loan_department_share_amount).toLocaleString("en-IN")}
             </span>
             <span className="text-[10px] text-zinc-500 block">
-              {result.applied_settings.loan_department_share_percent}% of discount pool
+              = Agent profit (50%)
             </span>
           </div>
 

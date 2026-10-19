@@ -2,7 +2,8 @@ import React, { useState, useMemo } from "react";
 import { calculatePrecloseBreakdown } from "../../utils/precloseCalculator";
 import {
   SYSTEM_LOAN_INSTALLMENTS,
-  SYSTEM_DAILY_TENURES
+  SYSTEM_DAILY_TENURES,
+  SYSTEM_LOAN_AMOUNTS
 } from "../../constants/loanSettingsDefaults";
 
 const LOAN_TYPES = [
@@ -18,6 +19,7 @@ export default function PrecloseSettingsSection({
   isDirty
 }) {
   const [selectedType, setSelectedType] = useState("default");
+  const [simulationLoanAmount, setSimulationLoanAmount] = useState(100000);
 
   const isDefaultSelected = selectedType === "default";
   const activeTenures = selectedType === "micro_business" ? SYSTEM_DAILY_TENURES : SYSTEM_LOAN_INSTALLMENTS;
@@ -98,14 +100,15 @@ export default function PrecloseSettingsSection({
   // System Installment Tenures Preclose Matrix (Formula: x = Total - 15, Discount = x/3% of Loan Amount)
   const tenureBreakdowns = useMemo(() => {
     const mandatory = Number(currentSetting.mandatory_installments_before_preclose ?? 15);
+    const amt = Number(simulationLoanAmount) || 100000;
     return activeTenures.map((t) => {
       const paid = Math.min(t.count, mandatory);
       const res = calculatePrecloseBreakdown({
         total_installments: t.count,
         paid_installments: paid,
         interest_on_remaining_installments: 0,
-        total_payable_amount: 100000,
-        loan_amount: 100000,
+        total_payable_amount: amt,
+        loan_amount: amt,
         loan_type: selectedType,
         settings: {
           ...currentSetting,
@@ -124,7 +127,7 @@ export default function PrecloseSettingsSection({
         deptProfit: res.department_profit || res.loan_department_share_amount
       };
     });
-  }, [activeTenures, currentSetting, selectedType]);
+  }, [activeTenures, currentSetting, selectedType, simulationLoanAmount]);
 
   return (
     <div className="space-y-6 pb-16">
@@ -190,23 +193,49 @@ export default function PrecloseSettingsSection({
         })}
       </div>
 
-      {/* System Loan Installments Badges */}
-      <div className="p-3.5 bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-sm">🗓️</span>
-          <span className="font-bold text-zinc-200">
-            System Available Installments ({selectedType === "micro_business" ? "Daily Tenures" : "15 - 18 - 21 - 24 Kist"}):
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {activeTenures.map((t) => (
-            <span
-              key={t.count}
-              className="px-2.5 py-1 rounded-xl bg-zinc-950 border border-zinc-700/80 text-zinc-200 font-mono font-bold text-xs shadow-xs"
-            >
-              {t.label}
+      {/* System Loan Installments & Paisa (Amounts) Card */}
+      <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3.5 shadow-md">
+        {/* Row 1: System Installments (Kist & Din) with Paisa Range */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">🗓️</span>
+            <span className="font-bold text-zinc-200">
+              System Available Installments ({selectedType === "micro_business" ? "Daily Tenures" : "15 - 18 - 21 - 24 Kist"}):
             </span>
-          ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {activeTenures.map((t) => (
+              <span
+                key={t.count}
+                className="px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-700/80 text-zinc-200 font-mono text-xs shadow-xs flex items-center gap-2"
+              >
+                <span className="font-bold">{t.label}</span>
+                <span className="text-emerald-400 font-bold text-[11px] bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                  {t.amountLabel || "₹5,000 - ₹1,00,000"}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Row 2: System Loan Amounts (Paisa) */}
+        <div className="pt-2.5 border-t border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">💰</span>
+            <span className="font-bold text-zinc-200">
+              System Loan Amounts (Paisa):
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {SYSTEM_LOAN_AMOUNTS.map((amt) => (
+              <span
+                key={amt}
+                className="px-2.5 py-1 rounded-lg bg-zinc-950 border border-zinc-700/80 text-emerald-400 font-mono font-bold text-xs shadow-xs"
+              >
+                ₹{amt.toLocaleString("en-IN")}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -435,16 +464,39 @@ export default function PrecloseSettingsSection({
 
       {/* System Installments Preclose Breakdown Matrix Table */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="text-base">📊</span>
-            <h4 className="text-xs font-black uppercase text-zinc-200 tracking-wider">
-              System Installments Preclose Matrix ({selectedType === "micro_business" ? "Daily Tenures" : "15 - 18 - 21 - 24 Kist"})
-            </h4>
+            <div>
+              <h4 className="text-xs font-black uppercase text-zinc-200 tracking-wider">
+                System Installments Preclose Matrix ({selectedType === "micro_business" ? "Daily Tenures" : "15 - 18 - 21 - 24 Kist"})
+              </h4>
+              <p className="text-[11px] text-zinc-400">
+                Formula: x = Total - 15, Customer Discount = (x / 3)% of Loan Amount (₹ Paisa)
+              </p>
+            </div>
           </div>
-          <span className="text-[11px] text-zinc-400 font-medium">
-            Simulation on ₹1,00,000 Loan Amount (Formula: x = Total - 15, Discount = x/3%)
-          </span>
+
+          {/* Quick Amount (Paisa) Switcher for Live Matrix Simulation */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-zinc-400 font-bold">Loan Amount (Paisa):</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[10000, 25000, 50000, 100000].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setSimulationLoanAmount(amt)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border transition cursor-pointer active:scale-95 ${
+                    simulationLoanAmount === amt
+                      ? "bg-emerald-500 text-zinc-950 border-emerald-400 font-black shadow-xs"
+                      : "bg-zinc-950 text-zinc-300 border-zinc-800 hover:text-white"
+                  }`}
+                >
+                  ₹{amt.toLocaleString("en-IN")}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="overflow-x-auto">

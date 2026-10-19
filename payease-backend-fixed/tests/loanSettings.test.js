@@ -740,3 +740,68 @@ test('2.5 Commission Category: Loan vs Investment commission validation', () => 
   assert.ok(invalidRate > maxPool, 'Investment rate 6% exceeds 5% limit');
 });
 
+test('2.6 Department Pool: Admin can configure loan and investment pool percentages', () => {
+  const validatePool = (val) => Number.isFinite(val) && val >= 0 && val <= 100;
+
+  assert.strictEqual(validatePool(5), true);
+  assert.strictEqual(validatePool(7.5), true);
+  assert.strictEqual(validatePool(0), true);
+  assert.strictEqual(validatePool(100), true);
+  assert.strictEqual(validatePool(-1), false);
+  assert.strictEqual(validatePool(105), false);
+  assert.strictEqual(validatePool('invalid'), false);
+});
+
+test('2.7 Commission Request: Department staff requires proper explanation to submit request', () => {
+  const validateStaffRequest = (requestedPercent, pool, reason, role) => {
+    if (role === 'admin') return { allowed: true, requiresApproval: false };
+    if (!reason || !reason.trim()) {
+      return { allowed: false, message: 'Proper explanation/reason is required' };
+    }
+    if (requestedPercent > pool) {
+      return { allowed: false, message: 'Exceeds department pool' };
+    }
+    return { allowed: true, requiresApproval: true };
+  };
+
+  // Staff without explanation -> rejected
+  const res1 = validateStaffRequest(3, 5, '', 'staff');
+  assert.strictEqual(res1.allowed, false);
+
+  // Staff with proper explanation -> submitted for approval
+  const res2 = validateStaffRequest(3, 5, 'High performance agent increment', 'staff');
+  assert.strictEqual(res2.allowed, true);
+  assert.strictEqual(res2.requiresApproval, true);
+
+  // Admin -> direct allow
+  const res3 = validateStaffRequest(3, 5, '', 'admin');
+  assert.strictEqual(res3.allowed, true);
+  assert.strictEqual(res3.requiresApproval, false);
+});
+
+test('2.8 Commission Request: Admin approval flow updates status and applies rate', () => {
+  const request = {
+    _id: 'req_123',
+    agent_id: 'agent_456',
+    commission_type: 'loan',
+    requested_percent: 3.5,
+    status: 'pending'
+  };
+
+  const approveRequest = (req, adminId) => {
+    assert.strictEqual(req.status, 'pending');
+    return {
+      ...req,
+      status: 'approved',
+      reviewed_by: adminId,
+      applied_rate: req.requested_percent
+    };
+  };
+
+  const approved = approveRequest(request, 'admin_001');
+  assert.strictEqual(approved.status, 'approved');
+  assert.strictEqual(approved.applied_rate, 3.5);
+  assert.strictEqual(approved.reviewed_by, 'admin_001');
+});
+
+

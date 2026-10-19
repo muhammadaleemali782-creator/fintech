@@ -84,7 +84,14 @@ exports.requirePermission = (...permissions) => {
       ? req.user.staffProfile.permissions
       : [];
 
-    const isAuthorized = permissions.some(p => staffPerms.includes(p));
+    const isAuthorized = permissions.some(p => {
+      const pNorm = String(p).toLowerCase().replace(/_/g, '.');
+      return staffPerms.some(sp => {
+        const spNorm = String(sp).toLowerCase().replace(/_/g, '.');
+        return sp === p || spNorm === pNorm;
+      });
+    });
+
     if (!isAuthorized) {
       return res.status(403).json({
         message: `Access denied. Requires permission: ${permissions.join(' or ')}`

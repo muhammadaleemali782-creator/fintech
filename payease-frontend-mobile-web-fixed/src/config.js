@@ -13,3 +13,5 @@ if (!raw || (typeof window !== "undefined" && window.location.hostname.includes(
 }
 
 export const API = raw.replace(/\/+$/, "");
+export const API_BASE_URL = API;
+

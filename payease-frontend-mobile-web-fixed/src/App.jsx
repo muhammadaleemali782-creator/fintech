@@ -38,6 +38,7 @@ const Dashboard = lazyWithRetry(() => import("./Dashboard"));
 const AdminPanel = lazyWithRetry(() => import("./AdminPanel"));
 const StaffDesk = lazyWithRetry(() => import("./desk/StaffDesk"));
 const AgentDesk = lazyWithRetry(() => import("./desk/AgentDesk"));
+const LoanSettingsPage = lazyWithRetry(() => import("./admin/loan-settings/LoanSettingsPage"));
 
 // Product & Information Pages
 const AboutPage = lazyWithRetry(() => import("./pages/AboutPage"));
@@ -303,6 +304,16 @@ export default function App() {
             element={
               <PrivateRoute adminOnly>
                 <AdminPanel />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Loan Settings Dedicated Fullscreen Page */}
+          <Route
+            path="/admin/loan-settings"
+            element={
+              <PrivateRoute staffOrAdmin>
+                <LoanSettingsPage />
               </PrivateRoute>
             }
           />

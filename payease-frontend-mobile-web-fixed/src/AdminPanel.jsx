@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
 
@@ -1097,6 +1097,7 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
 }
 
 export default function AdminPanel() {
+  const navigate = useNavigate();
   const token = tokenStorage.getToken();
   let user = {};
   try {
@@ -1111,13 +1112,17 @@ export default function AdminPanel() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [historyFilterOpen, setHistoryFilterOpen] = useState(false);
   const switchTab = useCallback((nextTab) => {
+    if (nextTab === "loan-settings") {
+      navigate("/admin/loan-settings");
+      return;
+    }
     if (tab === nextTab) return;
     setMobileNavOpen(false);
     setHistoryFilterOpen(false);
     React.startTransition(() => {
       setTab(nextTab);
     });
-  }, [tab]);
+  }, [tab, navigate]);
   const [stats, setStats] = useState(() => {
     const cached = appCache.get("educa_admin_cached_stats", null);
     if (cached && typeof cached === "object" && !cached.message) {
@@ -3696,6 +3701,7 @@ export default function AdminPanel() {
     { key: "capital", label: "Capital & Fund Hub", icon: "" },
     { key: "analytics", label: "Profit & Reserves", icon: "" },
     { key: "staff", label: "Staff & Desks", icon: "" },
+    { key: "loan-settings", label: "Loan Settings", icon: "⚙️" },
     { key: "dept-commission", label: "Department Commission", icon: "" },
     { key: "activity-log", label: "Audit Activity Log", icon: "" },
     { key: "pending", label: "Pending", icon: "⏳", badge: totalPendingDeskCount },

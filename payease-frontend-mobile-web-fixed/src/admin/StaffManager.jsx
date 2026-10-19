@@ -12,7 +12,15 @@ const ALL_DEPARTMENTS = [
 ];
 
 const DEPT_PERMISSIONS = {
-  loan: ["loan.view", "loan.process", "loan.disburse", "loan.waive_penalty", "loan.create_on_behalf"],
+  loan: [
+    "loan.view",
+    "loan.process",
+    "loan.disburse",
+    "loan.waive_penalty",
+    "loan.create_on_behalf",
+    "LOAN_AGENT_COMMISSION_VIEW",
+    "LOAN_AGENT_COMMISSION_SET"
+  ],
   kyc: ["kyc.view", "kyc.process", "kyc.view_documents"],
   deposit: ["deposit.view", "deposit.process", "deposit.view_proof"],
   withdrawal: ["withdrawal.view", "withdrawal.process"],
@@ -31,6 +39,8 @@ const ALL_PERMISSIONS_LIST = [
   { key: "loan.disburse", label: "Disburse Approved Loans", dept: "loan" },
   { key: "loan.waive_penalty", label: "Waive Penalties", dept: "loan" },
   { key: "loan.create_on_behalf", label: "Create Loan for User", dept: "loan" },
+  { key: "LOAN_AGENT_COMMISSION_VIEW", label: "View Agent Loan Commission", dept: "loan" },
+  { key: "LOAN_AGENT_COMMISSION_SET", label: "Set/Edit Agent Loan Commission", dept: "loan" },
   { key: "kyc.view", label: "View KYC Requests", dept: "kyc" },
   { key: "kyc.process", label: "Approve/Reject KYC", dept: "kyc" },
   { key: "kyc.view_documents", label: "View Sensitive KYC Documents", dept: "kyc" },

@@ -7,6 +7,7 @@ import CommissionSettingsSection from "./CommissionSettingsSection";
 import PrecloseSettingsSection from "./PrecloseSettingsSection";
 import CustomConditionsSection from "./CustomConditionsSection";
 import CalculatorPreviewSection from "./CalculatorPreviewSection";
+import LoanSettingsReadmeModal from "./LoanSettingsReadmeModal";
 import {
   DEFAULT_MANDATORY_INSTALLMENTS,
   DEFAULT_INSTALLMENT_BLOCK_SIZE,
@@ -19,6 +20,9 @@ import {
 export default function LoanSettingsPage() {
   const navigate = useNavigate();
   const token = tokenStorage.getToken();
+
+  // Read Me Modal State
+  const [isReadmeOpen, setIsReadmeOpen] = useState(false);
 
   // Sidebar navigation state
   const [activeSection, setActiveSection] = useState("commission");
@@ -209,12 +213,22 @@ export default function LoanSettingsPage() {
           </button>
           <span className="text-xs font-black uppercase tracking-wider text-white">Loan Settings</span>
         </div>
-        <button
-          onClick={handleBackToAdmin}
-          className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-bold"
-        >
-          ← Back
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsReadmeOpen(true)}
+            className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1 active:scale-95 cursor-pointer"
+          >
+            <span>📖</span>
+            <span>Read Me</span>
+          </button>
+          <button
+            onClick={handleBackToAdmin}
+            className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-bold"
+          >
+            ← Back
+          </button>
+        </div>
       </header>
 
       {/* Main Layout Container */}
@@ -226,6 +240,7 @@ export default function LoanSettingsPage() {
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebar}
           onBackToAdmin={handleBackToAdmin}
+          onOpenReadme={() => setIsReadmeOpen(true)}
           isMobileOpen={isMobileDrawerOpen}
           onCloseMobile={() => setIsMobileDrawerOpen(false)}
         />
@@ -248,6 +263,7 @@ export default function LoanSettingsPage() {
                   settings={settings}
                   onChangeSettings={setSettings}
                   isDirty={isDirty}
+                  onOpenReadme={() => setIsReadmeOpen(true)}
                 />
               )}
 
@@ -262,6 +278,7 @@ export default function LoanSettingsPage() {
                 <CalculatorPreviewSection
                   settings={settings}
                   conditions={conditions}
+                  onOpenReadme={() => setIsReadmeOpen(true)}
                 />
               )}
             </>
@@ -273,13 +290,22 @@ export default function LoanSettingsPage() {
       {(activeSection === "preclose" || activeSection === "conditions") && (
         <div className="fixed bottom-0 inset-x-0 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 px-4 sm:px-8 py-3.5 flex items-center justify-between z-40 shadow-2xl">
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsReadmeOpen(true)}
+              className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <span>📖</span>
+              <span className="hidden sm:inline">Read Me / Logic Guide</span>
+              <span className="sm:hidden">Read Me</span>
+            </button>
             {isDirty ? (
               <span className="flex items-center gap-2 text-xs font-bold text-amber-400">
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                 <span>Unsaved changes pending</span>
               </span>
             ) : (
-              <span className="text-xs text-zinc-400 hidden sm:inline">
+              <span className="text-xs text-zinc-400 hidden md:inline">
                 All settings up to date
               </span>
             )}
@@ -317,6 +343,12 @@ export default function LoanSettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Read Me Modal */}
+      <LoanSettingsReadmeModal
+        isOpen={isReadmeOpen}
+        onClose={() => setIsReadmeOpen(false)}
+      />
     </div>
   );
 }

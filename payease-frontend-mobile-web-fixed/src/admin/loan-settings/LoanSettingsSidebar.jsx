@@ -6,6 +6,7 @@ export default function LoanSettingsSidebar({
   isCollapsed,
   onToggleCollapse,
   onBackToAdmin,
+  onOpenReadme,
   isMobileOpen,
   onCloseMobile
 }) {
@@ -100,16 +101,34 @@ export default function LoanSettingsSidebar({
         </nav>
       </div>
 
-      {/* Collapse/Expand Toggle (Desktop Only) */}
-      <div className="p-3 border-t border-zinc-800 hidden md:block">
+      {/* Footer Section */}
+      <div className="border-t border-zinc-800 space-y-2 p-3">
+        {/* Read Me Guide Button */}
         <button
-          onClick={onToggleCollapse}
-          className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-semibold transition border border-zinc-800"
-          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          onClick={() => {
+            if (onOpenReadme) onOpenReadme();
+            if (onCloseMobile) onCloseMobile();
+          }}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 transition active:scale-95 text-xs font-bold cursor-pointer shadow-xs ${
+            isCollapsed ? "justify-center" : "justify-start"
+          }`}
+          title="Read Me (Policy & Logic Guide)"
         >
-          <span>{isCollapsed ? "▶" : "◀"}</span>
-          {!isCollapsed && <span className="text-[11px]">Collapse Sidebar</span>}
+          <span className="text-sm">📖</span>
+          {!isCollapsed && <span className="truncate">Read Me Guide</span>}
         </button>
+
+        {/* Collapse/Expand Toggle (Desktop Only) */}
+        <div className="hidden md:block">
+          <button
+            onClick={onToggleCollapse}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-semibold transition border border-zinc-800"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            <span>{isCollapsed ? "▶" : "◀"}</span>
+            {!isCollapsed && <span className="text-[11px]">Collapse Sidebar</span>}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { calculatePrecloseBreakdown } from "../../utils/precloseCalculator";
 
-export default function CalculatorPreviewSection({ settings, conditions }) {
+export default function CalculatorPreviewSection({ settings, conditions, onOpenReadme }) {
   // Calculator Interactive Inputs
   const [loanAmount, setLoanAmount] = useState(100000);
   const [totalInstallments, setTotalInstallments] = useState(21);
@@ -50,14 +50,26 @@ export default function CalculatorPreviewSection({ settings, conditions }) {
   return (
     <div className="space-y-6 pb-16">
       {/* Banner */}
-      <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-lg">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🧮</span>
-          <h3 className="text-sm font-black text-white uppercase tracking-wider">
-            Live Preclose Calculator & Simulation
-          </h3>
+      <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-lg space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🧮</span>
+            <h3 className="text-sm font-black text-white uppercase tracking-wider">
+              Live Preclose Calculator & Simulation
+            </h3>
+          </div>
+          {onOpenReadme && (
+            <button
+              type="button"
+              onClick={onOpenReadme}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 font-bold text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs self-start sm:self-auto"
+            >
+              <span>📖</span>
+              <span>Read Me / Policy Guide</span>
+            </button>
+          )}
         </div>
-        <p className="text-xs text-zinc-400 mt-1">
+        <p className="text-xs text-zinc-400">
           Niche diye gaye test values badal kar live test karein ki customer ke early close karne par discount, mandatory interest lock-in, penalty, agent share aur department profit kaise calculate honge.
         </p>
       </div>

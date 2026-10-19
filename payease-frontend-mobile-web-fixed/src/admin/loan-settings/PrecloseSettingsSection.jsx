@@ -16,7 +16,8 @@ const LOAN_TYPES = [
 export default function PrecloseSettingsSection({
   settings,
   onChangeSettings,
-  isDirty
+  isDirty,
+  onOpenReadme
 }) {
   const [selectedType, setSelectedType] = useState("default");
   const [simulationLoanAmount, setSimulationLoanAmount] = useState(100000);
@@ -135,11 +136,23 @@ export default function PrecloseSettingsSection({
     <div className="space-y-6 pb-16">
       {/* Overview Banner - Clean Neutral Zinc Card */}
       <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 shadow-lg">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🏷️</span>
-          <h3 className="text-sm font-black text-white uppercase tracking-wider">
-            Loan Preclose Interest Discount Policy
-          </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🏷️</span>
+            <h3 className="text-sm font-black text-white uppercase tracking-wider">
+              Loan Preclose Interest Discount Policy
+            </h3>
+          </div>
+          {onOpenReadme && (
+            <button
+              type="button"
+              onClick={onOpenReadme}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 font-bold text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs self-start sm:self-auto"
+            >
+              <span>📖</span>
+              <span>Read Me / Policy Guide</span>
+            </button>
+          )}
         </div>
         <p className="text-xs text-zinc-400 leading-relaxed">
           Jab koi customer samay se pehle loan band (preclose) karta hai, toh bachi hui kiston ke byaaj par chhoot (discount) milti hai. Yeh discount pool Agent aur Loan Department ke beech set kiye gaye anupaat (ratio) me banta hai.

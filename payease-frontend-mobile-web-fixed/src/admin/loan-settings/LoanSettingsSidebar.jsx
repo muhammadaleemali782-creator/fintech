@@ -41,17 +41,17 @@ export default function LoanSettingsSidebar({
     <div className="h-full flex flex-col justify-between bg-zinc-900 border-r border-zinc-800 text-zinc-200 select-none">
       {/* Top Header & Navigation */}
       <div>
-        {/* Back to Admin Button */}
-        <div className="p-3 border-b border-zinc-800">
+        {/* Collapse Sidebar Button at Top (Desktop Only) */}
+        <div className="p-3 border-b border-zinc-800 hidden md:block">
           <button
-            onClick={onBackToAdmin}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition active:scale-95 text-xs font-bold border border-zinc-700/60 ${
-              isCollapsed ? "justify-center" : "justify-start"
+            onClick={onToggleCollapse}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition active:scale-95 text-xs font-bold border border-zinc-700/60 cursor-pointer ${
+              isCollapsed ? "justify-center" : "justify-between"
             }`}
-            title="Back to Admin Panel"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
-            <span className="text-sm">←</span>
-            {!isCollapsed && <span className="truncate">Back to Admin Panel</span>}
+            {!isCollapsed && <span className="truncate">Collapse Sidebar</span>}
+            <span className="text-sm">{isCollapsed ? "▶" : "◀"}</span>
           </button>
         </div>
 
@@ -118,17 +118,17 @@ export default function LoanSettingsSidebar({
           {!isCollapsed && <span className="truncate">Read Me Guide</span>}
         </button>
 
-        {/* Collapse/Expand Toggle (Desktop Only) */}
-        <div className="hidden md:block">
-          <button
-            onClick={onToggleCollapse}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-semibold transition border border-zinc-800"
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            <span>{isCollapsed ? "▶" : "◀"}</span>
-            {!isCollapsed && <span className="text-[11px]">Collapse Sidebar</span>}
-          </button>
-        </div>
+        {/* Back to Admin Panel Button (Desktop & Mobile) */}
+        <button
+          onClick={onBackToAdmin}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition active:scale-95 text-xs font-bold border border-zinc-700/60 cursor-pointer ${
+            isCollapsed ? "justify-center" : "justify-start"
+          }`}
+          title="Back to Admin Panel"
+        >
+          <span className="text-sm">←</span>
+          {!isCollapsed && <span className="truncate">Back to Admin Panel</span>}
+        </button>
       </div>
     </div>
   );

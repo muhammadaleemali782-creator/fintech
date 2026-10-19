@@ -37,14 +37,14 @@ export default function LoanSettingsSidebar({
   ];
 
   const sidebarContent = (
-    <div className="h-full flex flex-col justify-between bg-slate-900 border-r border-slate-800 text-slate-200 select-none">
+    <div className="h-full flex flex-col justify-between bg-zinc-900 border-r border-zinc-800 text-zinc-200 select-none">
       {/* Top Header & Navigation */}
       <div>
         {/* Back to Admin Button */}
-        <div className="p-3 border-b border-slate-800">
+        <div className="p-3 border-b border-zinc-800">
           <button
             onClick={onBackToAdmin}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white transition active:scale-95 text-xs font-bold ${
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition active:scale-95 text-xs font-bold border border-zinc-700/60 ${
               isCollapsed ? "justify-center" : "justify-start"
             }`}
             title="Back to Admin Panel"
@@ -55,13 +55,13 @@ export default function LoanSettingsSidebar({
         </div>
 
         {/* Page Title */}
-        <div className={`px-4 py-3 border-b border-slate-800/60 ${isCollapsed ? "text-center" : ""}`}>
+        <div className={`px-4 py-3 border-b border-zinc-800/60 ${isCollapsed ? "text-center" : ""}`}>
           <div className="flex items-center gap-2">
             <span className="text-lg">⚙️</span>
             {!isCollapsed && (
               <div className="min-w-0">
                 <h2 className="text-xs font-black uppercase tracking-wider text-white">Loan Settings</h2>
-                <p className="text-[10px] text-slate-400 truncate">Central Policy & Rates</p>
+                <p className="text-[10px] text-zinc-400 truncate">Central Policy & Rates</p>
               </div>
             )}
           </div>
@@ -80,8 +80,8 @@ export default function LoanSettingsSidebar({
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition active:scale-95 cursor-pointer ${
                   isActive
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-bold"
-                    : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium"
+                    ? "bg-zinc-800 text-white border border-zinc-700 shadow-sm font-bold"
+                    : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200 font-medium border border-transparent"
                 } ${isCollapsed ? "justify-center" : ""}`}
                 title={sec.label}
               >
@@ -89,7 +89,7 @@ export default function LoanSettingsSidebar({
                 {!isCollapsed && (
                   <div className="min-w-0 flex-1">
                     <div className="text-xs leading-tight truncate">{sec.label}</div>
-                    <div className={`text-[10px] leading-tight truncate ${isActive ? "text-blue-100" : "text-slate-500"}`}>
+                    <div className={`text-[10px] leading-tight truncate ${isActive ? "text-zinc-300" : "text-zinc-500"}`}>
                       {sec.subtitle}
                     </div>
                   </div>
@@ -101,10 +101,10 @@ export default function LoanSettingsSidebar({
       </div>
 
       {/* Collapse/Expand Toggle (Desktop Only) */}
-      <div className="p-3 border-t border-slate-800 hidden md:block">
+      <div className="p-3 border-t border-zinc-800 hidden md:block">
         <button
           onClick={onToggleCollapse}
-          className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-xs font-semibold transition"
+          className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-semibold transition border border-zinc-800"
           title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
           <span>{isCollapsed ? "▶" : "◀"}</span>
@@ -129,7 +129,7 @@ export default function LoanSettingsSidebar({
       {isMobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
           <div
-            className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs"
+            className="fixed inset-0 bg-zinc-950/80 backdrop-blur-xs"
             onClick={onCloseMobile}
           />
           <div className="relative w-72 max-w-[80vw] h-full z-10 animate-in slide-in-from-left duration-200">

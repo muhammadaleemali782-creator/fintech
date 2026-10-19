@@ -177,7 +177,7 @@ export default function LoanSettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none overflow-x-hidden">
+    <div className="h-screen max-h-screen flex flex-col font-sans select-none overflow-hidden bg-zinc-950 text-zinc-100">
       {/* Toast Notification */}
       {toast.msg && (
         <div
@@ -199,11 +199,11 @@ export default function LoanSettingsPage() {
       )}
 
       {/* Mobile Top Header */}
-      <header className="md:hidden bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+      <header className="md:hidden bg-zinc-900 border-b border-zinc-800 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shrink-0">
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setIsMobileDrawerOpen(true)}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+            className="p-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white"
           >
             ☰
           </button>
@@ -211,14 +211,14 @@ export default function LoanSettingsPage() {
         </div>
         <button
           onClick={handleBackToAdmin}
-          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold"
+          className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-bold"
         >
           ← Back
         </button>
       </header>
 
       {/* Main Layout Container */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Collapsible Sidebar */}
         <LoanSettingsSidebar
           activeSection={activeSection}
@@ -230,12 +230,12 @@ export default function LoanSettingsPage() {
           onCloseMobile={() => setIsMobileDrawerOpen(false)}
         />
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-28">
+        {/* Content Area with ample bottom padding to prevent any bottom bar overlap */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-48">
           {loading ? (
             <div className="flex flex-col items-center justify-center min-h-[40vh] space-y-3">
-              <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-slate-400 font-bold">Loading Loan Settings...</span>
+              <div className="w-8 h-8 border-3 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-zinc-400 font-bold">Loading Loan Settings...</span>
             </div>
           ) : (
             <>
@@ -271,7 +271,7 @@ export default function LoanSettingsPage() {
 
       {/* Sticky Bottom Actions Bar (Active on preclose and conditions sections) */}
       {(activeSection === "preclose" || activeSection === "conditions") && (
-        <div className="fixed bottom-0 inset-x-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-4 sm:px-8 py-3.5 flex items-center justify-between z-40 shadow-2xl">
+        <div className="fixed bottom-0 inset-x-0 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 px-4 sm:px-8 py-3.5 flex items-center justify-between z-40 shadow-2xl">
           <div className="flex items-center gap-3">
             {isDirty ? (
               <span className="flex items-center gap-2 text-xs font-bold text-amber-400">
@@ -279,7 +279,7 @@ export default function LoanSettingsPage() {
                 <span>Unsaved changes pending</span>
               </span>
             ) : (
-              <span className="text-xs text-slate-400 hidden sm:inline">
+              <span className="text-xs text-zinc-400 hidden sm:inline">
                 All settings up to date
               </span>
             )}
@@ -289,7 +289,7 @@ export default function LoanSettingsPage() {
             <button
               onClick={handleResetToDefault}
               disabled={saving}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer"
+              className="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer"
             >
               Reset to Default
             </button>
@@ -298,13 +298,13 @@ export default function LoanSettingsPage() {
               disabled={saving || !isDirty}
               className={`px-5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer ${
                 isDirty
-                  ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30"
-                  : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  ? "bg-zinc-100 hover:bg-white text-zinc-950 font-black shadow-zinc-100/20"
+                  : "bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-800"
               }`}
             >
               {saving ? (
                 <>
-                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span className="w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
                   <span>Saving...</span>
                 </>
               ) : (

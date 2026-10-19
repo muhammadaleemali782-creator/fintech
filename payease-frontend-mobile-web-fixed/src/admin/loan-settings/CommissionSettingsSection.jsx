@@ -140,10 +140,10 @@ export default function CommissionSettingsSection({ showToast }) {
 
   if (!canView) {
     return (
-      <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+      <div className="p-8 text-center bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3">
         <span className="text-3xl">🔒</span>
-        <h3 className="text-sm font-bold text-slate-200">Access Restricted</h3>
-        <p className="text-xs text-slate-400 max-w-md mx-auto">
+        <h3 className="text-sm font-bold text-zinc-200">Access Restricted</h3>
+        <p className="text-xs text-zinc-400 max-w-md mx-auto">
           Agent commission dekhne ke liye <code className="text-amber-400">LOAN_AGENT_COMMISSION_VIEW</code> permission zaroori hai.
         </p>
       </div>
@@ -151,9 +151,9 @@ export default function CommissionSettingsSection({ showToast }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-16">
       {/* Commission Category Selector (Loan vs Investment) */}
-      <div className="flex flex-wrap items-center gap-2.5 p-1.5 bg-slate-900 border border-slate-800 rounded-2xl w-fit">
+      <div className="flex flex-wrap items-center gap-2.5 p-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl w-fit">
         <button
           type="button"
           onClick={() => {
@@ -162,8 +162,8 @@ export default function CommissionSettingsSection({ showToast }) {
           }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer active:scale-95 ${
             commissionCategory === "loan"
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-black"
-              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              ? "bg-zinc-100 text-zinc-950 font-black shadow-sm"
+              : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
           }`}
         >
           <span className="text-base">💼</span>
@@ -178,8 +178,8 @@ export default function CommissionSettingsSection({ showToast }) {
           }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer active:scale-95 ${
             commissionCategory === "investment"
-              ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 font-black"
-              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              ? "bg-zinc-100 text-zinc-950 font-black shadow-sm"
+              : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
           }`}
         >
           <span className="text-base">📈</span>
@@ -187,14 +187,8 @@ export default function CommissionSettingsSection({ showToast }) {
         </button>
       </div>
 
-      {/* Overview Banner */}
-      <div
-        className={`p-5 rounded-2xl border space-y-3 ${
-          isInvestment
-            ? "bg-gradient-to-br from-emerald-950/40 via-slate-900 to-teal-950/30 border-emerald-500/30"
-            : "bg-gradient-to-br from-blue-950/40 via-slate-900 to-indigo-950/30 border-blue-500/30"
-        }`}
-      >
+      {/* Overview Banner - Clean Neutral Zinc */}
+      <div className="p-5 rounded-2xl border border-zinc-800 bg-zinc-900 space-y-3 shadow-lg">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -205,22 +199,18 @@ export default function CommissionSettingsSection({ showToast }) {
                   : "Loan Department Agent Commission Control"}
               </h3>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-zinc-400 mt-1">
               {isInvestment
                 ? `Customer ke investment / lending deposit par total gross pool ${activePoolPercent}% hai. Yahan se aap har agent ka investment referral commission set kar sakte hain.`
                 : `Loan Department ko har disbursed loan par total ${activePoolPercent}% commission milta hai. Department is me se apne registered agents ko commission distribute karta hai.`}
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <div className="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-center">
-              <span className="text-[10px] text-slate-400 block font-bold uppercase">
+            <div className="px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-center">
+              <span className="text-[10px] text-zinc-400 block font-bold uppercase">
                 {isInvestment ? "Gross Pool" : "Dept Total Pool"}
               </span>
-              <span
-                className={`text-lg font-black font-mono ${
-                  isInvestment ? "text-emerald-400" : "text-blue-400"
-                }`}
-              >
+              <span className="text-lg font-black font-mono text-zinc-100">
                 {activePoolPercent}%
               </span>
             </div>
@@ -228,9 +218,9 @@ export default function CommissionSettingsSection({ showToast }) {
         </div>
 
         {/* Info formula card */}
-        <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-[11px] text-slate-300 flex flex-wrap items-center justify-between gap-2">
+        <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 text-[11px] text-zinc-300 flex flex-wrap items-center justify-between gap-2">
           <span className="flex items-center gap-1.5">
-            <span className={isInvestment ? "text-emerald-400" : "text-blue-400"}>ℹ️</span>
+            <span className="text-zinc-400">ℹ️</span>
             <span>
               Formula: <strong>{isInvestment ? "Net Platform/Dept Share" : "Loan Dept Net Share"}</strong> ={" "}
               {activePoolPercent}% - Agent Commission %
@@ -246,10 +236,10 @@ export default function CommissionSettingsSection({ showToast }) {
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h4 className="text-xs font-black uppercase text-slate-300 tracking-wider">
+            <h4 className="text-xs font-black uppercase text-zinc-300 tracking-wider">
               {isInvestment ? "Investment Agents" : "Registered Loan Agents"} ({filteredAgents.length})
             </h4>
-            {loading && <span className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
+            {loading && <span className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />}
           </div>
 
           <div className="relative w-full sm:w-64">
@@ -258,12 +248,12 @@ export default function CommissionSettingsSection({ showToast }) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search agent name, code, phone..."
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs"
               >
                 ✕
               </button>
@@ -272,10 +262,10 @@ export default function CommissionSettingsSection({ showToast }) {
         </div>
 
         {/* Table */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-950/80 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-800">
+            <table className="w-full text-left text-xs text-zinc-300">
+              <thead className="bg-zinc-950 text-[10px] uppercase font-bold text-zinc-400 border-b border-zinc-800">
                 <tr>
                   <th className="px-4 py-3">Agent Name & Code</th>
                   <th className="px-4 py-3">Phone</th>
@@ -289,10 +279,10 @@ export default function CommissionSettingsSection({ showToast }) {
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-zinc-800/60">
                 {filteredAgents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">
+                    <td colSpan={6} className="px-4 py-8 text-center text-zinc-500 text-xs">
                       {loading ? "Loading agents..." : "Koi agent nahi mila"}
                     </td>
                   </tr>
@@ -323,17 +313,17 @@ export default function CommissionSettingsSection({ showToast }) {
 
                     return (
                       <React.Fragment key={agent.agent_id}>
-                        <tr className="hover:bg-slate-800/30 transition">
+                        <tr className="hover:bg-zinc-800/30 transition">
                           <td className="px-4 py-3.5">
                             <div className="font-bold text-white flex items-center gap-1.5">
                               <span>👤</span>
                               <span>{agent.agent_name || "Agent"}</span>
                             </div>
-                            <span className="text-[10px] font-mono text-blue-400 font-semibold block mt-0.5">
+                            <span className="text-[10px] font-mono text-zinc-400 font-semibold block mt-0.5">
                               Code: {agent.referral_code}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 font-mono text-[11px] text-slate-300">
+                          <td className="px-4 py-3.5 font-mono text-[11px] text-zinc-300">
                             {agent.agent_phone || "—"}
                           </td>
                           <td className="px-4 py-3.5 text-center">
@@ -346,16 +336,16 @@ export default function CommissionSettingsSection({ showToast }) {
                                   step="0.1"
                                   value={editRateInput}
                                   onChange={(e) => setEditRateInput(e.target.value)}
-                                  className="w-16 bg-slate-950 border border-blue-500 rounded-lg px-2 py-1 text-center font-mono font-bold text-white text-xs focus:outline-none"
+                                  className="w-16 bg-zinc-950 border border-zinc-600 rounded-lg px-2 py-1 text-center font-mono font-bold text-white text-xs focus:outline-none focus:border-zinc-400"
                                 />
-                                <span className="font-bold text-slate-400">%</span>
+                                <span className="font-bold text-zinc-400">%</span>
                               </div>
                             ) : (
                               <span
                                 className={`inline-block px-2.5 py-1 rounded-full font-bold font-mono ${
                                   isInvestment
-                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                                    : "bg-blue-500/10 text-blue-400 border border-blue-500/30"
+                                    ? "bg-zinc-800 text-emerald-400 border border-zinc-700"
+                                    : "bg-zinc-800 text-zinc-200 border border-zinc-700"
                                 }`}
                               >
                                 {baseRate}%
@@ -363,11 +353,11 @@ export default function CommissionSettingsSection({ showToast }) {
                             )}
                           </td>
                           <td className="px-4 py-3.5 text-center">
-                            <span className="inline-block px-2.5 py-1 rounded-full bg-slate-800 text-slate-200 border border-slate-700 font-bold font-mono">
+                            <span className="inline-block px-2.5 py-1 rounded-full bg-zinc-950 text-zinc-300 border border-zinc-800 font-bold font-mono">
                               {currentNetRate}%
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 text-[11px] text-slate-400">
+                          <td className="px-4 py-3.5 text-[11px] text-zinc-400">
                             {agent.last_updated
                               ? new Date(agent.last_updated).toLocaleDateString("en-IN", {
                                   day: "2-digit",
@@ -388,7 +378,7 @@ export default function CommissionSettingsSection({ showToast }) {
                                 </button>
                                 <button
                                   onClick={handleCancelEdit}
-                                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition cursor-pointer"
+                                  className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs transition cursor-pointer"
                                 >
                                   ✕
                                 </button>
@@ -397,7 +387,7 @@ export default function CommissionSettingsSection({ showToast }) {
                               canSet && (
                                 <button
                                   onClick={() => handleStartEdit(agent)}
-                                  className="px-3 py-1 bg-slate-800 hover:bg-blue-600/30 text-blue-400 hover:text-white border border-slate-700 hover:border-blue-500 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer"
+                                  className="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer"
                                 >
                                   Edit Rate
                                 </button>
@@ -408,15 +398,15 @@ export default function CommissionSettingsSection({ showToast }) {
 
                         {/* Inline Live Calculation Preview when editing */}
                         {isEditing && (
-                          <tr className="bg-slate-950/70 border-b border-blue-500/30">
+                          <tr className="bg-zinc-950/90 border-b border-zinc-800">
                             <td colSpan={6} className="px-4 py-2.5">
                               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                                <div className="text-slate-300 flex items-center gap-1.5">
+                                <div className="text-zinc-300 flex items-center gap-1.5">
                                   <span className="text-amber-400">💡</span>
                                   <span>
                                     {isInvestment ? "Investment" : "Loan"} amount <strong>₹{previewAmount.toLocaleString("en-IN")}</strong> par:
                                     {" "}total pool <strong>₹{totalPoolAmount.toLocaleString("en-IN")}</strong>,
-                                    agent ko <strong className="text-blue-400">₹{agentAmount.toLocaleString("en-IN")}</strong>,
+                                    agent ko <strong className="text-white">₹{agentAmount.toLocaleString("en-IN")}</strong>,
                                     net share <strong className="text-emerald-400">₹{netShareAmount.toLocaleString("en-IN")}</strong>
                                   </span>
                                 </div>

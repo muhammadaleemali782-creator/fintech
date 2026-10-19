@@ -53,22 +53,65 @@ test('1.2 calculatePrecloseBreakdown: total 21, paid 12, remaining 9 -> 3% disco
   assert.strictEqual(result.discount_amount, 270); // 9000 * 3% = 270
 });
 
-test('1.3 calculatePrecloseBreakdown: remaining 2 (less than block size 3) -> 0% discount', () => {
-  const result = calculatePrecloseBreakdown({
+test('1.3 calculatePrecloseBreakdown: remaining 2 (partial block) -> proportional 0.67% discount (and 0% in strict mode)', () => {
+  // 1. Proportional partial blocks (default requested by user: 2 remaining installments out of 18 or 21 gets proportional discount)
+  const resultProportional = calculatePrecloseBreakdown({
     total_installments: 21,
     paid_installments: 19,
     interest_on_remaining_installments: 2000,
     total_payable_amount: 20000,
     settings: {
       installment_block_size: 3,
+      discount_percent_per_block: 1,
+      allow_partial_blocks: true
+    }
+  });
+
+  assert.strictEqual(resultProportional.remaining_installments, 2);
+  assert.strictEqual(resultProportional.discount_blocks, 0.67);
+  assert.strictEqual(resultProportional.total_discount_percent, 0.67);
+  assert.strictEqual(resultProportional.discount_amount, 13.4); // 2000 * 0.67% = 13.40
+
+  // 2. Strict integer block mode (allow_partial_blocks = false)
+  const resultStrict = calculatePrecloseBreakdown({
+    total_installments: 21,
+    paid_installments: 19,
+    interest_on_remaining_installments: 2000,
+    total_payable_amount: 20000,
+    settings: {
+      installment_block_size: 3,
+      discount_percent_per_block: 1,
+      allow_partial_blocks: false
+    }
+  });
+
+  assert.strictEqual(resultStrict.remaining_installments, 2);
+  assert.strictEqual(resultStrict.discount_blocks, 0);
+  assert.strictEqual(resultStrict.total_discount_percent, 0);
+  assert.strictEqual(resultStrict.discount_amount, 0);
+});
+
+test('1.8 Mandatory Installments Lock-in: early preclose (paid 1 of 21) locks 14 mandatory interest installments + penalty', () => {
+  const result = calculatePrecloseBreakdown({
+    total_installments: 21,
+    paid_installments: 1,
+    interest_on_remaining_installments: 20000, // 20 remaining installments => 1000 per installment
+    total_payable_amount: 120000,
+    penalty_amount: 500, // Late fee or penalty
+    settings: {
+      mandatory_installments_before_preclose: 15,
+      installment_block_size: 3,
       discount_percent_per_block: 1
     }
   });
 
-  assert.strictEqual(result.remaining_installments, 2);
-  assert.strictEqual(result.discount_blocks, 0);
-  assert.strictEqual(result.total_discount_percent, 0);
-  assert.strictEqual(result.discount_amount, 0);
+  assert.strictEqual(result.remaining_installments, 20);
+  assert.strictEqual(result.mandatory_remaining_installments, 14); // 15 - 1 = 14
+  assert.strictEqual(result.discount_eligible_installments, 6);   // 21 - 15 = 6
+  assert.strictEqual(result.mandatory_interest_amount, 14000);   // 14 * 1000 = 14000
+  assert.strictEqual(result.penalty_amount, 500);
+  // User payable includes penalty: total_payable (120000) - discount (1334) + penalty (500)
+  assert.strictEqual(result.user_payable_amount, 120000 - result.discount_amount + 500);
 });
 
 test('1.4 calculatePrecloseBreakdown: maximum_discount_percent cap enforcement', () => {

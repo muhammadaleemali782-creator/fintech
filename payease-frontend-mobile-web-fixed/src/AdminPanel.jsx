@@ -389,7 +389,7 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
           return next;
         });
       }
-    }, 1000);
+    }, 30);
     return () => clearInterval(timer);
   }, [deposits]);
 
@@ -456,7 +456,7 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
           return next;
         });
       }
-    }, 1000);
+    }, 30);
     return () => clearInterval(timer);
   }, [deposits, baseProfit]);
 
@@ -501,15 +501,14 @@ function LiveLedgerDailyAdded({ baseAmount = 0, deposits = 0, className = "" }) 
       if (dt > 0 && perMsAdminYield > 0) {
         setAmount((prev) => prev + dt * perMsAdminYield);
       }
-    }, 1000);
+    }, 30);
     return () => clearInterval(timer);
   }, [deposits]);
 
   return <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>+₹{Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
 }
 
-// ONE shared 250ms clock for every live profit cell. Before, each user row ran its own timer
-// (e.g. 300 rows = thousands of React renders per second -> frozen buttons / lag).
+// ONE shared 30ms clock for every live profit cell.
 const __liveClockSubs = new Set();
 let __liveClockTimer = null;
 function useSharedLiveClock(enabled) {
@@ -522,7 +521,7 @@ function useSharedLiveClock(enabled) {
       __liveClockTimer = setInterval(() => {
         if (typeof document !== "undefined" && document.hidden) return;
         __liveClockSubs.forEach((fn) => fn());
-      }, 250);
+      }, 30);
     }
     return () => {
       __liveClockSubs.delete(sub);
@@ -1198,31 +1197,8 @@ export default function AdminPanel() {
   });
   const [r2Testing, setR2Testing] = useState(false);
   const [r2Saving, setR2Saving] = useState(false);
-  const [deptCommissions, setDeptCommissions] = useState({
-    loan: { name: 'Loan Department', rate: 5, unit: '%', type: 'percentage', basis: 'Collected EMI Repayments', description: 'Commission on EMIs recovered from borrowers' },
-    deposit: { name: 'Deposit Department', rate: 1, unit: '%', type: 'percentage', basis: 'Approved Inflow Deposits', description: 'Commission on verified external deposits added to fintech' },
-    withdrawal: { name: 'Withdrawal Department', rate: 1, unit: '%', type: 'percentage', basis: 'Approved Payouts', description: 'Processing commission on user cash-out transactions' },
-    kyc: { name: 'KYC Verification', rate: 20, unit: '₹', type: 'flat', basis: 'Verified User Accounts', description: 'Flat incentive reward per verified KYC profile' },
-    lending: { name: 'Lending', rate: 2, unit: '%', type: 'percentage', basis: 'Lending Capital Returns', description: 'Commission on lending allocations and yield distributions' },
-    bond: { name: 'Bonds', rate: 2, unit: '%', type: 'percentage', basis: 'Bond Investment Subscriptions', description: 'Commission on bond placements and fixed deposits' }
-  });
-  const [loadingCommissions, setLoadingCommissions] = useState(false);
-  const [analytics, setAnalytics] = useState(() => {
-    const cached = appCache.get("educa_admin_cached_analytics", null);
-    if (cached && typeof cached === "object" && cached.stats) {
-      return cached;
-    }
-    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_analytics") : null;
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.stats) return parsed;
-      } catch {}
-    }
-    return DEFAULT_ANALYTICS;
-  });
-  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [chartMode, setChartMode] = useState("daily"); // "daily" | "cumulative"
+  const [chartRange, setChartRange] = useState("5d"); // "5d" | "7d" | "15d" | "all" (Default: 5 days as requested)
   const [hoveredChartBar, setHoveredChartBar] = useState(null);
   const [depositDetails, setDepositDetails] = useState(() => appCache.get("educa_admin_cached_deposit_details", {
     upiId: "educafinance@upi",
@@ -2750,8 +2726,6 @@ export default function AdminPanel() {
       loadCapitalMetrics(true);
     } else if (tab === "devices") {
       loadDevices(true);
-    } else if (tab === "dept-commission") {
-      loadDeptCommissions();
     } else if (tab === "settings") {
       loadSettings(true);
       loadDepositDetails(true);
@@ -3560,55 +3534,6 @@ export default function AdminPanel() {
     if (res.ok) { setCommissionRate(rate); setNewCommissionRate(""); }
   };
 
-  const loadDeptCommissions = useCallback(async () => {
-    try {
-      setLoadingCommissions(true);
-      const res = await fetch(`${API}/settings/dept-commissions`, { headers });
-      if (res.ok) {
-        const d = await res.json();
-        if (d.commissions) {
-          if (d.commissions.lending) d.commissions.lending.name = 'Lending';
-          if (d.commissions.bond) d.commissions.bond.name = 'Bonds';
-          setDeptCommissions(d.commissions);
-        }
-      }
-    } catch {} finally {
-      setLoadingCommissions(false);
-    }
-  }, []); // eslint-disable-line
-
-  const handleUpdateDeptCommission = async (deptKey, newRate) => {
-    const rateNum = Number(newRate);
-    if (isNaN(rateNum) || rateNum < 0) {
-      showToast("Please enter a valid rate/amount", "error");
-      return;
-    }
-    const currentDept = deptCommissions[deptKey] || {};
-    const updated = {
-      ...deptCommissions,
-      [deptKey]: {
-        ...currentDept,
-        rate: rateNum
-      }
-    };
-    setDeptCommissions(updated);
-    try {
-      const res = await fetch(`${API}/settings/dept-commissions`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ commissions: updated })
-      });
-      const d = await res.json();
-      if (res.ok) {
-        showToast(`${currentDept.name || deptKey} commission updated to ${rateNum}${currentDept.unit || '%'}`);
-      } else {
-        showToast(d.message || "Failed to update commission", "error");
-      }
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  };
-
   const updateGoogleDriveUrl = async () => {
     try {
       const res = await fetch(`${API}/settings/google-drive`, {
@@ -3781,7 +3706,6 @@ export default function AdminPanel() {
     { key: "analytics", label: "Profit & Reserves", icon: "" },
     { key: "staff", label: "Staff & Desks", icon: "" },
     { key: "loan-settings", label: "Loan Settings", icon: "⚙️" },
-    { key: "dept-commission", label: "Department Commission", icon: "" },
     { key: "activity-log", label: "Audit Activity Log", icon: "" },
     { key: "pending", label: "Pending", icon: "⏳", badge: totalPendingDeskCount },
     { key: "kyc", label: "KYC Requests", icon: "", badge: pendingKycCount },
@@ -5443,7 +5367,7 @@ export default function AdminPanel() {
 
               {/* Interactive Visual SVG Chart Card */}
               <div className="bg-white rounded-3xl p-5 sm:p-7 border border-gray-100 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-gray-100 gap-3">
                   <div>
                     <h3 className="text-lg font-black font-display text-gray-900 flex items-center gap-2">
                        Daily Profit & Capital Growth Chart
@@ -5452,32 +5376,62 @@ export default function AdminPanel() {
                       Compounding 12% p.a. savings yield credited daily to active customer accounts (1% monthly ÷ calendar days)
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl shrink-0">
-                    <button
-                      onClick={() => setChartMode("daily")}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                        chartMode === "daily" ? "bg-white text-blue-700 shadow-xs" : "text-gray-500 hover:text-gray-900"
-                      }`}
-                    >
-                      Daily Yield Added
-                    </button>
-                    <button
-                      onClick={() => setChartMode("cumulative")}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                        chartMode === "cumulative" ? "bg-white text-blue-700 shadow-xs" : "text-gray-500 hover:text-gray-900"
-                      }`}
-                    >
-                      Cumulative Growth
-                    </button>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Compact Date Range Filter */}
+                    <div className="flex items-center gap-0.5 p-1 bg-gray-100 rounded-xl shrink-0">
+                      {[
+                        { id: "5d", label: "5D" },
+                        { id: "7d", label: "7D" },
+                        { id: "15d", label: "15D" },
+                        { id: "all", label: "All" }
+                      ].map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => setChartRange(r.id)}
+                          className={`px-2.5 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                            chartRange === r.id
+                              ? "bg-white text-blue-700 shadow-xs font-black"
+                              : "text-gray-500 hover:text-gray-900"
+                          }`}
+                          title={`Show ${r.label} Data`}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Mode Switcher */}
+                    <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setChartMode("daily")}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                          chartMode === "daily" ? "bg-white text-blue-700 shadow-xs font-black" : "text-gray-500 hover:text-gray-900"
+                        }`}
+                      >
+                        Daily Yield
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setChartMode("cumulative")}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                          chartMode === "cumulative" ? "bg-white text-blue-700 shadow-xs font-black" : "text-gray-500 hover:text-gray-900"
+                        }`}
+                      >
+                        Cumulative
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 {/* SVG Visual Chart */}
                 <div className="mt-6">
                   {(() => {
-                    const data = analytics?.dailyProfitChart || [];
+                    const rawChartData = analytics?.dailyProfitChart || [];
 
-                    if (!data || data.length === 0) {
+                    if (!rawChartData || rawChartData.length === 0) {
                       return (
                         <div className="py-14 flex flex-col items-center justify-center text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
                           <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3 shadow-xs">
@@ -5495,14 +5449,21 @@ export default function AdminPanel() {
                       );
                     }
 
+                    // Slice data based on selected range filter (default: 5d)
+                    const data = (() => {
+                      if (chartRange === "5d") return rawChartData.slice(-5);
+                      if (chartRange === "7d") return rawChartData.slice(-7);
+                      if (chartRange === "15d") return rawChartData.slice(-15);
+                      return rawChartData;
+                    })();
+
                     const isDaily = chartMode === "daily";
 
-                    // Dynamic ceiling with nice human steps (never hardcoded flat 220 / 1800)
+                    // Dynamic ceiling with nice human steps
                     const rawValues = data.map(d => isDaily ? Number(d.amount || 0) : Number(d.cumulativeYield || 0));
                     const maxDataVal = Math.max(...rawValues, 1);
 
-                    // Add 20% headroom so highest bar/point has ample breathing space
-                    const targetCeil = Math.max(maxDataVal * 1.2, 5);
+                    const targetCeil = Math.max(maxDataVal * 1.25, 5);
                     const rawStep = targetCeil / 4;
                     const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep || 1)));
                     const norm = rawStep / magnitude;
@@ -5521,22 +5482,18 @@ export default function AdminPanel() {
                     const gridTicks = [0, stepVal, stepVal * 2, stepVal * 3, stepVal * 4];
 
                     const chartW = 760;
-                    const chartH = 270;
-                    const padLeft = 70;
-                    const padRight = 40;
-                    const padTop = 45;
-                    const padBottom = 50;
+                    const chartH = 260;
+                    const padLeft = 65;
+                    const padRight = 35;
+                    const padTop = 38;
+                    const padBottom = 48;
                     const plotW = chartW - padLeft - padRight;
                     const plotH = chartH - padTop - padBottom;
 
-                    // Group / cluster bars naturally when few days (data.length <= 4) to eliminate the awkward 325px gap
-                    const isFewItems = data.length <= 4;
-                    const slotW = isFewItems ? Math.min(120, plotW / (data.length + 1)) : plotW / data.length;
-                    const totalContentW = slotW * data.length;
-                    const startX = isFewItems ? padLeft + (plotW - totalContentW) / 2 : padLeft;
-                    const getXCenter = (index) => startX + (index + 0.5) * slotW;
+                    const slotW = plotW / Math.max(1, data.length);
+                    const getXCenter = (index) => padLeft + (index + 0.5) * slotW;
 
-                    // Calculate point coordinates
+                    // Point coordinates for line / area
                     const points = data.map((d, i) => {
                       const val = isDaily ? Number(d.amount || 0) : Number(d.cumulativeYield || 0);
                       const x = getXCenter(i);
@@ -5544,7 +5501,6 @@ export default function AdminPanel() {
                       return { x, y, ...d, val };
                     });
 
-                    // Build area and line path for cumulative chart
                     const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
                     const areaPath = points.length > 0
                       ? `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${padTop + plotH} L ${points[0].x.toFixed(1)} ${padTop + plotH} Z`
@@ -5554,7 +5510,6 @@ export default function AdminPanel() {
                       <div className="w-full overflow-x-auto no-scrollbar">
                         <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full min-w-[580px] h-auto select-none">
                           <defs>
-                            {/* Daily Bar Gradient */}
                             <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#2563EB" />
                               <stop offset="70%" stopColor="#3B82F6" />
@@ -5565,16 +5520,14 @@ export default function AdminPanel() {
                               <stop offset="100%" stopColor="#2563EB" />
                             </linearGradient>
 
-                            {/* Cumulative Area Gradient */}
                             <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#2563EB" stopOpacity="0.32" />
-                              <stop offset="50%" stopColor="#3B82F6" stopOpacity="0.14" />
+                              <stop offset="0%" stopColor="#2563EB" stopOpacity="0.25" />
+                              <stop offset="60%" stopColor="#3B82F6" stopOpacity="0.08" />
                               <stop offset="100%" stopColor="#93C5FD" stopOpacity="0.0" />
                             </linearGradient>
 
-                            {/* Shadows & Glow */}
                             <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
-                              <feGaussianBlur stdDeviation="3" result="blur" />
+                              <feGaussianBlur stdDeviation="2.5" result="blur" />
                               <feComposite in="SourceGraphic" in2="blur" operator="over" />
                             </filter>
                             <filter id="pillShadow" x="-15%" y="-15%" width="130%" height="130%">
@@ -5599,7 +5552,7 @@ export default function AdminPanel() {
                                   strokeDasharray={isBottom ? "none" : "4 4"}
                                 />
                                 <text
-                                  x={padLeft - 12}
+                                  x={padLeft - 10}
                                   y={y + 4}
                                   textAnchor="end"
                                   className="text-[11px] font-mono font-bold fill-slate-400"
@@ -5613,13 +5566,15 @@ export default function AdminPanel() {
                           {/* ─────────── 1. DAILY YIELD ADDED (BAR CHART) ─────────── */}
                           {isDaily ? (
                             data.map((d, i) => {
-                              const barW = isFewItems ? 56 : Math.min(68, Math.max(36, slotW * 0.42));
+                              const barW = Math.min(54, Math.max(22, slotW * 0.45));
                               const amount = Number(d.amount || 0);
-                              const barH = (amount / maxVal) * plotH;
+                              const barH = Math.max((amount / maxVal) * plotH, 6);
                               const xCenter = getXCenter(i);
                               const x = xCenter - barW / 2;
                               const y = padTop + plotH - barH;
                               const isHovered = hoveredChartBar?.date === d.date;
+                              const isLatest = i === data.length - 1;
+                              const showBadge = data.length <= 7 || isHovered || (!hoveredChartBar && isLatest);
 
                               return (
                                 <g
@@ -5630,15 +5585,13 @@ export default function AdminPanel() {
                                 >
                                   {/* Background Track Column */}
                                   <rect
-                                    x={x}
+                                    x={xCenter - slotW * 0.42}
                                     y={padTop}
-                                    width={barW}
+                                    width={slotW * 0.84}
                                     height={plotH}
-                                    rx={10}
-                                    fill={isHovered ? "#EFF6FF" : "#F8FAFC"}
-                                    stroke={isHovered ? "#BFDBFE" : "#F1F5F9"}
-                                    strokeWidth="1"
-                                    className="transition-colors duration-200"
+                                    rx={8}
+                                    fill={isHovered ? "#EFF6FF" : "transparent"}
+                                    className="transition-colors duration-150"
                                   />
 
                                   {/* Active Value Bar */}
@@ -5646,45 +5599,47 @@ export default function AdminPanel() {
                                     x={x}
                                     y={y}
                                     width={barW}
-                                    height={Math.max(barH, 6)}
-                                    rx={10}
+                                    height={barH}
+                                    rx={Math.min(8, barW / 3)}
                                     fill={isHovered ? "url(#barGradHover)" : "url(#barGrad)"}
-                                    className="transition-all duration-300"
+                                    className="transition-all duration-200"
                                   />
 
-                                  {/* Value Badge Capsule Floating on Top */}
-                                  <g transform={`translate(${xCenter}, ${Math.max(padTop + 14, y - 14)})`}>
-                                    <rect
-                                      x="-36"
-                                      y="-12"
-                                      width="72"
-                                      height="20"
-                                      rx="10"
-                                      fill={isHovered ? "#1E3A8A" : "#EFF6FF"}
-                                      stroke={isHovered ? "#1E3A8A" : "#BFDBFE"}
-                                      strokeWidth="1"
-                                      filter="url(#pillShadow)"
-                                      className="transition-colors duration-200"
-                                    />
-                                    <text
-                                      x="0"
-                                      y="2"
-                                      textAnchor="middle"
-                                      className={`text-[11px] font-black font-mono transition-colors duration-200 ${
-                                        isHovered ? "fill-white" : "fill-blue-700"
-                                      }`}
-                                    >
-                                      +₹{amount.toFixed(2)}
-                                    </text>
-                                  </g>
+                                  {/* Floating Value Capsule (Non-overlapping: only shown if <=7 days or hovered or latest) */}
+                                  {showBadge && (
+                                    <g transform={`translate(${xCenter}, ${Math.max(padTop + 14, y - 14)})`}>
+                                      <rect
+                                        x="-34"
+                                        y="-11"
+                                        width="68"
+                                        height="20"
+                                        rx="10"
+                                        fill={isHovered ? "#1E3A8A" : "#EFF6FF"}
+                                        stroke={isHovered ? "#1E3A8A" : "#BFDBFE"}
+                                        strokeWidth="1"
+                                        filter="url(#pillShadow)"
+                                        className="transition-colors duration-150"
+                                      />
+                                      <text
+                                        x="0"
+                                        y="3"
+                                        textAnchor="middle"
+                                        className={`text-[11px] font-black font-mono ${
+                                          isHovered ? "fill-white" : "fill-blue-700"
+                                        }`}
+                                      >
+                                        +₹{amount.toFixed(0)}
+                                      </text>
+                                    </g>
+                                  )}
 
-                                  {/* X-Axis Date Label */}
+                                  {/* Floor Date Label */}
                                   <text
                                     x={xCenter}
                                     y={padTop + plotH + 20}
                                     textAnchor="middle"
-                                    className={`text-[12px] font-black transition-colors duration-200 ${
-                                      isHovered ? "fill-slate-900 font-extrabold" : "fill-gray-700"
+                                    className={`text-[12px] font-black transition-colors duration-150 ${
+                                      isHovered ? "fill-blue-700" : "fill-slate-700"
                                     }`}
                                   >
                                     {d.displayDate}
@@ -5693,9 +5648,11 @@ export default function AdminPanel() {
                                     x={xCenter}
                                     y={padTop + plotH + 34}
                                     textAnchor="middle"
-                                    className="text-[10px] font-bold fill-gray-400 font-mono"
+                                    className={`text-[10px] font-bold ${
+                                      isLatest ? "fill-emerald-600 font-extrabold" : "fill-slate-400"
+                                    }`}
                                   >
-                                    Day {i + 1}
+                                    {isLatest ? "Today" : `Day ${i + 1}`}
                                   </text>
                                 </g>
                               );
@@ -5711,9 +5668,9 @@ export default function AdminPanel() {
                                   y1={p.y}
                                   x2={p.x}
                                   y2={padTop + plotH}
-                                  stroke="#BFDBFE"
-                                  strokeWidth="1.5"
-                                  strokeDasharray="4 3"
+                                  stroke="#E2E8F0"
+                                  strokeWidth="1"
+                                  strokeDasharray="3 3"
                                 />
                               ))}
 
@@ -5725,7 +5682,7 @@ export default function AdminPanel() {
                                 d={linePath}
                                 fill="none"
                                 stroke="#2563EB"
-                                strokeWidth="4"
+                                strokeWidth="3.5"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 filter="url(#lineGlow)"
@@ -5734,6 +5691,9 @@ export default function AdminPanel() {
                               {/* Interactive Nodes & Value Badges */}
                               {points.map((p, i) => {
                                 const isHovered = hoveredChartBar?.date === p.date;
+                                const isLatest = i === points.length - 1;
+                                const showBadge = data.length <= 7 || isHovered || (!hoveredChartBar && isLatest);
+
                                 return (
                                   <g
                                     key={p.date}
@@ -5745,50 +5705,52 @@ export default function AdminPanel() {
                                     <circle
                                       cx={p.x}
                                       cy={p.y}
-                                      r={isHovered ? 13 : 9}
-                                      fill="rgba(37, 99, 235, 0.16)"
-                                      className="transition-all duration-200"
+                                      r={isHovered ? 12 : (isLatest ? 9 : 7)}
+                                      fill="rgba(37, 99, 235, 0.15)"
+                                      className="transition-all duration-150"
                                     />
                                     {/* Center Core Circle */}
                                     <circle
                                       cx={p.x}
                                       cy={p.y}
-                                      r={isHovered ? 7 : 5.5}
+                                      r={isHovered ? 6 : (isLatest ? 5 : 4)}
                                       fill={isHovered ? "#1E3A8A" : "#2563EB"}
                                       stroke="#FFFFFF"
-                                      strokeWidth="3"
-                                      className="transition-all duration-200"
+                                      strokeWidth="2.5"
+                                      className="transition-all duration-150"
                                     />
 
-                                    {/* Floating Cumulative Value Badge */}
-                                    <g transform={`translate(${p.x}, ${Math.max(padTop + 14, p.y - 18)})`}>
-                                      <rect
-                                        x="-38"
-                                        y="-12"
-                                        width="76"
-                                        height="22"
-                                        rx="11"
-                                        fill={isHovered ? "#0F172A" : "#2563EB"}
-                                        filter="url(#pillShadow)"
-                                        className="transition-colors duration-200"
-                                      />
-                                      <text
-                                        x="0"
-                                        y="3"
-                                        textAnchor="middle"
-                                        className="text-[11px] font-black fill-white font-mono"
-                                      >
-                                        ₹{Number(p.val).toFixed(2)}
-                                      </text>
-                                    </g>
+                                    {/* Floating Cumulative Value Badge (Never collides) */}
+                                    {showBadge && (
+                                      <g transform={`translate(${p.x}, ${Math.max(padTop + 14, p.y - 16)})`}>
+                                        <rect
+                                          x="-36"
+                                          y="-11"
+                                          width="72"
+                                          height="20"
+                                          rx="10"
+                                          fill={isHovered ? "#0F172A" : "#2563EB"}
+                                          filter="url(#pillShadow)"
+                                          className="transition-colors duration-150"
+                                        />
+                                        <text
+                                          x="0"
+                                          y="3"
+                                          textAnchor="middle"
+                                          className="text-[11px] font-black fill-white font-mono"
+                                        >
+                                          ₹{Number(p.val).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                                        </text>
+                                      </g>
+                                    )}
 
-                                    {/* Date Label on Floor */}
+                                    {/* Floor Date Label */}
                                     <text
                                       x={p.x}
                                       y={padTop + plotH + 20}
                                       textAnchor="middle"
-                                      className={`text-[12px] font-black transition-colors duration-200 ${
-                                        isHovered ? "fill-slate-900 font-extrabold" : "fill-gray-700"
+                                      className={`text-[12px] font-black transition-colors duration-150 ${
+                                        isHovered ? "fill-blue-700" : "fill-slate-700"
                                       }`}
                                     >
                                       {p.displayDate}
@@ -5797,9 +5759,11 @@ export default function AdminPanel() {
                                       x={p.x}
                                       y={padTop + plotH + 34}
                                       textAnchor="middle"
-                                      className="text-[10px] font-bold fill-blue-600 font-mono"
+                                      className={`text-[10px] font-bold ${
+                                        isLatest ? "fill-emerald-600 font-extrabold" : "fill-slate-400"
+                                      }`}
                                     >
-                                      Accrued ₹{Number(p.val).toFixed(2)}
+                                      {isLatest ? "Today" : `Day ${i + 1}`}
                                     </text>
                                   </g>
                                 );
@@ -5812,40 +5776,57 @@ export default function AdminPanel() {
                   })()}
                 </div>
 
-                {/* Hover Details Card */}
+                {/* Hover / Active Day Details Card */}
                 {(() => {
-                  const chartList = analytics?.dailyProfitChart || [];
+                  const rawChartData = analytics?.dailyProfitChart || [];
+                  const activeRangeData = (() => {
+                    if (chartRange === "5d") return rawChartData.slice(-5);
+                    if (chartRange === "7d") return rawChartData.slice(-7);
+                    if (chartRange === "15d") return rawChartData.slice(-15);
+                    return rawChartData;
+                  })();
+
                   const activeBar = hoveredChartBar
-                    ? chartList.find(d => d.date === hoveredChartBar.date) || hoveredChartBar
-                    : (chartList.length > 0 ? chartList[chartList.length - 1] : null);
+                    ? (activeRangeData.find(d => d.date === hoveredChartBar.date) || hoveredChartBar)
+                    : (activeRangeData.length > 0 ? activeRangeData[activeRangeData.length - 1] : null);
 
                   if (!activeBar) return null;
 
                   return (
-                    <div className="mt-4 p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in">
+                    <div className="mt-5 p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
                       <div className="flex items-center gap-3">
-                        <span className="text-xl"></span>
+                        <div className="w-10 h-10 rounded-xl bg-blue-100/70 text-blue-700 flex items-center justify-center font-black text-sm shrink-0">
+                          📅
+                        </div>
                         <div>
-                          <span className="font-extrabold text-slate-900 text-sm">{activeBar.displayDate}</span>
-                          <p className="text-[11px] text-slate-600">12% p.a. Savings Compounding Yield</p>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-slate-900 text-sm">{activeBar.displayDate}</span>
+                            <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-300/40">
+                              ● 12% p.a. Active
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Automated compounding yield snapshot</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 text-xs font-semibold">
+
+                      <div className="grid grid-cols-3 gap-3 sm:gap-6 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-200">
                         <div>
-                          <span className="text-gray-500 text-[10px] block">Day's Profit:</span>
-                          <span className="font-black text-emerald-600 text-sm">
+                          <span className="text-slate-500 text-[10px] block font-bold">Day's Profit</span>
+                          <span className="font-black text-emerald-600 text-sm font-mono">
                             +₹{Number(activeBar.amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 text-[10px] block">Cumulative Yield:</span>
-                          <span className="font-black text-blue-600 text-sm">
+                          <span className="text-slate-500 text-[10px] block font-bold">Total Accrued</span>
+                          <span className="font-black text-blue-600 text-sm font-mono">
                             ₹{Number(activeBar.cumulativeYield).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 text-[10px] block">Total Capital:</span>
-                          <span className="font-black text-gray-900 text-sm">₹{Number(activeBar.cumulativeDeposit !== undefined ? activeBar.cumulativeDeposit : (activeBar.estimatedCapital || 0)).toLocaleString("en-IN")}</span>
+                          <span className="text-slate-500 text-[10px] block font-bold">Total Capital</span>
+                          <span className="font-black text-slate-900 text-sm font-mono">
+                            ₹{Number(activeBar.cumulativeDeposit !== undefined ? activeBar.cumulativeDeposit : (activeBar.estimatedCapital || 0)).toLocaleString("en-IN")}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -14058,125 +14039,6 @@ export default function AdminPanel() {
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* DEPARTMENT COMMISSION & MARGIN MASTER TAB */}
-          {tab === "dept-commission" && (
-            <div className="space-y-6">
-              {/* Header Banner */}
-              <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-7 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-blue-800/50">
-                <div>
-                  <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                    <span className="text-2xl p-2 rounded-2xl bg-white/10 backdrop-blur-xs"></span>
-                    <h2 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white">
-                      Department Commission Master
-                    </h2>
-                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                      Admin Control Only
-                    </span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-blue-200/80 max-w-2xl leading-relaxed">
-                    Fintech ke sabhi 6 departments (Loan, Deposit, Withdrawal, KYC, Lending, Bonds) ke commissions, staff margins aur rewards ko yahan ek hi jagah se set karein.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={loadDeptCommissions}
-                  disabled={loadingCommissions}
-                  className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold border border-white/20 transition active:scale-95 flex items-center gap-2 cursor-pointer self-start sm:self-auto disabled:opacity-50 shrink-0"
-                >
-                  <span className={loadingCommissions ? "animate-spin" : ""}></span>
-                  <span>{loadingCommissions ? "Loading..." : "Sync Fresh"}</span>
-                </button>
-              </div>
-
-              {/* Department Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {Object.entries(deptCommissions).map(([key, dept]) => (
-                  <div
-                    key={key}
-                    className="bg-white rounded-3xl border border-gray-200/80 p-5 sm:p-6 shadow-xs flex flex-col justify-between gap-4 hover:shadow-md hover:border-blue-300 transition"
-                  >
-                    <div>
-                      {/* Top identity */}
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div>
-                          <h4 className="text-sm font-black text-gray-900 leading-tight">{key === "lending" ? "Lending" : key === "bond" ? "Bonds" : dept.name}</h4>
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mt-0.5">
-                            Basis: {dept.basis}
-                          </span>
-                        </div>
-                        <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
-                          {dept.rate}{dept.unit || '%'}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-gray-500 leading-relaxed mb-4 min-h-[32px]">
-                        {dept.description}
-                      </p>
-
-                      {/* Edit box */}
-                      <div className="bg-gray-50 rounded-2xl p-3.5 border border-gray-200 space-y-2">
-                        <label className="text-[11px] font-bold text-gray-700 block">
-                          Set Commission / Margin ({dept.unit || '%'}):
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            step="0.5"
-                            min="0"
-                            max={dept.unit === '%' ? 50 : 10000}
-                            value={dept.rate}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setDeptCommissions(prev => ({
-                                ...prev,
-                                [key]: { ...prev[key], rate: val }
-                              }));
-                            }}
-                            className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-black text-gray-900 focus:outline-none focus:border-blue-500"
-                            placeholder="e.g. 5"
-                          />
-                          <span className="text-xs font-black text-gray-500 shrink-0">{dept.unit || '%'}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateDeptCommission(key, dept.rate)}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer shrink-0"
-                          >
-                            Save
-                          </button>
-                        </div>
-
-                        {/* Quick Presets for percentage items */}
-                        {dept.unit === '%' && (
-                          <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                            {[1, 2, 3, 5, 8, 10].map(p => (
-                              <button
-                                key={p}
-                                type="button"
-                                onClick={() => handleUpdateDeptCommission(key, p)}
-                                className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border transition ${
-                                  Number(dept.rate) === p
-                                    ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
-                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"
-                                }`}
-                              >
-                                {p}%
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
-                      <span>Type: <strong className="text-gray-700 capitalize">{dept.type}</strong></span>
-                      <span className="text-emerald-700 font-bold">● Active in System</span>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           )}

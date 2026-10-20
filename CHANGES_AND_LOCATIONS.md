@@ -114,6 +114,38 @@ D:\Backup projects\Paytment website\
   2. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L14300+):
      - Same `z-[9999999]` styling. Item 4 Google Drive button was permanently removed per user request.
 
+### Update F: 30ms Live Ticker Speedup
+- **Problem Solved**: Profit, reserves, and ledger yield numbers were updating slowly at 1000ms/250ms intervals.
+- **Exact Locations**:
+  1. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L389, L456, L501, L521):
+     - `LiveAdminProfitTicker`: Timer changed from 1000ms to 30ms.
+     - `LiveAdminReservesTicker`: Timer changed from 1000ms to 30ms.
+     - `LiveLedgerDailyAdded`: Timer changed from 1000ms to 30ms.
+     - `useSharedLiveClock`: Clock interval changed from 250ms to 30ms.
+     - Preserved 3-second debounce before writing to `localStorage` to avoid storage lockup.
+
+### Update G: Department Commission Removal
+- **Problem Solved**: Redundant Department Commission tab and cards in Admin Panel, while all commission controls are already unified inside Loan Settings (`LoanSettingsPage.jsx`).
+- **Exact Locations**:
+  1. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx`:
+     - Removed `deptCommissions` and `loadingCommissions` state (~L1200).
+     - Removed `tab === "dept-commission"` effect listener (~L2752).
+     - Removed `loadDeptCommissions` and `handleUpdateDeptCommission` helper functions (~L3562).
+     - Removed `{ key: "dept-commission", label: "Department Commission" }` from `tabs` array (~L3783).
+     - Deleted full `{tab === "dept-commission" && ...}` card grid JSX (~L14064).
+
+### Update H: Profit & Capital Growth Chart Redesign (Img 4 & 5)
+- **Problem Solved**: 16+ days crowded together on mobile screens, resulting in overlapping badges ("₹43.. ₹353..") and a completely illegible horizontal blue smear of "Accrued ₹..." under dates.
+- **Exact Locations**:
+  1. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L1200, L5370-L5850):
+     - Added `chartRange` state defaulting to `"5d"` (4-5 days default as requested).
+     - Added compact, minimal range selector pills `[5D | 7D | 15D | All]` in chart header next to `[Daily Yield | Cumulative]`.
+     - Filtered data slice: `chartRange === "5d" ? rawData.slice(-5) : ...`.
+     - Generous ~132px slot width in 5D mode guarantees zero badge collisions and zero date collisions.
+     - Permanently removed colliding `Accrued ₹...` floor text smear.
+     - Dynamic collision guard: in ranges > 7 days, floating value badges only render for hovered and latest items.
+     - Polished bottom summary strip with high-contrast day profit, cumulative yield, and total capital figures.
+
 ---
 
 ## 4. Critical Rules & Guardrails ("DO NOT TOUCH")

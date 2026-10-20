@@ -17,6 +17,14 @@ const { updateEducaMailPassword, sendEducaMailMessage } = require('../utils/educ
 const { encryptData, decryptData } = require('../utils/cryptoHelper');
 const router = express.Router();
 
+// Never cache admin responses - keeps mobile WebView and admin desktop in 100% real-time sync
+router.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 
 // Helper: MongoDB ObjectId format valid hai ya nahi, ye check karta hai
 // (isse galat/fake ID bhejne se CastError crash hone se bach jata hai)
@@ -1422,7 +1430,7 @@ router.get('/stats', protect, admin, async (req, res) => {
 // Detailed Fintech Analytics & Daily Profit Growth
 router.get('/analytics', protect, admin, async (req, res) => {
   try {
-    const isForce = req.query.force === 'true' || req.headers['cache-control'] === 'no-cache';
+    const isForce = req.query.force === 'true' || Boolean(req.query._t) || req.headers['cache-control'] === 'no-cache';
     if (!isForce) {
       const cached = memoryCache.get('admin_analytics');
       if (cached) return res.json(cached);
@@ -1885,6 +1893,81 @@ router.get('/bonds', protect, admin, async (req, res) => {
     res.json(bonds);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch bonds' });
+  }
+});
+
+// On-demand Unified KYC Documents Fetch (Single roundtrip for all 4 documents)
+router.get('/kyc-docs/:userId', protect, requirePermission('kyc.view_documents'), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('kycDocuments documents aadharUrl panUrl chequeUrl');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const docs = user.kycDocuments || {};
+    const uDocs = user.documents || {};
+
+    let doc1Url = docs.doc1Url || docs.docUrl || docs.aadharUrl || docs.aadharFrontUrl || uDocs.doc1Url || uDocs.docUrl || uDocs.aadharUrl || user.aadharUrl || '';
+    let doc1BackUrl = docs.doc1BackUrl || docs.aadharBackUrl || uDocs.doc1BackUrl || uDocs.aadharBackUrl || '';
+    let doc2Url = docs.doc2Url || docs.panUrl || docs.chequeUrl || docs.chequeFrontUrl || uDocs.doc2Url || uDocs.panUrl || uDocs.chequeUrl || user.panUrl || user.chequeUrl || '';
+    let doc2BackUrl = docs.doc2BackUrl || docs.panBackUrl || docs.chequeBackUrl || uDocs.doc2BackUrl || uDocs.panBackUrl || '';
+    let chequeUrl = docs.chequeUrl || docs.chequeFrontUrl || uDocs.chequeUrl || user.chequeUrl || '';
+    const doc2Type = docs.doc2Type || (chequeUrl ? 'cheque' : 'pan');
+
+    // Fallback: Check if user has a Loan with documents
+    if (!doc1Url || !doc2Url) {
+      const latestLoan = await Loan.findOne({
+        userId: req.params.userId,
+        $or: [
+          { 'documents.doc1Url': { $exists: true, $ne: '' } },
+          { 'documents.aadharUrl': { $exists: true, $ne: '' } },
+          { 'documents.panUrl': { $exists: true, $ne: '' } },
+          { 'documents.chequeUrl': { $exists: true, $ne: '' } }
+        ]
+      }).sort({ createdAt: -1 }).lean();
+
+      if (latestLoan && latestLoan.documents) {
+        const lDocs = latestLoan.documents;
+        if (!doc1Url) doc1Url = lDocs.doc1Url || lDocs.aadharUrl || '';
+        if (!doc1BackUrl) doc1BackUrl = lDocs.doc1BackUrl || lDocs.aadharBackUrl || '';
+        if (!doc2Url) doc2Url = lDocs.doc2Url || lDocs.panUrl || lDocs.chequeUrl || '';
+        if (!doc2BackUrl) doc2BackUrl = lDocs.doc2BackUrl || lDocs.panBackUrl || '';
+        if (!chequeUrl) chequeUrl = lDocs.chequeUrl || '';
+      }
+    }
+
+    // Fallback: Check if user has a Bond with documents
+    if (!doc1Url || !doc2Url) {
+      const latestBond = await Bond.findOne({
+        userId: req.params.userId,
+        $or: [
+          { 'documents.doc1Url': { $exists: true, $ne: '' } },
+          { 'documents.aadharUrl': { $exists: true, $ne: '' } },
+          { 'documents.panUrl': { $exists: true, $ne: '' } },
+          { 'documents.chequeUrl': { $exists: true, $ne: '' } }
+        ]
+      }).sort({ createdAt: -1 }).lean();
+
+      if (latestBond && latestBond.documents) {
+        const bDocs = latestBond.documents;
+        if (!doc1Url) doc1Url = bDocs.doc1Url || bDocs.aadharUrl || '';
+        if (!doc1BackUrl) doc1BackUrl = bDocs.doc1BackUrl || bDocs.aadharBackUrl || '';
+        if (!doc2Url) doc2Url = bDocs.doc2Url || bDocs.panUrl || bDocs.chequeUrl || '';
+        if (!doc2BackUrl) doc2BackUrl = bDocs.doc2BackUrl || bDocs.panBackUrl || '';
+        if (!chequeUrl) chequeUrl = bDocs.chequeUrl || '';
+      }
+    }
+
+    res.json({
+      success: true,
+      doc1Url: doc1Url ? decryptData(doc1Url) : '',
+      doc1BackUrl: doc1BackUrl ? decryptData(doc1BackUrl) : '',
+      doc2Url: doc2Url ? decryptData(doc2Url) : '',
+      doc2BackUrl: doc2BackUrl ? decryptData(doc2BackUrl) : '',
+      chequeUrl: chequeUrl ? decryptData(chequeUrl) : '',
+      doc2Type,
+      googleDriveLink: docs.googleDriveLink || ''
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch KYC documents' });
   }
 });
 

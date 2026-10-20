@@ -76,8 +76,10 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 3000, forceRefresh = 
     const controller = new AbortController();
     const timeoutTimer = setTimeout(() => controller.abort(), 45000);
     try {
+      const activeToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
       const requestHeaders = {
         ...(options.headers || {}),
+        Authorization: options.headers?.Authorization || (activeToken ? `Bearer ${activeToken}` : ""),
         "Cache-Control": "no-cache",
         "Pragma": "no-cache"
       };
@@ -103,24 +105,26 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 3000, forceRefresh = 
       return res;
     } catch {
       clearTimeout(timeoutTimer);
-      // Fallback on network error or Render timeout to in-memory or persisted cache
-      if (apiCache.has(cacheKey)) {
-        const cached = apiCache.get(cacheKey);
-        return {
-          ok: true,
-          status: 200,
-          fromCache: true,
-          json: async () => cached.data
-        };
-      }
-      const persisted = appCache.get(persistentKey, null);
-      if (persisted !== null) {
-        return {
-          ok: true,
-          status: 200,
-          fromCache: true,
-          json: async () => persisted
-        };
+      // Fallback on network error only if not explicitly forcing fresh data
+      if (!forceRefresh) {
+        if (apiCache.has(cacheKey)) {
+          const cached = apiCache.get(cacheKey);
+          return {
+            ok: true,
+            status: 200,
+            fromCache: true,
+            json: async () => cached.data
+          };
+        }
+        const persisted = appCache.get(persistentKey, null);
+        if (persisted !== null) {
+          return {
+            ok: true,
+            status: 200,
+            fromCache: true,
+            json: async () => persisted
+          };
+        }
       }
       return { ok: false, status: 504, json: async () => ({}) };
     } finally {
@@ -143,39 +147,46 @@ function KycDocThumbItem({ userId, docKey, label, initialUrl, hasDoc, onOpenLigh
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (imgUrl) return;
-    if (!hasDoc && (!initialUrl || !initialUrl.startsWith("enc::"))) {
-      if (!hasDoc && !initialUrl) return;
-    }
-    let isMounted = true;
-    setLoading(true);
-    fetch(`${API}/admin/kyc-doc/${userId}/${docKey}`, {
-      headers: {
-        Authorization: `Bearer ${tokenStorage.getToken() || localStorage.getItem("token") || ""}`
-      }
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (isMounted && d.success && d.url) {
-          kycDocMemoryCache.set(`${userId}_${docKey}`, d.url);
-          setImgUrl(d.url);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => { isMounted = false; };
-  }, [userId, docKey, initialUrl, hasDoc]);
-
-  useEffect(() => {
-    if (initialUrl && !initialUrl.startsWith("enc::") && initialUrl !== imgUrl) {
+    if (initialUrl && !initialUrl.startsWith("enc::")) {
       setImgUrl(initialUrl);
+      kycDocMemoryCache.set(`${userId}_${docKey}`, initialUrl);
     }
-  }, [initialUrl]);
+  }, [initialUrl, userId, docKey]);
 
-  if (!imgUrl && !loading && !hasDoc && !initialUrl) {
+  // Click to view/load on-demand (Single unified request for all user docs)
+  const handleLoadAndOpen = async (e) => {
+    e.stopPropagation();
+    if (imgUrl) {
+      onOpenLightbox(imgUrl);
+      return;
+    }
+    if (loading) return;
+    setLoading(true);
+    try {
+      const authToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
+      const res = await fetch(`${API}/admin/kyc-docs/${userId}`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        if (data.doc1Url) kycDocMemoryCache.set(`${userId}_doc1`, data.doc1Url);
+        if (data.doc1BackUrl) kycDocMemoryCache.set(`${userId}_doc1Back`, data.doc1BackUrl);
+        if (data.doc2Url) kycDocMemoryCache.set(`${userId}_doc2`, data.doc2Url);
+        if (data.doc2BackUrl) kycDocMemoryCache.set(`${userId}_doc2Back`, data.doc2BackUrl);
+
+        const target = docKey === 'doc1' ? data.doc1Url : docKey === 'doc1Back' ? data.doc1BackUrl : docKey === 'doc2' ? data.doc2Url : data.doc2BackUrl;
+        if (target) {
+          setImgUrl(target);
+          onOpenLightbox(target);
+        }
+      }
+    } catch (_) {}
+    finally {
+      setLoading(false);
+    }
+  };
+
+  if (!imgUrl && !hasDoc && !initialUrl) {
     return (
       <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
         <span>🆔</span>
@@ -184,34 +195,45 @@ function KycDocThumbItem({ userId, docKey, label, initialUrl, hasDoc, onOpenLigh
     );
   }
 
-  if (loading && !imgUrl) {
+  if (imgUrl) {
     return (
-      <div className="aspect-[16/10] rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center text-xs text-slate-400 animate-pulse">
-        <span className="w-4 h-4 border-2 border-slate-400 border-t-blue-600 rounded-full animate-spin" />
-        <span className="text-[9px] mt-1 text-slate-500 font-bold">Loading...</span>
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenLightbox(imgUrl);
+        }}
+        className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
+      >
+        <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+          <img
+            src={imgUrl}
+            alt={label}
+            className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
+          />
+        </div>
+        <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
+          <span className="text-[10px] font-extrabold text-slate-800 truncate">{label}</span>
+          <span className="text-[9px] text-blue-600 font-bold shrink-0">Zoom</span>
+        </div>
       </div>
     );
   }
 
   return (
     <div
-      onClick={(e) => {
-        e.stopPropagation();
-        if (imgUrl) onOpenLightbox(imgUrl);
-      }}
-      className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
+      onClick={handleLoadAndOpen}
+      className="aspect-[16/10] rounded-xl bg-blue-50/70 border border-blue-200/80 hover:bg-blue-100/90 flex flex-col items-center justify-center p-1.5 text-center cursor-pointer active:scale-95 transition select-none group"
+      title={`Click to view ${label}`}
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
-        <img
-          src={imgUrl}
-          alt={label}
-          className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
-        />
-      </div>
-      <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
-        <span className="text-[10px] font-extrabold text-slate-800 truncate">{label}</span>
-        <span className="text-[9px] text-blue-600 font-bold shrink-0">Zoom</span>
-      </div>
+      {loading ? (
+        <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      ) : (
+        <>
+          <span className="text-base group-hover:scale-110 transition">📄</span>
+          <span className="text-[10px] font-bold text-blue-800 truncate w-full">{label}</span>
+          <span className="text-[8px] text-blue-500 font-bold">Tap to view</span>
+        </>
+      )}
     </div>
   );
 }
@@ -1105,7 +1127,15 @@ export default function AdminPanel() {
   } catch {}
   useEffect(() => { if (!token || user?.role !== "admin") window.location.href = "/"; }, []); // eslint-disable-line
 
-  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const headers = useMemo(() => {
+    const curToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${curToken}`,
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache"
+    };
+  }, [token]);
   const [adminCountdown, setAdminCountdown] = useState(30);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tab, setTab] = useState("analytics");
@@ -1319,43 +1349,57 @@ export default function AdminPanel() {
     return () => clearInterval(ticker);
   }, [tab]);
 
-  // On-demand fetch for KYC preview modal documents (supporting stripped list payload)
+  // On-demand unified batch fetch for KYC preview modal documents (single fast roundtrip)
   useEffect(() => {
     if (!previewKycUser?._id) return;
     const uid = previewKycUser._id;
-    const docs = previewKycUser.kycDocuments || {};
-    const keys = [
-      { key: "doc1", field: "doc1Url" },
-      { key: "doc1Back", field: "doc1BackUrl" },
-      { key: "doc2", field: "doc2Url" },
-      { key: "doc2Back", field: "doc2BackUrl" }
-    ];
-    keys.forEach(({ key, field }) => {
-      if (docs[field] && typeof docs[field] === "string" && !docs[field].startsWith("enc::") && docs[field].length > 10) return;
-      const cached = kycDocMemoryCache.get(`${uid}_${key}`);
-      if (cached) {
-        setPreviewKycUser(prev => (prev && prev._id === uid ? {
-          ...prev,
-          kycDocuments: { ...prev.kycDocuments, [field]: cached }
-        } : prev));
-        return;
-      }
-      const authToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
-      fetch(`${API}/admin/kyc-doc/${uid}/${key}`, {
-        headers: { Authorization: `Bearer ${authToken}` }
+
+    // 1. Instant 0ms populate from memory cache if available
+    const c1 = kycDocMemoryCache.get(`${uid}_doc1`);
+    const c1b = kycDocMemoryCache.get(`${uid}_doc1Back`);
+    const c2 = kycDocMemoryCache.get(`${uid}_doc2`);
+    const c2b = kycDocMemoryCache.get(`${uid}_doc2Back`);
+    if (c1 || c1b || c2 || c2b) {
+      setPreviewKycUser(prev => (prev && prev._id === uid ? {
+        ...prev,
+        kycDocuments: {
+          ...prev.kycDocuments,
+          ...(c1 ? { doc1Url: c1 } : {}),
+          ...(c1b ? { doc1BackUrl: c1b } : {}),
+          ...(c2 ? { doc2Url: c2 } : {}),
+          ...(c2b ? { doc2BackUrl: c2b } : {})
+        }
+      } : prev));
+    }
+
+    // 2. Fetch all 4 docs from server in a single unified lightweight call
+    const authToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
+    fetch(`${API}/admin/kyc-docs/${uid}`, {
+      headers: { Authorization: `Bearer ${authToken}` }
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.success) {
+          if (d.doc1Url) kycDocMemoryCache.set(`${uid}_doc1`, d.doc1Url);
+          if (d.doc1BackUrl) kycDocMemoryCache.set(`${uid}_doc1Back`, d.doc1BackUrl);
+          if (d.doc2Url) kycDocMemoryCache.set(`${uid}_doc2`, d.doc2Url);
+          if (d.doc2BackUrl) kycDocMemoryCache.set(`${uid}_doc2Back`, d.doc2BackUrl);
+
+          setPreviewKycUser(prev => (prev && prev._id === uid ? {
+            ...prev,
+            kycDocuments: {
+              ...prev.kycDocuments,
+              doc1Url: d.doc1Url || prev.kycDocuments?.doc1Url,
+              doc1BackUrl: d.doc1BackUrl || prev.kycDocuments?.doc1BackUrl,
+              doc2Url: d.doc2Url || prev.kycDocuments?.doc2Url,
+              doc2BackUrl: d.doc2BackUrl || prev.kycDocuments?.doc2BackUrl,
+              doc2Type: d.doc2Type || prev.kycDocuments?.doc2Type,
+              googleDriveLink: d.googleDriveLink || prev.kycDocuments?.googleDriveLink
+            }
+          } : prev));
+        }
       })
-        .then(r => r.json())
-        .then(d => {
-          if (d.success && d.url) {
-            kycDocMemoryCache.set(`${uid}_${key}`, d.url);
-            setPreviewKycUser(prev => (prev && prev._id === uid ? {
-              ...prev,
-              kycDocuments: { ...prev.kycDocuments, [field]: d.url }
-            } : prev));
-          }
-        })
-        .catch(() => {});
-    });
+      .catch(() => {});
   }, [previewKycUser?._id]); // eslint-disable-line
 
   const allKycUsers = useMemo(() => {
@@ -2276,8 +2320,15 @@ export default function AdminPanel() {
       setLoadingAnalytics(true);
     }
     try {
+      const curToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
+      const dynamicHeaders = {
+        "Content-Type": "application/json",
+        Authorization: curToken ? `Bearer ${curToken}` : "",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache"
+      };
       const url = `${API}/admin/analytics${force ? `?force=true&_t=${Date.now()}` : ""}`;
-      const res = await cachedAdminFetch(url, { headers }, 10000, force);
+      const res = await cachedAdminFetch(url, { headers: dynamicHeaders }, 10000, force);
       if (!res || !res.ok) return;
       const data = await res.json();
       if (data && data.success) {
@@ -14542,7 +14593,9 @@ export default function AdminPanel() {
 
                   {/* Front */}
                   {(() => {
-                    const doc1Front = previewKycUser.kycDocuments?.doc1Url ||
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url.length > 5 ? url : "");
+                    const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
+                    const rawDoc1Front = previewKycUser.kycDocuments?.doc1Url ||
                       previewKycUser.kycDocuments?.docUrl ||
                       previewKycUser.kycDocuments?.aadharUrl ||
                       previewKycUser.kycDocuments?.aadharFrontUrl ||
@@ -14551,6 +14604,8 @@ export default function AdminPanel() {
                       previewKycUser.documents?.docUrl ||
                       previewKycUser.doc1Url ||
                       previewKycUser.aadharUrl;
+                    const doc1Front = cleanDocUrl(rawDoc1Front) || kycDocMemoryCache.get(`${previewKycUser._id}_doc1`) || "";
+                    const isEncryptedWaiting = !doc1Front && hasEncryptedDoc(rawDoc1Front);
                     const isPdf = typeof doc1Front === "string" && (doc1Front.startsWith("data:application/pdf") || doc1Front.toLowerCase().includes(".pdf"));
                     return doc1Front ? (
                       <div className="space-y-1">
@@ -14573,6 +14628,11 @@ export default function AdminPanel() {
                           <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Front</div>
                         </div>
                       </div>
+                    ) : isEncryptedWaiting ? (
+                      <div className="p-4 text-center text-xs text-blue-600 font-bold bg-blue-50/50 rounded-xl border border-dashed border-blue-200 flex items-center justify-center gap-2">
+                        <span className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <span>Decrypting Aadhaar Front...</span>
+                      </div>
                     ) : (
                       <div className="p-4 text-center text-xs text-gray-400">No Aadhaar Front file</div>
                     );
@@ -14580,12 +14640,16 @@ export default function AdminPanel() {
 
                   {/* Back */}
                   {(() => {
-                    const doc1Back = previewKycUser.kycDocuments?.doc1BackUrl ||
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url.length > 5 ? url : "");
+                    const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
+                    const rawDoc1Back = previewKycUser.kycDocuments?.doc1BackUrl ||
                       previewKycUser.kycDocuments?.aadharBackUrl ||
                       previewKycUser.documents?.doc1BackUrl ||
                       previewKycUser.documents?.aadharBackUrl ||
                       previewKycUser.doc1BackUrl ||
                       previewKycUser.aadharBackUrl;
+                    const doc1Back = cleanDocUrl(rawDoc1Back) || kycDocMemoryCache.get(`${previewKycUser._id}_doc1Back`) || "";
+                    const isEncryptedWaiting = !doc1Back && hasEncryptedDoc(rawDoc1Back);
                     const isPdf = typeof doc1Back === "string" && (doc1Back.startsWith("data:application/pdf") || doc1Back.toLowerCase().includes(".pdf"));
                     return doc1Back ? (
                       <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
@@ -14608,6 +14672,11 @@ export default function AdminPanel() {
                           <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Back</div>
                         </div>
                       </div>
+                    ) : isEncryptedWaiting ? (
+                      <div className="p-3 text-center text-xs text-blue-600 font-bold bg-blue-50/50 rounded-xl border border-dashed border-blue-200 flex items-center justify-center gap-2 mt-2">
+                        <span className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <span>Decrypting Aadhaar Back...</span>
+                      </div>
                     ) : null;
                   })()}
                 </div>
@@ -14623,7 +14692,9 @@ export default function AdminPanel() {
 
                   {/* Front */}
                   {(() => {
-                    const doc2Front = previewKycUser.kycDocuments?.doc2Url ||
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url.length > 5 ? url : "");
+                    const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
+                    const rawDoc2Front = previewKycUser.kycDocuments?.doc2Url ||
                       previewKycUser.kycDocuments?.panUrl ||
                       previewKycUser.kycDocuments?.chequeUrl ||
                       previewKycUser.kycDocuments?.chequeFrontUrl ||
@@ -14633,6 +14704,8 @@ export default function AdminPanel() {
                       previewKycUser.doc2Url ||
                       previewKycUser.panUrl ||
                       previewKycUser.chequeUrl;
+                    const doc2Front = cleanDocUrl(rawDoc2Front) || kycDocMemoryCache.get(`${previewKycUser._id}_doc2`) || "";
+                    const isEncryptedWaiting = !doc2Front && hasEncryptedDoc(rawDoc2Front);
                     const isPdf = typeof doc2Front === "string" && (doc2Front.startsWith("data:application/pdf") || doc2Front.toLowerCase().includes(".pdf"));
                     return doc2Front ? (
                       <div className="space-y-1">
@@ -14655,6 +14728,11 @@ export default function AdminPanel() {
                           <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Front</div>
                         </div>
                       </div>
+                    ) : isEncryptedWaiting ? (
+                      <div className="p-4 text-center text-xs text-blue-600 font-bold bg-blue-50/50 rounded-xl border border-dashed border-blue-200 flex items-center justify-center gap-2">
+                        <span className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <span>Decrypting Doc 2 Front...</span>
+                      </div>
                     ) : (
                       <div className="p-4 text-center text-xs text-gray-400">No Doc 2 Front file uploaded</div>
                     );
@@ -14662,13 +14740,17 @@ export default function AdminPanel() {
 
                   {/* Back */}
                   {(() => {
-                    const doc2Back = previewKycUser.kycDocuments?.doc2BackUrl ||
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url.length > 5 ? url : "");
+                    const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
+                    const rawDoc2Back = previewKycUser.kycDocuments?.doc2BackUrl ||
                       previewKycUser.kycDocuments?.panBackUrl ||
                       previewKycUser.kycDocuments?.chequeBackUrl ||
                       previewKycUser.documents?.doc2BackUrl ||
                       previewKycUser.documents?.panBackUrl ||
                       previewKycUser.doc2BackUrl ||
                       previewKycUser.panBackUrl;
+                    const doc2Back = cleanDocUrl(rawDoc2Back) || kycDocMemoryCache.get(`${previewKycUser._id}_doc2Back`) || "";
+                    const isEncryptedWaiting = !doc2Back && hasEncryptedDoc(rawDoc2Back);
                     const isPdf = typeof doc2Back === "string" && (doc2Back.startsWith("data:application/pdf") || doc2Back.toLowerCase().includes(".pdf"));
                     return doc2Back ? (
                       <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
@@ -14690,6 +14772,11 @@ export default function AdminPanel() {
                           )}
                           <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Back</div>
                         </div>
+                      </div>
+                    ) : isEncryptedWaiting ? (
+                      <div className="p-3 text-center text-xs text-blue-600 font-bold bg-blue-50/50 rounded-xl border border-dashed border-blue-200 flex items-center justify-center gap-2 mt-2">
+                        <span className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <span>Decrypting Doc 2 Back...</span>
                       </div>
                     ) : null;
                   })()}

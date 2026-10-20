@@ -1,6 +1,6 @@
 // Service Worker for Educa Fintech PWA
-// v13: Enhanced bottom padding clearance and transparent robot close icon.
-const CACHE_NAME = 'educa-fintech-v13';
+// v14: Ultra-fast KYC single-call batch loading, real-time analytics sync, and clean image caching.
+const CACHE_NAME = 'educa-fintech-v14';
 const SHELL_URL = '/index.html';
 
 self.addEventListener('install', (event) => {

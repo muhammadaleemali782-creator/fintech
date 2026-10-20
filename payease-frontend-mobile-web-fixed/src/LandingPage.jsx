@@ -43,22 +43,39 @@ function Counter({ to, suffix = "", prefix = "", decimals = 0 }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   LIVE WEALTH SIMULATOR & ACCRUAL CALCULATOR (12% & 18% ONLY)
+   LIVE WEALTH SIMULATOR & ACCRUAL CALCULATOR (BONDS & LENDING)
    (Zero AI slop, high-speed smooth ticking, 100% client-side)
 ═══════════════════════════════════════════════════════════ */
 function InteractiveYieldSpeedometer({ isHindi }) {
   const [deposit, setDeposit] = useState(100000);
-  const [tier, setTier] = useState(12); // 12 (Liquid Savings) or 18 (Fixed Bond)
+  const [productType, setProductType] = useState("bond"); // "bond" | "lending"
+  const [tenureOption, setTenureOption] = useState("25"); // "25" | "50" for bond; "40" | "80" for lending
   const [showDetails, setShowDetails] = useState(true);
 
-  // Pure client-side calculations
-  const annualReturn = (deposit * tier) / 100;
-  const dailyReturn = annualReturn / 365;
+  // Sync default tenure when productType changes
+  const handleTypeChange = (type) => {
+    setProductType(type);
+    setTenureOption(type === "bond" ? "25" : "40");
+    setShowDetails(true);
+  };
+
+  const isDouble = tenureOption === "50" || tenureOption === "80";
+  const multiplier = isDouble ? 2.0 : 1.4;
+  const tenureMonths = productType === "bond"
+    ? (tenureOption === "50" ? 50 : 25)
+    : (tenureOption === "80" ? 80 : 40);
+
+  const totalReturn = Math.round(deposit * multiplier);
+  const totalProfit = totalReturn - deposit;
+  const monthlyPayout = productType === "lending" ? Math.round(totalReturn / tenureMonths) : 0;
+
+  // Real-time ticker based on monthly rate
+  const effectiveAnnualYield = (multiplier - 1) / (tenureMonths / 12);
+  const dailyReturn = (deposit * effectiveAnnualYield) / 365;
   const perMinuteReturn = dailyReturn / 1440;
   const perSecondReturn = dailyReturn / 86400;
-  const perMsReturn = perSecondReturn / 1000;
+  const perMsReturn = Math.max(0.000001, perSecondReturn / 1000);
 
-  // Real-time accrued yield starting from midnight (exact same formula as Dashboard & Admin)
   const getElapsedTodayMs = () => {
     const startOfToday = new Date().setHours(0, 0, 0, 0);
     return Math.max(1000, Date.now() - startOfToday);
@@ -68,15 +85,13 @@ function InteractiveYieldSpeedometer({ isHindi }) {
   const mountRef = useRef(Date.now());
   const baseAccruedRef = useRef(getElapsedTodayMs() * perMsReturn);
 
-  // Recalculate baseline when deposit or tier changes
   useEffect(() => {
     const base = getElapsedTodayMs() * perMsReturn;
     baseAccruedRef.current = base;
     mountRef.current = Date.now();
     setLiveAccrued(base);
-  }, [deposit, tier, perMsReturn]);
+  }, [deposit, productType, tenureOption, perMsReturn]);
 
-  // Ultra-fast 40ms high-speed live ledger ticker (25 updates/sec, exactly like AdminPanel)
   useEffect(() => {
     const timer = setInterval(() => {
       const elapsed = Date.now() - mountRef.current;
@@ -86,8 +101,8 @@ function InteractiveYieldSpeedometer({ isHindi }) {
   }, [perMsReturn]);
 
   // Calibrated Needle Angle:
-  // 0% -> -90deg, 6% -> -30deg, 12% -> +30deg, 18% -> +90deg
-  const needleAngle = tier === 12 ? 30 : 90;
+  // 40% Return -> 30deg, Double (100% Return) -> 90deg
+  const needleAngle = isDouble ? 90 : 30;
 
   return (
     <div className="mt-5 sm:mt-8 mb-6 bg-white rounded-2xl p-4 sm:p-7 border border-slate-200 shadow-sm relative overflow-hidden">
@@ -100,18 +115,18 @@ function InteractiveYieldSpeedometer({ isHindi }) {
             </span>
             <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-              {isHindi ? "रियल-टाइम लाइव स्पीड" : "Admin Speed Ticker"}
+              {isHindi ? "न्यूनतम ₹25,000 निवेश" : "Min ₹25,000 Investment"}
             </span>
           </div>
           <h3 className="text-lg xs:text-xl sm:text-2xl font-extrabold text-[#0A192F] tracking-tight leading-snug">
             {isHindi
-              ? "देखें आपका पैसा सेकंड-दर-सेकंड कैसे बढ़ता है"
-              : "Watch Your Savings Compound in Real Time"}
+              ? "फिक्स्ड वेल्थ बॉन्ड और मंथली लेंडिंग कैलकुलेटर"
+              : "Fixed Wealth Bonds & Monthly Lending Calculator"}
           </h3>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5 max-w-xl">
             {isHindi
-              ? "12% लिक्विड बचत (1% महीना, 0 लॉक-इन) या 18% वेल्थ बॉन्ड (1.5% महीना, 365 दिन) चुनें।"
-              : "12% Liquid Savings (1% mo, zero lock-in) vs 18% Fixed Wealth Bond (1.5% mo, 365 days)."}
+              ? "25/50 महीने का फिक्स्ड वेल्थ बॉन्ड (मैच्योरिटी पर एकमुश्त +40% या 2x डबल) अथवा 40/80 महीने की मंथली लेंडिंग चुनें।"
+              : "Choose Fixed Wealth Bonds (25m @ +40% or 50m @ 2x Double) or Monthly Lending (40m or 80m regular payouts)."}
           </p>
         </div>
 
@@ -119,31 +134,91 @@ function InteractiveYieldSpeedometer({ isHindi }) {
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto border border-slate-200/80 w-full sm:w-auto justify-between sm:justify-start">
           <button
             type="button"
-            onClick={() => { setTier(12); setShowDetails(true); }}
+            onClick={() => handleTypeChange("bond")}
             className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
-              tier === 12
+              productType === "bond"
                 ? "bg-white text-emerald-700 shadow-xs border border-emerald-200/60"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            12% Liquid Savings
+            Fixed Wealth Bond
           </button>
           <button
             type="button"
-            onClick={() => { setTier(18); setShowDetails(true); }}
+            onClick={() => handleTypeChange("lending")}
             className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
-              tier === 18
+              productType === "lending"
                 ? "bg-white text-blue-700 shadow-xs border border-blue-200/60"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            18% Wealth Bond
+            Monthly Lending
           </button>
         </div>
       </div>
 
+      {/* TENURE SELECTOR SUB-BAR */}
+      <div className="flex items-center justify-between flex-wrap gap-2 pt-3 pb-1">
+        <span className="text-[11px] font-bold text-slate-500">
+          {isHindi ? "अवधि व रिटर्न प्लान चुनें:" : "Select Tenure & Return Plan:"}
+        </span>
+        <div className="flex gap-1.5">
+          {productType === "bond" ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setTenureOption("25")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  tenureOption === "25"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                25 Months (+40% Return)
+              </button>
+              <button
+                type="button"
+                onClick={() => setTenureOption("50")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  tenureOption === "50"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                50 Months (2x Double Money)
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setTenureOption("40")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  tenureOption === "40"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                40 Months (+40% Total / Monthly)
+              </button>
+              <button
+                type="button"
+                onClick={() => setTenureOption("80")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  tenureOption === "80"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                80 Months (2x Double / Monthly)
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* MAIN VISUALIZATION: GAUGE + REAL-TIME LEDGER */}
-      <div className="grid md:grid-cols-12 gap-5 sm:gap-6 items-center pt-5 sm:pt-6">
+      <div className="grid md:grid-cols-12 gap-5 sm:gap-6 items-center pt-4">
         {/* SPEEDOMETER GAUGE (COL 5) */}
         <div className="md:col-span-5 flex flex-col items-center justify-center p-4 sm:p-5 bg-slate-50/70 rounded-2xl border border-slate-100">
           <div className="relative w-48 sm:w-56 h-28 sm:h-32 flex items-center justify-center overflow-hidden">
@@ -152,11 +227,10 @@ function InteractiveYieldSpeedometer({ isHindi }) {
               <defs>
                 <linearGradient id="fintechGaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stopColor="#10B981" />
-                  <stop offset="66%" stopColor="#059669" />
-                  <stop offset="100%" stopColor="#1D6AE5" />
+                  <stop offset="50%" stopColor="#059669" />
+                  <stop offset="100%" stopColor="#4F46E5" />
                 </linearGradient>
               </defs>
-              {/* Background Arc */}
               <path
                 d="M 20 100 A 80 80 0 0 1 180 100"
                 fill="none"
@@ -164,7 +238,6 @@ function InteractiveYieldSpeedometer({ isHindi }) {
                 strokeWidth="12"
                 strokeLinecap="round"
               />
-              {/* Active Gauge Arc (Calibrated to 18% max) */}
               <path
                 d="M 20 100 A 80 80 0 0 1 180 100"
                 fill="none"
@@ -172,17 +245,15 @@ function InteractiveYieldSpeedometer({ isHindi }) {
                 strokeWidth="12"
                 strokeLinecap="round"
                 strokeDasharray="251.2"
-                strokeDashoffset={tier === 12 ? "83.7" : "0"}
+                strokeDashoffset={isDouble ? "0" : "83.7"}
                 className="transition-all duration-500 ease-out"
               />
-              {/* Dial Marks (Strict 0% to 18%) */}
-              <text x="18" y="108" fontSize="10" fontWeight="700" fill="#64748B">0%</text>
-              <text x="65" y="46" fontSize="10" fontWeight="700" fill="#64748B">6%</text>
-              <text x="125" y="46" fontSize="11" fontWeight="800" fill="#059669">12%</text>
-              <text x="172" y="108" fontSize="11" fontWeight="800" fill="#1D6AE5">18%</text>
+              <text x="18" y="108" fontSize="10" fontWeight="700" fill="#64748B">Base</text>
+              <text x="65" y="46" fontSize="10" fontWeight="700" fill="#64748B">+20%</text>
+              <text x="125" y="46" fontSize="11" fontWeight="800" fill="#059669">+40%</text>
+              <text x="172" y="108" fontSize="11" fontWeight="800" fill="#4F46E5">2X DOUBLE</text>
             </svg>
 
-            {/* NEEDLE */}
             <div
               className="absolute bottom-0 left-1/2 w-1.5 h-20 sm:h-22 bg-[#0A192F] rounded-full origin-bottom shadow-sm"
               style={{
@@ -193,54 +264,51 @@ function InteractiveYieldSpeedometer({ isHindi }) {
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute -top-1 -left-[2px] shadow-xs" />
             </div>
 
-            {/* Center Pivot */}
             <div className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 w-4.5 h-4.5 rounded-full bg-[#0A192F] border-2 border-white shadow-sm z-10" />
           </div>
 
-          {/* PRODUCT SPECS PILL */}
           <div className="mt-3 text-center">
             <button
               type="button"
               onClick={() => setShowDetails(!showDetails)}
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer ${
-                tier === 18
-                  ? "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
+                isDouble
+                  ? "bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100"
                   : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
               }`}
             >
-              <span>{tier === 18 ? "18.0% P.A. FIXED WEALTH BOND" : "12.0% P.A. LIQUID SAVINGS"}</span>
-              <span className="text-[10px] underline">ℹ️ Kaise Milega?</span>
+              <span>{productType === "bond" ? (isDouble ? "50 MONTHS FIXED BOND (2X DOUBLE)" : "25 MONTHS FIXED BOND (+40%)") : (isDouble ? "80 MONTHS LENDING (2X DOUBLE)" : "40 MONTHS LENDING (+40%)")}</span>
+              <span className="text-[10px] underline">ℹ️ Readme & Rules</span>
             </button>
             <div className="text-[11px] text-slate-500 font-medium mt-1">
-              {tier === 18
-                ? "365 Din locked • Guaranteed maturity payout"
-                : "Real-time daily credit • 24x7 instant withdrawal"}
+              {productType === "bond"
+                ? "Lump-sum guaranteed maturity payout directly to your wallet"
+                : "Predictable monthly cashflow with early stop capital refund"}
             </div>
           </div>
         </div>
 
         {/* METRICS & GROWTH BREAKDOWN (COL 7) */}
         <div className="md:col-span-7 space-y-3.5 sm:space-y-4">
-          {/* HIGH-SPEED LIVE TICKING LEDGER (Admin Speed with 6 Decimals) */}
           <div className="p-3.5 sm:p-5 rounded-2xl bg-[#0A192F] text-white shadow-sm flex items-center justify-between">
             <div>
               <div className="text-[10px] sm:text-[11px] font-bold tracking-wider uppercase text-emerald-400 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                <span>Today&apos;s Live Accrued Yield (₹{deposit.toLocaleString("en-IN")})</span>
+                <span>Total Return on Deposit (₹{deposit.toLocaleString("en-IN")})</span>
               </div>
               <div className="font-mono text-xl xs:text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight tabular-nums text-white">
-                +₹{Number(liveAccrued).toLocaleString("en-IN", { minimumFractionDigits: 6, maximumFractionDigits: 6 })}
+                ₹{totalReturn.toLocaleString("en-IN")}
               </div>
               <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">
-                High-speed ledger • 25 ticks/sec • Accruing since 12:00 AM
+                {productType === "lending" ? `Monthly payout: ₹${monthlyPayout.toLocaleString("en-IN")}/mo for ${tenureMonths} months` : `Maturity payout: ₹${totalReturn.toLocaleString("en-IN")} at month ${tenureMonths}`}
               </p>
             </div>
             <div className="text-right shrink-0 pl-2">
               <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">
-                Annual Profit
+                Net Profit
               </span>
               <span className="font-mono text-base sm:text-xl font-extrabold text-emerald-400">
-                +₹{Math.round(annualReturn).toLocaleString("en-IN")}
+                +₹{totalProfit.toLocaleString("en-IN")}
               </span>
             </div>
           </div>
@@ -248,34 +316,42 @@ function InteractiveYieldSpeedometer({ isHindi }) {
           {/* 3-COLUMN METRICS BREAKDOWN */}
           <div className="grid grid-cols-3 gap-2 sm:gap-2.5 text-center">
             <div className="p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/70">
-              <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase block">1 Minute Me</span>
-              <div className="text-[11px] sm:text-sm font-bold font-mono text-slate-800 mt-0.5 tabular-nums">
-                +₹{perMinuteReturn.toFixed(4)}
-              </div>
-              <span className="text-[8px] sm:text-[9px] text-emerald-600 font-semibold block mt-0.5">Live Accrual</span>
-            </div>
-
-            <div className="p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/70">
-              <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase block">1 Din Me</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase block">
+                {productType === "lending" ? "Har Mahine" : "Avg Per Month"}
+              </span>
               <div className="text-[11px] sm:text-sm font-bold font-mono text-emerald-700 mt-0.5 tabular-nums">
-                +₹{dailyReturn.toFixed(2)}
+                ₹{productType === "lending" ? monthlyPayout.toLocaleString("en-IN") : Math.round(totalProfit / tenureMonths).toLocaleString("en-IN")}
               </div>
-              <span className="text-[8px] sm:text-[9px] text-slate-500 font-medium block mt-0.5">Daily Payout</span>
+              <span className="text-[8px] sm:text-[9px] text-emerald-600 font-semibold block mt-0.5">
+                {productType === "lending" ? "Direct Payout" : "Accruing Yield"}
+              </span>
             </div>
 
             <div className="p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/70">
-              <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase block">Kul Maturity</span>
-              <div className="text-[11px] sm:text-sm font-bold font-mono text-blue-700 mt-0.5 tabular-nums">
-                ₹{Math.round(deposit + annualReturn).toLocaleString("en-IN")}
+              <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase block">Avadhi (Tenure)</span>
+              <div className="text-[11px] sm:text-sm font-bold font-mono text-slate-800 mt-0.5 tabular-nums">
+                {tenureMonths} Months
               </div>
-              <span className="text-[8px] sm:text-[9px] text-slate-500 font-medium block mt-0.5">Principal + Profit</span>
+              <span className="text-[8px] sm:text-[9px] text-slate-500 font-medium block mt-0.5">
+                {productType === "bond" ? "Fixed Term" : "Monthly Stream"}
+              </span>
+            </div>
+
+            <div className="p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+              <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase block">Kul Return</span>
+              <div className="text-[11px] sm:text-sm font-bold font-mono text-blue-700 mt-0.5 tabular-nums">
+                ₹{totalReturn.toLocaleString("en-IN")}
+              </div>
+              <span className="text-[8px] sm:text-[9px] text-slate-500 font-medium block mt-0.5">
+                {isDouble ? "2x Double" : "+40% Return"}
+              </span>
             </div>
           </div>
 
           {/* QUICK DEPOSIT SELECTOR */}
           <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-xs">
             <span className="text-[11px] font-bold text-slate-500 mr-1 shrink-0">
-              {isHindi ? "जमा राशि:" : "Deposit:"}
+              {isHindi ? "जमा राशि (न्यूनतम ₹25,000):" : "Deposit (Min ₹25,000):"}
             </span>
             {[25000, 50000, 100000, 200000, 500000].map((amt) => (
               <button
@@ -295,60 +371,58 @@ function InteractiveYieldSpeedometer({ isHindi }) {
         </div>
       </div>
 
-      {/* INTERACTIVE "KAISE MILEGA" (HOW TO GET IT) DETAILS CARD */}
+      {/* READ ME & RULES DETAILS CARD */}
       {showDetails && (
         <div className="mt-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 via-blue-50/30 to-emerald-50/30 border border-slate-200 transition-all">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-base sm:text-lg"></span>
+              <span className="text-base sm:text-lg">📖</span>
               <h4 className="text-xs sm:text-sm font-black text-[#0A192F] uppercase tracking-wide">
-                {tier === 18 ? "18% Wealth Bond — Kaise Milega?" : "12% Liquid Savings — Kaise Milega?"}
+                {productType === "bond" ? "Fixed Wealth Bond — Rules & Payout Policy" : "Monthly Lending — Read Me & Early Exit Policy"}
               </h4>
             </div>
             <span className="text-[10px] sm:text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">
-              {tier === 18 ? "18% Guaranteed Payout" : "Daily Credit • 0 Lock-in"}
+              {productType === "bond" ? "Lump-sum Maturity Payout" : "Early Stop Protection: Max(0, Principal - Payouts)"}
             </span>
           </div>
 
           <div className="grid sm:grid-cols-3 gap-2.5 sm:gap-3 text-xs mb-3.5">
             <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">1. Shuru Kaise Karein?</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">1. Minimum & Units</span>
               <p className="text-slate-700 font-semibold mt-0.5 text-[11px] sm:text-xs leading-relaxed">
-                {tier === 18
-                  ? "Login karke ₹1,00,000 (1 Unit) se bond book karein. Flexible multi-unit booking."
-                  : "Free zero-balance account kholein. Sirf ₹100 se start karein, zero paper document."}
+                न्यूनतम निवेश ₹25,000 है। आप ₹25k, ₹50k, ₹1L या उससे अधिक का कोई भी निवेश बना सकते हैं।
               </p>
             </div>
 
             <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">2. Munafa Kab Milega?</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">2. Payout Structure</span>
               <p className="text-slate-700 font-semibold mt-0.5 text-[11px] sm:text-xs leading-relaxed">
-                {tier === 18
-                  ? "365 din pure hone par guaranteed 18% profit direct aapke wallet me credit hoga."
-                  : "Har raat 12:00 AM par daily munafa live Profit Wallet me bina ruke jama hota hai."}
+                {productType === "bond"
+                  ? "25 महीने में +40% (₹1L → ₹1.4L) या 50 महीने में सीधा 2x (₹1L → ₹2L) मैच्योरिटी पर एकमुश्त मिलता है।"
+                  : "40 महीने (₹3,500/माह per ₹1L) या 80 महीने (₹2,500/माह per ₹1L) हर महीने लगातार आपके खाते में मिलता है।"}
               </p>
             </div>
 
             <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">3. Paisa Kaise Nikalein?</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">3. Early Exit / Stop Guarantee</span>
               <p className="text-slate-700 font-semibold mt-0.5 text-[11px] sm:text-xs leading-relaxed">
-                {tier === 18
-                  ? "Maturity ke turant baad principal + profit UPI/Bank me instant transfer karein."
-                  : "Zero lock-in! Apna mool paisa aur munafa kabhee bhi 24x7 instant UPI se nikalein."}
+                {productType === "bond"
+                  ? "बॉन्ड 25 या 50 महीने पूरे होने पर ऑटोमैटिक मैच्योर होकर मूल + लाभ दोनों क्रेडिट करता है।"
+                  : "यदि बीच में लेंडिंग रोकते हैं, तो: रिफंड = (जमा मूलधन - अब तक मिले कुल मासिक पेआउट्स)। शून्य पेनल्टी, शून्य पूँजी नुकसान!"}
               </p>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 border-t border-slate-200/60 gap-2">
             <div className="text-[11px] text-slate-600 font-medium flex items-center gap-1.5">
-              
-              <span>100% Educa Reserve Liquidity Pool se secured • Guaranteed returns</span>
+              <span>🛡️</span>
+              <span>100% Educa Capital Reserve Liquidity Pool se secured • Transparent rules</span>
             </div>
             <Link
               to="/login"
               className="px-4 py-2 bg-[#1D6AE5] hover:bg-[#1558cc] text-white text-xs font-bold rounded-xl transition shadow-xs text-center inline-flex items-center justify-center gap-1 self-start sm:self-auto"
             >
-              <span>{tier === 18 ? "18% Bond Book Karein" : "12% Free Khata Kholein"}</span>
+              <span>{productType === "bond" ? "Fixed Wealth Bond Shuru Karein" : "Monthly Lending Shuru Karein"}</span>
               <span>→</span>
             </Link>
           </div>
@@ -926,72 +1000,72 @@ function EmiCalculatorSection({ onLogin, isHindi }) {
 function ServicesSection({ onLogin, isHindi }) {
   const cards = [
     {
-      id: "savings-card",
-      icon: "",
-      badge: "12% ANNUAL INTEREST",
-      badgeColor: "bg-amber-100 text-amber-800 border border-amber-300",
-      title: "12% Liquid Savings Account",
-      desc: isHindi
-        ? "जहाँ सामान्य बैंक सिर्फ 2.7% - 3% देते हैं, एड्यूका देता है फ्लैट 12% वार्षिक ब्याज हर सेकंड लाइव कैलकुलेशन के साथ।"
-        : "Earn 12% p.a. compounding returns with real-time second-by-second live calculation credited directly to your Profit Wallet.",
-      points: [
-        "12.0% Annual yield with daily live credit",
-        "Zero withdrawal lock-in & zero penalties",
-        "Instant 24x7 UPI & IMPS transfers",
-        "4x higher returns than standard bank accounts",
-      ],
-      btnText: isHindi ? "12% खाता खोलें →" : "Open 12% Account →",
-    },
-    {
       id: "fixed-bond-card",
-      icon: "",
-      badge: "18% FIXED PROFIT",
+      icon: "🏛️",
+      badge: "UP TO 2X DOUBLE",
       badgeColor: "bg-emerald-100 text-emerald-800 border border-emerald-300",
-      title: "365-Day Fixed Bond (18% Profit)",
+      title: "Fixed Wealth Bonds (25 & 50 Mo)",
       desc: isHindi
-        ? "1 लाख प्रति यूनिट 365 दिनों के लिए लॉक करें और मैच्योरिटी पर निश्चित 18% लाभ (₹1,18,000) प्राप्त करें।"
-        : "Lock ₹1,00,000 (1 Lakh) per unit for 365 days and receive guaranteed 18% annual profit directly upon maturity.",
+        ? "₹25,000 से शुरू करें। 25 महीने में +40% लाभ (₹1L → ₹1.4L) या 50 महीने में सीधा 2x डबल पैसा (₹1L → ₹2L) सुरक्षित मैच्योरिटी पेआउट पाएं।"
+        : "Invest min ₹25,000. Get +40% return in 25 months (₹1L → ₹1.4L) or 2x Double Your Money in 50 months (₹1L → ₹2L) backed by fintech capital reserves.",
       points: [
-        "Guaranteed 18% annual maturity payout",
-        "Multi-unit support: ₹1L, ₹2L, ₹3L or more",
-        "100% backed by fintech liquid capital reserves",
-        "Auto-credited on day 365",
+        "25 Months: +40% profit lump-sum maturity return",
+        "50 Months: 2x Double money (100% profit) at maturity",
+        "Minimum investment: ₹25,000 (multiples supported)",
+        "Zero hidden deductions & 100% capital backed",
       ],
-      btnText: isHindi ? "18% बॉन्ड देखें →" : "Explore 18% Bonds →",
+      btnText: isHindi ? "वेल्थ बॉन्ड देखें →" : "Explore Wealth Bonds →",
     },
     {
       id: "lending-bond-card",
-      icon: "",
+      icon: "💸",
       badge: "MONTHLY CASHFLOW",
       badgeColor: "bg-indigo-100 text-indigo-800 border border-indigo-200",
       title: "Monthly Lending Bonds (40 & 80 Mo)",
       desc: isHindi
-        ? "निश्चित मासिक आय प्राप्त करें: 40 महीने (₹3,500/माह) या 80 महीने (₹2,500/माह = 2x पैसा) गारंटीड कैशफ्लो।"
-        : "Secure steady monthly cashflow: 40 Months (₹3,500/mo = ₹1.4L return) or 80 Months (₹2,500/mo = ₹2L return / 2x money).",
+        ? "निश्चित मासिक आय प्राप्त करें: 40 महीने (₹3,500/माह per ₹1L) या 80 महीने (₹2,500/माह = 2x पैसा) गारंटीड कैशफ्लो और अर्ली एग्जिट रिफंड सुरक्षा।"
+        : "Secure steady monthly cashflow: 40 Months (₹3,500/mo per ₹1L = ₹1.4L return) or 80 Months (₹2,500/mo per ₹1L = ₹2L return / 2x money) with early exit capital protection.",
       points: [
-        "40 Months: ₹3,500/month (Total ₹1,40,000 return)",
-        "80 Months: ₹2,500/month (Total ₹2,00,000 return - 2x money)",
-        "Fixed monthly payouts straight to your bank",
-        "Scalable multi-unit allocation",
+        "40 Months: ₹3,500/month per ₹1L (Total ₹1,40,000 return)",
+        "80 Months: ₹2,500/month per ₹1L (Total ₹2,00,000 return - 2x money)",
+        "Early Exit Protection: Principal minus payouts refunded",
+        "Minimum allocation: ₹25,000 (multi-unit flexible)",
       ],
       btnText: isHindi ? "लेंडिंग बॉन्ड देखें →" : "Explore Lending Bonds →",
     },
     {
-      id: "loans-card",
-      icon: "",
-      badge: "MICRO-CREDIT & LOANS",
+      id: "personal-loans-card",
+      icon: "📑",
+      badge: "10-DAY INSTALLMENT CYCLE",
       badgeColor: "bg-blue-100 text-[#1D6AE5] border border-blue-200",
-      title: "Personal & Business Loans",
+      title: "Personal & Student Loans",
       desc: isHindi
-        ? "₹5,000 से ₹50,000 तक पारदर्शी लोन 10-दिन की किस्तों (1.34%) या दुकानदारों के लिए दैनिक कलेक्शन (18%-36%) पर।"
-        : "Transparent loans from ₹5,000 to ₹50,000 with 10-day cycle installments (1.34%) or daily collections for local merchants.",
+        ? "₹5,000 से ₹50,000 तक पारदर्शी पर्सनल व स्टूडेंट लोन 10-दिन की 18 किस्तों में (1st, 11th, 21st) आसान भुगतान।"
+        : "Transparent personal & student loans from ₹5,000 to ₹50,000 with 10-day cycle installments (1st, 11th, 21st).",
       points: [
-        "Personal Loans: 18 installments scheduled on 1st, 11th, 21st",
-        "Daily Collection: 60d@18%, 80d@24%, 100d@30%, 120d@36%",
+        "18 Installments scheduled on 1st, 11th, 21st of every month",
+        "Simple interest rate with instant approval desk",
         "Instant ₹199 micro-recharge loans with 0% interest",
         "Zero CIBIL friction & same-day fast processing",
       ],
-      btnText: isHindi ? "लोन हेतु आवेदन करें →" : "Apply for Loan →",
+      btnText: isHindi ? "पर्सनल लोन आवेदन करें →" : "Apply for Loan →",
+    },
+    {
+      id: "merchant-loans-card",
+      icon: "🏪",
+      badge: "DAILY MERCHANT CREDIT",
+      badgeColor: "bg-purple-100 text-purple-800 border border-purple-200",
+      title: "Business Micro Loans (Daily)",
+      desc: isHindi
+        ? "स्थानीय दुकानदारों व व्यापारियों के लिए दैनिक कलेक्शन आधारित सुरक्षित माइक्रो-लोन टियर्स।"
+        : "Daily collection merchant loans with flexible duration tiers designed for local retail and shops.",
+      points: [
+        "60 Days @ 18% Flat Tier",
+        "80 Days @ 24% Flat Tier",
+        "100 Days @ 30% Flat Tier",
+        "120 Days @ 36% Flat Tier",
+      ],
+      btnText: isHindi ? "बिजनेस लोन देखें →" : "Apply for Business Loan →",
     },
   ];
 
@@ -1004,8 +1078,8 @@ function ServicesSection({ onLogin, isHindi }) {
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-[#0C1B3A] tracking-tight mt-3 mb-3">
             {isHindi
-              ? "12% लिक्विड बचत, 18% बॉन्ड और ₹50,000 तक आसान लोन"
-              : "12% Liquid Savings, 18% Bonds & Instant Loans"}
+              ? "वेल्थ बॉन्ड्स, मंथली लेंडिंग और ₹50,000 तक आसान लोन"
+              : "Wealth Bonds, Monthly Lending & Instant Loans"}
           </h2>
           <p className="text-sm sm:text-base text-gray-600">
             {isHindi
@@ -1090,31 +1164,31 @@ function AboutSection({ onLogin, isHindi }) {
               </p>
               <p>
                 {isHindi
-                  ? "साथ ही 12% वार्षिक लिक्विड बचत और 18% फिक्स्ड बॉन्ड के साथ आपके पैसों को उच्चतम सुरक्षित रिटर्न मिलता है।"
-                  : "Paired with our hallmark 12% p.a. daily compounding liquid savings and 18% fixed bonds, your capital compounds at industry-leading benchmarks."}
+                  ? "साथ ही फिक्स्ड वेल्थ बॉन्ड (25 व 50 माह) और मंथली लेंडिंग बॉन्ड (40 व 80 माह) के साथ आपके पैसों को उच्चतम सुरक्षित रिटर्न मिलता है।"
+                  : "Paired with our hallmark Fixed Wealth Bonds (25m @ +40% & 50m @ 2x) and Monthly Lending Bonds (40m & 80m), your capital compounds at industry-leading benchmarks."}
               </p>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-4">
               <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-sm">
-                <span className="text-2xl"></span>
+                <span className="text-2xl">🛡️</span>
                 <div>
                   <div className="text-xs font-bold text-[#0C1B3A]">RBI Guidelines</div>
                   <div className="text-[10px] text-gray-400">Strict Compliance</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-sm">
-                <span className="text-2xl"></span>
+                <span className="text-2xl">💸</span>
                 <div>
                   <div className="text-xs font-bold text-[#0C1B3A]">Instant Payout</div>
                   <div className="text-[10px] text-gray-400">Direct to Bank / UPI</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-sm">
-                <span className="text-2xl"></span>
+                <span className="text-2xl">🏛️</span>
                 <div>
-                  <div className="text-xs font-bold text-[#0C1B3A]">12% Annual Yield</div>
-                  <div className="text-[10px] text-gray-400">Daily Accrual</div>
+                  <div className="text-xs font-bold text-[#0C1B3A]">Up to 2x Double</div>
+                  <div className="text-[10px] text-gray-400">Fixed Wealth Growth</div>
                 </div>
               </div>
             </div>
@@ -1128,16 +1202,16 @@ function AboutSection({ onLogin, isHindi }) {
             <div className="space-y-4">
               {[
                 {
-                  label: isHindi ? "12% दैनिक लिक्विड ब्याज" : "12% Daily Liquid Interest",
-                  desc: isHindi ? "हर सेकंड आपके प्रॉफिट वॉलेट में जुड़ने वाला पारदर्शी मुनाफा" : "Transparent live accrual credited second-by-second to your Profit Wallet",
-                },
-                {
-                  label: isHindi ? "18% 365-दिन फिक्स्ड बॉन्ड" : "18% 365-Day Fixed Bonds",
-                  desc: isHindi ? "मैच्योरिटी पर निश्चित 18% वार्षिक लाभ गारंटी के साथ" : "Guaranteed flat 18% profit on maturity backed by liquidity reserves",
+                  label: isHindi ? "25 व 50 माह फिक्स्ड वेल्थ बॉन्ड" : "25 & 50 Mo Fixed Wealth Bonds",
+                  desc: isHindi ? "25 महीने में +40% या 50 महीने में 2x डबल पैसा मैच्योरिटी पर एकमुश्त" : "Guaranteed +40% in 25 months or 2x Double money in 50 months lump-sum at maturity",
                 },
                 {
                   label: isHindi ? "मासिक लेंडिंग बॉन्ड (40 और 80 माह)" : "Monthly Lending Bonds (40 & 80 Mo)",
-                  desc: isHindi ? "₹3,500/माह या ₹2,500/माह का स्थिर पैसिव कैशफ्लो" : "₹3,500/mo or ₹2,500/mo predictable passive cashflow",
+                  desc: isHindi ? "₹3,500/माह या ₹2,500/माह प्रति लाख का स्थिर पैसिव कैशफ्लो" : "₹3,500/mo or ₹2,500/mo per ₹1L predictable passive cashflow",
+                },
+                {
+                  label: isHindi ? "अर्ली एग्जिट रिफंड सुरक्षा" : "Early Exit Capital Protection",
+                  desc: isHindi ? "बीच में लेंडिंग रोकने पर जमा मूलधन में से मिले पेआउट घटाकर बाकी पैसा सुरक्षित वापस" : "If stopped midway: Refund = Max(0, Principal - Payouts Received). Zero capital loss.",
                 },
                 {
                   label: isHindi ? "लचीली किस्तें (10-दिन साइकिल)" : "Flexible 10-Day Installments",

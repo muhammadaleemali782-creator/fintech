@@ -3412,6 +3412,46 @@ export default function AdminPanel() {
     }
   };
 
+  const handleApproveEarlyStop = async (bondId) => {
+    if (!window.confirm("Early Exit approve karein? Principal me se ab tak mile total payouts deduct karke bacha refund user wallet me credit ho jayega.")) return;
+    setBondActionLoadingId(bondId);
+    try {
+      const res = await fetch(`${API}/bond/${bondId}/approve-stop`, { method: "POST", headers });
+      const data = await res.json();
+      showToast(data.message || "Early exit stop approved!", res.ok ? "success" : "error");
+      if (res.ok) {
+        apiCache.clear();
+        loadBonds(true);
+      }
+    } catch {
+      showToast("Network error approving early stop", "error");
+    } finally {
+      setBondActionLoadingId(null);
+    }
+  };
+
+  const handleRejectEarlyStop = async (bondId) => {
+    const reason = window.prompt("Reason for rejecting early stop (optional):") || "";
+    setBondActionLoadingId(bondId);
+    try {
+      const res = await fetch(`${API}/bond/${bondId}/reject-stop`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      showToast(data.message || "Early exit stop request rejected", res.ok ? "success" : "error");
+      if (res.ok) {
+        apiCache.clear();
+        loadBonds(true);
+      }
+    } catch {
+      showToast("Network error rejecting early stop", "error");
+    } finally {
+      setBondActionLoadingId(null);
+    }
+  };
+
   const approveInstallment = async (loanId, installmentNo) => {
     if (!window.confirm(`Installment #${installmentNo} approve karein? Balance update ho jayega.`)) return;
     setInstallmentActionLoadingId(`${loanId}_${installmentNo}`);
@@ -7224,7 +7264,7 @@ export default function AdminPanel() {
                                       A/C: {b.accountNumber || "EFS0000XXX"}
                                     </span>
                                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                      {b.bondType === "debit_365" ? "365-DAY FIXED BOND" : b.bondType === "lending_80" ? "80 MONTHS LENDING" : "40 MONTHS LENDING"}
+                                      {b.bondType === "bond_25" ? "25-MONTH FIXED BOND (+40%)" : b.bondType === "bond_50" ? "50-MONTH FIXED BOND (2X DOUBLE)" : b.bondType === "debit_365" ? "365-DAY FIXED BOND" : b.bondType === "lending_80" ? "80 MONTHS LENDING (2X)" : "40 MONTHS LENDING (+40%)"}
                                     </span>
                                   </div>
                                   <p className="text-xs text-gray-500 mt-0.5">
@@ -7252,7 +7292,7 @@ export default function AdminPanel() {
                               </div>
                               <div>
                                 <span className="text-gray-400 block font-medium">Tenure</span>
-                                <span className="font-bold text-gray-900 text-sm">{b.tenureMonths ? `${b.tenureMonths} Months` : `${b.tenureDays || 365} Days`}</span>
+                                <span className="font-bold text-gray-900 text-sm">{b.tenureMonths ? `${b.tenureMonths} Months` : b.bondType === "bond_25" ? "25 Months" : b.bondType === "bond_50" ? "50 Months" : `${b.tenureDays || 365} Days`}</span>
                               </div>
                             </div>
 
@@ -13442,7 +13482,7 @@ export default function AdminPanel() {
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl text-xs">
                           <div>
                             <span className="text-gray-400 block font-medium">Plan</span>
-                            <span className="font-bold text-gray-900 text-sm">{b.planName || (b.bondType === "bond_25k" ? "25 Months Plan (₹25k)" : b.planId === "lending_80" ? "80 Months Plan" : "40 Months Plan")}</span>
+                            <span className="font-bold text-gray-900 text-sm">{b.planName || (b.bondType === "bond_50" ? "50 Months Fixed (2x)" : b.bondType === "bond_25" ? "25 Months Fixed (+40%)" : b.bondType === "lending_80" || b.planId === "lending_80" ? "80 Months Lending (2x)" : "40 Months Lending (+40%)")}</span>
                           </div>
                           <div>
                             <span className="text-gray-400 block font-medium">Principal Deposited</span>
@@ -13454,7 +13494,7 @@ export default function AdminPanel() {
                           </div>
                           <div>
                             <span className="text-gray-400 block font-medium">Payout Progress</span>
-                            <span className="font-bold text-blue-700 text-sm">{b.monthsPaid || 0} / {b.monthsTotal || (b.bondType === "bond_25k" ? 25 : b.planId === "lending_80" ? 80 : 40)} Months</span>
+                            <span className="font-bold text-blue-700 text-sm">{b.monthsPaid || 0} / {b.monthsTotal || (b.bondType === "bond_50" ? 50 : b.bondType === "bond_25" ? 25 : b.bondType === "lending_80" || b.planId === "lending_80" ? 80 : 40)} Months</span>
                           </div>
                         </div>
 
@@ -13560,6 +13600,54 @@ export default function AdminPanel() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Early Exit / Stop Request Management */}
+                        {b.earlyStopStatus === "pending" && (
+                          <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl space-y-2">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <span className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                                 Investor Requested Early Exit Stop
+                              </span>
+                              <span className="text-xs font-mono font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded">
+                                Net Capital Refund: ₹{Math.max(0, (b.principalAmount || 0) - ((b.monthsPaid || 0) * (b.monthlyPayout || 0))).toLocaleString("en-IN")}
+                              </span>
+                            </div>
+                            {b.earlyStopReason && (
+                              <p className="text-xs text-amber-900 italic bg-white/80 p-2.5 rounded-lg border border-amber-200">
+                                Investor Reason: &quot;{b.earlyStopReason}&quot;
+                              </p>
+                            )}
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                disabled={bondActionLoadingId === b._id}
+                                onClick={() => handleApproveEarlyStop(b._id)}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                              >
+                                {bondActionLoadingId === b._id ? "Processing..." : `✓ Approve Stop & Credit ₹${Math.max(0, (b.principalAmount || 0) - ((b.monthsPaid || 0) * (b.monthlyPayout || 0))).toLocaleString("en-IN")}`}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={bondActionLoadingId === b._id}
+                                onClick={() => handleRejectEarlyStop(b._id)}
+                                className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                              >
+                                Reject Request
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {b.earlyStopStatus === "approved" && (
+                          <div className="p-3 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 flex items-center justify-between">
+                            <span className="font-bold">✓ Early Stop Approved & Contract Closed</span>
+                            <span className="font-mono font-bold text-emerald-800">Refund Credited: ₹{Number(b.earlyStopRefundAmount || 0).toLocaleString("en-IN")}</span>
+                          </div>
+                        )}
+                        {b.earlyStopStatus === "rejected" && (
+                          <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+                            Early Stop request was rejected by administration. Regular monthly payouts continue.
+                          </div>
+                        )}
                       </div>
                     );
                   })}

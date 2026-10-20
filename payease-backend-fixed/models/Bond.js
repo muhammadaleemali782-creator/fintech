@@ -4,7 +4,7 @@ const bondSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   bondType: {
     type: String,
-    enum: ['debit_365', 'lending_40', 'lending_80'],
+    enum: ['bond_25', 'bond_50', 'lending_40', 'lending_80', 'debit_365', 'bond_25k'],
     required: true
   },
   principalAmount: { type: Number, required: true },
@@ -19,8 +19,25 @@ const bondSchema = new mongoose.Schema({
   accountNumber: { type: String, unique: true, sparse: true }, // e.g. EFS0000001
   status: {
     type: String,
-    enum: ['active', 'matured', 'cancelled', 'pending', 'rejected'],
+    enum: ['active', 'matured', 'cancelled', 'pending', 'rejected', 'stopped'],
     default: 'active'
+  },
+  earlyStopRequested: { type: Boolean, default: false },
+  earlyStopStatus: {
+    type: String,
+    enum: ['none', 'pending', 'approved', 'rejected'],
+    default: 'none'
+  },
+  earlyStopReason: { type: String, default: '' },
+  earlyStopRefundAmount: { type: Number, default: 0 },
+  earlyStopRequestedAt: { type: Date },
+  earlyStopHandledBy: {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    name: String,
+    role: String,
+    action: String,
+    at: Date,
+    note: String
   },
   documents: {
     aadharNumber: String,

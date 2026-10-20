@@ -46,32 +46,50 @@ const dispatchBondUserAlert = async (userId, title, message, type = 'bond_payout
 const generateBondAccountNumber = () => generateAccountNumber(Bond);
 
 // Helper: Calculate bond details strictly on server (Anti-Burp/Anti-Tamper)
-const calculateBondTerms = (bondType, amount = 100000) => {
-  const principal = Math.max(100000, Math.floor(Number(amount) / 100000) * 100000); // strictly in units of 1 Lakh
+const calculateBondTerms = (bondType, amount = 25000) => {
+  const principal = Math.max(25000, Math.floor(Number(amount) || 25000)); // Minimum ₹25,000, flexible
   const now = new Date();
 
-  if (bondType === 'debit_365') {
-    // 365 Days Bond: 1 Lakh -> 1.18 Lakh into Profit Wallet
-    const returnAmount = Math.round(principal * 1.18); // 18% profit
-    const maturityDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+  // 1. 25-Month Fixed Wealth Bond (+40% Profit at Maturity)
+  if (bondType === 'bond_25') {
+    const returnAmount = Math.round(principal * 1.40);
+    const maturityDate = new Date(now);
+    maturityDate.setMonth(maturityDate.getMonth() + 25);
     return {
       bondType,
       principalAmount: principal,
       returnAmount,
       monthlyPayout: 0,
-      tenureDays: 365,
-      tenureMonths: 12,
+      tenureDays: 25 * 30,
+      tenureMonths: 25,
       startDate: now,
       maturityDate,
       nextPayoutDate: maturityDate
     };
   }
 
+  // 2. 50-Month Fixed Wealth Bond (2.0x Double Money at Maturity)
+  if (bondType === 'bond_50') {
+    const returnAmount = Math.round(principal * 2.00);
+    const maturityDate = new Date(now);
+    maturityDate.setMonth(maturityDate.getMonth() + 50);
+    return {
+      bondType,
+      principalAmount: principal,
+      returnAmount,
+      monthlyPayout: 0,
+      tenureDays: 50 * 30,
+      tenureMonths: 50,
+      startDate: now,
+      maturityDate,
+      nextPayoutDate: maturityDate
+    };
+  }
+
+  // 3. 40-Month Lending Monthly Bond (1.40x Total Return distributed monthly)
   if (bondType === 'lending_40') {
-    // 40 Months Lending Bond: 1 Lakh -> 1.4 Lakh total @ 3,500 monthly payout
-    const factor = principal / 100000;
-    const monthlyPayout = Math.round(3500 * factor);
-    const returnAmount = Math.round(140000 * factor);
+    const returnAmount = Math.round(principal * 1.40);
+    const monthlyPayout = Math.round((principal * 1.40) / 40);
     const maturityDate = new Date(now);
     maturityDate.setMonth(maturityDate.getMonth() + 40);
     const nextPayoutDate = new Date(now);
@@ -90,11 +108,10 @@ const calculateBondTerms = (bondType, amount = 100000) => {
     };
   }
 
+  // 4. 80-Month Lending Monthly Bond (2.00x Total Return distributed monthly)
   if (bondType === 'lending_80') {
-    // 80 Months Lending Bond: 1 Lakh -> 2.0 Lakh total @ 2,500 monthly payout
-    const factor = principal / 100000;
-    const monthlyPayout = Math.round(2500 * factor);
-    const returnAmount = Math.round(200000 * factor);
+    const returnAmount = Math.round(principal * 2.00);
+    const monthlyPayout = Math.round((principal * 2.00) / 80);
     const maturityDate = new Date(now);
     maturityDate.setMonth(maturityDate.getMonth() + 80);
     const nextPayoutDate = new Date(now);
@@ -113,21 +130,34 @@ const calculateBondTerms = (bondType, amount = 100000) => {
     };
   }
 
+  // Legacy fallback: 365 Days Bond
+  if (bondType === 'debit_365') {
+    const returnAmount = Math.round(principal * 1.18);
+    const maturityDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    return {
+      bondType,
+      principalAmount: principal,
+      returnAmount,
+      monthlyPayout: 0,
+      tenureDays: 365,
+      tenureMonths: 12,
+      startDate: now,
+      maturityDate,
+      nextPayoutDate: maturityDate
+    };
+  }
+
+  // Legacy fallback: 25k Bond
   if (bondType === 'bond_25k') {
-    // 25K Bond for 25 Months
-    const principal25k = 25000;
     const maturityDate = new Date(now);
     maturityDate.setMonth(maturityDate.getMonth() + 25);
     const nextPayoutDate = new Date(now);
     nextPayoutDate.setDate(nextPayoutDate.getDate() + 30);
-    const returnAmount = 35000;
-    const monthlyPayout = 1400;
-
     return {
       bondType,
-      principalAmount: principal25k,
-      returnAmount,
-      monthlyPayout,
+      principalAmount: 25000,
+      returnAmount: 35000,
+      monthlyPayout: 1400,
       tenureDays: 25 * 30,
       tenureMonths: 25,
       startDate: now,
@@ -141,9 +171,9 @@ const calculateBondTerms = (bondType, amount = 100000) => {
 
 // Create a new Bond
 router.post('/create', protect, async (req, res) => {
-  const { bondType, amount = 100000, documents } = req.body;
+  const { bondType, amount = 25000, documents } = req.body;
 
-  if (!['debit_365', 'lending_40', 'lending_80', 'bond_25k'].includes(bondType)) {
+  if (!['bond_25', 'bond_50', 'lending_40', 'lending_80', 'debit_365', 'bond_25k'].includes(bondType)) {
     return res.status(400).json({ message: 'Invalid bond type' });
   }
 
@@ -324,11 +354,24 @@ router.post('/create', protect, async (req, res) => {
         );
       }
 
+      const isBond = ['bond_25', 'bond_50', 'debit_365', 'bond_25k'].includes(bondType);
+      const planTitle = bondType === 'bond_25'
+        ? '25-Month Fixed Wealth Bond (+40%)'
+        : bondType === 'bond_50'
+        ? '50-Month Fixed Wealth Bond (2x Double)'
+        : bondType === 'lending_40'
+        ? `40-Month Lending Monthly Bond (${accountNumber})`
+        : bondType === 'lending_80'
+        ? `80-Month Lending Monthly Bond (${accountNumber})`
+        : `${bondType} Bond (${accountNumber})`;
+
       // Activate corresponding wallet if not yet active
-      if (bondType === 'debit_365') {
-        updatedUser.wallets.debit.active = true;
-      } else {
-        updatedUser.wallets.lending.active = true;
+      if (updatedUser.wallets) {
+        if (isBond && updatedUser.wallets.debit) {
+          updatedUser.wallets.debit.active = true;
+        } else if (updatedUser.wallets.lending) {
+          updatedUser.wallets.lending.active = true;
+        }
       }
       await updatedUser.save({ session });
 
@@ -349,7 +392,7 @@ router.post('/create', protect, async (req, res) => {
         method: 'wallet',
         status: 'completed',
         referenceId: bond._id.toString(),
-        remarks: `${bondType === 'debit_365' ? '365-Day Fixed Bond (₹1.18L Profit Maturity)' : `Lending Monthly Bond (${accountNumber})`} Created`
+        remarks: `${planTitle} Created`
       }], { session });
 
       // Agent Referral Commission on Bond / Lending Creation
@@ -357,7 +400,6 @@ router.post('/create', protect, async (req, res) => {
         try {
           const agentUser = await User.findById(userDoc.referredBy).session(session);
           if (agentUser && (agentUser.role === 'agent' || agentUser.agentProfile?.status === 'approved')) {
-            const isBond = bondType === 'debit_365';
             const cat = isBond ? 'bond' : 'lending';
             const defaultRate = 4;
             const commRate = agentUser.agentProfile?.commissions?.[cat] !== undefined && agentUser.agentProfile?.commissions?.[cat] !== null && !isNaN(agentUser.agentProfile.commissions[cat])
@@ -378,7 +420,7 @@ router.post('/create', protect, async (req, res) => {
                   status: 'completed',
                   sourceWallet: cat,
                   referenceId: bond._id.toString(),
-                  remarks: `Agent ${isBond ? 'Bond' : 'Lending'} Commission (${commRate}%) for ${isBond ? 'Fixed Bond 365 Days' : `Lending Bond (${accountNumber})`} by ${userDoc.name}`
+                  remarks: `Agent ${isBond ? 'Bond' : 'Lending'} Commission (${commRate}%) for ${planTitle} by ${userDoc.name}`
                 }], { session });
               }
             }
@@ -425,7 +467,7 @@ router.get('/admin/all', protect, staffOrAdmin, async (req, res) => {
         return res.status(403).json({ message: 'Access denied. Requires bond.view or lending.view' });
       }
       if (hasBond && !hasLending) {
-        query.bondType = 'debit_365';
+        query.bondType = { $in: ['bond_25', 'bond_50', 'debit_365', 'bond_25k'] };
       } else if (!hasBond && hasLending) {
         query.bondType = { $in: ['lending_40', 'lending_80'] };
       }
@@ -459,12 +501,21 @@ router.get('/my', protect, async (req, res) => {
     // Process matured or pending monthly payouts automatically
     for (const b of bonds) {
       if (b.status === 'active') {
-        // 1. Check 365-day debit bond maturity
-        if (b.bondType === 'debit_365' && b.maturityDate <= now) {
+        const isFixedBond = ['bond_25', 'bond_50', 'debit_365', 'bond_25k'].includes(b.bondType);
+        // 1. Check fixed wealth bond maturity (bond_25, bond_50, debit_365)
+        if (isFixedBond && b.maturityDate <= now) {
           b.status = 'matured';
+          const profit = Math.max(0, b.returnAmount - b.principalAmount);
+          // Credit principal back to balance, and net profit to profitBalance
           await User.findByIdAndUpdate(req.user._id, {
-            $inc: { profitBalance: b.returnAmount, balance: b.principalAmount }
+            $inc: { balance: b.principalAmount, profitBalance: profit }
           });
+          const planLabel = b.bondType === 'bond_50'
+            ? '50-Month Fixed Wealth Bond (2x Double)'
+            : b.bondType === 'bond_25'
+            ? '25-Month Fixed Wealth Bond (+40%)'
+            : 'Fixed Bond';
+
           await Transaction.create({
             userId: req.user._id,
             type: 'bond_payout',
@@ -472,13 +523,13 @@ router.get('/my', protect, async (req, res) => {
             method: 'wallet',
             status: 'completed',
             referenceId: b._id.toString(),
-            remarks: `365-Day Bond Matured: ₹${b.returnAmount.toLocaleString('en-IN')} credited!`
+            remarks: `${planLabel} Matured: ₹${b.returnAmount.toLocaleString('en-IN')} credited (₹${b.principalAmount.toLocaleString('en-IN')} principal + ₹${profit.toLocaleString('en-IN')} profit)!`
           });
           await b.save();
           dispatchBondUserAlert(
             req.user._id,
-            '🎉 365-Day Bond Matured!',
-            `Aapka 365-Day Bond mature ho gaya hai aur ₹${b.returnAmount.toLocaleString('en-IN')} aapke account me credit ho gaya hai!`,
+            '🎉 Bond Investment Matured!',
+            `Aapka ${planLabel} mature ho gaya hai aur kul ₹${b.returnAmount.toLocaleString('en-IN')} (₹${b.principalAmount.toLocaleString('en-IN')} principal + ₹${profit.toLocaleString('en-IN')} profit) aapke account me credit ho gaya hai!`,
             'bond_payout'
           );
         }
@@ -686,6 +737,219 @@ router.post('/:id/reject', protect, staffOrAdmin, async (req, res) => {
     res.json({ message: `Bond rejected and ₹${bond.principalAmount.toLocaleString('en-IN')} refunded to user wallet.`, bond });
   } catch (err) {
     res.status(500).json({ message: err.message || 'Failed to reject bond' });
+  }
+});
+
+// User: Request early stop/exit on an active lending bond
+router.post('/:id/request-stop', protect, async (req, res) => {
+  try {
+    const bond = await Bond.findById(req.params.id);
+    if (!bond) return res.status(404).json({ message: 'Bond not found' });
+    if (String(bond.userId) !== String(req.user._id) && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    if (bond.status !== 'active') {
+      return res.status(400).json({ message: `Cannot stop bond with status: ${bond.status}` });
+    }
+    if (!['lending_40', 'lending_80'].includes(bond.bondType)) {
+      return res.status(400).json({ message: 'Early stop is only applicable for Monthly Lending accounts' });
+    }
+    if (bond.earlyStopStatus === 'pending') {
+      return res.status(400).json({ message: 'An early stop request is already pending review' });
+    }
+
+    const totalPaidOut = Math.round((bond.monthlyPayout || 0) * (bond.payoutsCompleted || 0));
+    const refundAmount = Math.max(0, bond.principalAmount - totalPaidOut);
+    const reason = (req.body.reason || 'Investor requested premature exit').toString().trim();
+
+    bond.earlyStopRequested = true;
+    bond.earlyStopStatus = 'pending';
+    bond.earlyStopReason = reason;
+    bond.earlyStopRefundAmount = refundAmount;
+    bond.earlyStopRequestedAt = new Date();
+
+    if (!bond.history) bond.history = [];
+    bond.history.push({
+      action: 'request_early_stop',
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'lending',
+      note: `Early stop requested. Expected refund: ₹${refundAmount.toLocaleString('en-IN')} (Deposited ₹${bond.principalAmount.toLocaleString('en-IN')} - Received ₹${totalPaidOut.toLocaleString('en-IN')}). Reason: ${reason}`,
+      at: new Date()
+    });
+
+    await bond.save();
+
+    res.json({
+      success: true,
+      message: `Early stop request submitted. Calculated refund: ₹${refundAmount.toLocaleString('en-IN')}`,
+      bond,
+      refundAmount,
+      totalPaidOut
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Failed to request early stop' });
+  }
+});
+
+// Admin/Staff: Approve early stop request & disburse remaining refund
+router.post('/:id/approve-stop', protect, staffOrAdmin, async (req, res) => {
+  try {
+    const bond = await Bond.findById(req.params.id);
+    if (!bond) return res.status(404).json({ message: 'Bond not found' });
+    if (bond.status !== 'active') {
+      return res.status(400).json({ message: `Bond is not active (current status: ${bond.status})` });
+    }
+    if (req.user.role === 'staff') {
+      if (!hasPermission(req.user, 'lending.process')) {
+        return res.status(403).json({ message: 'Access denied. Requires lending.process permission' });
+      }
+      if (String(bond.userId) === String(req.user._id)) {
+        return res.status(403).json({ message: 'Self-approval is forbidden' });
+      }
+    }
+
+    // Exact refund formula: max(0, Principal Deposited - Total Monthly Payouts Received)
+    const totalPaidOut = Math.round((bond.monthlyPayout || 0) * (bond.payoutsCompleted || 0));
+    const refundAmount = Math.max(0, bond.principalAmount - totalPaidOut);
+
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        if (refundAmount > 0) {
+          // Credit remaining refund to user's main wallet balance
+          await User.findByIdAndUpdate(bond.userId, {
+            $inc: { balance: refundAmount }
+          }, { session });
+
+          await Transaction.create([{
+            userId: bond.userId,
+            type: 'bond_refund',
+            amount: refundAmount,
+            method: 'wallet',
+            status: 'completed',
+            referenceId: bond._id.toString(),
+            remarks: `Early exit refund for Lending Bond ${bond.accountNumber || bond._id} (Deposited ₹${bond.principalAmount.toLocaleString('en-IN')} - Received ₹${totalPaidOut.toLocaleString('en-IN')} = ₹${refundAmount.toLocaleString('en-IN')} refund)`
+          }], { session });
+        }
+
+        bond.status = 'cancelled';
+        bond.earlyStopRequested = false;
+        bond.earlyStopStatus = 'approved';
+        bond.earlyStopRefundAmount = refundAmount;
+        bond.earlyStopHandledBy = {
+          userId: req.user._id,
+          name: req.user.name,
+          role: req.user.role,
+          action: 'approve_early_stop',
+          at: new Date(),
+          note: req.body.note || 'Early stop approved'
+        };
+
+        if (!bond.history) bond.history = [];
+        bond.history.push({
+          action: 'approve_early_stop',
+          actorId: req.user._id,
+          actorName: req.user.name,
+          actorRole: req.user.role,
+          department: 'lending',
+          note: `Early stop approved. Refund of ₹${refundAmount.toLocaleString('en-IN')} processed.`,
+          at: new Date()
+        });
+
+        await bond.save({ session });
+
+        await AuditLog.create([{
+          actorId: req.user._id,
+          actorName: req.user.name,
+          actorRole: req.user.role,
+          department: 'lending',
+          action: 'lending.early_stop',
+          entityType: 'bond',
+          entityId: bond._id.toString(),
+          userId: bond.userId,
+          amount: refundAmount,
+          fromStatus: 'active',
+          toStatus: 'cancelled',
+          note: `Early stop approved. Deposited: ₹${bond.principalAmount}, Paid Out: ₹${totalPaidOut}, Refund: ₹${refundAmount}`,
+          ip: req.ip || '',
+          userAgent: req.headers['user-agent'] || ''
+        }], { session });
+      });
+    } finally {
+      session.endSession();
+    }
+
+    dispatchBondUserAlert(
+      bond.userId,
+      '🛑 Lending Account Early Exit Processed',
+      refundAmount > 0
+        ? `Aapka Lending Account early exit approve ho gaya hai. Remaining ₹${refundAmount.toLocaleString('en-IN')} wallet me refund ho gaya hai.`
+        : `Aapka Lending Account early exit approve ho gaya hai. Aap already apni lagat se jyada returns receive kar chuke hain, atah additional refund ₹0 hai aur future payouts stop kar diye gaye hain.`,
+      'bond_payout'
+    );
+
+    res.json({
+      success: true,
+      message: `Early stop approved. Refund: ₹${refundAmount.toLocaleString('en-IN')} processed.`,
+      bond,
+      refundAmount
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Failed to approve early stop' });
+  }
+});
+
+// Admin/Staff: Reject early stop request
+router.post('/:id/reject-stop', protect, staffOrAdmin, async (req, res) => {
+  try {
+    const bond = await Bond.findById(req.params.id);
+    if (!bond) return res.status(404).json({ message: 'Bond not found' });
+    if (req.user.role === 'staff') {
+      if (!hasPermission(req.user, 'lending.process')) {
+        return res.status(403).json({ message: 'Access denied. Requires lending.process permission' });
+      }
+      if (String(bond.userId) === String(req.user._id)) {
+        return res.status(403).json({ message: 'Self-approval is forbidden' });
+      }
+    }
+
+    const note = (req.body.note || 'Early stop request rejected by administration').toString().trim();
+    bond.earlyStopRequested = false;
+    bond.earlyStopStatus = 'rejected';
+    bond.earlyStopHandledBy = {
+      userId: req.user._id,
+      name: req.user.name,
+      role: req.user.role,
+      action: 'reject_early_stop',
+      at: new Date(),
+      note
+    };
+
+    if (!bond.history) bond.history = [];
+    bond.history.push({
+      action: 'reject_early_stop',
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      department: 'lending',
+      note,
+      at: new Date()
+    });
+
+    await bond.save();
+
+    dispatchBondUserAlert(
+      bond.userId,
+      'ℹ️ Lending Early Exit Request Update',
+      `Aapki early exit request reject kar di gayi hai: "${note}". Aapka monthly lending plan pahle jaise active rahega.`,
+      'bond_payout'
+    );
+
+    res.json({ success: true, message: 'Early stop request rejected', bond });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Failed to reject early stop' });
   }
 });
 

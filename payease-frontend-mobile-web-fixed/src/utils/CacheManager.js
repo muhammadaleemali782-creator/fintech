@@ -149,7 +149,13 @@ if (typeof window !== "undefined") {
         const items = req.result || [];
         for (const item of items) {
           if (item && item.key) {
-            memoryCache.set(item.key, item);
+            // Only fill gaps / replace OLDER entries. The old code overwrote everything, so a slow IndexedDB
+            // read could bring back stale data right after a fresh network response had been stored.
+            const existing = memoryCache.get(item.key);
+            const existingTs = existing && typeof existing === "object" ? (existing.lastUpdated || 0) : 0;
+            if (!existing || (item.lastUpdated || 0) > existingTs) {
+              memoryCache.set(item.key, item);
+            }
           }
         }
       };
@@ -445,9 +451,9 @@ export const CacheManager = {
 // -------------------------------------------------------------
 export async function smartFetch(url, options = {}, config = {}) {
   const {
-    timeoutMs = 75000, // 75s timeout accommodates Render free-tier cold-start
-    retries = 2,       // 2 silent retries with backoff
-    backoffs = [3000, 8000],
+    timeoutMs = 45000, // Render free-tier cold start is ~30-50s; longer waits only freeze the UI
+    retries = 1,       // 1 silent retry (the next 20s tick is another retry anyway)
+    backoffs = [2500, 6000],
     validateResponse = (data) => data !== null && data !== undefined
   } = config;
 
@@ -466,10 +472,16 @@ export async function smartFetch(url, options = {}, config = {}) {
 
       try {
         const res = await fetch(url, {
+          cache: "no-store",
           ...options,
           signal: controller.signal
         });
         clearTimeout(timer);
+
+        // Rate limited: retrying immediately only makes it worse. Report it and let the next tick try again.
+        if (res.status === 429) {
+          return { error: true, status: 429, rateLimited: true, data: null };
+        }
 
         if (res.status === 304) {
           return { notModified: true, status: 304, data: null };

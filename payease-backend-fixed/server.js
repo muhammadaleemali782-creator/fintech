@@ -27,6 +27,7 @@ const hpp = require('hpp');
 const rateLimit = require('express-rate-limit');
 const slowDown = require('express-slow-down');
 const { acquireLock } = require('./utils/lock');
+const { tokenBucket } = require('./utils/security');
 
 // ------------------ REQUIRED ENV VAR CHECK ------------------
 // Production me agar koi zaroori .env value missing hui, to server
@@ -47,6 +48,9 @@ if (process.env.JWT_SECRET.length < 32) {
 
 // KYC documents encryption key: fallback cleanly to JWT_SECRET if hosting environment (Render) hasn't set ENCRYPTION_KEY
 if (!process.env.ENCRYPTION_KEY) {
+  // NOTE: kept for backward compatibility (existing KYC data was encrypted with this key).
+  // SECURITY: set a separate ENCRYPTION_KEY + LEGACY_ENCRYPTION_KEY=<old JWT_SECRET> on Render, then rotate JWT_SECRET.
+  console.warn('⚠️  ENCRYPTION_KEY is not set - falling back to JWT_SECRET. A JWT_SECRET leak would also expose KYC data. See SECURITY_AUDIT.md');
   process.env.ENCRYPTION_KEY = process.env.JWT_SECRET;
 }
 
@@ -194,19 +198,46 @@ app.use(mongoSanitize({ replaceWith: '_' }));
 app.use(hpp());
 
 // ------------------ RATE LIMITING (STRICT & SPECIFIC) ------------------
-// General Rate Limiter: Protects against DOS/flooding without breaking normal dashboard polling
-const generalLimiter = rateLimit({
+// General Rate Limiter.
+// Indian mobile carriers put thousands of users behind ONE public IP (CGNAT), so a strict per-IP limit
+// makes the app return "Too many requests" (-> stale data) for innocent users.
+// 1) per-user bucket (hash of the bearer token): 900 req / 15 min each  - fair for one dashboard
+// 2) per-IP safety net: 6000 req / 15 min - only stops real floods / fake-token tricks
+const skipHealthAndStream = (req) => {
+  const url = req.originalUrl || req.url || '';
+  return url.includes('/health') || url.includes('/notifications/stream');
+};
+const ipSafetyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1500,
+  max: 6000,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => {
-    const url = req.originalUrl || req.url || '';
-    return url.includes('/health') || url.includes('/notifications/stream');
-  },
+  skip: skipHealthAndStream,
   message: { message: 'Too many requests, please slow down.' }
 });
-app.use('/api/', generalLimiter);
+const perUserLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 900,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => skipHealthAndStream(req) || !tokenBucket(req),
+  keyGenerator: (req) => tokenBucket(req) || 'anon',
+  validate: false,
+  message: { message: 'Too many requests, please slow down.' }
+});
+app.use('/api/', ipSafetyLimiter);
+app.use('/api/', perUserLimiter);
+
+// Public landing-page loan enquiry: anyone can call it and it pings the admin, so keep it tight
+const publicQueryLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many enquiries. Please try again later.' }
+});
+app.use('/api/loan/query', publicQueryLimiter);
+app.use('/api/loans/query', publicQueryLimiter);
 
 // Auth Limiter: Brute-force protection on login / register
 const authLimiter = rateLimit({

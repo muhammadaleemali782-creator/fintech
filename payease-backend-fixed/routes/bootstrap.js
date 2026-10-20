@@ -11,7 +11,86 @@ const memoryCache = require('../utils/cache');
 const { processDailyYield } = require('./user');
 const { decryptData } = require('../utils/cryptoHelper');
 
+const crypto = require('crypto');
+
 const router = express.Router();
+
+// -------------------------------------------------------------
+// CHANGE SIGNATURE (powers the lightweight /pulse endpoint)
+// The app asks /pulse every ~20s (tiny response). Only when the signature changed does it download the
+// full bootstrap. Saves bandwidth, DB load and phone battery, and still shows fresh data within seconds.
+// -------------------------------------------------------------
+function buildSig(parts) {
+  const h = crypto.createHash('sha1');
+  h.update(JSON.stringify(parts));
+  return h.digest('hex').slice(0, 16);
+}
+const money = (n) => Number(n || 0).toFixed(2);
+const idStatus = (arr) =>
+  (arr || []).map((x) => `${x._id}:${x.status || ''}`).sort();
+
+async function userSig(userId, userDoc) {
+  const [txns, pendingCount, loans, bonds] = await Promise.all([
+    Transaction.find({ userId }).sort({ createdAt: -1 }).limit(8).select('_id status').lean(),
+    Transaction.countDocuments({ userId, status: { $in: ['pending', 'hold'] } }),
+    Loan.find({ userId }).select('_id status').lean(),
+    Bond.find({ userId }).select('_id status').lean()
+  ]);
+  return buildSig({
+    b: money(userDoc.balance), p: money(userDoc.profitBalance), d: money(userDoc.duesBalance),
+    k: userDoc.kycStatus || '', lc: userDoc.loansCount || 0, pr: !!userDoc.isPremium, ll: Number(userDoc.loanLimit || 0),
+    t: idStatus(txns), pc: pendingCount, l: idStatus(loans), bo: idStatus(bonds)
+  });
+}
+
+async function agentSig(agentDoc) {
+  const [customersCount, lastBonus] = await Promise.all([
+    User.countDocuments({ referredBy: agentDoc._id }),
+    Transaction.findOne({ userId: agentDoc._id, type: 'referral_bonus' }).sort({ createdAt: -1 }).select('_id').lean()
+  ]);
+  return buildSig({
+    b: money(agentDoc.balance), c: money(agentDoc.agentProfile && agentDoc.agentProfile.commissionBalance),
+    n: customersCount, lb: lastBonus ? String(lastBonus._id) : ''
+  });
+}
+
+// EMI auto-debit is a WRITE. It used to run on every poll; now at most once per 2 minutes per user.
+const emiLastRun = new Map();
+const EMI_THROTTLE_MS = 2 * 60 * 1000;
+function shouldRunEmi(userId) {
+  const key = String(userId);
+  const now = Date.now();
+  const last = emiLastRun.get(key) || 0;
+  if (now - last < EMI_THROTTLE_MS) return false;
+  emiLastRun.set(key, now);
+  if (emiLastRun.size > 5000) {
+    for (const [k, t] of emiLastRun) if (now - t > EMI_THROTTLE_MS) emiLastRun.delete(k);
+  }
+  return true;
+}
+
+// -------------------------------------------------------------
+// 0. PULSE: tiny "has anything changed?" check (a few indexed lookups, ~100 bytes response)
+// -------------------------------------------------------------
+router.get('/pulse', protect, async (req, res) => {
+  try {
+    const wantsAgent = req.query.role === 'agent';
+    if (wantsAgent) {
+      const a = req.user;
+      if (!(a.role === 'agent' || a.agentProfile?.status === 'approved')) {
+        return res.status(403).json({ success: false, message: 'Agent access required' });
+      }
+      return res.json({ success: true, sig: await agentSig(a), t: Date.now() });
+    }
+    const u = await User.findById(req.user._id)
+      .select('balance profitBalance duesBalance kycStatus loansCount isPremium loanLimit')
+      .lean();
+    if (!u) return res.status(401).json({ success: false, message: 'Session expired' });
+    return res.json({ success: true, sig: await userSig(req.user._id, u), t: Date.now() });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Pulse failed' });
+  }
+});
 
 // Helper to get cached or default deposit details
 async function getDepositDetails() {
@@ -60,10 +139,12 @@ router.get('/user', protect, async (req, res) => {
     const userId = req.user._id;
 
     // Auto-deduct due EMIs from primary wallet if balance is available
-    try {
-      const { autoDeductDueLoanEmis } = require('./loan');
-      await autoDeductDueLoanEmis(userId);
-    } catch {}
+    if (shouldRunEmi(userId)) {
+      try {
+        const { autoDeductDueLoanEmis } = require('./loan');
+        await autoDeductDueLoanEmis(userId);
+      } catch {}
+    }
 
     // Process daily yield in memory before querying
     let user = await User.findById(userId);
@@ -101,7 +182,11 @@ router.get('/user', protect, async (req, res) => {
     delete userObj.password;
     delete userObj.walletPin;
 
+    let sig = null;
+    try { sig = await userSig(userId, user); } catch {}
+
     const payload = {
+      sig,
       profile: userObj,
       transactions: txnsRes.status === 'fulfilled' ? txnsRes.value : [],
       loans: loansRes.status === 'fulfilled' ? loansRes.value : [],
@@ -174,7 +259,11 @@ router.get('/agent', protect, async (req, res) => {
     delete userObj.password;
     delete userObj.walletPin;
 
+    let sig = null;
+    try { sig = await agentSig(agent); } catch {}
+
     const payload = {
+      sig,
       profile: userObj,
       agentStats: {
         customersCount: customers.length,
@@ -255,7 +344,8 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
         .limit(40)
         .lean(),
       Device.find()
-        .sort({ lastActive: -1 })
+        .select('-deviceToken -pinHash -pinSalt -pairingCode -failedAttempts')
+        .sort({ lastSeenAt: -1 })
         .limit(40)
         .lean(),
       Settings.find().lean(),

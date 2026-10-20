@@ -7,23 +7,19 @@ const DeviceAlert = require('../models/DeviceAlert');
 const User = require('../models/User');
 const { sendNotification } = require('../utils/notifier');
 const { protect, admin } = require('../middleware/auth');
+const { safeEqual } = require('../utils/security');
 const router = express.Router();
 
-// Middleware: Verify parent auth token
-const requireParentAuth = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Parent authentication required' });
-    }
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
-    req.parentId = decoded.id;
+// Middleware: Verify parent auth token.
+// Uses the same full session check as every other protected route (user must exist, not be blocked,
+// tokenVersion must match). Before, a bare jwt.verify let force-logged-out / blocked users keep acting.
+const requireParentAuth = [
+  protect,
+  (req, res, next) => {
+    req.parentId = req.user._id;
     next();
-  } catch (err) {
-    return res.status(401).json({ message: 'Invalid or expired parent session' });
   }
-};
+];
 
 // Middleware: Verify child device token
 const requireDeviceAuth = async (req, res, next) => {
@@ -33,12 +29,12 @@ const requireDeviceAuth = async (req, res, next) => {
     if (!token) return res.status(401).json({ message: 'Device token required' });
 
     const device = await Device.findOne({ deviceId });
-    if (!device || device.deviceToken !== token) {
+    if (!device || !device.deviceToken || !safeEqual(device.deviceToken, token)) {
       return res.status(401).json({ message: 'Invalid device credentials' });
     }
 
-    device.lastSeenAt = new Date();
-    await device.save().catch(() => {});
+    // lightweight heartbeat write (no full document save on every 10-15s poll)
+    Device.updateOne({ _id: device._id }, { $set: { lastSeenAt: new Date() } }).catch(() => {});
 
     req.device = device;
     next();
@@ -55,7 +51,7 @@ const requireDeviceAuth = async (req, res, next) => {
 router.post('/pairing/generate', requireParentAuth, async (req, res) => {
   try {
     const { deviceName = "Child's Phone" } = req.body;
-    const pairingCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const pairingCode = crypto.randomInt(100000, 1000000).toString();
     const deviceId = 'dev_' + crypto.randomBytes(8).toString('hex');
 
     const device = await Device.create({
@@ -84,7 +80,7 @@ router.post('/pairing/generate', requireParentAuth, async (req, res) => {
 router.post('/pairing/redeem', async (req, res) => {
   try {
     const { pairingCode, deviceModel } = req.body;
-    if (!pairingCode) return res.status(400).json({ message: 'Pairing code required' });
+    if (!pairingCode || typeof pairingCode !== 'string') return res.status(400).json({ message: 'Pairing code required' });
 
     const device = await Device.findOne({
       pairingCode: pairingCode.trim(),
@@ -200,7 +196,7 @@ router.post('/devices/:deviceId/pin/verify', requireDeviceAuth, async (req, res)
       });
     }
 
-    if (candidateHash === device.pinHash) {
+    if (typeof candidateHash === 'string' && safeEqual(candidateHash, device.pinHash)) {
       device.failedAttempts = 0;
       device.lockedUntil = null;
       await device.save();
@@ -237,6 +233,9 @@ router.post('/devices/:deviceId/commands', requireParentAuth, async (req, res) =
   try {
     const { deviceId } = req.params;
     const { command } = req.body; // 'enable_protection' | 'disable_protection' | 'enforce_pinning' | 'stop_pinning'
+    if (!['enable_protection', 'disable_protection', 'enforce_pinning', 'stop_pinning'].includes(command)) {
+      return res.status(400).json({ message: 'Unknown command' });
+    }
 
     const device = await Device.findOne({ deviceId, parentId: req.parentId });
     if (!device) return res.status(404).json({ message: 'Device not found' });
@@ -262,8 +261,7 @@ router.post('/devices/:deviceId/commands', requireParentAuth, async (req, res) =
 router.get('/devices/:deviceId/commands/pending', requireDeviceAuth, async (req, res) => {
   try {
     const { deviceId } = req.params;
-    req.device.lastSeenAt = new Date();
-    await req.device.save();
+    // lastSeenAt is already refreshed (single lightweight write) by requireDeviceAuth
 
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
     const pending = await DeviceCommand.find({
@@ -285,8 +283,15 @@ router.get('/devices/:deviceId/commands/pending', requireDeviceAuth, async (req,
 router.post('/devices/:deviceId/commands/:commandId/ack', requireDeviceAuth, async (req, res) => {
   try {
     const { commandId } = req.params;
-    const cmd = await DeviceCommand.findByIdAndUpdate(
-      commandId,
+    // a device may only acknowledge ITS OWN (or broadcast) commands, not any command id it can guess
+    const cmd = await DeviceCommand.findOneAndUpdate(
+      {
+        _id: commandId,
+        $or: [
+          { deviceId: { $in: [req.device.deviceId, 'all'] } },
+          ...(req.device.userId ? [{ userId: req.device.userId }] : [])
+        ]
+      },
       { status: 'acknowledged', acknowledgedAt: new Date() },
       { new: true }
     );
@@ -425,7 +430,7 @@ router.post('/devices/register-login', protect, async (req, res) => {
 // Admin fetches all devices
 router.get('/admin/devices', protect, admin, async (req, res) => {
   try {
-    const devices = await Device.find().sort({ lastSeenAt: -1 }).limit(100);
+    const devices = await Device.find().select('-deviceToken -pinHash -pinSalt -pairingCode').sort({ lastSeenAt: -1 }).limit(100);
     res.json({ success: true, devices });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch devices' });

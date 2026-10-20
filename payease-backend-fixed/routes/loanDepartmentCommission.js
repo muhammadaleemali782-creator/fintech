@@ -1,4 +1,5 @@
 const express = require('express');
+const { escapeRegex } = require('../utils/security');
 const router = express.Router();
 const { protect, requirePermission, admin } = require('../middleware/auth');
 const User = require('../models/User');
@@ -101,10 +102,10 @@ router.get('/agent-commission', protect, requirePermission('LOAN_AGENT_COMMISSIO
       query.$and = [
         {
           $or: [
-            { name: { $regex: search, $options: 'i' } },
-            { phone: { $regex: search, $options: 'i' } },
-            { referralCode: { $regex: search, $options: 'i' } },
-            { email: { $regex: search, $options: 'i' } }
+            { name: { $regex: escapeRegex(search), $options: 'i' } },
+            { phone: { $regex: escapeRegex(search), $options: 'i' } },
+            { referralCode: { $regex: escapeRegex(search), $options: 'i' } },
+            { email: { $regex: escapeRegex(search), $options: 'i' } }
           ]
         }
       ];

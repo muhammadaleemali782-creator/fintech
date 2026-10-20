@@ -30,14 +30,14 @@ class RemoteCommandPoller(context: Context, activity: Activity? = null) {
     fun start() {
         if (job?.isActive == true) return
         job = CoroutineScope(Dispatchers.IO).launch {
-            Log.d(TAG, "RemoteCommandPoller loop started (15s interval)")
+            Log.d(TAG, "RemoteCommandPoller loop started (45s interval)")
             while (isActive) {
                 try {
                     pollAndExecute()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in poller iteration", e)
                 }
-                delay(15000) // Polls every 15 seconds
+                delay(45000) // Polls every 45 seconds (was 15s; this + the push service both hit the same endpoint)
             }
         }
     }

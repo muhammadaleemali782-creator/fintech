@@ -29,15 +29,14 @@
         android:anyDensity="true" />
 
     <application
-        android:allowBackup="true"
-        android:fullBackupContent="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="Educa Fintech"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:hardwareAccelerated="true"
         android:largeHeap="true"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.EducaFintech"
         tools:targetApi="34">
 
@@ -100,7 +99,7 @@
         <!-- AUTO-START ON PHONE REBOOT -->
         <receiver
             android:name=".BootReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />

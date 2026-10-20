@@ -208,6 +208,15 @@ class MainActivity : AppCompatActivity() {
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             Log.e("EducaFintech", "Uncaught exception on thread ${thread.name}: ${throwable.message}", throwable)
             try {
+                // crash-loop guard: do not relaunch if we already relaunched within the last 15 seconds
+                val crashPrefs = applicationContext.getSharedPreferences("educa_crash_guard", MODE_PRIVATE)
+                val lastRestart = crashPrefs.getLong("last_restart", 0L)
+                val nowMs = System.currentTimeMillis()
+                if (nowMs - lastRestart < 15000L) {
+                    android.os.Process.killProcess(android.os.Process.myPid())
+                    System.exit(10)
+                }
+                crashPrefs.edit().putLong("last_restart", nowMs).commit()
                 val restartIntent = Intent(applicationContext, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 }
@@ -548,14 +557,14 @@ class MainActivity : AppCompatActivity() {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.databaseEnabled = true
-        settings.allowFileAccess = true
-        settings.allowContentAccess = true
+        settings.allowFileAccess = false      // SECURITY: the app never needs file:// access
+        settings.allowContentAccess = false
         val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
         @Suppress("DEPRECATION")
         val isOnline = cm?.activeNetworkInfo?.isConnectedOrConnecting == true
-        if (isOnline) {
-            webView.clearCache(false)
-        }
+        // PERF: the old code wiped the HTTP cache on every launch, so all JS/CSS was re-downloaded each time.
+        // index.html is always revalidated (vercel.json + service worker) and /assets are content-hashed,
+        // so keeping the cache is safe and makes startup much faster. API calls are no-store on the server.
         settings.cacheMode = if (isOnline) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = false
@@ -565,7 +574,7 @@ class MainActivity : AppCompatActivity() {
         settings.loadsImagesAutomatically = true
         settings.mediaPlaybackRequiresUserGesture = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
         }
 
         // Completely hide scrollbars on right and left, maintain smooth natural scrolling
@@ -594,6 +603,22 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return false
+
+                // SECURITY: AndroidDevice / AndroidBiometric / AndroidNotification bridges are exposed to every page
+                // loaded in this WebView. Any link that leaves our own site must open in the real browser.
+                val scheme = request?.url?.scheme?.lowercase() ?: ""
+                if (scheme == "http" || scheme == "https") {
+                    val host = request?.url?.host?.lowercase() ?: ""
+                    val trusted = host == "educafintech.vercel.app" ||
+                        (host.startsWith("educafintech-") && host.endsWith(".vercel.app")) ||
+                        host == "educafintech.onrender.com"
+                    if (!trusted) {
+                        try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) {}
+                        return true
+                    }
+                } else if (scheme in listOf("javascript", "file", "content", "intent")) {
+                    return true
+                }
 
                 // Handle external protocols
                 if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("sms:") || url.startsWith("whatsapp:")) {
@@ -637,13 +662,12 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
+            // SECURITY: never continue on a certificate error. The old code called handler.proceed() for
+            // *.vercel.app / *.onrender.com, which lets anyone on the same Wi-Fi/proxy read and change the
+            // traffic of a banking/wallet app. Cancel and let the error page (with Retry) show instead.
             override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
-                val failingUrl = error?.url ?: ""
-                if (failingUrl.contains("vercel.app") || failingUrl.contains("onrender.com")) {
-                    handler?.proceed()
-                } else {
-                    super.onReceivedSslError(view, handler, error)
-                }
+                Log.w("MainActivity", "SSL error blocked: ${error?.primaryError} for ${error?.url}")
+                handler?.cancel()
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -773,7 +797,11 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         try {
-            if (::webView.isInitialized) webView.onResume()
+            if (::webView.isInitialized) {
+                webView.onResume()
+                // the web app listens for "focus" and refreshes its data immediately
+                webView.evaluateJavascript("try{window.dispatchEvent(new Event('focus'))}catch(e){}", null)
+            }
             poller.updateActivity(this)
             poller.start()
             BadgeHelper.clearBadge(this)
@@ -921,8 +949,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // legacy 3-argument entry point (no token -> server rejects it); kept so old web builds do not throw
         @JavascriptInterface
         fun registerDeviceUser(userId: String, email: String, name: String) {
+            Log.w("AndroidDeviceBridge", "registerDeviceUser called without auth token - ignored")
+        }
+
+        @JavascriptInterface
+        fun registerDeviceUser(userId: String, email: String, name: String, authToken: String) {
+            if (authToken.isBlank()) return
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val baseUrl = UninstallProtectSDK.getBaseUrl(activity)
@@ -939,6 +974,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     val req = Request.Builder()
                         .url("$baseUrl/v1/devices/register-login")
+                        .addHeader("Authorization", "Bearer $authToken")
                         .post(json.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
                         .build()
                     val client = OkHttpClient.Builder()

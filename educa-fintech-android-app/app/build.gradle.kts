@@ -18,30 +18,40 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // SECURITY: signing secrets are NOT stored in the repo any more.
+    // Put these in ~/.gradle/gradle.properties (never commit it) or export them as environment variables:
+    //   EDUCA_KEYSTORE_FILE=/absolute/path/to/educa-release.jks
+    //   EDUCA_KEYSTORE_PASSWORD=...   EDUCA_KEY_ALIAS=...   EDUCA_KEY_PASSWORD=...
+    fun secret(name: String): String? =
+        (project.findProperty(name) as String?) ?: System.getenv(name)
+
+    val releaseStoreFile = secret("EDUCA_KEYSTORE_FILE")
     signingConfigs {
-        create("release") {
-            storeFile = file("educa-release.jks")
-            storePassword = "educa@2026"
-            keyAlias = "educakey"
-            keyPassword = "educa@2026"
-            enableV1Signing = true
-            enableV2Signing = true
-            enableV3Signing = true
-            enableV4Signing = true
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = secret("EDUCA_KEYSTORE_PASSWORD")
+                keyAlias = secret("EDUCA_KEY_ALIAS")
+                keyPassword = secret("EDUCA_KEY_PASSWORD")
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            if (releaseStoreFile != null) signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
         debug {
-            signingConfig = signingConfigs.getByName("release")
+            // debug builds use the default debug key (the release key must never sign debug builds)
         }
     }
     compileOptions {

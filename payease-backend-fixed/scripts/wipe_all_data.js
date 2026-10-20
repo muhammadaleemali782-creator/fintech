@@ -10,6 +10,20 @@ const Device = require('../models/Device');
 const DeviceAlert = require('../models/DeviceAlert');
 const DeviceCommand = require('../models/DeviceCommand');
 
+// ---------------------------------------------------------------------------
+// SAFETY GUARD: this script DELETES every non-admin user + all money data.
+// It refuses to run against production and needs an explicit --confirm flag.
+// ---------------------------------------------------------------------------
+if (process.env.NODE_ENV === 'production') {
+  console.error('Refusing to wipe: NODE_ENV=production. Use a separate dev database.');
+  process.exit(1);
+}
+if (!process.argv.includes('--confirm-wipe-all-data')) {
+  console.error('This will DELETE ALL DATA in the database from MONGO_URI.');
+  console.error('Re-run with:  node scripts/wipe_all_data.js --confirm-wipe-all-data');
+  process.exit(1);
+}
+
 async function wipeDatabase() {
   try {
     console.log('Connecting to MongoDB...');

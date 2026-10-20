@@ -130,8 +130,8 @@ class EducaPushService : Service() {
                 } catch (e: Exception) {
                     Log.d(TAG, "Push poll notice: ${e.message}")
                 }
-                // Check server every 10 seconds for new alerts
-                delay(10000)
+                // Check server every 30 seconds (was 10s; FCM push already delivers instantly, this is only a fallback)
+                delay(30000)
             }
         }
     }

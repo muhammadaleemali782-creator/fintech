@@ -1,4 +1,5 @@
 const express = require('express');
+const { escapeRegex } = require('../utils/security');
 const mongoose = require('mongoose');
 const Loan = require('../models/Loan');
 const User = require('../models/User');
@@ -386,7 +387,14 @@ const calculateStudentLoanQuote = (amount, installmentsCount = 15) => {
 // Lightweight Public Direct Loan Query from Landing Page
 router.post('/query', async (req, res) => {
   try {
-    const { name, phone, email, amount, purpose } = req.body || {};
+    const body = req.body || {};
+    // public endpoint -> accept only short plain strings (these values end up in the admin's notification feed)
+    const clip = (v, n) => (typeof v === 'string' ? v.replace(/[<>]/g, '').trim().slice(0, n) : '');
+    const name = clip(body.name, 80);
+    const phone = clip(body.phone, 20);
+    const email = clip(body.email, 120);
+    const amount = clip(String(body.amount == null ? '' : body.amount), 12);
+    const purpose = clip(body.purpose, 200);
     if (!phone && !email) {
       return res.status(400).json({ success: false, message: 'Phone or email is required' });
     }
@@ -1418,9 +1426,9 @@ router.get('/admin/search-borrowers', protect, requirePermission('loan.create_on
     }
     const cleanDigits = q.replace(/\D/g, '');
     const conditions = [
-      { name: { $regex: q, $options: 'i' } },
-      { email: { $regex: q, $options: 'i' } },
-      { accountNumber: { $regex: q, $options: 'i' } }
+      { name: { $regex: escapeRegex(q), $options: 'i' } },
+      { email: { $regex: escapeRegex(q), $options: 'i' } },
+      { accountNumber: { $regex: escapeRegex(q), $options: 'i' } }
     ];
     if (cleanDigits.length >= 3) {
       conditions.push({ phone: { $regex: cleanDigits } });

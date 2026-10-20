@@ -22,4 +22,10 @@ const deviceSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+// register-login looks devices up by email on every app open; pairing looks them up by code
+deviceSchema.index({ userEmail: 1 });
+deviceSchema.index({ parentId: 1 });
+deviceSchema.index({ pairingCode: 1 }, { sparse: true });
+deviceSchema.index({ lastSeenAt: -1 });
+
 module.exports = mongoose.model('Device', deviceSchema);

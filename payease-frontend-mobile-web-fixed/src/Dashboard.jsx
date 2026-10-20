@@ -487,7 +487,12 @@ export default function Dashboard() {
   const userScopedProfile = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "profile"), null) : null;
   const cachedProf = userScopedProfile || appCache.get("educa_cached_profile", null) || userStored;
 
-  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  // MUST be memoised: a new object on every render made loadBootstrap/silentSyncAll change identity on every
+  // render, which re-ran the sync effect after each render -> endless /bootstrap refetching (lag + rate limit).
+  const headers = useMemo(
+    () => ({ "Content-Type": "application/json", Authorization: `Bearer ${token}` }),
+    [token]
+  );
 
   const pickPositiveNumber = (...candidates) => {
     for (const c of candidates) {
@@ -2622,17 +2627,25 @@ export default function Dashboard() {
   // -------------------------------------------------------------
   // Instant Cached Data + Silent Background Refresh Engine
   // -------------------------------------------------------------
-  const [secondsToNext, setSecondsToNext] = useState(30);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState(() => Date.now());
   const isSyncingRef = useRef(false);
+  const syncStartedAtRef = useRef(0);     // when the running sync started (lock watchdog)
+  const syncSeqRef = useRef(0);           // only the newest sync may release the lock
+  const lastSigRef = useRef(null);        // change signature of the last full bootstrap
+  const lastFullSyncRef = useRef(0);      // time of the last full bootstrap
+  const rateLimitedRef = useRef(false);   // server said 429 -> do not fan out into 6 more requests
+  const silentSyncRef = useRef(null);     // always points at the latest silentSyncAll
+  const SYNC_LOCK_MAX_MS = 30000;         // a sync older than this is considered stuck (paused WebView / dead socket)
+  const FULL_SYNC_MAX_AGE_MS = 3 * 60 * 1000; // safety-net full refresh even if the pulse says "unchanged"
 
   // Single Combined Bootstrap Call: Fetches all data in 1 fast query
   const loadBootstrap = useCallback(async () => {
     const role = userProfile?.role || userStored?.role || "user";
     const endpoint = role === "agent" ? `${API}/bootstrap/agent?_t=${Date.now()}` : `${API}/bootstrap/user?_t=${Date.now()}`;
     try {
-      const res = await smartFetch(endpoint, { headers }, { timeoutMs: 60000, retries: 2 });
+      const res = await smartFetch(endpoint, { headers }, { timeoutMs: 45000, retries: 1 });
+      if (res.rateLimited) { rateLimitedRef.current = true; return false; }
       if (res.unauthorized) {
         tokenStorage.removeToken();
         localStorage.removeItem("user");
@@ -2641,6 +2654,8 @@ export default function Dashboard() {
       }
       if (res.success && res.data) {
         const d = res.data;
+        lastSigRef.current = d.sig || null;
+        lastFullSyncRef.current = Date.now();
         const uId = d.profile?._id || d.profile?.id || userStored?.id || userStored?._id || "guest";
 
         if (d.profile) {
@@ -2700,10 +2715,16 @@ export default function Dashboard() {
           setShowLoans(true);
         }
         if (d.activeLoan) {
-          setActiveLoanDetails(prev => (isDataEqual(prev, d.activeLoan) ? prev : d.activeLoan));
-          CacheManager.set(CacheManager.createKey(role, uId, "active_loan"), d.activeLoan);
-          appCache.set("educa_cached_active_loan", d.activeLoan);
-          try { CacheManager.persistLegacy("educa_cached_active_loan", d.activeLoan); } catch {}
+          // /bootstrap returns the RAW loan document, but the UI state expects the rich /loan/active-details
+          // shape ({ hasActiveLoan, loan, nextInstallment, ... }). Writing the raw doc here broke/staled the loan card
+          // and poisoned the cache. Ask the proper endpoint instead.
+          loadActiveLoanDetails();
+        } else if (role !== "agent" && Object.prototype.hasOwnProperty.call(d, "activeLoan")) {
+          // loan was closed/removed on the server -> the old code never cleared it, so it stayed on screen forever
+          setActiveLoanDetails(prev => (prev ? null : prev));
+          CacheManager.remove(CacheManager.createKey(role, uId, "active_loan"));
+          appCache.remove("educa_cached_active_loan");
+          try { localStorage.removeItem("educa_cached_active_loan"); } catch {}
         }
         if (Array.isArray(d.bonds)) {
           setBonds(prev => (isDataEqual(prev, d.bonds) ? prev : d.bonds));
@@ -2746,15 +2767,47 @@ export default function Dashboard() {
     return false;
   }, [headers, userProfile?.role, userStored?.role, userStored?.id, userStored?._id, navigate]);
 
-  const silentSyncAll = useCallback(async () => {
-    if (isSyncingRef.current) return;
+  const silentSyncAll = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (isSyncingRef.current) {
+      // Watchdog: a request frozen by a paused WebView / dead socket used to hold this lock for minutes
+      // and every later refresh (resume, timer) was silently skipped -> "app never shows fresh data".
+      if (!force && now - syncStartedAtRef.current < SYNC_LOCK_MAX_MS) return;
+    }
+    const mySeq = ++syncSeqRef.current;
     isSyncingRef.current = true;
-    setIsRefreshing(true);
+    syncStartedAtRef.current = now;
+    let didFull = false;
 
     try {
+      // 1) Cheap check first: a ~100 byte "pulse". Download the full bootstrap only if something changed.
+      const canPulse = !force && lastSigRef.current && (now - lastFullSyncRef.current) < FULL_SYNC_MAX_AGE_MS;
+      if (canPulse) {
+        const roleNow = userProfile?.role || userStored?.role || "user";
+        const pr = await smartFetch(
+          `${API}/bootstrap/pulse?role=${roleNow === "agent" ? "agent" : "user"}&_t=${Date.now()}`,
+          { headers },
+          { timeoutMs: 15000, retries: 0 }
+        );
+        if (pr.unauthorized) {
+          tokenStorage.removeToken();
+          localStorage.removeItem("user");
+          navigate("/login");
+          return;
+        }
+        if (pr.rateLimited) return; // try again on the next tick, do not pile on
+        if (pr.success && pr.data?.sig && pr.data.sig === lastSigRef.current) {
+          return; // nothing changed on the server
+        }
+      }
+
+      // 2) Something changed (or first load / resume / safety-net): full bootstrap
+      didFull = true;
+      setIsRefreshing(true);
+      rateLimitedRef.current = false;
       const ok = await loadBootstrap();
-      if (!ok) {
-        // Fallback to individual endpoints if bootstrap is unavailable
+      if (!ok && !rateLimitedRef.current) {
+        // Fallback to individual endpoints only when bootstrap is really unavailable (not when rate limited)
         await Promise.allSettled([
           loadDashboard(true),
           loadCurrentRate(),
@@ -2773,40 +2826,43 @@ export default function Dashboard() {
       setLastSyncedAt(Date.now());
     } catch {}
     finally {
-      isSyncingRef.current = false;
-      setIsRefreshing(false);
-      setSecondsToNext(30);
+      // only the newest sync may release the lock / hide the spinner
+      if (syncSeqRef.current === mySeq) {
+        isSyncingRef.current = false;
+        if (didFull) setIsRefreshing(false);
+      }
     }
   }, [loadBootstrap, loadDashboard]);
 
-  const lastSyncTimeRef = useRef(Date.now());
+  // always call the newest version of silentSyncAll from timers/listeners without re-running the effect
+  silentSyncRef.current = silentSyncAll;
 
   useEffect(() => {
-    // Immediate silent refresh on open in background once
-    silentSyncAll();
+    const run = (force) => {
+      try { if (silentSyncRef.current) silentSyncRef.current(force); } catch {}
+    };
 
-    // 30-second live sync countdown ticker: keeps LiveRefreshBadge accurate and auto-refreshes data
+    // Fresh data as soon as the dashboard opens
+    run(true);
+
+    // Every 20s: tiny pulse. (The old 1-second countdown state re-rendered this 13k-line component every
+    // second = main cause of the lag.)
     const ticker = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
-      setSecondsToNext((prev) => {
-        if (prev <= 1) {
-          silentSyncAll();
-          return 30;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      run(false);
+    }, 20000);
 
-    // Instant silent sync on app resume / window focus
+    // App brought back to the foreground / network came back -> refresh right away
     const handleResume = () => {
-      if (typeof document !== "undefined" && !document.hidden) {
-        setSecondsToNext(30);
-        silentSyncAll();
-      }
+      if (typeof document !== "undefined" && document.hidden) return;
+      // visibilitychange + focus fire together: ignore the duplicate
+      if (Date.now() - syncStartedAtRef.current < 1500) return;
+      run(true);
     };
 
     document.addEventListener("visibilitychange", handleResume);
     window.addEventListener("focus", handleResume);
+    window.addEventListener("online", handleResume);
 
     // Check if new user guided feature tour should run
     const tourDone = localStorage.getItem("educa_tour_completed");
@@ -2818,9 +2874,10 @@ export default function Dashboard() {
       clearInterval(ticker);
       document.removeEventListener("visibilitychange", handleResume);
       window.removeEventListener("focus", handleResume);
+      window.removeEventListener("online", handleResume);
       if (tourTimer) clearTimeout(tourTimer);
     };
-  }, [silentSyncAll]);
+  }, []);
 
   // Clean up speech synthesis on component unmount
   useEffect(() => {

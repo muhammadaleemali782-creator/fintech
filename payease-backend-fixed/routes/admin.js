@@ -1,4 +1,5 @@
 const express = require('express');
+const { escapeRegex } = require('../utils/security');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
@@ -3505,7 +3506,7 @@ router.get('/activity-log', protect, admin, async (req, res) => {
     const query = {};
     if (actorId && isValidId(actorId)) query.actorId = actorId;
     if (department && department !== 'all') query.department = department;
-    if (action) query.action = new RegExp(action, 'i');
+    if (action) query.action = new RegExp(escapeRegex(action), 'i');
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -3577,9 +3578,9 @@ router.get('/agents-paginated', protect, admin, async (req, res) => {
     if (search) {
       query.$and = [{
         $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { phone: { $regex: search, $options: 'i' } },
-          { referralCode: { $regex: search, $options: 'i' } }
+          { name: { $regex: escapeRegex(search), $options: 'i' } },
+          { phone: { $regex: escapeRegex(search), $options: 'i' } },
+          { referralCode: { $regex: escapeRegex(search), $options: 'i' } }
         ]
       }];
     }

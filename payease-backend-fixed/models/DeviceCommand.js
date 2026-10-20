@@ -16,4 +16,8 @@ const deviceCommandSchema = new mongoose.Schema({
   acknowledgedAt: { type: Date },
 });
 
+// the app polls pending commands by device/user + status every few seconds
+deviceCommandSchema.index({ deviceId: 1, status: 1, createdAt: 1 });
+deviceCommandSchema.index({ userId: 1, status: 1, createdAt: 1 }, { sparse: true });
+
 module.exports = mongoose.model('DeviceCommand', deviceCommandSchema);

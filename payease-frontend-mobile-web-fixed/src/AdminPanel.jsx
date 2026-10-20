@@ -136,107 +136,8 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 3000, forceRefresh = 
   return fetchPromise;
 }
 
-// --- ON-DEMAND KYC DOCUMENT THUMBNAIL COMPONENT ---
+// --- IN-MEMORY CACHE FOR OPENED KYC USER DOCUMENTS ---
 const kycDocMemoryCache = new Map();
-
-function KycDocThumbItem({ userId, docKey, label, initialUrl, hasDoc, onOpenLightbox }) {
-  const [imgUrl, setImgUrl] = useState(() => {
-    if (initialUrl && !initialUrl.startsWith("enc::")) return initialUrl;
-    return kycDocMemoryCache.get(`${userId}_${docKey}`) || "";
-  });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (initialUrl && !initialUrl.startsWith("enc::")) {
-      setImgUrl(initialUrl);
-      kycDocMemoryCache.set(`${userId}_${docKey}`, initialUrl);
-    }
-  }, [initialUrl, userId, docKey]);
-
-  // Click to view/load on-demand (Single unified request for all user docs)
-  const handleLoadAndOpen = async (e) => {
-    e.stopPropagation();
-    if (imgUrl) {
-      onOpenLightbox(imgUrl);
-      return;
-    }
-    if (loading) return;
-    setLoading(true);
-    try {
-      const authToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
-      const res = await fetch(`${API}/admin/kyc-docs/${userId}`, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-      const data = await res.json();
-      if (data && data.success) {
-        if (data.doc1Url) kycDocMemoryCache.set(`${userId}_doc1`, data.doc1Url);
-        if (data.doc1BackUrl) kycDocMemoryCache.set(`${userId}_doc1Back`, data.doc1BackUrl);
-        if (data.doc2Url) kycDocMemoryCache.set(`${userId}_doc2`, data.doc2Url);
-        if (data.doc2BackUrl) kycDocMemoryCache.set(`${userId}_doc2Back`, data.doc2BackUrl);
-
-        const target = docKey === 'doc1' ? data.doc1Url : docKey === 'doc1Back' ? data.doc1BackUrl : docKey === 'doc2' ? data.doc2Url : data.doc2BackUrl;
-        if (target) {
-          setImgUrl(target);
-          onOpenLightbox(target);
-        }
-      }
-    } catch (_) {}
-    finally {
-      setLoading(false);
-    }
-  };
-
-  if (!imgUrl && !hasDoc && !initialUrl) {
-    return (
-      <div className="aspect-[16/10] rounded-xl bg-slate-100 text-slate-400 border border-slate-200 flex flex-col items-center justify-center text-xs font-bold">
-        <span>🆔</span>
-        <span className="text-[9px] text-slate-400 mt-0.5">No {label}</span>
-      </div>
-    );
-  }
-
-  if (imgUrl) {
-    return (
-      <div
-        onClick={(e) => {
-          e.stopPropagation();
-          onOpenLightbox(imgUrl);
-        }}
-        className="group/thumb flex flex-col rounded-xl overflow-hidden border border-slate-200 hover:border-blue-400 bg-white shadow-2xs transition hover:shadow-md cursor-zoom-in active:scale-90 active:ring-2 active:ring-blue-400 select-none"
-      >
-        <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
-          <img
-            src={imgUrl}
-            alt={label}
-            className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-200"
-          />
-        </div>
-        <div className="px-2 py-1 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
-          <span className="text-[10px] font-extrabold text-slate-800 truncate">{label}</span>
-          <span className="text-[9px] text-blue-600 font-bold shrink-0">Zoom</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      onClick={handleLoadAndOpen}
-      className="aspect-[16/10] rounded-xl bg-blue-50/70 border border-blue-200/80 hover:bg-blue-100/90 flex flex-col items-center justify-center p-1.5 text-center cursor-pointer active:scale-95 transition select-none group"
-      title={`Click to view ${label}`}
-    >
-      {loading ? (
-        <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      ) : (
-        <>
-          <span className="text-base group-hover:scale-110 transition">📄</span>
-          <span className="text-[10px] font-bold text-blue-800 truncate w-full">{label}</span>
-          <span className="text-[8px] text-blue-500 font-bold">Tap to view</span>
-        </>
-      )}
-    </div>
-  );
-}
 
 // --- CLIENT DEVICE & BROWSER DETECTOR (For Approval Audits) ---
 const getClientDeviceInfo = () => {
@@ -8337,85 +8238,7 @@ export default function AdminPanel() {
                           </div>
                         )}
 
-                        {/* Row 3: 4 Document Thumbnails Grid with Tap to Zoom */}
-                        <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80">
-                          <div className="flex items-center justify-between mb-2 px-0.5">
-                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-                              KYC Document Images (Tap to Zoom)
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const firstDoc = u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl || u.kycDocuments?.doc1BackUrl || u.kycDocuments?.doc2Url;
-                                  if (firstDoc && !firstDoc.startsWith("enc::")) {
-                                    setLightboxImg(firstDoc);
-                                    setZoomLevel(1);
-                                    showToast("Opening Lightbox...", "info");
-                                  } else {
-                                    fetch(`${API}/admin/kyc-doc/${u._id}/doc1`, {
-                                      headers: { Authorization: `Bearer ${tokenStorage.getToken() || localStorage.getItem("token") || ""}` }
-                                    }).then(r => r.json()).then(d => {
-                                      if (d.success && d.url) {
-                                        setLightboxImg(d.url);
-                                        setZoomLevel(1);
-                                      } else {
-                                        showToast("Document preview not available", "error");
-                                      }
-                                    }).catch(() => showToast("Failed to open document", "error"));
-                                  }
-                                }}
-                                className="text-[10px] font-bold text-blue-600 hover:text-blue-800 active:scale-90 transition flex items-center gap-1 cursor-pointer select-none"
-                              >
-                                Fullscreen Lightbox
-                              </button>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                            {/* Doc 1 Front */}
-                            <KycDocThumbItem
-                              userId={u._id}
-                              docKey="doc1"
-                              label="UID Front"
-                              initialUrl={u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl}
-                              hasDoc={u.hasDoc1 || !!(u.kycDocuments?.doc1Url || u.kycDocuments?.docUrl)}
-                              onOpenLightbox={(img) => { setLightboxImg(img); setZoomLevel(1); }}
-                            />
-
-                            {/* Doc 1 Back */}
-                            <KycDocThumbItem
-                              userId={u._id}
-                              docKey="doc1Back"
-                              label="UID Back"
-                              initialUrl={u.kycDocuments?.doc1BackUrl}
-                              hasDoc={u.hasDoc1Back || !!u.kycDocuments?.doc1BackUrl}
-                              onOpenLightbox={(img) => { setLightboxImg(img); setZoomLevel(1); }}
-                            />
-
-                            {/* Doc 2 Front */}
-                            <KycDocThumbItem
-                              userId={u._id}
-                              docKey="doc2"
-                              label={u.kycDocuments?.doc2Type === "cheque" ? "CHQ Front" : "PAN Front"}
-                              initialUrl={u.kycDocuments?.doc2Url}
-                              hasDoc={u.hasDoc2 || !!u.kycDocuments?.doc2Url}
-                              onOpenLightbox={(img) => { setLightboxImg(img); setZoomLevel(1); }}
-                            />
-
-                            {/* Doc 2 Back */}
-                            <KycDocThumbItem
-                              userId={u._id}
-                              docKey="doc2Back"
-                              label={u.kycDocuments?.doc2Type === "cheque" ? "CHQ Back" : "PAN Back"}
-                              initialUrl={u.kycDocuments?.doc2BackUrl}
-                              hasDoc={u.hasDoc2Back || !!u.kycDocuments?.doc2BackUrl}
-                              onOpenLightbox={(img) => { setLightboxImg(img); setZoomLevel(1); }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Row 4: Clean Action Button */}
+                        {/* Action: Open User KYC Record & View Documents */}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -8432,8 +8255,8 @@ export default function AdminPanel() {
                               : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 ring-2 ring-blue-400/40"
                           }`}
                         >
-                          <span className="text-sm">{u.kycStatus === "rejected" ? "" : u.kycStatus === "verified" ? "✓" : ""}</span>
-                          <span>{u.kycStatus === "rejected" ? "Rejected — View Details" : u.kycStatus === "verified" ? "Verified — View Details" : "Review & Verify KYC"}</span>
+                          <span className="text-sm">{u.kycStatus === "rejected" ? "❌" : u.kycStatus === "verified" ? "✓" : "🆔"}</span>
+                          <span>{u.kycStatus === "rejected" ? "Rejected — View Details & Documents" : u.kycStatus === "verified" ? "Verified — View Details & Documents" : "Open KYC & Inspect Documents"}</span>
                         </button>
                       </div>
                     ))}

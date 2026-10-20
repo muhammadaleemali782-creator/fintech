@@ -281,7 +281,7 @@ router.post('/login', async (req, res) => {
     } catch (_) {}
 
     const token = signAuthToken(user, { rememberMe });
-    setAuthCookie(res, token, user.role === 'admin' || user.role === 'staff' ? 1 : (rememberMe ? 30 : 7));
+    setAuthCookie(res, token, user.role === 'admin' ? 30 : (user.role === 'staff' ? (rememberMe ? 14 : 7) : (rememberMe ? 30 : 7)));
 
     res.json({
       token,
@@ -404,7 +404,7 @@ router.post('/mail-login', async (req, res) => {
     } catch (_) {}
 
     const token = signAuthToken(user, { loginMethod: 'educa-mail' });
-    setAuthCookie(res, token, user.role === 'admin' || user.role === 'staff' ? 1 : 30);
+    setAuthCookie(res, token, user.role === 'admin' ? 30 : (user.role === 'staff' ? 7 : 30));
 
     res.json({
       token,

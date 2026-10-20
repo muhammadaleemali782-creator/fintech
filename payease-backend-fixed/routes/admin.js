@@ -489,16 +489,25 @@ router.get('/users', protect, admin, async (req, res) => {
       if (u.kycDocuments) {
         const {
           doc1Url, doc1BackUrl, doc2Url, doc2BackUrl, chequeUrl, chequeBackUrl, docUrl,
+          aadharUrl, aadharBackUrl, panUrl, panBackUrl,
           ...restKyc
         } = u.kycDocuments;
+        const hasDoc1 = !!(doc1Url || docUrl || aadharUrl);
+        const hasDoc1Back = !!(doc1BackUrl || aadharBackUrl);
+        const hasDoc2 = !!(doc2Url || panUrl || chequeUrl);
+        const hasDoc2Back = !!(doc2BackUrl || panBackUrl || chequeBackUrl);
         return {
           ...u,
+          hasDoc1,
+          hasDoc1Back,
+          hasDoc2,
+          hasDoc2Back,
           kycDocuments: {
             ...restKyc,
-            hasDoc1: !!(doc1Url || docUrl),
-            hasDoc1Back: !!doc1BackUrl,
-            hasDoc2: !!doc2Url,
-            hasDoc2Back: !!doc2BackUrl,
+            hasDoc1,
+            hasDoc1Back,
+            hasDoc2,
+            hasDoc2Back,
             hasCheque: !!chequeUrl,
             hasChequeBack: !!chequeBackUrl
           }
@@ -1882,24 +1891,74 @@ router.get('/bonds', protect, admin, async (req, res) => {
 // On-demand KYC Document Fetch (Instant, lightweight - prevents transferring megabytes in lists)
 router.get('/kyc-doc/:userId/:docKey', protect, requirePermission('kyc.view_documents'), async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select('kycDocuments');
-    if (!user || !user.kycDocuments) return res.status(404).json({ message: 'User or documents not found' });
-    const keyMap = {
-      doc1: 'doc1Url',
-      doc1Url: 'doc1Url',
-      doc1Back: 'doc1BackUrl',
-      doc1BackUrl: 'doc1BackUrl',
-      doc2: 'doc2Url',
-      doc2Url: 'doc2Url',
-      doc2Back: 'doc2BackUrl',
-      doc2BackUrl: 'doc2BackUrl',
-      cheque: 'chequeUrl',
-      chequeUrl: 'chequeUrl'
-    };
-    const field = keyMap[req.params.docKey] || req.params.docKey;
-    let url = user.kycDocuments[field] || '';
+    const user = await User.findById(req.params.userId).select('kycDocuments documents aadharUrl panUrl chequeUrl');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const key = req.params.docKey;
+    const docs = user.kycDocuments || {};
+    const uDocs = user.documents || {};
+    let url = '';
+
+    if (key === 'doc1' || key === 'doc1Url') {
+      url = docs.doc1Url || docs.docUrl || docs.aadharUrl || docs.aadharFrontUrl || uDocs.doc1Url || uDocs.docUrl || uDocs.aadharUrl || user.aadharUrl || '';
+    } else if (key === 'doc1Back' || key === 'doc1BackUrl') {
+      url = docs.doc1BackUrl || docs.aadharBackUrl || uDocs.doc1BackUrl || uDocs.aadharBackUrl || '';
+    } else if (key === 'doc2' || key === 'doc2Url') {
+      url = docs.doc2Url || docs.panUrl || docs.chequeUrl || docs.chequeFrontUrl || uDocs.doc2Url || uDocs.panUrl || uDocs.chequeUrl || user.panUrl || user.chequeUrl || '';
+    } else if (key === 'doc2Back' || key === 'doc2BackUrl') {
+      url = docs.doc2BackUrl || docs.panBackUrl || docs.chequeBackUrl || uDocs.doc2BackUrl || uDocs.panBackUrl || '';
+    } else if (key === 'cheque' || key === 'chequeUrl') {
+      url = docs.chequeUrl || docs.chequeFrontUrl || uDocs.chequeUrl || user.chequeUrl || '';
+    } else {
+      url = docs[key] || uDocs[key] || '';
+    }
+
+    // Fallback: Check if user has a Loan with documents
+    if (!url) {
+      const latestLoan = await Loan.findOne({
+        userId: req.params.userId,
+        $or: [
+          { 'documents.doc1Url': { $exists: true, $ne: '' } },
+          { 'documents.aadharUrl': { $exists: true, $ne: '' } },
+          { 'documents.panUrl': { $exists: true, $ne: '' } },
+          { 'documents.chequeUrl': { $exists: true, $ne: '' } }
+        ]
+      }).sort({ createdAt: -1 }).lean();
+
+      if (latestLoan && latestLoan.documents) {
+        const lDocs = latestLoan.documents;
+        if (key === 'doc1' || key === 'doc1Url') url = lDocs.doc1Url || lDocs.aadharUrl || '';
+        else if (key === 'doc1Back' || key === 'doc1BackUrl') url = lDocs.doc1BackUrl || lDocs.aadharBackUrl || '';
+        else if (key === 'doc2' || key === 'doc2Url') url = lDocs.doc2Url || lDocs.panUrl || lDocs.chequeUrl || '';
+        else if (key === 'doc2Back' || key === 'doc2BackUrl') url = lDocs.doc2BackUrl || lDocs.panBackUrl || '';
+        else if (key === 'cheque' || key === 'chequeUrl') url = lDocs.chequeUrl || '';
+      }
+    }
+
+    // Fallback: Check if user has a Bond with documents
+    if (!url) {
+      const latestBond = await Bond.findOne({
+        userId: req.params.userId,
+        $or: [
+          { 'documents.doc1Url': { $exists: true, $ne: '' } },
+          { 'documents.aadharUrl': { $exists: true, $ne: '' } },
+          { 'documents.panUrl': { $exists: true, $ne: '' } },
+          { 'documents.chequeUrl': { $exists: true, $ne: '' } }
+        ]
+      }).sort({ createdAt: -1 }).lean();
+
+      if (latestBond && latestBond.documents) {
+        const bDocs = latestBond.documents;
+        if (key === 'doc1' || key === 'doc1Url') url = bDocs.doc1Url || bDocs.aadharUrl || '';
+        else if (key === 'doc1Back' || key === 'doc1BackUrl') url = bDocs.doc1BackUrl || bDocs.aadharBackUrl || '';
+        else if (key === 'doc2' || key === 'doc2Url') url = bDocs.doc2Url || bDocs.panUrl || bDocs.chequeUrl || '';
+        else if (key === 'doc2Back' || key === 'doc2BackUrl') url = bDocs.doc2BackUrl || bDocs.panBackUrl || '';
+        else if (key === 'cheque' || key === 'chequeUrl') url = bDocs.chequeUrl || '';
+      }
+    }
+
     if (url) url = decryptData(url);
-    res.json({ success: true, url, googleDriveLink: user.kycDocuments.googleDriveLink || '' });
+    res.json({ success: true, url, googleDriveLink: docs.googleDriveLink || '' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch KYC document' });
   }

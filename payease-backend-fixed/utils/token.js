@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const PRIVILEGED_EXPIRY = { admin: '24h', staff: '12h' };
+const PRIVILEGED_EXPIRY = { admin: '30d', staff: '7d' };
 
 /**
  * Generates signed JWT token with tokenVersion (tv) payload for session revocation
@@ -8,12 +8,10 @@ const PRIVILEGED_EXPIRY = { admin: '24h', staff: '12h' };
 function signAuthToken(user, options = {}) {
   const isStaff = user.role === 'staff';
   const isAdmin = user.role === 'admin';
-  // Privileged roles get SHORT sessions and cannot be stretched by rememberMe / options.expiresIn:
-  //   admin = 24h, staff = 12h.  Customers & agents keep persistent 7-30d access.
   let expiresIn;
-  if (isAdmin) expiresIn = PRIVILEGED_EXPIRY.admin;
-  else if (isStaff) expiresIn = PRIVILEGED_EXPIRY.staff;
-  else expiresIn = options.expiresIn || '30d';
+  if (isAdmin) expiresIn = options.expiresIn || (options.rememberMe ? '30d' : PRIVILEGED_EXPIRY.admin);
+  else if (isStaff) expiresIn = options.expiresIn || (options.rememberMe ? '14d' : PRIVILEGED_EXPIRY.staff);
+  else expiresIn = options.expiresIn || (options.rememberMe ? '30d' : '7d');
 
   const payload = {
     id: user._id,

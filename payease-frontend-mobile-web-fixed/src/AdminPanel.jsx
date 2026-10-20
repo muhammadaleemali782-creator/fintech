@@ -9442,68 +9442,7 @@ export default function AdminPanel() {
                 </div>
               ) : (
                 <>
-                  {/* Agent Foreclosure Commission Structure Guide Card */}
-                  <div className="mb-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base"></span>
-                    <h4 className="text-xs sm:text-sm font-extrabold text-slate-900">
-                      Loan Pre-Closure 3-Way Sharing Rule (User • Agent • Company)
-                    </h4>
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-600 text-white uppercase tracking-wider">
-                    1:1:1 Equal Split
-                  </span>
-                </div>
-                <div className="text-[11px] sm:text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-xl border border-slate-200/80">
-                  <p className="font-bold text-slate-900 mb-1">
-                    <strong>Official Pre-Closure Rules:</strong>
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 text-slate-600">
-                    <li><strong>9 Kist Rule:</strong> Agar 9th installment se pehle close hoga to hi fayda/discount hoga. (9 ya uske baad discount zero).</li>
-                    <li><strong>15 Kist Minimum Payoff:</strong> Borrower ko minimum 15 kiston ka bhugtan karna zaroori hai.</li>
-                    <li><strong>x% Formula:</strong> 15 ke upar jitna installment hai, utna percent chhoot hoga: <code className="font-mono bg-blue-50 px-1 py-0.5 rounded text-blue-700 font-bold border border-blue-200">Total Kist - 15 = x% of Loan Amount</code>.</li>
-                    <li><strong>3 Barabar Hisse (1:1:1):</strong> Jo x% pool aayega uske 3 part honge: <strong>1 User ko discount</strong>, <strong>1 Agent ko benefit</strong>, <strong>1 Company ko profit</strong>.</li>
-                  </ul>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                  <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-emerald-600 block">1️⃣ User Ko Chhoot</span>
-                    <span className="text-base font-black text-emerald-700">x / 3 % Discount</span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Payoff amount se direct minus</p>
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-amber-100 shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-amber-600 block">2️⃣ Agent Ko Benefits</span>
-                    <span className="text-base font-black text-amber-700">x / 3 % Commission</span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Direct wallet me auto-credit</p>
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-blue-100 shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-blue-600 block">3️⃣ Company Ko Profit</span>
-                    <span className="text-base font-black text-blue-700">x / 3 % Profit</span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Company reserves me retained</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[10px] pt-1 border-t border-slate-200 text-slate-700 font-medium">
-                  <div className="bg-white py-1.5 px-2 rounded-lg border border-slate-200">
-                    <span className="font-mono text-slate-900 font-bold block">18 Kist (x=3%)</span>
-                    <span>1% User | 1% Agent | 1% Co.</span>
-                  </div>
-                  <div className="bg-white py-1.5 px-2 rounded-lg border border-slate-200">
-                    <span className="font-mono text-slate-900 font-bold block">21 Kist (x=6%)</span>
-                    <span>2% User | 2% Agent | 2% Co.</span>
-                  </div>
-                  <div className="bg-white py-1.5 px-2 rounded-lg border border-slate-200">
-                    <span className="font-mono text-slate-900 font-bold block">24 Kist (x=9%)</span>
-                    <span>3% User | 3% Agent | 3% Co.</span>
-                  </div>
-                  <div className="bg-white py-1.5 px-2 rounded-lg border border-slate-200">
-                    <span className="font-mono text-slate-900 font-bold block">30 Kist (x=15%)</span>
-                    <span>5% User | 5% Agent | 5% Co.</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Loan Department Capital Pool & Agent Allocation Overview */}
+                  {/* Loan Department Capital Pool & Agent Allocation Overview */}
               {(() => {
                 const totalAssignedAgentQuota = agents.reduce((sum, a) => {
                   const curVal = agentCategoryInputs[a._id]?.loanLimit !== undefined

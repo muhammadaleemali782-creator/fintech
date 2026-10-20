@@ -1429,12 +1429,14 @@ router.get('/stats', protect, admin, async (req, res) => {
 });
 
 // Detailed Fintech Analytics & Daily Profit Growth
-router.get('/analytics', protect, admin, async (req, res) => {
+router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
   try {
     const isForce = req.query.force === 'true' || Boolean(req.query._t) || req.headers['cache-control'] === 'no-cache';
     if (!isForce) {
       const cached = memoryCache.get('admin_analytics');
       if (cached) return res.json(cached);
+    } else {
+      memoryCache.del('admin_analytics');
     }
 
 
@@ -1898,9 +1900,9 @@ router.get('/bonds', protect, admin, async (req, res) => {
 });
 
 // On-demand Unified KYC Documents Fetch (Single roundtrip for all 4 documents)
-router.get('/kyc-docs/:userId', protect, requirePermission('kyc.view_documents'), async (req, res) => {
+router.get('/kyc-docs/:userId', protect, requirePermission('kyc.view_documents', 'kyc.view', 'loan.view', 'loan.approve'), async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select('kycDocuments documents aadharUrl panUrl chequeUrl');
+    const user = await User.findById(req.params.userId).select('kycDocuments documents aadharUrl panUrl chequeUrl email phone avatar photoUrl');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const docs = user.kycDocuments || {};
@@ -1911,19 +1913,20 @@ router.get('/kyc-docs/:userId', protect, requirePermission('kyc.view_documents')
     let doc2Url = docs.doc2Url || docs.panUrl || docs.chequeUrl || docs.chequeFrontUrl || uDocs.doc2Url || uDocs.panUrl || uDocs.chequeUrl || user.panUrl || user.chequeUrl || '';
     let doc2BackUrl = docs.doc2BackUrl || docs.panBackUrl || docs.chequeBackUrl || uDocs.doc2BackUrl || uDocs.panBackUrl || '';
     let chequeUrl = docs.chequeUrl || docs.chequeFrontUrl || uDocs.chequeUrl || user.chequeUrl || '';
+    let photoUrl = docs.photoUrl || user.avatar || user.photoUrl || '';
+    let googleDriveLink = docs.googleDriveLink || '';
     const doc2Type = docs.doc2Type || (chequeUrl ? 'cheque' : 'pan');
 
     // Fallback: Check if user has a Loan with documents
-    if (!doc1Url || !doc2Url) {
-      const latestLoan = await Loan.findOne({
-        userId: req.params.userId,
+    if (!doc1Url || !doc2Url || !doc1BackUrl || !doc2BackUrl || !googleDriveLink) {
+      const loanQuery = {
         $or: [
-          { 'documents.doc1Url': { $exists: true, $ne: '' } },
-          { 'documents.aadharUrl': { $exists: true, $ne: '' } },
-          { 'documents.panUrl': { $exists: true, $ne: '' } },
-          { 'documents.chequeUrl': { $exists: true, $ne: '' } }
+          { userId: user._id },
+          ...(user.email ? [{ 'documents.applicantEmail': user.email }] : []),
+          ...(user.phone ? [{ 'documents.applicantPhone': user.phone }] : [])
         ]
-      }).sort({ createdAt: -1 }).lean();
+      };
+      const latestLoan = await Loan.findOne(loanQuery).sort({ createdAt: -1 }).lean();
 
       if (latestLoan && latestLoan.documents) {
         const lDocs = latestLoan.documents;
@@ -1932,13 +1935,15 @@ router.get('/kyc-docs/:userId', protect, requirePermission('kyc.view_documents')
         if (!doc2Url) doc2Url = lDocs.doc2Url || lDocs.panUrl || lDocs.chequeUrl || '';
         if (!doc2BackUrl) doc2BackUrl = lDocs.doc2BackUrl || lDocs.panBackUrl || '';
         if (!chequeUrl) chequeUrl = lDocs.chequeUrl || '';
+        if (!photoUrl) photoUrl = lDocs.photoUrl || '';
+        if (!googleDriveLink) googleDriveLink = lDocs.googleDriveLink || '';
       }
     }
 
     // Fallback: Check if user has a Bond with documents
-    if (!doc1Url || !doc2Url) {
+    if (!doc1Url || !doc2Url || !doc1BackUrl || !doc2BackUrl || !googleDriveLink) {
       const latestBond = await Bond.findOne({
-        userId: req.params.userId,
+        userId: user._id,
         $or: [
           { 'documents.doc1Url': { $exists: true, $ne: '' } },
           { 'documents.aadharUrl': { $exists: true, $ne: '' } },
@@ -1964,8 +1969,9 @@ router.get('/kyc-docs/:userId', protect, requirePermission('kyc.view_documents')
       doc2Url: doc2Url ? decryptData(doc2Url) : '',
       doc2BackUrl: doc2BackUrl ? decryptData(doc2BackUrl) : '',
       chequeUrl: chequeUrl ? decryptData(chequeUrl) : '',
+      photoUrl: photoUrl ? decryptData(photoUrl) : '',
       doc2Type,
-      googleDriveLink: docs.googleDriveLink || ''
+      googleDriveLink
     });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch KYC documents' });
@@ -1973,9 +1979,9 @@ router.get('/kyc-docs/:userId', protect, requirePermission('kyc.view_documents')
 });
 
 // On-demand KYC Document Fetch (Instant, lightweight - prevents transferring megabytes in lists)
-router.get('/kyc-doc/:userId/:docKey', protect, requirePermission('kyc.view_documents'), async (req, res) => {
+router.get('/kyc-doc/:userId/:docKey', protect, requirePermission('kyc.view_documents', 'kyc.view', 'loan.view', 'loan.approve'), async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select('kycDocuments documents aadharUrl panUrl chequeUrl');
+    const user = await User.findById(req.params.userId).select('kycDocuments documents aadharUrl panUrl chequeUrl email phone avatar photoUrl');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const key = req.params.docKey;
@@ -1993,21 +1999,22 @@ router.get('/kyc-doc/:userId/:docKey', protect, requirePermission('kyc.view_docu
       url = docs.doc2BackUrl || docs.panBackUrl || docs.chequeBackUrl || uDocs.doc2BackUrl || uDocs.panBackUrl || '';
     } else if (key === 'cheque' || key === 'chequeUrl') {
       url = docs.chequeUrl || docs.chequeFrontUrl || uDocs.chequeUrl || user.chequeUrl || '';
+    } else if (key === 'photo' || key === 'photoUrl' || key === 'avatar') {
+      url = docs.photoUrl || user.avatar || user.photoUrl || '';
     } else {
       url = docs[key] || uDocs[key] || '';
     }
 
     // Fallback: Check if user has a Loan with documents
     if (!url) {
-      const latestLoan = await Loan.findOne({
-        userId: req.params.userId,
+      const loanQuery = {
         $or: [
-          { 'documents.doc1Url': { $exists: true, $ne: '' } },
-          { 'documents.aadharUrl': { $exists: true, $ne: '' } },
-          { 'documents.panUrl': { $exists: true, $ne: '' } },
-          { 'documents.chequeUrl': { $exists: true, $ne: '' } }
+          { userId: user._id },
+          ...(user.email ? [{ 'documents.applicantEmail': user.email }] : []),
+          ...(user.phone ? [{ 'documents.applicantPhone': user.phone }] : [])
         ]
-      }).sort({ createdAt: -1 }).lean();
+      };
+      const latestLoan = await Loan.findOne(loanQuery).sort({ createdAt: -1 }).lean();
 
       if (latestLoan && latestLoan.documents) {
         const lDocs = latestLoan.documents;
@@ -2016,13 +2023,14 @@ router.get('/kyc-doc/:userId/:docKey', protect, requirePermission('kyc.view_docu
         else if (key === 'doc2' || key === 'doc2Url') url = lDocs.doc2Url || lDocs.panUrl || lDocs.chequeUrl || '';
         else if (key === 'doc2Back' || key === 'doc2BackUrl') url = lDocs.doc2BackUrl || lDocs.panBackUrl || '';
         else if (key === 'cheque' || key === 'chequeUrl') url = lDocs.chequeUrl || '';
+        else if (key === 'photo' || key === 'photoUrl' || key === 'avatar') url = lDocs.photoUrl || '';
       }
     }
 
     // Fallback: Check if user has a Bond with documents
     if (!url) {
       const latestBond = await Bond.findOne({
-        userId: req.params.userId,
+        userId: user._id,
         $or: [
           { 'documents.doc1Url': { $exists: true, $ne: '' } },
           { 'documents.aadharUrl': { $exists: true, $ne: '' } },
@@ -2042,6 +2050,7 @@ router.get('/kyc-doc/:userId/:docKey', protect, requirePermission('kyc.view_docu
     }
 
     if (url) url = decryptData(url);
+    res.json({ success: true, url, googleDriveLink: docs.googleDriveLink || '' });
     res.json({ success: true, url, googleDriveLink: docs.googleDriveLink || '' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch KYC document' });

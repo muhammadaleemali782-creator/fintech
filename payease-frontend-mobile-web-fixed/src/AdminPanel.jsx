@@ -1251,6 +1251,7 @@ export default function AdminPanel() {
   }, [tab]);
 
   // On-demand unified batch fetch for KYC preview modal documents (single fast roundtrip)
+  const [loadingKycDocs, setLoadingKycDocs] = useState(false);
   useEffect(() => {
     if (!previewKycUser?._id) return;
     const uid = previewKycUser._id;
@@ -1273,10 +1274,15 @@ export default function AdminPanel() {
       } : prev));
     }
 
+    setLoadingKycDocs(true);
     // 2. Fetch all 4 docs from server in a single unified lightweight call
     const authToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
     fetch(`${API}/admin/kyc-docs/${uid}`, {
-      headers: { Authorization: `Bearer ${authToken}` }
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache"
+      }
     })
       .then(r => r.json())
       .then(d => {
@@ -1290,17 +1296,22 @@ export default function AdminPanel() {
             ...prev,
             kycDocuments: {
               ...prev.kycDocuments,
-              doc1Url: d.doc1Url || prev.kycDocuments?.doc1Url,
-              doc1BackUrl: d.doc1BackUrl || prev.kycDocuments?.doc1BackUrl,
-              doc2Url: d.doc2Url || prev.kycDocuments?.doc2Url,
-              doc2BackUrl: d.doc2BackUrl || prev.kycDocuments?.doc2BackUrl,
+              doc1Url: d.doc1Url || "",
+              doc1BackUrl: d.doc1BackUrl || "",
+              doc2Url: d.doc2Url || "",
+              doc2BackUrl: d.doc2BackUrl || "",
               doc2Type: d.doc2Type || prev.kycDocuments?.doc2Type,
               googleDriveLink: d.googleDriveLink || prev.kycDocuments?.googleDriveLink
             }
           } : prev));
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn("KYC documents fetch error:", err);
+      })
+      .finally(() => {
+        setLoadingKycDocs(false);
+      });
   }, [previewKycUser?._id]); // eslint-disable-line
 
   const allKycUsers = useMemo(() => {
@@ -2221,6 +2232,9 @@ export default function AdminPanel() {
       setLoadingAnalytics(true);
     }
     try {
+      if (force) {
+        apiCache.clear();
+      }
       const curToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
       const dynamicHeaders = {
         "Content-Type": "application/json",
@@ -4091,110 +4105,6 @@ export default function AdminPanel() {
 
   return (
     <div className="bg-slate-50 min-h-screen flex flex-col lg:flex-row">
-      {/* FULLSCREEN LIGHTBOX WITH INTERACTIVE ZOOM & PAN */}
-      {lightboxImg && (
-        <div
-          className="fixed inset-0 z-[100000] bg-black/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-4 select-none animate-in fade-in duration-150"
-          onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
-        >
-          {/* Header Controls */}
-          <div
-            className="flex items-center justify-between gap-1.5 sm:gap-2 z-10 p-2 sm:p-2.5 bg-neutral-900/95 border border-neutral-700/70 rounded-2xl backdrop-blur-md text-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <button
-                type="button"
-                onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-xs font-bold text-white cursor-pointer transition border border-white/15 shrink-0"
-                title="Back to Admin"
-              >
-                <span className="text-sm">←</span>
-                <span>Back</span>
-              </button>
-              <span className="hidden sm:inline text-xs font-semibold text-gray-300 truncate">Document Viewer</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 font-mono font-bold text-gray-200 shrink-0">
-                {Math.round(zoomLevel * 100)}%
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              {/* Zoom Out */}
-              <button
-                type="button"
-                onClick={() => setZoomLevel((z) => Math.max(0.75, +(z - 0.25).toFixed(2)))}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
-                title="Zoom Out"
-              >
-                −
-              </button>
-              {/* Reset Zoom */}
-              <button
-                type="button"
-                onClick={() => setZoomLevel(1)}
-                className="px-1.5 sm:px-2 h-7 sm:h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-[10px] sm:text-[11px] font-bold text-white cursor-pointer transition border border-white/10"
-                title="Reset Zoom"
-              >
-                100%
-              </button>
-              {/* Zoom In */}
-              <button
-                type="button"
-                onClick={() => setZoomLevel((z) => Math.min(3.5, +(z + 0.35).toFixed(2)))}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
-                title="Zoom In"
-              >
-                +
-              </button>
-              {/* Close Button */}
-              <button
-                type="button"
-                onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 flex items-center justify-center font-black text-xs text-white cursor-pointer transition ml-0.5 sm:ml-1 shadow-sm"
-                title="Close Viewer"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-
-          {/* Document Content Area with Touch Pan & Smooth Zoom */}
-          <div
-            className="flex-1 flex items-center justify-center overflow-auto p-2 cursor-grab active:cursor-grabbing"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {lightboxImg.startsWith("data:application/pdf") ? (
-              <iframe
-                src={lightboxImg}
-                title="PDF Document"
-                className="w-full max-w-4xl h-[80vh] rounded-2xl bg-white border border-white/20 shadow-2xl"
-              />
-            ) : (
-              <div
-                className="transition-transform duration-150 ease-out flex items-center justify-center max-w-full max-h-full"
-                style={{ transform: `scale(${zoomLevel})` }}
-                onDoubleClick={() => setZoomLevel((z) => (z > 1 ? 1 : 2.2))}
-              >
-                <img
-                  src={lightboxImg}
-                  alt="Document Fullscreen Preview"
-                  className="max-w-[92vw] max-h-[78vh] object-contain rounded-xl shadow-2xl border border-white/10 cursor-zoom-in"
-                  onClick={() => setZoomLevel((z) => (z > 1.8 ? 1 : +(z + 0.5).toFixed(2)))}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Footer Guide */}
-          <div
-            className="text-center text-[11px] text-gray-400 py-1 z-10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Tap image to zoom in • Double tap to toggle 2x • Pinch / Use + buttons
-          </div>
-        </div>
-      )}
-
       {/* DESKTOP SIDEBAR (FIXED FULL-HEIGHT NEVER SCROLLS OFF SCREEN) */}
       <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? "w-20" : "w-64"} shrink-0 bg-slate-900 border-r border-slate-800 text-slate-100 lg:fixed lg:inset-y-0 lg:left-0 lg:h-screen transition-all duration-200 z-30 select-none shadow-xl`}>
         {/* Header with Title & Collapse Toggle */}
@@ -5443,9 +5353,13 @@ export default function AdminPanel() {
               <div className="flex items-center justify-end -mb-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    loadAnalytics(true);
-                    loadStats(true);
+                  onClick={async () => {
+                    apiCache.clear();
+                    try { appCache.remove("educa_admin_cached_analytics"); } catch {}
+                    try { localStorage.removeItem("educa_admin_cached_analytics"); } catch {}
+                    showToast("Refreshing live analytics...", "info");
+                    await Promise.all([loadAnalytics(true), loadStats(true)]);
+                    showToast("Live analytics updated!", "success");
                   }}
                   disabled={loadingAnalytics}
                   className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold border border-slate-200 transition active:scale-95 cursor-pointer shadow-2xs"
@@ -14225,13 +14139,32 @@ export default function AdminPanel() {
                   {previewKycUser.email} · {previewKycUser.phone}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setPreviewKycUser(null)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition text-sm font-bold cursor-pointer active:scale-90 select-none"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const uid = previewKycUser._id;
+                    kycDocMemoryCache.delete(`${uid}_doc1`);
+                    kycDocMemoryCache.delete(`${uid}_doc1Back`);
+                    kycDocMemoryCache.delete(`${uid}_doc2`);
+                    kycDocMemoryCache.delete(`${uid}_doc2Back`);
+                    setPreviewKycUser({ ...previewKycUser });
+                  }}
+                  disabled={loadingKycDocs}
+                  className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition border border-blue-200 cursor-pointer active:scale-95 flex items-center gap-1 shadow-2xs"
+                  title="Reload KYC documents from server"
+                >
+                  <span className={loadingKycDocs ? "animate-spin" : ""}>↻</span>
+                  <span>{loadingKycDocs ? "Loading..." : "Reload"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewKycUser(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition text-sm font-bold cursor-pointer active:scale-90 select-none"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Content Scrollable */}
@@ -14403,6 +14336,24 @@ export default function AdminPanel() {
                 </span>
               </div>
 
+              {/* Google Drive Link (if attached to user or loan) */}
+              {Boolean(previewKycUser.kycDocuments?.googleDriveLink || previewKycUser.googleDriveLink) && (
+                <a
+                  href={previewKycUser.kycDocuments?.googleDriveLink || previewKycUser.googleDriveLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-3 bg-blue-50/80 hover:bg-blue-100 border border-blue-200 rounded-2xl flex items-center justify-between text-xs text-blue-900 font-bold transition shadow-2xs group"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-base">📁</span>
+                    <span>Google Drive Documents Folder Available</span>
+                  </span>
+                  <span className="text-blue-700 font-mono text-[11px] underline flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                    Open Drive Folder ↗
+                  </span>
+                </a>
+              )}
+
               {/* Dual In-App Document Previews (Doc 1 & Doc 2 - Front & Back) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Document 1: Aadhaar Card (Front & Back) */}
@@ -14416,7 +14367,7 @@ export default function AdminPanel() {
 
                   {/* Front */}
                   {(() => {
-                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url.length > 5 ? url : "");
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
                     const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
                     const rawDoc1Front = previewKycUser.kycDocuments?.doc1Url ||
                       previewKycUser.kycDocuments?.docUrl ||
@@ -14428,7 +14379,7 @@ export default function AdminPanel() {
                       previewKycUser.doc1Url ||
                       previewKycUser.aadharUrl;
                     const doc1Front = cleanDocUrl(rawDoc1Front) || kycDocMemoryCache.get(`${previewKycUser._id}_doc1`) || "";
-                    const isEncryptedWaiting = !doc1Front && hasEncryptedDoc(rawDoc1Front);
+                    const isWaiting = loadingKycDocs || (!doc1Front && (hasEncryptedDoc(rawDoc1Front) || rawDoc1Front === "pending_load"));
                     const isPdf = typeof doc1Front === "string" && (doc1Front.startsWith("data:application/pdf") || doc1Front.toLowerCase().includes(".pdf"));
                     return doc1Front ? (
                       <div className="space-y-1">
@@ -14451,10 +14402,10 @@ export default function AdminPanel() {
                           <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Front</div>
                         </div>
                       </div>
-                    ) : isEncryptedWaiting ? (
+                    ) : isWaiting ? (
                       <div className="p-4 text-center text-xs text-blue-600 font-bold bg-blue-50/50 rounded-xl border border-dashed border-blue-200 flex items-center justify-center gap-2">
                         <span className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                        <span>Decrypting Aadhaar Front...</span>
+                        <span>Loading Aadhaar Front...</span>
                       </div>
                     ) : (
                       <div className="p-4 text-center text-xs text-gray-400">No Aadhaar Front file</div>
@@ -14463,7 +14414,7 @@ export default function AdminPanel() {
 
                   {/* Back */}
                   {(() => {
-                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url.length > 5 ? url : "");
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
                     const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
                     const rawDoc1Back = previewKycUser.kycDocuments?.doc1BackUrl ||
                       previewKycUser.kycDocuments?.aadharBackUrl ||
@@ -14472,7 +14423,7 @@ export default function AdminPanel() {
                       previewKycUser.doc1BackUrl ||
                       previewKycUser.aadharBackUrl;
                     const doc1Back = cleanDocUrl(rawDoc1Back) || kycDocMemoryCache.get(`${previewKycUser._id}_doc1Back`) || "";
-                    const isEncryptedWaiting = !doc1Back && hasEncryptedDoc(rawDoc1Back);
+                    const isWaiting = loadingKycDocs || (!doc1Back && (hasEncryptedDoc(rawDoc1Back) || rawDoc1Back === "pending_load"));
                     const isPdf = typeof doc1Back === "string" && (doc1Back.startsWith("data:application/pdf") || doc1Back.toLowerCase().includes(".pdf"));
                     return doc1Back ? (
                       <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
@@ -14495,10 +14446,10 @@ export default function AdminPanel() {
                           <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Back</div>
                         </div>
                       </div>
-                    ) : isEncryptedWaiting ? (
+                    ) : isWaiting ? (
                       <div className="p-3 text-center text-xs text-blue-600 font-bold bg-blue-50/50 rounded-xl border border-dashed border-blue-200 flex items-center justify-center gap-2 mt-2">
                         <span className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                        <span>Decrypting Aadhaar Back...</span>
+                        <span>Loading Aadhaar Back...</span>
                       </div>
                     ) : null;
                   })()}
@@ -14515,7 +14466,7 @@ export default function AdminPanel() {
 
                   {/* Front */}
                   {(() => {
-                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url.length > 5 ? url : "");
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
                     const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
                     const rawDoc2Front = previewKycUser.kycDocuments?.doc2Url ||
                       previewKycUser.kycDocuments?.panUrl ||
@@ -14528,7 +14479,7 @@ export default function AdminPanel() {
                       previewKycUser.panUrl ||
                       previewKycUser.chequeUrl;
                     const doc2Front = cleanDocUrl(rawDoc2Front) || kycDocMemoryCache.get(`${previewKycUser._id}_doc2`) || "";
-                    const isEncryptedWaiting = !doc2Front && hasEncryptedDoc(rawDoc2Front);
+                    const isWaiting = loadingKycDocs || (!doc2Front && (hasEncryptedDoc(rawDoc2Front) || rawDoc2Front === "pending_load"));
                     const isPdf = typeof doc2Front === "string" && (doc2Front.startsWith("data:application/pdf") || doc2Front.toLowerCase().includes(".pdf"));
                     return doc2Front ? (
                       <div className="space-y-1">
@@ -14551,10 +14502,10 @@ export default function AdminPanel() {
                           <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Front</div>
                         </div>
                       </div>
-                    ) : isEncryptedWaiting ? (
+                    ) : isWaiting ? (
                       <div className="p-4 text-center text-xs text-blue-600 font-bold bg-blue-50/50 rounded-xl border border-dashed border-blue-200 flex items-center justify-center gap-2">
                         <span className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                        <span>Decrypting Doc 2 Front...</span>
+                        <span>Loading Doc 2 Front...</span>
                       </div>
                     ) : (
                       <div className="p-4 text-center text-xs text-gray-400">No Doc 2 Front file uploaded</div>
@@ -14563,7 +14514,7 @@ export default function AdminPanel() {
 
                   {/* Back */}
                   {(() => {
-                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url.length > 5 ? url : "");
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
                     const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
                     const rawDoc2Back = previewKycUser.kycDocuments?.doc2BackUrl ||
                       previewKycUser.kycDocuments?.panBackUrl ||
@@ -14573,7 +14524,7 @@ export default function AdminPanel() {
                       previewKycUser.doc2BackUrl ||
                       previewKycUser.panBackUrl;
                     const doc2Back = cleanDocUrl(rawDoc2Back) || kycDocMemoryCache.get(`${previewKycUser._id}_doc2Back`) || "";
-                    const isEncryptedWaiting = !doc2Back && hasEncryptedDoc(rawDoc2Back);
+                    const isWaiting = loadingKycDocs || (!doc2Back && (hasEncryptedDoc(rawDoc2Back) || rawDoc2Back === "pending_load"));
                     const isPdf = typeof doc2Back === "string" && (doc2Back.startsWith("data:application/pdf") || doc2Back.toLowerCase().includes(".pdf"));
                     return doc2Back ? (
                       <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
@@ -14596,10 +14547,10 @@ export default function AdminPanel() {
                           <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">Zoom Back</div>
                         </div>
                       </div>
-                    ) : isEncryptedWaiting ? (
+                    ) : isWaiting ? (
                       <div className="p-3 text-center text-xs text-blue-600 font-bold bg-blue-50/50 rounded-xl border border-dashed border-blue-200 flex items-center justify-center gap-2 mt-2">
                         <span className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                        <span>Decrypting Doc 2 Back...</span>
+                        <span>Loading Doc 2 Back...</span>
                       </div>
                     ) : null;
                   })()}
@@ -15771,6 +15722,110 @@ Login karke apna naya personal password turant set karein.`}
                   : "Confirm Desk Assignment"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN LIGHTBOX WITH INTERACTIVE ZOOM & PAN (PLACED AT ROOT BOTTOM TO ALWAYS BE ON TOP OF ALL MODALS) */}
+      {lightboxImg && (
+        <div
+          className="fixed inset-0 z-[9999999] bg-black/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-4 select-none animate-in fade-in duration-150"
+          onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
+        >
+          {/* Header Controls */}
+          <div
+            className="flex items-center justify-between gap-1.5 sm:gap-2 z-10 p-2 sm:p-2.5 bg-neutral-900/95 border border-neutral-700/70 rounded-2xl backdrop-blur-md text-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-xs font-bold text-white cursor-pointer transition border border-white/15 shrink-0"
+                title="Back to Admin"
+              >
+                <span className="text-sm">←</span>
+                <span>Back</span>
+              </button>
+              <span className="hidden sm:inline text-xs font-semibold text-gray-300 truncate">Document Viewer</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 font-mono font-bold text-gray-200 shrink-0">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {/* Zoom Out */}
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.max(0.75, +(z - 0.25).toFixed(2)))}
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
+                title="Zoom Out"
+              >
+                −
+              </button>
+              {/* Reset Zoom */}
+              <button
+                type="button"
+                onClick={() => setZoomLevel(1)}
+                className="px-1.5 sm:px-2 h-7 sm:h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-[10px] sm:text-[11px] font-bold text-white cursor-pointer transition border border-white/10"
+                title="Reset Zoom"
+              >
+                100%
+              </button>
+              {/* Zoom In */}
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.min(3.5, +(z + 0.35).toFixed(2)))}
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs text-white cursor-pointer transition border border-white/10"
+                title="Zoom In"
+              >
+                +
+              </button>
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 flex items-center justify-center font-black text-xs text-white cursor-pointer transition ml-0.5 sm:ml-1 shadow-sm"
+                title="Close Viewer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Document Content Area with Touch Pan & Smooth Zoom */}
+          <div
+            className="flex-1 flex items-center justify-center overflow-auto p-2 cursor-grab active:cursor-grabbing"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {lightboxImg.startsWith("data:application/pdf") ? (
+              <iframe
+                src={lightboxImg}
+                title="PDF Document"
+                className="w-full max-w-4xl h-[80vh] rounded-2xl bg-white border border-white/20 shadow-2xl"
+              />
+            ) : (
+              <div
+                className="transition-transform duration-150 ease-out flex items-center justify-center max-w-full max-h-full"
+                style={{ transform: `scale(${zoomLevel})` }}
+                onDoubleClick={() => setZoomLevel((z) => (z > 1 ? 1 : 2.2))}
+              >
+                <img
+                  src={lightboxImg}
+                  alt="Document Fullscreen Preview"
+                  className="max-w-[92vw] max-h-[78vh] object-contain rounded-xl shadow-2xl border border-white/10 cursor-zoom-in"
+                  onClick={() => setZoomLevel((z) => (z > 1.8 ? 1 : +(z + 0.5).toFixed(2)))}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Footer Guide */}
+          <div
+            className="text-center text-[11px] text-gray-400 py-1 z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Tap image to zoom in • Double tap to toggle 2x • Pinch / Use + buttons
           </div>
         </div>
       )}

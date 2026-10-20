@@ -161,6 +161,20 @@ router.get('/me', protect, async (req, res) => {
     userObj.hasWalletPin = !!user.walletPin;
     userObj.serverTime = new Date().toISOString();
     delete userObj.walletPin;
+
+    if (userObj.kycDocuments) {
+      const kd = userObj.kycDocuments;
+      if (kd.doc1Url) kd.doc1Url = decryptData(kd.doc1Url);
+      if (kd.doc1BackUrl) kd.doc1BackUrl = decryptData(kd.doc1BackUrl);
+      if (kd.doc2Url) kd.doc2Url = decryptData(kd.doc2Url);
+      if (kd.doc2BackUrl) kd.doc2BackUrl = decryptData(kd.doc2BackUrl);
+      if (kd.chequeUrl) kd.chequeUrl = decryptData(kd.chequeUrl);
+      if (kd.chequeBackUrl) kd.chequeBackUrl = decryptData(kd.chequeBackUrl);
+      if (kd.docUrl) kd.docUrl = decryptData(kd.docUrl);
+      if (kd.photoUrl) kd.photoUrl = decryptData(kd.photoUrl);
+    }
+    if (userObj.avatar) userObj.avatar = decryptData(userObj.avatar);
+    if (userObj.photoUrl) userObj.photoUrl = decryptData(userObj.photoUrl);
     memoryCache.set(cacheKey, userObj, 15);
     res.json(userObj);
   } catch (err) {

@@ -2050,8 +2050,7 @@ router.get('/kyc-doc/:userId/:docKey', protect, requirePermission('kyc.view_docu
     }
 
     if (url) url = decryptData(url);
-    res.json({ success: true, url, googleDriveLink: docs.googleDriveLink || '' });
-    res.json({ success: true, url, googleDriveLink: docs.googleDriveLink || '' });
+    res.json({ success: true, url });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch KYC document' });
   }

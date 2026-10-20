@@ -39,6 +39,8 @@ async function userSig(userId, userDoc) {
   return buildSig({
     b: money(userDoc.balance), p: money(userDoc.profitBalance), d: money(userDoc.duesBalance),
     k: userDoc.kycStatus || '', lc: userDoc.loansCount || 0, pr: !!userDoc.isPremium, ll: Number(userDoc.loanLimit || 0),
+    u: userDoc.updatedAt ? new Date(userDoc.updatedAt).getTime() : 0,
+    av: userDoc.avatar ? String(userDoc.avatar).slice(0, 32) : '',
     t: idStatus(txns), pc: pendingCount, l: idStatus(loans), bo: idStatus(bonds)
   });
 }
@@ -83,7 +85,7 @@ router.get('/pulse', protect, async (req, res) => {
       return res.json({ success: true, sig: await agentSig(a), t: Date.now() });
     }
     const u = await User.findById(req.user._id)
-      .select('balance profitBalance duesBalance kycStatus loansCount isPremium loanLimit')
+      .select('balance profitBalance duesBalance kycStatus loansCount isPremium loanLimit updatedAt avatar')
       .lean();
     if (!u) return res.status(401).json({ success: false, message: 'Session expired' });
     return res.json({ success: true, sig: await userSig(req.user._id, u), t: Date.now() });
@@ -182,6 +184,20 @@ router.get('/user', protect, async (req, res) => {
     delete userObj.password;
     delete userObj.walletPin;
 
+    if (userObj.kycDocuments) {
+      const kd = userObj.kycDocuments;
+      if (kd.doc1Url) kd.doc1Url = decryptData(kd.doc1Url);
+      if (kd.doc1BackUrl) kd.doc1BackUrl = decryptData(kd.doc1BackUrl);
+      if (kd.doc2Url) kd.doc2Url = decryptData(kd.doc2Url);
+      if (kd.doc2BackUrl) kd.doc2BackUrl = decryptData(kd.doc2BackUrl);
+      if (kd.chequeUrl) kd.chequeUrl = decryptData(kd.chequeUrl);
+      if (kd.chequeBackUrl) kd.chequeBackUrl = decryptData(kd.chequeBackUrl);
+      if (kd.docUrl) kd.docUrl = decryptData(kd.docUrl);
+      if (kd.photoUrl) kd.photoUrl = decryptData(kd.photoUrl);
+    }
+    if (userObj.avatar) userObj.avatar = decryptData(userObj.avatar);
+    if (userObj.photoUrl) userObj.photoUrl = decryptData(userObj.photoUrl);
+
     let sig = null;
     try { sig = await userSig(userId, user); } catch {}
 
@@ -258,6 +274,20 @@ router.get('/agent', protect, async (req, res) => {
     const userObj = agent.toObject ? agent.toObject() : { ...agent };
     delete userObj.password;
     delete userObj.walletPin;
+
+    if (userObj.kycDocuments) {
+      const kd = userObj.kycDocuments;
+      if (kd.doc1Url) kd.doc1Url = decryptData(kd.doc1Url);
+      if (kd.doc1BackUrl) kd.doc1BackUrl = decryptData(kd.doc1BackUrl);
+      if (kd.doc2Url) kd.doc2Url = decryptData(kd.doc2Url);
+      if (kd.doc2BackUrl) kd.doc2BackUrl = decryptData(kd.doc2BackUrl);
+      if (kd.chequeUrl) kd.chequeUrl = decryptData(kd.chequeUrl);
+      if (kd.chequeBackUrl) kd.chequeBackUrl = decryptData(kd.chequeBackUrl);
+      if (kd.docUrl) kd.docUrl = decryptData(kd.docUrl);
+      if (kd.photoUrl) kd.photoUrl = decryptData(kd.photoUrl);
+    }
+    if (userObj.avatar) userObj.avatar = decryptData(userObj.avatar);
+    if (userObj.photoUrl) userObj.photoUrl = decryptData(userObj.photoUrl);
 
     let sig = null;
     try { sig = await agentSig(agent); } catch {}

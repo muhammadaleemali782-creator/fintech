@@ -676,21 +676,21 @@ router.post('/apply', protect, async (req, res) => {
       if (r2Cb && r2Cb.startsWith('http')) finalChequeBack = r2Cb;
     } catch (_) {}
 
-    // Consolidated documents payload
+    // Consolidated documents payload (Field-level AES-256-GCM encryption at rest)
     const loanDocumentsPayload = {
       aadharNumber,
-      aadharUrl: finalAadharFront,
-      aadharBackUrl: finalAadharBack,
-      doc1Url: finalAadharFront,
-      doc1BackUrl: finalAadharBack,
+      aadharUrl: encryptData(finalAadharFront),
+      aadharBackUrl: encryptData(finalAadharBack),
+      doc1Url: encryptData(finalAadharFront),
+      doc1BackUrl: encryptData(finalAadharBack),
       panNumber,
-      panUrl: finalPanFront,
-      panBackUrl: finalPanBack,
-      doc2Url: finalPanFront,
-      doc2BackUrl: finalPanBack,
+      panUrl: encryptData(finalPanFront),
+      panBackUrl: encryptData(finalPanBack),
+      doc2Url: encryptData(finalPanFront),
+      doc2BackUrl: encryptData(finalPanBack),
       chequeNumber: chequeNum,
-      chequeUrl: finalChequeFront,
-      chequeBackUrl: finalChequeBack,
+      chequeUrl: encryptData(finalChequeFront),
+      chequeBackUrl: encryptData(finalChequeBack),
       bankName,
       bankAccountNumber: bankAccount,
       bankIfsc,
@@ -701,8 +701,8 @@ router.post('/apply', protect, async (req, res) => {
       applicantEmail,
       applicantPhone,
       businessName: docs.businessName || '',
-      studentProofUrl: docs.studentProofUrl || '',
-      studentProofBackUrl: docs.studentProofBackUrl || ''
+      studentProofUrl: docs.studentProofUrl ? encryptData(docs.studentProofUrl) : '',
+      studentProofBackUrl: docs.studentProofBackUrl ? encryptData(docs.studentProofBackUrl) : ''
     };
 
     const nomineePayload = {
@@ -1726,15 +1726,15 @@ router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_o
         applicantPhone: targetUser.phone,
         aadharNumber: targetUser.aadharNumber || aadharNumber,
         panNumber: targetUser.panNumber || panNumber,
-        photoUrl: req.body.documents?.photoUrl || req.body.photoUrl || '',
-        doc1Url: req.body.documents?.doc1Url || targetUser.kycDocuments?.doc1Url || targetUser.kycDocuments?.docUrl || '',
-        doc1BackUrl: req.body.documents?.doc1BackUrl || targetUser.kycDocuments?.doc1BackUrl || '',
-        doc2Url: req.body.documents?.doc2Url || targetUser.kycDocuments?.doc2Url || '',
-        doc2BackUrl: req.body.documents?.doc2BackUrl || targetUser.kycDocuments?.doc2BackUrl || '',
+        photoUrl: encryptData(req.body.documents?.photoUrl || req.body.photoUrl || ''),
+        doc1Url: encryptData(req.body.documents?.doc1Url || targetUser.kycDocuments?.doc1Url || targetUser.kycDocuments?.docUrl || ''),
+        doc1BackUrl: encryptData(req.body.documents?.doc1BackUrl || targetUser.kycDocuments?.doc1BackUrl || ''),
+        doc2Url: encryptData(req.body.documents?.doc2Url || targetUser.kycDocuments?.doc2Url || ''),
+        doc2BackUrl: encryptData(req.body.documents?.doc2BackUrl || targetUser.kycDocuments?.doc2BackUrl || ''),
         chequeNumber: chequeNumber ? String(chequeNumber).trim() : (targetUser.kycDocuments?.chequeNumber || ''),
-        chequeUrl: req.body.documents?.chequeUrl || targetUser.kycDocuments?.chequeUrl || '',
-        chequeBackUrl: req.body.documents?.chequeBackUrl || targetUser.kycDocuments?.chequeBackUrl || '',
-        offlineEvidenceUrl: req.body.documents?.photoUrl || req.body.backfillEvidenceUrl || '',
+        chequeUrl: encryptData(req.body.documents?.chequeUrl || targetUser.kycDocuments?.chequeUrl || ''),
+        chequeBackUrl: encryptData(req.body.documents?.chequeBackUrl || targetUser.kycDocuments?.chequeBackUrl || ''),
+        offlineEvidenceUrl: encryptData(req.body.documents?.photoUrl || req.body.backfillEvidenceUrl || ''),
         offlineEvidenceNote: req.body.adminNote || '',
         adminNotes: adminNote || `Loan applied by Admin on behalf of borrower (${borrowerType === 'new' ? 'New User' : 'Existing Customer'}${paidCount > 0 ? `, ${paidCount} kist already paid` : ''})`
       }
@@ -2318,6 +2318,23 @@ router.get('/all', protect, requirePermission('loan.view'), async (req, res) => 
           hasDoc2Back: !!doc2BackUrl,
           hasCheque: !!chequeUrl,
           hasChequeBack: !!chequeBackUrl
+        };
+      }
+      if (obj.documents) {
+        const {
+          doc1Url, doc1BackUrl, doc2Url, doc2BackUrl, chequeUrl, chequeBackUrl,
+          aadharUrl, aadharBackUrl, panUrl, panBackUrl, photoUrl, offlineEvidenceUrl,
+          ...restDocs
+        } = obj.documents;
+        obj.documents = {
+          ...restDocs,
+          hasDoc1: !!(doc1Url || aadharUrl),
+          hasDoc1Back: !!(doc1BackUrl || aadharBackUrl),
+          hasDoc2: !!(doc2Url || panUrl),
+          hasDoc2Back: !!(doc2BackUrl || panBackUrl),
+          hasCheque: !!chequeUrl,
+          hasPhoto: !!photoUrl,
+          hasOfflineEvidence: !!offlineEvidenceUrl
         };
       }
       return obj;

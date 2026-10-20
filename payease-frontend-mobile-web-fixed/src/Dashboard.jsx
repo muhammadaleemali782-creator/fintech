@@ -5312,6 +5312,27 @@ export default function Dashboard() {
               </a>
             )}
 
+            {/* Quick Instant Refresh Button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (silentSyncRef.current) silentSyncRef.current(true);
+              }}
+              disabled={isRefreshing}
+              className={`p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
+              title="Refresh Data / रिफ्रेश करें"
+            >
+              <svg
+                className={`w-3.5 h-3.5 text-blue-600 ${isRefreshing ? "animate-spin" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+
             {/* Collapsible Language Selector - Ultra Sleek & Compact */}
             <div className="relative" ref={langDropdownRef}>
               <button
@@ -12672,7 +12693,7 @@ export default function Dashboard() {
       {/* FULLSCREEN DOCUMENT LIGHTBOX WITH INTERACTIVE ZOOM & PAN */}
       {lightboxImg && (
         <div
-          className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-4 select-none animate-in fade-in duration-150"
+          className="fixed inset-0 z-[9999999] bg-black/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-4 select-none animate-in fade-in duration-150"
           onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
         >
           {/* Header Controls */}

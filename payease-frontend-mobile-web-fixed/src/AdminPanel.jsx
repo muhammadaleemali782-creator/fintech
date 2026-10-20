@@ -1300,8 +1300,7 @@ export default function AdminPanel() {
               doc1BackUrl: d.doc1BackUrl || "",
               doc2Url: d.doc2Url || "",
               doc2BackUrl: d.doc2BackUrl || "",
-              doc2Type: d.doc2Type || prev.kycDocuments?.doc2Type,
-              googleDriveLink: d.googleDriveLink || prev.kycDocuments?.googleDriveLink
+              doc2Type: d.doc2Type || prev.kycDocuments?.doc2Type
             }
           } : prev));
         }
@@ -14336,24 +14335,6 @@ export default function AdminPanel() {
                 </span>
               </div>
 
-              {/* Google Drive Link (if attached to user or loan) */}
-              {Boolean(previewKycUser.kycDocuments?.googleDriveLink || previewKycUser.googleDriveLink) && (
-                <a
-                  href={previewKycUser.kycDocuments?.googleDriveLink || previewKycUser.googleDriveLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-3 bg-blue-50/80 hover:bg-blue-100 border border-blue-200 rounded-2xl flex items-center justify-between text-xs text-blue-900 font-bold transition shadow-2xs group"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-base">📁</span>
-                    <span>Google Drive Documents Folder Available</span>
-                  </span>
-                  <span className="text-blue-700 font-mono text-[11px] underline flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                    Open Drive Folder ↗
-                  </span>
-                </a>
-              )}
-
               {/* Dual In-App Document Previews (Doc 1 & Doc 2 - Front & Back) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Document 1: Aadhaar Card (Front & Back) */}
@@ -14367,8 +14348,8 @@ export default function AdminPanel() {
 
                   {/* Front */}
                   {(() => {
-                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
-                    const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && !url.startsWith("enc2::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
+                    const hasEncryptedDoc = (url) => typeof url === "string" && (url.startsWith("enc::") || url.startsWith("enc2::"));
                     const rawDoc1Front = previewKycUser.kycDocuments?.doc1Url ||
                       previewKycUser.kycDocuments?.docUrl ||
                       previewKycUser.kycDocuments?.aadharUrl ||
@@ -14414,8 +14395,8 @@ export default function AdminPanel() {
 
                   {/* Back */}
                   {(() => {
-                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
-                    const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && !url.startsWith("enc2::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
+                    const hasEncryptedDoc = (url) => typeof url === "string" && (url.startsWith("enc::") || url.startsWith("enc2::"));
                     const rawDoc1Back = previewKycUser.kycDocuments?.doc1BackUrl ||
                       previewKycUser.kycDocuments?.aadharBackUrl ||
                       previewKycUser.documents?.doc1BackUrl ||
@@ -14466,8 +14447,8 @@ export default function AdminPanel() {
 
                   {/* Front */}
                   {(() => {
-                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
-                    const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && !url.startsWith("enc2::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
+                    const hasEncryptedDoc = (url) => typeof url === "string" && (url.startsWith("enc::") || url.startsWith("enc2::"));
                     const rawDoc2Front = previewKycUser.kycDocuments?.doc2Url ||
                       previewKycUser.kycDocuments?.panUrl ||
                       previewKycUser.kycDocuments?.chequeUrl ||
@@ -14514,8 +14495,8 @@ export default function AdminPanel() {
 
                   {/* Back */}
                   {(() => {
-                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
-                    const hasEncryptedDoc = (url) => typeof url === "string" && url.startsWith("enc::");
+                    const cleanDocUrl = (url) => (typeof url === "string" && !url.startsWith("enc::") && !url.startsWith("enc2::") && url !== "pending_load" && url.trim().length > 5 ? url.trim() : "");
+                    const hasEncryptedDoc = (url) => typeof url === "string" && (url.startsWith("enc::") || url.startsWith("enc2::"));
                     const rawDoc2Back = previewKycUser.kycDocuments?.doc2BackUrl ||
                       previewKycUser.kycDocuments?.panBackUrl ||
                       previewKycUser.kycDocuments?.chequeBackUrl ||

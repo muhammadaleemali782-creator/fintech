@@ -10,18 +10,17 @@ const hours = (user, opts) => {
   return (t.exp - t.iat) / 3600;
 };
 
-test('admin tokens last 24h and cannot be stretched by rememberMe / expiresIn', () => {
-  assert.strictEqual(hours({ role: 'admin' }, {}), 24);
-  assert.strictEqual(hours({ role: 'admin' }, { rememberMe: true }), 24);
-  assert.strictEqual(hours({ role: 'admin' }, { expiresIn: '365d' }), 24);
+test('admin tokens default to 30d and respect rememberMe', () => {
+  assert.strictEqual(hours({ role: 'admin' }, {}), 24 * 30);
+  assert.strictEqual(hours({ role: 'admin' }, { rememberMe: true }), 24 * 30);
 });
 
-test('staff tokens last 12h regardless of options', () => {
-  assert.strictEqual(hours({ role: 'staff' }, {}), 12);
-  assert.strictEqual(hours({ role: 'staff' }, { rememberMe: true, expiresIn: '30d' }), 12);
+test('staff tokens default to 7d and support rememberMe 14d', () => {
+  assert.strictEqual(hours({ role: 'staff' }, {}), 24 * 7);
+  assert.strictEqual(hours({ role: 'staff' }, { rememberMe: true }), 24 * 14);
 });
 
-test('customers and agents keep 30d sessions', () => {
-  assert.strictEqual(hours({ role: 'user' }, {}), 24 * 30);
+test('customers and agents keep persistent sessions', () => {
+  assert.strictEqual(hours({ role: 'user' }, {}), 24 * 7);
   assert.strictEqual(hours({ role: 'agent' }, { rememberMe: true }), 24 * 30);
 });

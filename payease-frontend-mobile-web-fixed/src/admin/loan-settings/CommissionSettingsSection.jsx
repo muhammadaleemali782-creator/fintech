@@ -6,7 +6,7 @@ import { DEFAULT_LOAN_DEPARTMENT_COMMISSION_PERCENT } from "../../constants/loan
 
 export default function CommissionSettingsSection({ showToast }) {
   const { hasPermission, isAdmin } = usePermissions();
-  const token = tokenStorage.getToken();
+  const getAuthToken = () => tokenStorage.getToken() || localStorage.getItem("token") || "";
 
   const canView = isAdmin || hasPermission("LOAN_AGENT_COMMISSION_VIEW") || hasPermission("loan.agent_commission_view");
   const canSet = isAdmin || hasPermission("LOAN_AGENT_COMMISSION_SET") || hasPermission("loan.agent_commission_set");
@@ -53,11 +53,17 @@ export default function CommissionSettingsSection({ showToast }) {
     if (!canView) return;
     setLoading(true);
     try {
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/loan-department/agent-commission`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${activeToken}` }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to load agent commissions");
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Session expired. Please re-login to Admin.");
+        }
+        throw new Error(data.message || "Failed to load agent commissions");
+      }
 
       setAgents(data.agents || []);
       if (data.loan_department_commission_percent !== undefined) {
@@ -74,18 +80,24 @@ export default function CommissionSettingsSection({ showToast }) {
     } finally {
       setLoading(false);
     }
-  }, [canView, token, showToast]);
+  }, [canView, showToast]);
 
   // 2. Fetch Pending Commission Requests
   const fetchCommissionRequests = useCallback(async () => {
     if (!canView) return;
     setLoadingRequests(true);
     try {
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/loan-department/agent-commission/requests?status=pending`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${activeToken}` }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to load requests");
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Session expired. Please re-login to Admin.");
+        }
+        throw new Error(data.message || "Failed to load requests");
+      }
       setRequests(data.requests || []);
       setPendingCount((data.requests || []).length);
     } catch (err) {
@@ -93,7 +105,7 @@ export default function CommissionSettingsSection({ showToast }) {
     } finally {
       setLoadingRequests(false);
     }
-  }, [canView, token, showToast]);
+  }, [canView, showToast]);
 
   useEffect(() => {
     fetchAgentCommissions();
@@ -118,7 +130,7 @@ export default function CommissionSettingsSection({ showToast }) {
       const res = await fetch(`${API_BASE_URL}/loan-department/department-pools`, {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getAuthToken()}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
@@ -168,7 +180,7 @@ export default function CommissionSettingsSection({ showToast }) {
       const res = await fetch(`${API_BASE_URL}/loan-department/agent-commission/request`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getAuthToken()}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -205,7 +217,7 @@ export default function CommissionSettingsSection({ showToast }) {
       const res = await fetch(`${API_BASE_URL}/loan-department/agent-commission/request`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getAuthToken()}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -235,7 +247,7 @@ export default function CommissionSettingsSection({ showToast }) {
       const res = await fetch(`${API_BASE_URL}/loan-department/agent-commission/requests/${requestId}/approve`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getAuthToken()}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ remarks: "Approved by Admin" })
@@ -261,7 +273,7 @@ export default function CommissionSettingsSection({ showToast }) {
       const res = await fetch(`${API_BASE_URL}/loan-department/agent-commission/requests/${requestId}/reject`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getAuthToken()}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ remarks })

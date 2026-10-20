@@ -19,7 +19,7 @@ import {
 
 export default function LoanSettingsPage() {
   const navigate = useNavigate();
-  const token = tokenStorage.getToken();
+  const getAuthToken = () => tokenStorage.getToken() || localStorage.getItem("token") || "";
 
   // Read Me Modal State
   const [isReadmeOpen, setIsReadmeOpen] = useState(false);
@@ -73,11 +73,17 @@ export default function LoanSettingsPage() {
   const fetchSettings = useCallback(async () => {
     setLoading(true);
     try {
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/admin/loan-settings`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${activeToken}` }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to load loan settings");
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Session expired. Please re-login to Admin.");
+        }
+        throw new Error(data.message || "Failed to load loan settings");
+      }
 
       if (data.settings) {
         setSettings(data.settings);
@@ -91,7 +97,7 @@ export default function LoanSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, showToast]);
+  }, [showToast]);
 
   useEffect(() => {
     fetchSettings();
@@ -132,7 +138,7 @@ export default function LoanSettingsPage() {
       const res = await fetch(`${API_BASE_URL}/admin/loan-settings`, {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getAuthToken()}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ settings, conditions })

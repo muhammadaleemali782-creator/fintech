@@ -1325,13 +1325,13 @@ export default function AdminPanel() {
     const uid = previewKycUser._id;
     const docs = previewKycUser.kycDocuments || {};
     const keys = [
-      { key: "doc1", field: "doc1Url", has: previewKycUser.hasDoc1 !== false },
-      { key: "doc1Back", field: "doc1BackUrl", has: previewKycUser.hasDoc1Back !== false },
-      { key: "doc2", field: "doc2Url", has: previewKycUser.hasDoc2 !== false },
-      { key: "doc2Back", field: "doc2BackUrl", has: previewKycUser.hasDoc2Back !== false }
+      { key: "doc1", field: "doc1Url" },
+      { key: "doc1Back", field: "doc1BackUrl" },
+      { key: "doc2", field: "doc2Url" },
+      { key: "doc2Back", field: "doc2BackUrl" }
     ];
-    keys.forEach(({ key, field, has }) => {
-      if (!has || (docs[field] && !docs[field].startsWith("enc::"))) return;
+    keys.forEach(({ key, field }) => {
+      if (docs[field] && typeof docs[field] === "string" && !docs[field].startsWith("enc::") && docs[field].length > 10) return;
       const cached = kycDocMemoryCache.get(`${uid}_${key}`);
       if (cached) {
         setPreviewKycUser(prev => (prev && prev._id === uid ? {
@@ -1340,8 +1340,9 @@ export default function AdminPanel() {
         } : prev));
         return;
       }
+      const authToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
       fetch(`${API}/admin/kyc-doc/${uid}/${key}`, {
-        headers: { Authorization: `Bearer ${tokenStorage.getToken() || localStorage.getItem("token") || ""}` }
+        headers: { Authorization: `Bearer ${authToken}` }
       })
         .then(r => r.json())
         .then(d => {
@@ -4141,7 +4142,7 @@ export default function AdminPanel() {
       {/* FULLSCREEN LIGHTBOX WITH INTERACTIVE ZOOM & PAN */}
       {lightboxImg && (
         <div
-          className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-4 select-none animate-in fade-in duration-150"
+          className="fixed inset-0 z-[100000] bg-black/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-4 select-none animate-in fade-in duration-150"
           onClick={() => { setLightboxImg(null); setZoomLevel(1); }}
         >
           {/* Header Controls */}
@@ -9805,195 +9806,10 @@ export default function AdminPanel() {
                         )}
 
                         {/* Agent Information Strip */}
-                        <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div className="pt-3 text-xs">
                           <div className="p-2.5 bg-white rounded-xl border border-gray-100">
                             <span className="text-gray-400 font-medium block text-[11px]">Business / Shop</span>
                             <span className="font-bold text-gray-800">{prof.businessName || "Not specified"}</span>
-                          </div>
-
-                          <div className="p-2.5 bg-white rounded-xl border border-gray-100">
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-400 font-medium block text-[11px]">Model & Hierarchy</span>
-                              <span className="px-2 py-0.5 rounded-full font-black text-[10px] bg-indigo-100 text-indigo-900 border border-indigo-200">
-                                4-Category Commission Active
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
-                              <span className="font-bold text-gray-800 text-xs">
-                                {isTeamModel ? (
-                                  <span className="text-amber-700 font-black flex items-center gap-1.5">
-                                     Team Model (Hierarchy Allowed)
-                                  </span>
-                                ) : (
-                                  <span className="text-blue-700 font-black flex items-center gap-1.5">
-                                     Solo Direct (Independent Agent)
-                                  </span>
-                                )}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const target = isTeamModel ? "solo_2" : "team_1";
-                                  const label = isTeamModel ? "Solo Direct" : "Team Model";
-                                  if (window.confirm(`Kya aap ${a.name} ko ${label} me convert karna chahte hain?`)) {
-                                    switchAgentModel(a._id, target);
-                                  }
-                                }}
-                                className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition cursor-pointer flex items-center gap-1.5 shadow-2xs border ${
-                                  isTeamModel
-                                    ? "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300"
-                                    : "bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-300"
-                                } active:scale-95`}
-                                title={isTeamModel ? "Convert to Solo Direct" : "Convert to Team Model"}
-                              >
-                                <span>⇄</span> {isTeamModel ? "Convert to Solo" : "Convert to Team Model"}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 4-Category Commission Rate Controller */}
-                        <div className="mt-3 p-3 bg-white rounded-xl border border-gray-200/90 shadow-2xs space-y-2.5">
-                          <div className="flex flex-wrap items-center justify-between gap-1 border-b border-gray-100 pb-2">
-                            <span className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
-                               Multi-Category Commission Control (Bada / Ghata Sakte Hain)
-                            </span>
-                            <span className="text-[10px] text-gray-500 font-semibold bg-gray-100 px-2 py-0.5 rounded-full">
-                              Per-Product Commission
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
-                            {/* 1. Loan Commission */}
-                            <div className="p-2.5 bg-blue-50/70 border border-blue-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-blue-900 block mb-1">Loan</span>
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="50"
-                                  step="0.5"
-                                  value={agentCategoryInputs[a._id]?.loan !== undefined ? agentCategoryInputs[a._id]?.loan : (prof.commissions?.loan ?? prof.commissionRate ?? 1)}
-                                  onChange={e => {
-                                    const cur = agentCategoryInputs[a._id] || {};
-                                    setAgentCategoryInputs({
-                                      ...agentCategoryInputs,
-                                      [a._id]: {
-                                        ...cur,
-                                        loan: e.target.value
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-2 py-1 text-xs font-black text-blue-950 text-center bg-white border border-blue-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <span className="text-xs font-black text-blue-900">%</span>
-                              </div>
-                            </div>
-
-                            {/* 2. Peer Lending Commission */}
-                            <div className="p-2.5 bg-emerald-50/70 border border-emerald-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-emerald-900 block mb-1">Lending Account</span>
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="50"
-                                  step="0.5"
-                                  value={agentCategoryInputs[a._id]?.lending !== undefined ? agentCategoryInputs[a._id]?.lending : (prof.commissions?.lending ?? 4)}
-                                  onChange={e => {
-                                    const cur = agentCategoryInputs[a._id] || {};
-                                    setAgentCategoryInputs({
-                                      ...agentCategoryInputs,
-                                      [a._id]: {
-                                        ...cur,
-                                        lending: e.target.value
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-2 py-1 text-xs font-black text-emerald-950 text-center bg-white border border-emerald-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
-                                />
-                                <span className="text-xs font-black text-emerald-900">%</span>
-                              </div>
-                            </div>
-
-                            {/* 3. Bond Commission */}
-                            <div className="p-2.5 bg-purple-50/70 border border-purple-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-purple-900 block mb-1">Bonds (365 Days)</span>
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="50"
-                                  step="0.5"
-                                  value={agentCategoryInputs[a._id]?.bond !== undefined ? agentCategoryInputs[a._id]?.bond : (prof.commissions?.bond ?? 4)}
-                                  onChange={e => {
-                                    const cur = agentCategoryInputs[a._id] || {};
-                                    setAgentCategoryInputs({
-                                      ...agentCategoryInputs,
-                                      [a._id]: {
-                                        ...cur,
-                                        bond: e.target.value
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-2 py-1 text-xs font-black text-purple-950 text-center bg-white border border-purple-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500"
-                                />
-                                <span className="text-xs font-black text-purple-900">%</span>
-                              </div>
-                            </div>
-
-                            {/* 4. Agent Loan Limit (Admin Set Quota) */}
-                            <div className="p-2.5 bg-indigo-50/70 border border-indigo-200/90 rounded-xl">
-                              <span className="text-[11px] font-bold text-indigo-950 block mb-1">Agent Loan Limit (₹)</span>
-                              <div className="flex items-center gap-1">
-                                <span className="text-xs font-black text-indigo-900">₹</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="5000"
-                                  placeholder="100000"
-                                  value={agentCategoryInputs[a._id]?.loanLimit !== undefined ? agentCategoryInputs[a._id]?.loanLimit : (a.loanLimit ?? prof.loanLimit ?? 100000)}
-                                  onChange={e => {
-                                    const cur = agentCategoryInputs[a._id] || {};
-                                    setAgentCategoryInputs({
-                                      ...agentCategoryInputs,
-                                      [a._id]: {
-                                        ...cur,
-                                        loanLimit: e.target.value
-                                      }
-                                    });
-                                  }}
-                                  className="w-full px-2 py-1 text-xs font-black text-indigo-950 text-center bg-white border border-indigo-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                              </div>
-                              <span className="text-[9px] text-indigo-600 block mt-0.5 font-medium">
-                                Dept Pool Baki: ₹{Math.max(0, Number(loanDepartmentPool.totalPool || 1000000) - agents.reduce((sum, ag) => sum + (agentCategoryInputs[ag._id]?.loanLimit !== undefined ? Number(agentCategoryInputs[ag._id]?.loanLimit) || 0 : Number(ag.loanLimit ?? ag.agentProfile?.loanLimit ?? 100000)), 0)).toLocaleString("en-IN")}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100">
-                            <span className="text-[11px] text-gray-500">
-                              Wallet Deposits / P2P Transfers: <strong className="text-gray-700">0% (Only 1-Time ₹30 Referral on 30-Day ₹5K Hold)</strong>
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const cur = agentCategoryInputs[a._id] || {};
-                                const catRates = {
-                                  loan: parseFloat(cur.loan !== undefined ? cur.loan : (prof.commissions?.loan ?? prof.commissionRate ?? 1)),
-                                  lending: parseFloat(cur.lending !== undefined ? cur.lending : (prof.commissions?.lending ?? 4)),
-                                  investment: parseFloat(cur.investment !== undefined ? cur.investment : (prof.commissions?.investment ?? 1)),
-                                  bond: parseFloat(cur.bond !== undefined ? cur.bond : (prof.commissions?.bond ?? 4))
-                                };
-                                const assignedLimit = cur.loanLimit !== undefined ? cur.loanLimit : (a.loanLimit ?? prof.loanLimit ?? 100000);
-                                updateAgentCommission(a._id, catRates, assignedLimit);
-                              }}
-                              disabled={savingAgentCommission[a._id]}
-                              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
-                            >
-                               {savingAgentCommission[a._id] ? "Updating..." : "Save Commission & Loan Limit"}
-                            </button>
                           </div>
                         </div>
 
@@ -14787,7 +14603,15 @@ export default function AdminPanel() {
 
                   {/* Front */}
                   {(() => {
-                    const doc1Front = previewKycUser.kycDocuments?.doc1Url || previewKycUser.kycDocuments?.docUrl;
+                    const doc1Front = previewKycUser.kycDocuments?.doc1Url ||
+                      previewKycUser.kycDocuments?.docUrl ||
+                      previewKycUser.kycDocuments?.aadharUrl ||
+                      previewKycUser.kycDocuments?.aadharFrontUrl ||
+                      previewKycUser.documents?.doc1Url ||
+                      previewKycUser.documents?.aadharUrl ||
+                      previewKycUser.documents?.docUrl ||
+                      previewKycUser.doc1Url ||
+                      previewKycUser.aadharUrl;
                     const isPdf = typeof doc1Front === "string" && (doc1Front.startsWith("data:application/pdf") || doc1Front.toLowerCase().includes(".pdf"));
                     return doc1Front ? (
                       <div className="space-y-1">
@@ -14817,7 +14641,12 @@ export default function AdminPanel() {
 
                   {/* Back */}
                   {(() => {
-                    const doc1Back = previewKycUser.kycDocuments?.doc1BackUrl;
+                    const doc1Back = previewKycUser.kycDocuments?.doc1BackUrl ||
+                      previewKycUser.kycDocuments?.aadharBackUrl ||
+                      previewKycUser.documents?.doc1BackUrl ||
+                      previewKycUser.documents?.aadharBackUrl ||
+                      previewKycUser.doc1BackUrl ||
+                      previewKycUser.aadharBackUrl;
                     const isPdf = typeof doc1Back === "string" && (doc1Back.startsWith("data:application/pdf") || doc1Back.toLowerCase().includes(".pdf"));
                     return doc1Back ? (
                       <div className="space-y-1 pt-1.5 border-t border-gray-200/60">
@@ -14855,7 +14684,16 @@ export default function AdminPanel() {
 
                   {/* Front */}
                   {(() => {
-                    const doc2Front = previewKycUser.kycDocuments?.doc2Url;
+                    const doc2Front = previewKycUser.kycDocuments?.doc2Url ||
+                      previewKycUser.kycDocuments?.panUrl ||
+                      previewKycUser.kycDocuments?.chequeUrl ||
+                      previewKycUser.kycDocuments?.chequeFrontUrl ||
+                      previewKycUser.documents?.doc2Url ||
+                      previewKycUser.documents?.panUrl ||
+                      previewKycUser.documents?.chequeUrl ||
+                      previewKycUser.doc2Url ||
+                      previewKycUser.panUrl ||
+                      previewKycUser.chequeUrl;
                     const isPdf = typeof doc2Front === "string" && (doc2Front.startsWith("data:application/pdf") || doc2Front.toLowerCase().includes(".pdf"));
                     return doc2Front ? (
                       <div className="space-y-1">
@@ -14885,7 +14723,13 @@ export default function AdminPanel() {
 
                   {/* Back */}
                   {(() => {
-                    const doc2Back = previewKycUser.kycDocuments?.doc2BackUrl;
+                    const doc2Back = previewKycUser.kycDocuments?.doc2BackUrl ||
+                      previewKycUser.kycDocuments?.panBackUrl ||
+                      previewKycUser.kycDocuments?.chequeBackUrl ||
+                      previewKycUser.documents?.doc2BackUrl ||
+                      previewKycUser.documents?.panBackUrl ||
+                      previewKycUser.doc2BackUrl ||
+                      previewKycUser.panBackUrl;
                     const isPdf = typeof doc2Back === "string" && (doc2Back.startsWith("data:application/pdf") || doc2Back.toLowerCase().includes(".pdf"));
                     return doc2Back ? (
                       <div className="space-y-1 pt-1.5 border-t border-gray-200/60">

@@ -21,11 +21,11 @@ export function slimStringify(value) {
   );
 }
 
-const pendingRecords = new Map(); // cache key -> record  (localStorage mirror + IndexedDB)
-const pendingLegacy = new Map();  // raw localStorage key -> value (stringified at flush time)
+const pendingRecords = new Map(); // cache key -> record  (IndexedDB queue)
+const pendingLegacy = new Map();  // raw localStorage key -> value
 let flushScheduled = false;
 
-function flushPersistQueue() {
+export function flushPersistQueue() {
   flushScheduled = false;
   if (typeof window === "undefined") return;
   const records = Array.from(pendingRecords.values());
@@ -49,21 +49,13 @@ function flushPersistQueue() {
 }
 
 function schedulePersistFlush() {
-  if (typeof window === "undefined") return;
-  // App already hidden/closing: write NOW (no idle time will come)
-  if (typeof document !== "undefined" && document.visibilityState === "hidden") { flushPersistQueue(); return; }
-  if (flushScheduled) return;
-  flushScheduled = true;
-  if (typeof window.requestIdleCallback === "function") {
-    window.requestIdleCallback(flushPersistQueue, { timeout: 2500 });
-  } else {
-    setTimeout(flushPersistQueue, 400);
-  }
+  flushPersistQueue();
 }
 
 if (typeof window !== "undefined") {
-  // Don't lose the last writes when the app is backgrounded / closed
+  // Guarantee all writes persist when the app is backgrounded / closed
   window.addEventListener("pagehide", flushPersistQueue);
+  window.addEventListener("beforeunload", flushPersistQueue);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushPersistQueue(); });
 }
 
@@ -193,6 +185,10 @@ export function parseCachedNumber(raw, fallback = 0) {
       return isFinite(n) ? n : fallback;
     }
   }
+  if (typeof raw === "object" && "data" in raw) {
+    const n = Number(raw.data);
+    return isFinite(n) ? n : fallback;
+  }
   return fallback;
 }
 
@@ -214,7 +210,7 @@ export const CacheManager = {
     // 1. Try L1 memory cache
     const mem = memoryCache.get(key);
     if (mem !== undefined && mem !== null) {
-      if (typeof mem === "object" && "data" in mem) return mem.data;
+      if (typeof mem === "object" && !Array.isArray(mem) && "data" in mem) return mem.data;
       return mem;
     }
 
@@ -223,7 +219,7 @@ export const CacheManager = {
     if (raw !== null && raw !== undefined) {
       try {
         const parsed = JSON.parse(raw);
-        if (parsed !== null && typeof parsed === "object" && "data" in parsed) {
+        if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) && "data" in parsed) {
           memoryCache.set(key, parsed);
           return parsed.data;
         }
@@ -242,7 +238,7 @@ export const CacheManager = {
     if (!key) return { data: fallback, lastUpdated: 0 };
     const mem = memoryCache.get(key);
     if (mem !== undefined && mem !== null) {
-      if (typeof mem === "object" && "data" in mem) {
+      if (typeof mem === "object" && !Array.isArray(mem) && "data" in mem) {
         return { data: mem.data, lastUpdated: mem.lastUpdated || 0 };
       }
       return { data: mem, lastUpdated: 0 };
@@ -251,7 +247,7 @@ export const CacheManager = {
     if (raw !== null && raw !== undefined) {
       try {
         const parsed = JSON.parse(raw);
-        if (parsed !== null && typeof parsed === "object" && "data" in parsed) {
+        if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) && "data" in parsed) {
           memoryCache.set(key, parsed);
           return { data: parsed.data, lastUpdated: parsed.lastUpdated || 0 };
         }
@@ -305,16 +301,41 @@ export const CacheManager = {
     // 1. Update L1 Memory Cache immediately (UI reads from here)
     memoryCache.set(key, record);
 
-    // 2. Persist (localStorage mirror + IndexedDB) later, off the interaction path, one write per key
-    pendingRecords.set(key, record);
-    schedulePersistFlush();
+    // 2. Persist to localStorage immediately and synchronously (survives app kill / close)
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        localStorage.setItem(key, slimStringify(record));
+      } catch {
+        try {
+          CacheManager.evictTemporaryStorage();
+          localStorage.setItem(key, slimStringify(record));
+        } catch {}
+      }
+    }
+
+    // 3. Native IndexedDB mirror in background (non-blocking)
+    getIndexedDB().then((db) => {
+      if (!db) return;
+      try {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        tx.objectStore(STORE_NAME).put(record);
+      } catch {}
+    }).catch(() => {});
   },
 
-  // Deferred, slimmed replacement for localStorage.setItem(key, JSON.stringify(value))
+  // Immediate, slimmed replacement for localStorage.setItem(key, JSON.stringify(value))
   persistLegacy(key, value) {
     if (!key) return;
-    pendingLegacy.set(key, value);
-    schedulePersistFlush();
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        localStorage.setItem(key, slimStringify(value));
+      } catch {
+        try {
+          CacheManager.evictTemporaryStorage();
+          localStorage.setItem(key, slimStringify(value));
+        } catch {}
+      }
+    }
   },
 
   // JSON string without huge base64 blobs (use for the small "user" session object)

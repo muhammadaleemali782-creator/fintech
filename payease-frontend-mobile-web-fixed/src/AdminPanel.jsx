@@ -105,26 +105,24 @@ async function cachedAdminFetch(url, options = {}, ttlMs = 3000, forceRefresh = 
       return res;
     } catch {
       clearTimeout(timeoutTimer);
-      // Fallback on network error only if not explicitly forcing fresh data
-      if (!forceRefresh) {
-        if (apiCache.has(cacheKey)) {
-          const cached = apiCache.get(cacheKey);
-          return {
-            ok: true,
-            status: 200,
-            fromCache: true,
-            json: async () => cached.data
-          };
-        }
-        const persisted = appCache.get(persistentKey, null);
-        if (persisted !== null) {
-          return {
-            ok: true,
-            status: 200,
-            fromCache: true,
-            json: async () => persisted
-          };
-        }
+      // Fallback on network error to cached data (Stale-While-Revalidate resilience)
+      if (apiCache.has(cacheKey)) {
+        const cached = apiCache.get(cacheKey);
+        return {
+          ok: true,
+          status: 200,
+          fromCache: true,
+          json: async () => cached.data
+        };
+      }
+      const persisted = appCache.get(persistentKey, null);
+      if (persisted !== null) {
+        return {
+          ok: true,
+          status: 200,
+          fromCache: true,
+          json: async () => persisted
+        };
       }
       return { ok: false, status: 504, json: async () => ({}) };
     } finally {
@@ -1054,6 +1052,21 @@ export default function AdminPanel() {
       setTab(nextTab);
     });
   }, [tab, navigate]);
+
+  const unwrapCachedArray = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === "object" && Array.isArray(val.data)) return val.data;
+    if (typeof val === "string") {
+      try {
+        const p = JSON.parse(val);
+        if (Array.isArray(p)) return p;
+        if (p && typeof p === "object" && Array.isArray(p.data)) return p.data;
+      } catch {}
+    }
+    return [];
+  };
+
   const [stats, setStats] = useState(() => {
     const cached = appCache.get("educa_admin_cached_stats", null);
     if (cached && typeof cached === "object" && !cached.message) {
@@ -1061,7 +1074,11 @@ export default function AdminPanel() {
     }
     const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_stats") : null;
     if (raw) {
-      try { return JSON.parse(raw); } catch {}
+      try {
+        let p = JSON.parse(raw);
+        if (p && typeof p === "object" && "data" in p) p = p.data;
+        if (p && typeof p === "object" && !p.message) return p;
+      } catch {}
     }
     return null;
   });
@@ -1088,15 +1105,19 @@ export default function AdminPanel() {
   const [issueSelectedAgentFilter, setIssueSelectedAgentFilter] = useState("all");
   const [issueTimeFilter, setIssueTimeFilter] = useState("all");
   const [pending, setPending] = useState(() => {
-    const v = appCache.get("educa_admin_cached_pending_list", null);
-    if (Array.isArray(v)) return v;
-    const old = appCache.get("educa_admin_cached_pending", null);
-    return Array.isArray(old) ? old : [];
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_pending_list", null));
+    if (v.length > 0) return v;
+    const old = unwrapCachedArray(appCache.get("educa_admin_cached_pending", null));
+    if (old.length > 0) return old;
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_pending_list") : null;
+    return unwrapCachedArray(raw);
   });
   const [pendingSubTab, setPendingSubTab] = useState("active"); // "active" | "loans" | "bonds" | "hold" | "approved"
   const [approvedRequests, setApprovedRequests] = useState(() => {
-    const v = appCache.get("educa_admin_cached_approved_requests", null);
-    return Array.isArray(v) ? v : [];
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_approved_requests", null));
+    if (v.length > 0) return v;
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_approved_requests") : null;
+    return unwrapCachedArray(raw);
   });
   const [approvedLoading, setApprovedLoading] = useState(false);
   const [approvedFilter, setApprovedFilter] = useState("all");
@@ -1104,50 +1125,59 @@ export default function AdminPanel() {
   const [holdData, setHoldData] = useState(() => appCache.get("educa_admin_cached_hold", { holdCount: 0, groups: [] }));
   const [loadingHold, setLoadingHold] = useState(false);
   const [agents, setAgents] = useState(() => {
-    const v = appCache.get("educa_admin_cached_agents_list", null);
-    if (Array.isArray(v) && v.length > 0) return v;
-    const old = appCache.get("educa_admin_cached_agents", null);
-    if (Array.isArray(old) && old.length > 0) return old;
-    return [];
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_agents_list", null));
+    if (v.length > 0) return v;
+    const old = unwrapCachedArray(appCache.get("educa_admin_cached_agents", null));
+    if (old.length > 0) return old;
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_agents_list") : null;
+    return unwrapCachedArray(raw);
   });
   const [agentCommissionInput, setAgentCommissionInput] = useState({});
   const [agentCategoryInputs, setAgentCategoryInputs] = useState({});
   const [savingAgentCommission, setSavingAgentCommission] = useState({});
   const [users, setUsers] = useState(() => {
-    const v = appCache.get("educa_admin_cached_users_list", null);
-    if (Array.isArray(v) && v.length > 0) return v;
-    const old = appCache.get("educa_admin_cached_users", null);
-    if (Array.isArray(old) && old.length > 0) return old;
-    return [];
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_users_list", null));
+    if (v.length > 0) return v;
+    const old = unwrapCachedArray(appCache.get("educa_admin_cached_users", null));
+    if (old.length > 0) return old;
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_users_list") : null;
+    return unwrapCachedArray(raw);
   });
   const [devices, setDevices] = useState(() => {
-    const v = appCache.get("educa_admin_cached_devices_list", null);
-    if (Array.isArray(v)) return v;
-    const old = appCache.get("educa_admin_cached_devices", null);
-    return Array.isArray(old) ? old : [];
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_devices_list", null));
+    if (v.length > 0) return v;
+    const old = unwrapCachedArray(appCache.get("educa_admin_cached_devices", null));
+    if (old.length > 0) return old;
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_devices_list") : null;
+    return unwrapCachedArray(raw);
   });
   const [loans, setLoans] = useState(() => {
-    const v = appCache.get("educa_admin_cached_loans_list", null);
-    if (Array.isArray(v) && v.length > 0) return v;
-    const old = appCache.get("educa_admin_cached_loans", null);
-    if (Array.isArray(old) && old.length > 0) return old;
-    return [];
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_loans_list", null));
+    if (v.length > 0) return v;
+    const old = unwrapCachedArray(appCache.get("educa_admin_cached_loans", null));
+    if (old.length > 0) return old;
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_loans_list") : null;
+    return unwrapCachedArray(raw);
   });
   const [bonds, setBonds] = useState(() => {
-    const v = appCache.get("educa_admin_cached_bonds_list", null);
-    if (Array.isArray(v)) return v;
-    const old = appCache.get("educa_admin_cached_bonds", null);
-    return Array.isArray(old) ? old : [];
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_bonds_list", null));
+    if (v.length > 0) return v;
+    const old = unwrapCachedArray(appCache.get("educa_admin_cached_bonds", null));
+    if (old.length > 0) return old;
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_bonds_list") : null;
+    return unwrapCachedArray(raw);
   });
   const pendingLoans = useMemo(() => (Array.isArray(loans) ? loans.filter(l => l.status === "pending") : []), [loans]);
   const activeLoansCount = useMemo(() => (Array.isArray(loans) ? loans.filter(l => l.status === "active").length : 0), [loans]);
   const pendingBonds = useMemo(() => (Array.isArray(bonds) ? bonds.filter(b => b.status === "pending") : []), [bonds]);
   const totalPendingDeskCount = (pending?.length || 0) + pendingLoans.length + pendingBonds.length;
   const [notifications, setNotifications] = useState(() => {
-    const v = appCache.get("educa_admin_cached_notifications_list", null);
-    if (Array.isArray(v)) return v;
-    const old = appCache.get("educa_admin_cached_notifications", null);
-    return Array.isArray(old) ? old : [];
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_notifications_list", null));
+    if (v.length > 0) return v;
+    const old = unwrapCachedArray(appCache.get("educa_admin_cached_notifications", null));
+    if (old.length > 0) return old;
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_notifications_list") : null;
+    return unwrapCachedArray(raw);
   });
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [toast, setToast] = useState({ text: "", type: "" });
@@ -2620,6 +2650,7 @@ export default function AdminPanel() {
       console.warn("Bootstrap admin fetch error:", e);
     } finally {
       setIsRefreshing(false);
+      setLoadingStats(false);
     }
   }, [headers]); // eslint-disable-line
 
@@ -2634,6 +2665,48 @@ export default function AdminPanel() {
     loadBootstrapAdmin(true);
     loadAnalytics(true);
   }, []); // eslint-disable-line
+
+  // Persist admin state immediately on pagehide / visibilitychange / beforeunload
+  useEffect(() => {
+    const saveSnapshot = () => {
+      try {
+        if (stats) {
+          localStorage.setItem("educa_admin_cached_stats", CacheManager.slim(stats));
+          appCache.set("educa_admin_cached_stats", stats);
+        }
+        if (Array.isArray(pending) && pending.length > 0) {
+          localStorage.setItem("educa_admin_cached_pending_list", CacheManager.slim(pending));
+          appCache.set("educa_admin_cached_pending_list", pending);
+        }
+        if (Array.isArray(users) && users.length > 0) {
+          localStorage.setItem("educa_admin_cached_users_list", CacheManager.slim(users));
+          appCache.set("educa_admin_cached_users_list", users);
+        }
+        if (Array.isArray(loans) && loans.length > 0) {
+          localStorage.setItem("educa_admin_cached_loans_list", CacheManager.slim(loans));
+          appCache.set("educa_admin_cached_loans_list", loans);
+        }
+        if (Array.isArray(bonds) && bonds.length > 0) {
+          localStorage.setItem("educa_admin_cached_bonds_list", CacheManager.slim(bonds));
+          appCache.set("educa_admin_cached_bonds_list", bonds);
+        }
+        if (Array.isArray(agents) && agents.length > 0) {
+          localStorage.setItem("educa_admin_cached_agents_list", CacheManager.slim(agents));
+          appCache.set("educa_admin_cached_agents_list", agents);
+        }
+      } catch {}
+    };
+    window.addEventListener("pagehide", saveSnapshot);
+    window.addEventListener("beforeunload", saveSnapshot);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") saveSnapshot();
+    });
+    return () => {
+      window.removeEventListener("pagehide", saveSnapshot);
+      window.removeEventListener("beforeunload", saveSnapshot);
+      document.removeEventListener("visibilitychange", saveSnapshot);
+    };
+  }, [stats, pending, users, loans, bonds, agents]);
 
   // Auto-route to pending loans subtab if normal deposits are empty but loans are pending
   useEffect(() => {

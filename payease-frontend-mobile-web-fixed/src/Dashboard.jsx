@@ -494,10 +494,24 @@ export default function Dashboard() {
     [token]
   );
 
-  const pickPositiveNumber = (...candidates) => {
+  const unwrapCachedArray = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === "object" && Array.isArray(val.data)) return val.data;
+    if (typeof val === "string") {
+      try {
+        const p = JSON.parse(val);
+        if (Array.isArray(p)) return p;
+        if (p && typeof p === "object" && Array.isArray(p.data)) return p.data;
+      } catch {}
+    }
+    return [];
+  };
+
+  const pickValidNumber = (...candidates) => {
     for (const c of candidates) {
       const n = parseCachedNumber(c, null);
-      if (n !== null && isFinite(n) && n > 0) return n;
+      if (n !== null && isFinite(n)) return n;
     }
     return 0;
   };
@@ -507,7 +521,7 @@ export default function Dashboard() {
     const globalCached = appCache.get("educa_cached_balance", null);
     const profBal = cachedProf?.balance;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_balance") : null;
-    return pickPositiveNumber(userScoped, globalCached, profBal, rawLocal, userStored?.balance);
+    return pickValidNumber(userScoped, globalCached, profBal, rawLocal, userStored?.balance);
   });
   const [cachedProfitBalance, setCachedProfitBalance] = useState(() => {
     if (userRole === "admin") return 0;
@@ -516,61 +530,55 @@ export default function Dashboard() {
     const profPb = cachedProf?.profitBalance;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_balance") : null;
     const rolledLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_rolled") : null;
-    return pickPositiveNumber(userScoped, globalCached, profPb, rawLocal, rolledLocal, userStored?.profitBalance);
+    return pickValidNumber(userScoped, globalCached, profPb, rawLocal, rolledLocal, userStored?.profitBalance);
   });
   const [loadingDashboard, setLoadingDashboard] = useState(!appCache.has("educa_cached_profile"));
   const [txns, setTxns] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "transactions"), null) : null;
-    if (Array.isArray(userScoped) && userScoped.length > 0) return userScoped;
+    const a1 = unwrapCachedArray(userScoped);
+    if (a1.length > 0) return a1;
     const globalCached = appCache.get("educa_cached_txns", null);
-    if (Array.isArray(globalCached) && globalCached.length > 0) return globalCached;
+    const a2 = unwrapCachedArray(globalCached);
+    if (a2.length > 0) return a2;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_txns") : null;
-    if (rawLocal) {
-      try {
-        const parsed = JSON.parse(rawLocal);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    return [];
+    return unwrapCachedArray(rawLocal);
   });
   const [loans, setLoans] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "loans"), null) : null;
-    if (Array.isArray(userScoped) && userScoped.length > 0) return userScoped;
+    const a1 = unwrapCachedArray(userScoped);
+    if (a1.length > 0) return a1;
     const globalCached = appCache.get("educa_cached_loans", []);
-    if (Array.isArray(globalCached) && globalCached.length > 0) return globalCached;
+    const a2 = unwrapCachedArray(globalCached);
+    if (a2.length > 0) return a2;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_loans") : null;
-    if (rawLocal) {
-      try {
-        const parsed = JSON.parse(rawLocal);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    return [];
+    return unwrapCachedArray(rawLocal);
   });
   const [bonds, setBonds] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "bonds"), null) : null;
-    if (Array.isArray(userScoped) && userScoped.length > 0) return userScoped;
+    const a1 = unwrapCachedArray(userScoped);
+    if (a1.length > 0) return a1;
     const globalCached = appCache.get("educa_cached_bonds", []);
-    if (Array.isArray(globalCached) && globalCached.length > 0) return globalCached;
+    const a2 = unwrapCachedArray(globalCached);
+    if (a2.length > 0) return a2;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_bonds") : null;
-    if (rawLocal) {
-      try {
-        const parsed = JSON.parse(rawLocal);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    return [];
+    return unwrapCachedArray(rawLocal);
   });
   const [showLoans, setShowLoans] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "loans"), null) : null;
-    const cachedLoans = Array.isArray(userScoped) ? userScoped : appCache.get("educa_cached_loans", []);
-    return Array.isArray(cachedLoans) && cachedLoans.length > 0;
+    const cachedLoans = unwrapCachedArray(userScoped).length > 0 ? unwrapCachedArray(userScoped) : unwrapCachedArray(appCache.get("educa_cached_loans", []));
+    return cachedLoans.length > 0;
   });
   const [toast, setToast] = useState({ text: "", type: "" });
   const [modal, setModal] = useState(null); // 'deposit' | 'withdraw' | 'profile' | 'my_qr' | 'send_money' | 'passbook' | 'cards'
   const [passbookFilter, setPassbookFilter] = useState("all"); // 'all' | 'in' | 'out'
   const [accountModal, setAccountModal] = useState(null); // 'wallet' | 'debt' | 'lending' | 'personal_loan' | 'student_loan' | 'business_loan'
-  const [currentRate, setCurrentRate] = useState(() => Number(appCache.get("educa_cached_current_rate", 12)));
+  const [currentRate, setCurrentRate] = useState(() => {
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "current_rate"), null) : null;
+    const globalCached = appCache.get("educa_cached_current_rate", null);
+    const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_current_rate") : null;
+    const n = pickValidNumber(userScoped, globalCached, rawLocal);
+    return n > 0 ? n : 12;
+  });
   const [referralCode, setReferralCode] = useState(userStored.referralCode || "");
   const [referralEarnings, setReferralEarnings] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -627,7 +635,19 @@ export default function Dashboard() {
 
   // Dues & Loan Installment states
   const [activeLoanDetails, setActiveLoanDetails] = useState(() => {
-    return appCache.get("educa_cached_active_loan", null);
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "active_loan"), null) : null;
+    if (userScoped && typeof userScoped === "object" && (userScoped.hasActiveLoan !== undefined || userScoped._id)) return userScoped;
+    const globalCached = appCache.get("educa_cached_active_loan", null);
+    if (globalCached && typeof globalCached === "object" && (globalCached.hasActiveLoan !== undefined || globalCached._id)) return globalCached;
+    const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_active_loan") : null;
+    if (rawLocal) {
+      try {
+        let p = JSON.parse(rawLocal);
+        if (p && typeof p === "object" && "data" in p) p = p.data;
+        if (p && typeof p === "object" && (p.hasActiveLoan !== undefined || p._id)) return p;
+      } catch {}
+    }
+    return null;
   });
   const [submitInstallmentModal, setSubmitInstallmentModal] = useState(null);
   const [installmentUtr, setInstallmentUtr] = useState("");
@@ -672,7 +692,19 @@ export default function Dashboard() {
 
   // Agent Performance Dashboard State
   const [agentMetrics, setAgentMetrics] = useState(() => {
-    return appCache.get("educa_cached_agent_metrics", null);
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "agent_stats"), null) : null;
+    if (userScoped && typeof userScoped === "object") return userScoped;
+    const globalCached = appCache.get("educa_cached_agent_metrics", null);
+    if (globalCached && typeof globalCached === "object") return globalCached;
+    const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_agent_metrics") : null;
+    if (rawLocal) {
+      try {
+        let p = JSON.parse(rawLocal);
+        if (p && typeof p === "object" && "data" in p) p = p.data;
+        if (p && typeof p === "object") return p;
+      } catch {}
+    }
+    return null;
   });
   const [loadingAgentMetrics, setLoadingAgentMetrics] = useState(false);
   const [agentCustomerSearch, setAgentCustomerSearch] = useState("");
@@ -709,17 +741,13 @@ export default function Dashboard() {
   // Profit Wallet Statement / History State
   const [profitHistory, setProfitHistory] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "profit_history"), null) : null;
-    if (Array.isArray(userScoped) && userScoped.length > 0) return userScoped;
+    const a1 = unwrapCachedArray(userScoped);
+    if (a1.length > 0) return a1;
     const globalCached = appCache.get("educa_cached_profit_history", null);
-    if (Array.isArray(globalCached) && globalCached.length > 0) return globalCached;
+    const a2 = unwrapCachedArray(globalCached);
+    if (a2.length > 0) return a2;
     const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_profit_history") : null;
-    if (rawLocal) {
-      try {
-        const parsed = JSON.parse(rawLocal);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    return [];
+    return unwrapCachedArray(rawLocal);
   });
   const [loadingProfitHistory, setLoadingProfitHistory] = useState(false);
 
@@ -773,7 +801,7 @@ export default function Dashboard() {
 
   const [depForm, setDepForm] = useState({ amount: "", method: "upi", utrNumber: "", proofUrl: "", proofName: "" });
   const [depositDetails, setDepositDetails] = useState(() => {
-    return appCache.get("educa_cached_deposit_details", {
+    const fallbackDetails = {
       upiId: "educafinance@upi",
       upiName: "Educa Finance & Payments",
       accountNumber: "5010045239128",
@@ -782,7 +810,20 @@ export default function Dashboard() {
       branch: "Jhalwa Branch, Prayagraj",
       accountHolder: "Educa Fintech Admin",
       instructions: "Payment complete karne ke baad 12-digit UTR / Ref Number enter karke Submit karein."
-    });
+    };
+    const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "deposit_details"), null) : null;
+    if (userScoped && typeof userScoped === "object" && userScoped.upiId) return userScoped;
+    const globalCached = appCache.get("educa_cached_deposit_details", null);
+    if (globalCached && typeof globalCached === "object" && globalCached.upiId) return globalCached;
+    const rawLocal = typeof localStorage !== "undefined" ? localStorage.getItem("educa_cached_deposit_details") : null;
+    if (rawLocal) {
+      try {
+        let p = JSON.parse(rawLocal);
+        if (p && typeof p === "object" && "data" in p) p = p.data;
+        if (p && typeof p === "object" && p.upiId) return p;
+      } catch {}
+    }
+    return fallbackDetails;
   });
   const [copiedDepField, setCopiedDepField] = useState("");
   const [wdPayoutMode, setWdPayoutMode] = useState("saved"); // "saved" | "change"
@@ -2905,36 +2946,54 @@ export default function Dashboard() {
           }
         }
         if (userProfile && (userProfile._id || userProfile.id)) {
-          CacheManager.persistLegacy("educa_cached_profile", userProfile);
+          localStorage.setItem("educa_cached_profile", CacheManager.slim(userProfile));
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profile"), userProfile);
         }
         if (Array.isArray(txns) && txns.length > 0) {
-          CacheManager.persistLegacy("educa_cached_txns", txns);
+          localStorage.setItem("educa_cached_txns", CacheManager.slim(txns));
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "transactions"), txns);
         }
         if (Array.isArray(loans) && loans.length > 0) {
-          CacheManager.persistLegacy("educa_cached_loans", loans);
+          localStorage.setItem("educa_cached_loans", CacheManager.slim(loans));
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "loans"), loans);
         }
         if (Array.isArray(bonds) && bonds.length > 0) {
-          CacheManager.persistLegacy("educa_cached_bonds", bonds);
+          localStorage.setItem("educa_cached_bonds", CacheManager.slim(bonds));
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "bonds"), bonds);
         }
         if (Array.isArray(profitHistory) && profitHistory.length > 0) {
-          CacheManager.persistLegacy("educa_cached_profit_history", profitHistory);
+          localStorage.setItem("educa_cached_profit_history", CacheManager.slim(profitHistory));
           if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "profit_history"), profitHistory);
+        }
+        if (activeLoanDetails) {
+          localStorage.setItem("educa_cached_active_loan", CacheManager.slim(activeLoanDetails));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "active_loan"), activeLoanDetails);
+        }
+        if (depositDetails) {
+          localStorage.setItem("educa_cached_deposit_details", CacheManager.slim(depositDetails));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "deposit_details"), depositDetails);
+        }
+        if (currentRate) {
+          localStorage.setItem("educa_cached_current_rate", String(currentRate));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "current_rate"), currentRate);
+        }
+        if (agentMetrics) {
+          localStorage.setItem("educa_cached_agent_metrics", CacheManager.slim(agentMetrics));
+          if (currentUserId) CacheManager.set(CacheManager.createKey(userRole, currentUserId, "agent_stats"), agentMetrics);
         }
       } catch {}
     };
     window.addEventListener("pagehide", saveSnapshot);
     window.addEventListener("beforeunload", saveSnapshot);
-    document.addEventListener("visibilitychange", saveSnapshot);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") saveSnapshot();
+    });
     return () => {
       window.removeEventListener("pagehide", saveSnapshot);
       window.removeEventListener("beforeunload", saveSnapshot);
       document.removeEventListener("visibilitychange", saveSnapshot);
     };
-  }, [balance, cachedProfitBalance, userProfile, txns, loans, bonds, profitHistory, currentUserId, userRole]);
+  }, [balance, cachedProfitBalance, userProfile, txns, loans, bonds, profitHistory, activeLoanDetails, depositDetails, currentRate, agentMetrics, currentUserId, userRole]);
 
   const activeCapital = Number(userProfile.balance ?? balance ?? 0);
 

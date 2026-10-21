@@ -170,6 +170,25 @@ D:\Backup projects\Paytment website\
 
 ---
 
+### Update J: Desktop Users & Accounts Table Complete Redesign & Realignment
+- **Problem Solved**:
+  1. Desktop Users & Accounts table suffered severe vertical misalignment (`align-top` on varying-height cells, causing jagged rows and floating badges).
+  2. Redundant per-row "Locked (5)" button was cluttering every single row in the APY column (lock is centrally controlled in the header pill).
+  3. Customer details were unstyled raw stacked text with zero visual hierarchy or avatar.
+  4. Card tier rendered as a broken stacked card with a chunky yellow button.
+  5. Action buttons were bloated full-width buttons taking excessive vertical height.
+- **Exact Locations**:
+  1. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L9928-L10260):
+     - **Vertical Alignment**: Standardized every single `<td>` to `align-middle py-3.5 px-3/4` for uniform row baseline.
+     - **Customer & Account**: Added subtle gradient initial avatar circle (`BS`, `AG`) + bold high-contrast customer name + role badge (Agent/Staff) + monospace A/C pill + phone/email with icons.
+     - **KYC Verification**: Modern status badge (`✓ Verified`, `⏳ Pending`, `✕ Rejected`) + inline `📄 View Docs` button + monospace UID.
+     - **Interest APY**: Single clean badge `12% p.a.` when locked (removed redundant per-row "Locked" toggle). Switches to inline input + Save button when unlocked via header.
+     - **Card Tier & VIP**: Replaced yellow block with `👑 PLATINUM (VIP)` with subtle `Revoke VIP` link, or `SILVER (0/4)` with sleek `Unlock VIP` button.
+     - **Wallets & Capital**: Clean rounded dot badges for wallets, high-contrast monospace active capital figures, structured 24h yield & 30ms live accrual cells.
+     - **Actions**: Structured primary button (`Block` / `Unblock`) + clean secondary buttons (`🔑 Pass` / `👥 Desk`).
+
+---
+
 ## 4. Critical Rules & Guardrails ("DO NOT TOUCH")
 
 1. **DO NOT Re-introduce Asynchronous Queuing in `CacheManager.js`**:

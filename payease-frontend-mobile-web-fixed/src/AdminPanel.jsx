@@ -9925,347 +9925,345 @@ export default function AdminPanel() {
                 <p className="py-10 text-center text-gray-400 text-sm">No users found for this filter</p>
               ) : (
                 <>
-                  <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-100 shadow-xs">
-                    <table className="w-full min-w-[1240px] border-collapse bg-white">
+                  <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/80 shadow-xs bg-white">
+                    <table className="w-full min-w-[1280px] border-collapse">
                       <thead>
-                        <tr className="bg-slate-50/90 border-b border-gray-200 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                          <th className="py-3.5 px-3 w-[180px]">User & Account</th>
-                          <th className="py-3.5 px-3 w-[150px]">KYC & Documents</th>
-                          <th className="py-3.5 px-3 w-[140px]">Interest Rate</th>
-                          <th className="py-3.5 px-3 w-[120px]">Card Tier</th>
-                          <th className="py-3.5 px-3 w-[110px]">Wallets</th>
-                          <th className="py-3.5 px-3 w-[110px]">Balance</th>
-                          <th className="py-3.5 px-3 w-[130px]">24H Yield (1 Din)</th>
-                          <th className="py-3.5 px-3 w-[140px]">Live Profit</th>
+                        <tr className="bg-slate-50/90 border-b border-slate-200 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                          <th className="py-3.5 px-4 w-[220px]">Customer & Account</th>
+                          <th className="py-3.5 px-3 w-[150px]">KYC Verification</th>
+                          <th className="py-3.5 px-3 w-[110px]">APY Rate</th>
+                          <th className="py-3.5 px-3 w-[130px]">Card Tier & VIP</th>
+                          <th className="py-3.5 px-3 w-[120px]">Wallets</th>
+                          <th className="py-3.5 px-3 w-[110px]">Capital Balance</th>
+                          <th className="py-3.5 px-3 w-[120px]">24H Yield</th>
+                          <th className="py-3.5 px-3 w-[140px]">Live Profit (30ms)</th>
                           <th className="py-3.5 px-3 w-[130px]">Lifetime Profit</th>
-                          <th className="py-3.5 px-3 w-[150px]">Agent / Refer</th>
+                          <th className="py-3.5 px-3 w-[130px]">Referral Lineage</th>
                           <th className="py-3.5 px-3 w-[95px]">Status</th>
-                          <th className="py-3.5 px-3 w-[115px]">Actions</th>
+                          <th className="py-3.5 px-4 w-[130px] text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100 text-xs">
+                      <tbody className="divide-y divide-slate-100 text-xs">
                         {filteredUsers.map(u => {
                           const lineage = getUserLineage(u, users, agents);
                           const isAgent = u.role === "agent" || u.agentProfile?.status === "approved";
+                          const initials = u.name
+                            ? u.name.trim().split(/\s+/).map(n => n[0]).slice(0, 2).join("").toUpperCase()
+                            : "U";
+
                           return (
-                          <tr key={u._id} className="hover:bg-slate-50/60 transition-colors">
-                            {/* USER */}
-                            <td className="py-4 px-4 align-top">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <p className="font-bold text-sm text-gray-900 leading-tight">{u.name}</p>
-                                {(u.role === "agent" || u.agentProfile?.status === "approved") && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
-                                    Agent
-                                  </span>
-                                )}
-                                {u.role === "staff" && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-purple-100 text-purple-900 border border-purple-300" title={`Staff departments: ${(u.staffProfile?.departments || []).join(", ")}`}>
-                                    Staff ({u.staffProfile?.departments?.length ? u.staffProfile.departments.join(", ") : "Desk"})
-                                  </span>
-                                )}
-                              </div>
-                              <div className="mt-1 flex flex-wrap items-center gap-1">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200" title="Account Number">
-                                  A/C: {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
-                                </span>
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono text-gray-600 bg-gray-100" title="App UPI ID">
-                                  {u.upiId || `${(u.accountNumber || `efs${String(u._id).slice(-7)}`).toLowerCase()}@educa`}
-                                </span>
-                              </div>
-                              <p className="text-gray-500 text-[11px] truncate max-w-[190px] mt-1">{u.email}</p>
-                              <p className="text-gray-400 text-[11px] font-mono mt-0.5">{u.phone}</p>
-                            </td>
-
-                            {/* KYC & DOCUMENTS */}
-                            <td className="py-4 px-4 align-top">
-                              <div className="space-y-1.5">
-                                <div className="flex items-center gap-1.5">
-                                  {u.kycStatus === "verified" ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                                      ✓ Verified
-                                    </span>
-                                  ) : u.kycStatus === "pending" ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                                      ⏳ Pending
-                                    </span>
-                                  ) : u.kycStatus === "rejected" ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
-                                      ✕ Rejected
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">
-                                      ○ None
-                                    </span>
-                                  )}
-                                  {u.kycDocuments?.aadharNumber && (
-                                    <span className="text-[10px] text-gray-500 font-mono">
-                                      UID: {u.kycDocuments.aadharNumber.slice(0, 4)}••••
-                                    </span>
-                                  )}
+                            <tr key={u._id} className="hover:bg-blue-50/30 transition-colors">
+                              {/* 1. CUSTOMER & ACCOUNT */}
+                              <td className="py-3.5 px-4 align-middle">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-2xs tracking-wider">
+                                    {initials}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <p className="font-extrabold text-sm text-slate-900 leading-tight truncate" title={u.name}>
+                                        {u.name}
+                                      </p>
+                                      {isAgent && (
+                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wide shrink-0">
+                                          Agent
+                                        </span>
+                                      )}
+                                      {u.role === "staff" && (
+                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-purple-100 text-purple-900 border border-purple-300 uppercase tracking-wide shrink-0" title={`Staff departments: ${(u.staffProfile?.departments || []).join(", ")}`}>
+                                          Staff
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                      <span className="font-mono font-bold text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/70 shrink-0">
+                                        A/C: {u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`}
+                                      </span>
+                                      <span className="text-slate-400 font-mono text-[11px] truncate">
+                                        {u.phone}
+                                      </span>
+                                    </div>
+                                    <p className="text-slate-400 text-[10px] truncate max-w-[170px] mt-0.5">
+                                      {u.email}
+                                    </p>
+                                  </div>
                                 </div>
+                              </td>
 
-                                <div className="flex flex-wrap items-center gap-1">
+                              {/* 2. KYC VERIFICATION */}
+                              <td className="py-3.5 px-3 align-middle">
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {u.kycStatus === "verified" ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                        Verified
+                                      </span>
+                                    ) : u.kycStatus === "pending" ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                        Pending
+                                      </span>
+                                    ) : u.kycStatus === "rejected" ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
+                                        ✕ Rejected
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-50 text-slate-500 border border-slate-200">
+                                        ○ None
+                                      </span>
+                                    )}
+
+                                    {u.kycDocuments?.aadharNumber && (
+                                      <span className="text-[10px] text-slate-400 font-mono">
+                                        UID: {u.kycDocuments.aadharNumber.slice(0, 4)}••••
+                                      </span>
+                                    )}
+                                  </div>
+
                                   {(u.kycDocuments?.docUrl || u.kycDocuments?.doc1Url || u.aadharNumber) && (
                                     <button
                                       type="button"
                                       onClick={() => setPreviewKycUser(u)}
-                                      className="inline-flex items-center gap-1 text-[11px] text-blue-700 font-bold bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 cursor-pointer transition active:scale-95"
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-[10px] font-black transition active:scale-95 cursor-pointer shadow-2xs"
                                     >
-                                      View Submitted Docs
+                                      <span>📄</span>
+                                      <span>View Docs</span>
                                     </button>
                                   )}
-                                </div>
 
-                                {u.kycStatus === "pending" && (
-                                  <div className="flex items-center gap-1 pt-1">
+                                  {u.kycStatus === "pending" && (
+                                    <div className="flex items-center gap-1 pt-0.5">
+                                      <button
+                                        onClick={() => approveKyc(u._id)}
+                                        className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold shadow-2xs active:scale-95 cursor-pointer"
+                                      >
+                                        ✓ Approve
+                                      </button>
+                                      <button
+                                        onClick={() => rejectKyc(u._id)}
+                                        className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded text-[10px] font-bold active:scale-95 cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* 3. APY RATE */}
+                              <td className="py-3.5 px-3 align-middle">
+                                {isApyLocked ? (
+                                  <span className="font-mono font-black text-xs text-blue-700 bg-blue-50/80 px-2.5 py-1 rounded-lg border border-blue-200/70 inline-flex items-center gap-1" title="12% annual savings yield">
+                                    {u.interestRate || 12}% p.a.
+                                  </span>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      defaultValue={u.interestRate || 12}
+                                      id={`rate-${u._id}`}
+                                      min="1"
+                                      max="100"
+                                      className="w-12 px-1.5 py-0.5 border border-blue-300 rounded-lg text-xs font-black text-center text-blue-600 focus:ring-1 focus:ring-blue-500 bg-white"
+                                    />
+                                    <span className="text-xs font-bold text-slate-400">%</span>
                                     <button
-                                      onClick={() => approveKyc(u._id)}
-                                      className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold shadow-2xs active:scale-95"
+                                      onClick={() => {
+                                        const val = document.getElementById(`rate-${u._id}`)?.value;
+                                        updateCustomInterest(u._id, val);
+                                      }}
+                                      className="px-2 py-1 bg-[#1D6AE5] hover:bg-[#1558cc] text-white rounded-lg text-[10px] font-black shadow-2xs cursor-pointer active:scale-95"
                                     >
-                                      Approve
-                                    </button>
-                                    <button
-                                      onClick={() => rejectKyc(u._id)}
-                                      className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded text-[10px] font-bold"
-                                    >
-                                      Reject
+                                      Save
                                     </button>
                                   </div>
                                 )}
-                              </div>
-                            </td>
+                              </td>
 
-                            {/* CUSTOM INTEREST RATE */}
-                            <td className="py-4 px-3 align-top">
-                              {isApyLocked ? (
-                                <div className="flex items-center gap-1.5 pt-0.5">
-                                  <span className="font-mono font-black text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
-                                    {u.interestRate || 12}% p.a.
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={handleApyLockTap}
-                                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold border border-slate-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
-                                    title="Tap 5 times to unlock APY editor"
-                                  >
-                                    
-                                    <span>Locked ({5 - apyTapCount})</span>
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1 pt-0.5">
-                                  <input
-                                    type="number"
-                                    defaultValue={u.interestRate || 12}
-                                    id={`rate-${u._id}`}
-                                    min="1"
-                                    max="100"
-                                    className="w-12 px-1 py-0.5 border border-blue-300 rounded-lg text-xs font-black text-center text-blue-600 focus:ring-1 focus:ring-blue-500 bg-white"
-                                  />
-                                  <span className="text-xs font-bold text-gray-400">%</span>
-                                  <button
-                                    onClick={() => {
-                                      const val = document.getElementById(`rate-${u._id}`)?.value;
-                                      updateCustomInterest(u._id, val);
-                                    }}
-                                    className="px-2 py-1 bg-[#1D6AE5] hover:bg-[#1558cc] text-white rounded-lg text-[11px] font-bold shadow-2xs cursor-pointer active:scale-95"
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={handleApyLockTap}
-                                    className="px-1.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[10px] font-bold cursor-pointer"
-                                    title="Lock editor"
-                                  >
-                                    
-                                  </button>
-                                </div>
-                              )}
-                            </td>
-
-                            {/* CARD TIER */}
-                            <td className="py-4 px-4 align-top">
-                              <div className="space-y-1.5">
-                                <div className="flex items-center gap-1.5">
+                              {/* 4. CARD TIER & VIP */}
+                              <td className="py-3.5 px-3 align-middle">
+                                <div className="space-y-1">
                                   {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-amber-400 to-yellow-400 text-black shadow-xs flex items-center gap-1">
-                                       PLATINUM
-                                    </span>
+                                    <>
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-950 shadow-2xs border border-amber-300">
+                                        👑 PLATINUM
+                                      </span>
+                                      <button
+                                        onClick={() => toggleUserCard(u._id, u.cardTier, u.cardStatus?.platinum?.unlocked)}
+                                        className="block text-[10px] font-bold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer active:scale-95"
+                                      >
+                                        Revoke VIP
+                                      </button>
+                                    </>
                                   ) : (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 flex items-center gap-1">
-                                       SILVER
+                                    <>
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                        SILVER <span className="text-slate-400 font-mono text-[9px]">({u.loansCount || 0}/4)</span>
+                                      </span>
+                                      <button
+                                        onClick={() => toggleUserCard(u._id, u.cardTier, u.cardStatus?.platinum?.unlocked)}
+                                        className="block px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 transition active:scale-95 cursor-pointer shadow-2xs"
+                                      >
+                                        Unlock VIP
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* 5. WALLETS */}
+                              <td className="py-3.5 px-3 align-middle">
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full text-[10px] font-bold" title="Savings (12% APY)">
+                                    Savings
+                                  </span>
+                                  <span className={`px-2 py-0.5 border rounded-full text-[10px] font-bold ${u.wallets?.debit?.active ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-slate-50 border-slate-200 text-slate-400"}`} title="Debit Wallet">
+                                    Debit
+                                  </span>
+                                  <span className={`px-2 py-0.5 border rounded-full text-[10px] font-bold ${u.wallets?.lending?.active ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-slate-50 border-slate-200 text-slate-400"}`} title="Lending Wallet">
+                                    Loans
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* 6. BALANCE */}
+                              <td className="py-3.5 px-3 align-middle">
+                                <p className="font-mono font-black text-sm text-slate-900 leading-tight">
+                                  ₹{Number(u.balance || 0).toLocaleString("en-IN")}
+                                </p>
+                                <span className="text-[10px] text-emerald-600 font-bold font-mono mt-0.5 block">
+                                  Active Capital
+                                </span>
+                              </td>
+
+                              {/* 7. 24H YIELD */}
+                              <td className="py-3.5 px-3 align-middle">
+                                {Number(u.balance || 0) > 0 ? (
+                                  <div>
+                                    <p className="font-mono font-bold text-xs text-indigo-700 leading-tight">
+                                      +₹{((Number(u.balance) * (u.interestRate || 12)) / 36500).toFixed(2)}
+                                      <span className="text-[10px] text-slate-400 font-normal"> / 24h</span>
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                      ≈ ₹{(((Number(u.balance) * (u.interestRate || 12)) / 36500) / 24).toFixed(4)}/hr
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-300 font-mono text-xs">—</span>
+                                )}
+                              </td>
+
+                              {/* 8. LIVE PROFIT */}
+                              <td className="py-3.5 px-3 align-middle">
+                                {Number(u.balance || 0) > 0 ? (
+                                  <div>
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      <LiveUserProfitCell user={u} />
+                                    </span>
+                                    <p className="text-[10px] text-emerald-600 font-mono mt-0.5 font-semibold">
+                                      30ms Live Accrual
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 font-mono text-xs">₹0.0000</span>
+                                )}
+                              </td>
+
+                              {/* 9. LIFETIME PROFIT */}
+                              <td className="py-3.5 px-3 align-middle">
+                                {Number(u.profitBalance || 0) > 0 ? (
+                                  <div>
+                                    <span className="font-mono font-black text-xs text-blue-700 leading-tight block">
+                                      +₹{Number(u.profitBalance).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                    </span>
+                                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                      Lifetime Accrued
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 font-mono text-xs">₹0.0000</span>
+                                )}
+                              </td>
+
+                              {/* 10. AGENT / REFER */}
+                              <td className="py-3.5 px-3 align-middle">
+                                {isAgent ? (
+                                  <div>
+                                    <span className="inline-flex items-center bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md text-xs font-mono font-black">
+                                      Code: {u.referralCode || "—"}
+                                    </span>
+                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                                      {u.referralCount || 0} clients
+                                    </p>
+                                  </div>
+                                ) : lineage.agentName ? (
+                                  <div>
+                                    <span className="font-bold text-xs text-slate-800 leading-tight block truncate max-w-[130px]" title={lineage.agentName}>
+                                      {lineage.agentName}
+                                    </span>
+                                    {lineage.agentCode && (
+                                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">Code: {lineage.agentCode}</p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 text-xs italic">Direct</span>
+                                )}
+                              </td>
+
+                              {/* 11. STATUS */}
+                              <td className="py-3.5 px-3 align-middle">
+                                <div className="space-y-1">
+                                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${u.isBlocked ? "bg-rose-100 text-rose-700 border border-rose-200" : "bg-emerald-100 text-emerald-800 border border-emerald-200"}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${u.isBlocked ? "bg-rose-500" : "bg-emerald-500"}`} />
+                                    {u.isBlocked ? "Blocked" : "Active"}
+                                  </span>
+                                  {u.isUninstallProtected && (
+                                    <span className="inline-block px-1.5 py-0.2 rounded text-[9px] font-black bg-rose-50 text-rose-700 border border-rose-200">
+                                      🔒 Lock App
                                     </span>
                                   )}
-                                  <span className="text-[10px] text-gray-400 font-mono font-bold">
-                                    {u.loansCount || 0}/4 loans
-                                  </span>
                                 </div>
-                                <button
-                                  onClick={() => toggleUserCard(u._id, u.cardTier, u.cardStatus?.platinum?.unlocked)}
-                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition cursor-pointer active:scale-95 ${
-                                    u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked
-                                      ? "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-                                      : "bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100"
-                                  }`}
-                                >
-                                  {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? "Revoke VIP" : "Unlock VIP"}
-                                </button>
-                              </div>
-                            </td>
+                              </td>
 
-                            {/* WALLETS */}
-                            <td className="py-4 px-4 align-top">
-                              <div className="flex items-center gap-1 pt-0.5">
-                                <span className="px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded text-[10px] font-bold" title="Savings (12% APY)">
-                                  Savings
-                                </span>
-                                <span className={`px-1.5 py-0.5 border rounded text-[10px] font-bold ${u.wallets?.debit?.active ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-100 border-gray-200 text-gray-400"}`} title="Debit Wallet">
-                                  Debit
-                                </span>
-                                <span className={`px-1.5 py-0.5 border rounded text-[10px] font-bold ${u.wallets?.lending?.active ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-100 border-gray-200 text-gray-400"}`} title="Lending Wallet">
-                                  Loans
-                                </span>
-                              </div>
-                            </td>
-
-                            {/* BALANCE */}
-                            <td className="py-4 px-3 align-top">
-                              <p className="font-extrabold text-sm text-green-600 pt-0.5">₹{Number(u.balance || 0).toLocaleString("en-IN")}</p>
-                              <span className="text-[10px] text-gray-400 font-mono">Active Capital</span>
-                            </td>
-
-                            {/* 24H YIELD (24 HOUR ME KITNA MILTA HAI) */}
-                            <td className="py-4 px-3 align-top">
-                              {Number(u.balance || 0) > 0 ? (
-                                <div className="pt-0.5">
-                                  <p className="font-mono font-bold text-xs text-blue-600">
-                                    +₹{((Number(u.balance) * (u.interestRate || 12)) / 36500).toFixed(2)}
-                                    <span className="text-[10px] text-gray-500 font-normal"> / 24h</span>
-                                  </p>
-                                  <p className="text-[10px] text-gray-400 font-mono mt-0.5">
-                                    ≈ ₹{(((Number(u.balance) * (u.interestRate || 12)) / 36500) / 24).toFixed(4)}/hr
-                                  </p>
+                              {/* 12. ACTIONS */}
+                              <td className="py-3.5 px-4 align-middle text-right">
+                                <div className="flex flex-col gap-1.5 min-w-[110px] items-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleBlock(u._id)}
+                                    className={`w-full py-1 rounded-lg text-xs font-bold transition cursor-pointer active:scale-95 shadow-2xs ${
+                                      u.isBlocked
+                                        ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        : "bg-white hover:bg-rose-50 text-rose-700 border border-rose-200"
+                                    }`}
+                                  >
+                                    {u.isBlocked ? "Unblock" : "Block"}
+                                  </button>
+                                  <div className="flex items-center gap-1 w-full">
+                                    <button
+                                      type="button"
+                                      onClick={() => openResetPasswordModal(u)}
+                                      className="flex-1 py-1 rounded-lg text-[10px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition cursor-pointer active:scale-95 text-center"
+                                      title="Reset Password"
+                                    >
+                                      🔑 Pass
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => openAssignStaffModal(u)}
+                                      className="flex-1 py-1 rounded-lg text-[10px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition cursor-pointer active:scale-95 text-center"
+                                      title="Assign Staff Role"
+                                    >
+                                      👥 Desk
+                                    </button>
+                                  </div>
                                 </div>
-                              ) : (
-                                <span className="text-gray-400 text-xs">—</span>
-                              )}
-                            </td>
-
-                            {/* LIVE PROFIT (TICKING IN REAL TIME) */}
-                            <td className="py-4 px-3 align-top">
-                              {Number(u.balance || 0) > 0 ? (
-                                <div className="pt-0.5">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <LiveUserProfitCell user={u} />
-                                  </span>
-                                  <p className="text-[10px] text-emerald-600 font-mono mt-0.5 font-semibold">
-                                    Live Ticking
-                                  </p>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 text-xs">₹0.0000</span>
-                              )}
-                            </td>
-
-                            {/* LIFETIME PROFIT (TOTAL PROFIT CREDITED IN DB) */}
-                            <td className="py-4 px-3 align-top">
-                              {Number(u.profitBalance || 0) > 0 ? (
-                                <div className="pt-0.5">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                    +₹{Number(u.profitBalance).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                                  </span>
-                                  <p className="text-[10px] text-gray-400 font-mono mt-0.5">
-                                    Lifetime Total
-                                  </p>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 text-xs">₹0.0000</span>
-                              )}
-                            </td>
-
-                            {/* AGENT / REFER */}
-                            <td className="py-4 px-4 align-top">
-                              {isAgent ? (
-                                <div className="pt-0.5">
-                                  <span className="bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded text-xs font-mono font-bold">
-                                    Code: {u.referralCode || "—"}
-                                  </span>
-                                  <p className="text-[10px] text-gray-500 mt-0.5 font-medium">({u.referralCount || 0} referred)</p>
-                                </div>
-                              ) : lineage.agentName ? (
-                                <div className="pt-0.5">
-                                  <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded text-[11px] font-bold">
-                                    {lineage.agentName}
-                                  </span>
-                                  {lineage.agentCode && (
-                                    <p className="text-[10px] text-gray-500 font-mono mt-0.5">Code: {lineage.agentCode}</p>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="pt-0.5">
-                                  <span className="text-gray-400 text-xs italic">Direct (No Agent)</span>
-                                </div>
-                              )}
-                            </td>
-
-                            {/* STATUS */}
-                            <td className="py-4 px-4 align-top">
-                              <div className="space-y-1">
-                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${u.isBlocked ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-                                  {u.isBlocked ? "Blocked" : "Active"}
-                                </span>
-                                {u.isUninstallProtected ? (
-                                  <span className="block px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
-                                    Uninstall Blocked
-                                  </span>
-                                ) : (
-                                  <span className="block px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
-                                    Normal
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-
-                            {/* ACTIONS */}
-                            <td className="py-4 px-4 align-top">
-                              <div className="flex flex-col gap-1.5 min-w-[125px]">
-                                <button
-                                  onClick={() => toggleBlock(u._id)}
-                                  className={`px-3 py-1 rounded-lg text-xs font-bold text-white transition cursor-pointer active:scale-95 ${u.isBlocked ? "bg-green-500 hover:bg-green-600" : "bg-orange-500 hover:bg-orange-600"}`}
-                                >
-                                  {u.isBlocked ? "Unblock" : "Block"}
-                                </button>
-                                <button
-                                  onClick={() => toggleUninstallLock(u._id)}
-                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold text-white transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95 ${
-                                    u.isUninstallProtected
-                                      ? "bg-rose-600 hover:bg-rose-700"
-                                      : "bg-blue-600 hover:bg-blue-700"
-                                  }`}
-                                  title={u.isUninstallProtected ? "App uninstall is blocked. Click to allow uninstall." : "Click to lock and prevent user from uninstalling app."}
-                                >
-                                  {u.isUninstallProtected ? "Unlock Uninstall" : "Block Uninstall"}
-                                </button>
-                                <button
-                                  onClick={() => openResetPasswordModal(u)}
-                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
-                                  title="Reset user password with temporary credentials and forced change"
-                                >
-                                  Reset Password
-                                </button>
-                                <button
-                                  onClick={() => openAssignStaffModal(u)}
-                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-purple-950 bg-purple-100 hover:bg-purple-200 border border-purple-300 transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
-                                  title="Assign Staff Desk Role (Loan, KYC, Deposit, Withdrawal, etc.)"
-                                >
-                                  Assign Desk Role
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ); })}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

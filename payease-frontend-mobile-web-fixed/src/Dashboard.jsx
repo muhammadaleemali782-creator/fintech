@@ -5741,6 +5741,79 @@ export default function Dashboard() {
             </span>
           </div>
 
+          {/* Exclusive 30-Day Holding & ₹10K Loan Privilege Card (Agent Referred Users Only) */}
+          {Boolean(userProfile.hasAgentReferral || userProfile.referredBy) && (
+            <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-emerald-950 border border-emerald-500/30 text-white shadow-xl space-y-3 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🎁</span>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400">Exclusive Referral Privilege</h4>
+                    <span className="text-[10px] sm:text-xs text-zinc-300">Special Benefits for Agent Referred Users</span>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  30-Day ₹5,000 Rule
+                </span>
+              </div>
+
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
+                Agar aap apne wallet me <strong>₹5,000</strong> balance <strong>30 din</strong> tak maintain rakhte hain, to aapko milenge yeh exclusive offers:
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] sm:text-xs">
+                <div className="p-2.5 sm:p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-0.5">
+                  <div className="font-extrabold text-emerald-400 flex items-center gap-1">
+                    <span>📉</span>
+                    <span>Discounted Low Interest</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400">Aapke Agent dwara special low interest rate par loan propose kiya jayega.</p>
+                </div>
+
+                <div className="p-2.5 sm:p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-0.5">
+                  <div className="font-extrabold text-blue-400 flex items-center gap-1">
+                    <span>🚀</span>
+                    <span>₹10,000 First-Time Loan</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400">Normal users ko pehli baar sirf ₹5,000 milta hai, aapko pehli hi baar me ₹10,000 tak loan limit unlock hogi.</p>
+                </div>
+              </div>
+
+              {/* Live Progress Tracker */}
+              <div className="p-3 rounded-2xl bg-black/40 border border-zinc-800/80 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] sm:text-xs">
+                  <span className="text-zinc-400 font-bold">30-Day Maintenance Status:</span>
+                  <span className="font-extrabold font-mono text-emerald-400">
+                    {userProfile.depositHolding5k?.completed
+                      ? "Completed (Eligible) ✅"
+                      : (userProfile.depositHolding5k?.active && Number(userProfile.balance || 0) >= 5000)
+                        ? `Day ${Math.min(30, Math.floor((Date.now() - new Date(userProfile.depositHolding5k.startDate).getTime()) / (24 * 60 * 60 * 1000)) + 1)} of 30 ⏳`
+                        : "Balance < ₹5,000 (Not Started)"}
+                  </span>
+                </div>
+                <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: userProfile.depositHolding5k?.completed
+                        ? "100%"
+                        : (userProfile.depositHolding5k?.active && Number(userProfile.balance || 0) >= 5000)
+                          ? `${Math.min(100, Math.max(5, Math.floor(((Date.now() - new Date(userProfile.depositHolding5k.startDate).getTime()) / (30 * 24 * 60 * 60 * 1000)) * 100)))}%`
+                          : "0%"
+                    }}
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-400">
+                  {userProfile.depositHolding5k?.completed
+                    ? "🎉 Mubarak! Aapka 30 din ka maintenance poora ho chuka hai. Ab aap apne agent se ₹10,000 low-interest loan apply karwa sakte hain."
+                    : (userProfile.depositHolding5k?.active && Number(userProfile.balance || 0) >= 5000)
+                      ? "Apna ₹5,000 balance 30 din tak maintain rakhein taaki aapki ₹10,000 low-interest loan eligibility unlock ho sake."
+                      : "₹5,000 deposit karein aur 30 din maintain karke exclusive loan offers unlock karein."}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* 1. LOAN HUB (Includes Personal, Student, Micro Business Loans) */}
             <div
@@ -8930,6 +9003,79 @@ export default function Dashboard() {
               </span>
             </div>
           </div>
+
+          {/* Exclusive 30-Day Holding & ₹10K Loan Privilege Card (Agent Referred Users Only) */}
+          {Boolean(userProfile.hasAgentReferral || userProfile.referredBy) && (
+            <div className="p-4 rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-emerald-950 border border-emerald-500/30 text-white shadow-xl space-y-3 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🎁</span>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400">Exclusive Referral Privilege</h4>
+                    <span className="text-[10px] text-zinc-300">Special Benefits for Agent Referred Users</span>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  30-Day ₹5,000 Rule
+                </span>
+              </div>
+
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                Agar aap apne wallet me <strong>₹5,000</strong> balance <strong>30 din</strong> tak maintain rakhte hain, to aapko milenge yeh exclusive offers:
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                <div className="p-2.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-0.5">
+                  <div className="font-extrabold text-emerald-400 flex items-center gap-1">
+                    <span>📉</span>
+                    <span>Discounted Low Interest</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400">Aapke Agent dwara special low interest rate par loan propose kiya jayega.</p>
+                </div>
+
+                <div className="p-2.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-0.5">
+                  <div className="font-extrabold text-blue-400 flex items-center gap-1">
+                    <span>🚀</span>
+                    <span>₹10,000 First-Time Loan</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400">Normal users ko pehli baar sirf ₹5,000 milta hai, aapko pehli hi baar me ₹10,000 tak loan limit unlock hogi.</p>
+                </div>
+              </div>
+
+              {/* Live Progress Tracker */}
+              <div className="p-3 rounded-2xl bg-black/40 border border-zinc-800/80 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-zinc-400 font-bold">30-Day Maintenance Status:</span>
+                  <span className="font-extrabold font-mono text-emerald-400">
+                    {userProfile.depositHolding5k?.completed
+                      ? "Completed (Eligible) ✅"
+                      : (userProfile.depositHolding5k?.active && Number(userProfile.balance || 0) >= 5000)
+                        ? `Day ${Math.min(30, Math.floor((Date.now() - new Date(userProfile.depositHolding5k.startDate).getTime()) / (24 * 60 * 60 * 1000)) + 1)} of 30 ⏳`
+                        : "Balance < ₹5,000 (Not Started)"}
+                  </span>
+                </div>
+                <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: userProfile.depositHolding5k?.completed
+                        ? "100%"
+                        : (userProfile.depositHolding5k?.active && Number(userProfile.balance || 0) >= 5000)
+                          ? `${Math.min(100, Math.max(5, Math.floor(((Date.now() - new Date(userProfile.depositHolding5k.startDate).getTime()) / (30 * 24 * 60 * 60 * 1000)) * 100)))}%`
+                          : "0%"
+                    }}
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-400">
+                  {userProfile.depositHolding5k?.completed
+                    ? "🎉 Mubarak! Aapka 30 din ka maintenance poora ho chuka hai. Ab aap apne agent se ₹10,000 low-interest loan apply karwa sakte hain."
+                    : (userProfile.depositHolding5k?.active && Number(userProfile.balance || 0) >= 5000)
+                      ? "Apna ₹5,000 balance 30 din tak maintain rakhein taaki aapki ₹10,000 low-interest loan eligibility unlock ho sake."
+                      : "₹5,000 deposit karein aur 30 din maintain karke exclusive loan offers unlock karein."}
+                </p>
+              </div>
+            </div>
+          )}
 
 
           {/* 5-DAY UPCOMING DUE ALERT BANNER (FROM ACTIVE DETAILS OR LOANS SCHEDULE) */}

@@ -1505,6 +1505,16 @@ export default function StaffDesk() {
                               : "Normal KYC"}
                           </span>
                         )}
+                        {(item.is5kHolderCustomer || item.userId?.depositHolding5k?.completed || (item.userId?.depositHolding5k?.active && Number(item.userId?.balance || 0) >= 5000)) && (
+                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-black" title="5k Balance 30-Day Privilege Customer">
+                            ⭐ 5K 30D
+                          </span>
+                        )}
+                        {item.agentRecommendation?.explanationNote && (
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-300 rounded-md text-[10px] font-black" title="Agent Recommendation Attached">
+                            Agent Note 📝
+                          </span>
+                        )}
                       </div>
 
                       {amount > 0 && (
@@ -1761,6 +1771,51 @@ export default function StaffDesk() {
                 }
                 return null;
               })()}
+
+              {/* 5K 30-Day Maintained Privilege Customer Badge */}
+              {(selectedItem.is5kHolderCustomer || selectedItem.userId?.depositHolding5k?.completed || (selectedItem.userId?.depositHolding5k?.active && Number(selectedItem.userId?.balance || 0) >= 5000)) && (
+                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-300 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                      <span>⭐</span>
+                      <span>5K Balance (30-Day Maintained) Privilege Customer</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold text-[10px]">
+                      Special Loan Eligible
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 leading-relaxed">
+                    Customer ne account me ₹5,000 balance 30 days tak maintain kiya hai. Isliye pehli hi baar me ₹10,000 limit aur discounted interest rate diya ja sakta hai.
+                  </p>
+                </div>
+              )}
+
+              {/* Agent Special Proposal & Explanation Note */}
+              {selectedItem.agentRecommendation && selectedItem.agentRecommendation.explanationNote && (
+                <div className="p-3.5 bg-blue-50 rounded-2xl border border-blue-300 text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-blue-950 flex items-center gap-1.5">
+                      <span>🤝</span>
+                      <span>Agent Proposal & Explanation</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-200 text-blue-900 font-bold text-[10px]">
+                      Rate: {selectedItem.agentRecommendation.customInterestRate || selectedItem.interestRate}%
+                    </span>
+                  </div>
+                  <div className="bg-white/90 p-2.5 rounded-xl border border-blue-200 text-blue-950">
+                    <span className="text-[10px] uppercase font-bold text-blue-700 block mb-1">
+                      Agent Reason / Justification:
+                    </span>
+                    <p className="italic text-xs leading-relaxed">"{selectedItem.agentRecommendation.explanationNote}"</p>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-blue-700 font-mono">
+                    <span>Agent: {selectedItem.agentRecommendation.agentName || "Agent"} ({selectedItem.agentRecommendation.agentPhone || "—"})</span>
+                    {selectedItem.agentRecommendation.agentCode && (
+                      <span>Code: {selectedItem.agentRecommendation.agentCode}</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* If Bank Change Request */}
               {selectedItem.type === "bank_change_request" ? (

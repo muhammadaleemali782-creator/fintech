@@ -161,6 +161,8 @@ router.get('/me', protect, async (req, res) => {
     userObj.hasWalletPin = !!user.walletPin;
     userObj.serverTime = new Date().toISOString();
     delete userObj.walletPin;
+    userObj.hasAgentReferral = !!user.referredBy;
+    userObj.depositHolding5k = user.depositHolding5k || null;
 
     if (userObj.kycDocuments) {
       const kd = userObj.kycDocuments;
@@ -1004,7 +1006,7 @@ router.get('/agent/stats', protect, async (req, res) => {
 
     // 1. Find all customers referred by this agent
     const customers = await User.find({ referredBy: agent._id })
-      .select('name email phone balance duesBalance loansCount createdAt kycStatus loanLimit customQrUrl');
+      .select('name email phone balance duesBalance loansCount createdAt kycStatus loanLimit customQrUrl depositHolding5k referral5kBonusPaid');
     const customerIds = customers.map(c => c._id);
 
     // 2. Total Deposits from agent's customers
@@ -1120,6 +1122,14 @@ router.get('/agent/stats', protect, async (req, res) => {
         const cPreCount = cPre.length;
         const cPreAmount = cPre.reduce((sum, l) => sum + (l.amount || 0), 0);
 
+        const is5kEligible = Boolean(
+          c.depositHolding5k?.completed ||
+          (c.depositHolding5k?.active && Number(c.balance || 0) >= 5000)
+        );
+        const holdingDaysDone = c.depositHolding5k?.startDate
+          ? Math.min(30, Math.floor((Date.now() - new Date(c.depositHolding5k.startDate).getTime()) / (24 * 60 * 60 * 1000)))
+          : 0;
+
         return {
           id: c._id,
           // Privacy protection: Team system hides customer personal name
@@ -1135,7 +1145,10 @@ router.get('/agent/stats', protect, async (req, res) => {
           loansCount: c.loansCount || 0,
           loanLimit: c.loanLimit || 5000,
           kycStatus: c.kycStatus || 'none',
-          joinedAt: c.createdAt
+          joinedAt: c.createdAt,
+          depositHolding5k: c.depositHolding5k || null,
+          is5kEligible,
+          holdingDaysDone
         };
       }),
       subAgents: subAgents.map(sa => ({

@@ -116,6 +116,17 @@ const loanSchema = new mongoose.Schema({
     adminEvidenceNote: String
   }],
   purpose: { type: String, default: 'Personal Loan' },
+  is5kHolderCustomer: { type: Boolean, default: false },
+  referredByAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  agentRecommendation: {
+    recommendedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    agentName: String,
+    agentPhone: String,
+    agentCode: String,
+    customInterestRate: Number,
+    explanationNote: String,
+    recommendedAt: Date
+  },
   referralCommissionPaid: { type: Boolean, default: false },
   referralCommissionAmount: { type: Number, default: 0 },
   handledBy: {

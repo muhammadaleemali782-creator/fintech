@@ -64,6 +64,16 @@ export default function AgentDesk() {
   const [editLimitVal, setEditLimitVal] = useState("");
   const [updatingLimit, setUpdatingLimit] = useState(false);
 
+  // Special 5k Loan Proposal State for Agent
+  const [specialLoanCustomer, setSpecialLoanCustomer] = useState(null);
+  const [specialLoanForm, setSpecialLoanForm] = useState({
+    amount: 10000,
+    installmentsCount: 15,
+    customInterestRate: 1.0,
+    explanationNote: ""
+  });
+  const [submittingSpecialLoan, setSubmittingSpecialLoan] = useState(false);
+
   // Collapsible accordion states for Loan & Investment
   const [openLoanCollapse, setOpenLoanCollapse] = useState(false);
   const [openInvestCollapse, setOpenInvestCollapse] = useState(false);
@@ -259,6 +269,39 @@ export default function AgentDesk() {
       showToast("Network issue: Broadcast message send nahi ho saka", "error");
     } finally {
       setBroadcastSending(false);
+    }
+  };
+
+  // Propose Special Loan for 5k 30-Day Customer
+  const handleProposeSpecialLoan = async (e) => {
+    if (e) e.preventDefault();
+    if (!specialLoanCustomer) return;
+    if (!specialLoanForm.explanationNote?.trim()) {
+      showToast("Staff review ke liye explanation note likhein!", "error");
+      return;
+    }
+    setSubmittingSpecialLoan(true);
+    try {
+      const res = await fetch(`${API}/loan/agent/propose-special-loan`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          customerId: specialLoanCustomer.customerId,
+          amount: Number(specialLoanForm.amount),
+          installmentsCount: Number(specialLoanForm.installmentsCount) || 15,
+          customInterestRate: Number(specialLoanForm.customInterestRate) || 1.0,
+          explanationNote: specialLoanForm.explanationNote.trim()
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to propose loan");
+      showToast(data.message || "Special loan proposal sent to staff!", "success");
+      setSpecialLoanCustomer(null);
+      loadAgentMetrics(true);
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setSubmittingSpecialLoan(false);
     }
   };
 
@@ -1173,7 +1216,12 @@ export default function AgentDesk() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {(c.is5kEligible || c.depositHolding5k?.completed || (c.depositHolding5k?.active && Number(c.balance || 0) >= 5000)) && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold flex items-center gap-1">
+                                ⭐ 5K 30D Holder ({c.holdingDaysDone || 0}/30 Days)
+                              </span>
+                            )}
                             <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold font-mono">
                               Wallet: ₹{Number(c.balance || 0).toLocaleString("en-IN")}
                             </span>
@@ -1230,16 +1278,42 @@ export default function AgentDesk() {
                             </span>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditLoanLimitCustomer({ customerId: c.id || c._id, name: c.name, currentLimit: c.loanLimit || 5000 });
-                              setEditLimitVal(String(c.loanLimit || 5000));
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition active:scale-95 cursor-pointer flex items-center gap-1"
-                          >
-                             Limit Badhayein
-                          </button>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditLoanLimitCustomer({ customerId: c.id || c._id, name: c.name, currentLimit: c.loanLimit || 5000 });
+                                setEditLimitVal(String(c.loanLimit || 5000));
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition active:scale-95 cursor-pointer flex items-center gap-1"
+                            >
+                               Limit Badhayein
+                            </button>
+
+                            {(c.is5kEligible || c.depositHolding5k?.completed || (c.depositHolding5k?.active && Number(c.balance || 0) >= 5000)) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSpecialLoanCustomer({
+                                    customerId: c.id || c._id,
+                                    name: c.name,
+                                    phone: c.phone,
+                                    balance: c.balance || 0,
+                                    holdingDays: c.holdingDaysDone || 0
+                                  });
+                                  setSpecialLoanForm({
+                                    amount: 10000,
+                                    installmentsCount: 15,
+                                    customInterestRate: 1.0,
+                                    explanationNote: `Customer ${c.name} ne 30 days tak ₹5,000 balance maintain kiya hai, isliye pehli baar me ₹10,000 loan aur discounted interest rate diya ja raha hai.`
+                                  });
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition active:scale-95 cursor-pointer shadow-xs flex items-center gap-1"
+                              >
+                                ⚡ Propose Special Loan (₹10K)
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1737,6 +1811,134 @@ export default function AgentDesk() {
                 {updatingLimit ? "Updating..." : "Save Limit"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* 5. PROPOSE SPECIAL LOAN MODAL FOR 5K 30-DAY CUSTOMER */}
+      {specialLoanCustomer && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-gray-200">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚡</span>
+                <div>
+                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">
+                    Propose Special 5K Customer Loan
+                  </h3>
+                  <span className="text-[10px] text-emerald-600 font-bold block">
+                    30-Day ₹5,000 Maintained Privilege
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSpecialLoanCustomer(null)}
+                className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="text-xs space-y-1 bg-emerald-50 border border-emerald-200 p-3 rounded-2xl text-emerald-950">
+              <div className="flex justify-between items-center">
+                <span>Customer: <strong>{specialLoanCustomer.name}</strong></span>
+                <span className="font-mono text-[11px] text-emerald-800">({specialLoanCustomer.phone || "—"})</span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] text-emerald-800 pt-1">
+                <span>Wallet Balance: <strong>₹{Number(specialLoanCustomer.balance).toLocaleString("en-IN")}</strong></span>
+                <span className="font-bold">⭐ 30-Day Maintained</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleProposeSpecialLoan} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Proposed Loan Amount (Pehli Baar ₹10,000 Tak Allowed):
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-gray-400 font-bold text-xs">₹</span>
+                  <input
+                    type="number"
+                    min={1000}
+                    max={50000}
+                    step={1000}
+                    value={specialLoanForm.amount}
+                    onChange={(e) => setSpecialLoanForm(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-xl text-xs font-bold font-mono outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Installments (10-Day Cycle):
+                  </label>
+                  <select
+                    value={specialLoanForm.installmentsCount}
+                    onChange={(e) => setSpecialLoanForm(prev => ({ ...prev, installmentsCount: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-bold outline-none focus:border-emerald-500 bg-white"
+                  >
+                    <option value={15}>15 Installments (150 Days)</option>
+                    <option value={18}>18 Installments (180 Days)</option>
+                    <option value={20}>20 Installments (200 Days)</option>
+                    <option value={24}>24 Installments (240 Days)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Custom Interest Rate (% per Inst):
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={0.5}
+                      max={2.5}
+                      step={0.1}
+                      value={specialLoanForm.customInterestRate}
+                      onChange={(e) => setSpecialLoanForm(prev => ({ ...prev, customInterestRate: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-bold font-mono outline-none focus:border-emerald-500 bg-white"
+                    />
+                    <span className="absolute right-3 top-2 text-gray-400 font-bold text-xs">%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Staff Explanation Note (Kyu itna interest aur 10k loan kar rahe hain) <span className="text-rose-500">*</span>:
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={specialLoanForm.explanationNote}
+                  onChange={(e) => setSpecialLoanForm(prev => ({ ...prev, explanationNote: e.target.value }))}
+                  placeholder="e.g. Customer ne 30 days tak ₹5,000 balance maintain kiya hai, isliye pehli baar me ₹10,000 loan aur kam interest rate approve kiya jaye."
+                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs outline-none focus:border-emerald-500 bg-white resize-none leading-relaxed"
+                />
+                <p className="text-[10px] text-gray-500 mt-0.5">
+                  Yeh explanation Loan Staff Desk me inspection ke dauran staff ko saaf dikhega.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setSpecialLoanCustomer(null)}
+                  className="px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingSpecialLoan}
+                  className="px-4 py-2 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {submittingSpecialLoan ? "Submitting..." : "🚀 Submit to Loan Staff"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

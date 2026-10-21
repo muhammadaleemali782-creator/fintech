@@ -519,16 +519,20 @@ router.post('/apply', protect, async (req, res) => {
         });
       }
     } else {
+      const is5kMaintained = Boolean(
+        userDoc.depositHolding5k?.completed ||
+        (userDoc.depositHolding5k?.active && Number(userDoc.balance || 0) >= 5000)
+      );
       const isFirstTimeBorrower = (userDoc.loansCount || 0) === 0;
-      // Premium members can apply up to ₹10,000 directly even without taking a ₹5,000 loan first
-      let baseLimit = isFirstTimeBorrower ? (userDoc.isPremium ? 10000 : 5000) : 10000;
-      if (userDoc.isPremium && (userDoc.loanLimit || 0) < 10000) {
+      // Premium members & 5k 30-day maintaining users can apply up to ₹10,000 directly even without taking a ₹5,000 loan first
+      let baseLimit = isFirstTimeBorrower ? ((userDoc.isPremium || is5kMaintained) ? 10000 : 5000) : 10000;
+      if ((userDoc.isPremium || is5kMaintained) && (userDoc.loanLimit || 0) < 10000) {
         baseLimit = 10000;
       }
       const currentLimit = Math.min(userDoc.loanLimit && userDoc.loanLimit > baseLimit ? userDoc.loanLimit : baseLimit, 50000);
       if (numAmount > currentLimit) {
-        const msg = !userDoc.isPremium
-          ? `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai. ₹5000 wallet me 30 din rakho aur premium bano (₹10,000 instant loan unlock)!`
+        const msg = !(userDoc.isPremium || is5kMaintained)
+          ? `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai. ₹5,000 wallet me 30 din maintain karein (₹10,000 instant loan unlock)!`
           : `Aapki vartamaan eligible loan limit ₹${currentLimit.toLocaleString('en-IN')} hai. Limit badhane ke liye apne Agent ya Admin se sampark karein.`;
         return res.status(400).json({ message: msg });
       }
@@ -763,6 +767,8 @@ router.post('/apply', protect, async (req, res) => {
         remainingAmount: quote.totalPayable,
         hasChequeFacility: true,
         chequeNumber: chequeNum,
+        is5kHolderCustomer: is5kMaintained,
+        referredByAgentId: userDoc.referredBy || null,
         nominee: nomineePayload,
         documents: loanDocumentsPayload,
         installmentSchedule: schedule,
@@ -804,6 +810,8 @@ router.post('/apply', protect, async (req, res) => {
         remainingAmount: quote.totalPayable,
         hasChequeFacility: true,
         chequeNumber: chequeNum,
+        is5kHolderCustomer: is5kMaintained,
+        referredByAgentId: userDoc.referredBy || null,
         nominee: nomineePayload,
         documents: loanDocumentsPayload,
         installmentSchedule: schedule,
@@ -859,6 +867,8 @@ router.post('/apply', protect, async (req, res) => {
         remainingAmount: quote.totalPayable,
         hasChequeFacility: true,
         chequeNumber: chequeNum,
+        is5kHolderCustomer: is5kMaintained,
+        referredByAgentId: userDoc.referredBy || null,
         nominee: nomineePayload,
         documents: loanDocumentsPayload,
         installmentSchedule: schedule,
@@ -1448,6 +1458,129 @@ router.get('/admin/search-borrowers', protect, requirePermission('loan.create_on
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: 'Search failed: ' + err.message });
+  }
+});
+
+// ------------------ AGENT: PROPOSE SPECIAL LOAN FOR 5K 30-DAY CUSTOMER ------------------
+// Agent can propose a special discounted loan (up to ₹10k first time, low interest) with explanation note for Loan Staff
+router.post('/agent/propose-special-loan', protect, async (req, res) => {
+  try {
+    const agent = await User.findById(req.user._id);
+    if (!agent) return res.status(404).json({ message: 'Agent not found' });
+    const isAgent = agent.role === 'agent' || agent.agentProfile?.status === 'approved' || agent.isAgent || agent.role === 'admin';
+    if (!isAgent) return res.status(403).json({ message: 'Agent access required' });
+
+    const { customerId, amount, installmentsCount = 15, customInterestRate, explanationNote } = req.body;
+    if (!customerId) return res.status(400).json({ message: 'Customer select karna zaroori hai.' });
+    if (!explanationNote || !explanationNote.trim()) {
+      return res.status(400).json({ message: 'Loan Staff review ke liye explanation note likhna anivarya (mandatory) hai.' });
+    }
+
+    const customer = await User.findById(customerId);
+    if (!customer) return res.status(404).json({ message: 'Customer nahi mila.' });
+
+    // Validate that customer is referred by this agent (or agent is admin)
+    if (agent.role !== 'admin' && String(customer.referredBy || '') !== String(agent._id)) {
+      return res.status(403).json({ message: 'Yeh customer aapke referral portfolio me nahi hai.' });
+    }
+
+    // Check if customer is a 5k holding customer
+    const is5kMaintained = Boolean(
+      customer.depositHolding5k?.completed ||
+      (customer.depositHolding5k?.active && Number(customer.balance || 0) >= 5000)
+    );
+    if (!is5kMaintained && agent.role !== 'admin') {
+      return res.status(400).json({
+        message: 'Special loan offer sirf unhi customers ke liye hai jinhone ₹5,000 balance 30 din maintain kiya ho.'
+      });
+    }
+
+    // Check if customer already has active or pending loan
+    const existingActive = await Loan.findOne({
+      userId: customer._id,
+      status: { $in: ['pending', 'approved', 'active'] }
+    });
+    if (existingActive) {
+      return res.status(400).json({ message: 'Customer ka pehle se ek loan pending ya active hai. Ek waqt me ek hi loan ho sakta hai.' });
+    }
+
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount < 1000 || numAmount > 50000) {
+      return res.status(400).json({ message: 'Loan amount ₹1,000 se ₹50,000 ke beech hona chahiye.' });
+    }
+
+    const count = Math.min(Math.max(Number(installmentsCount) || 15, 10), 30);
+    const rate = Number(customInterestRate) > 0 ? Number(customInterestRate) : 1.0;
+
+    const quote = calculatePersonalLoanQuote(numAmount, count, rate);
+    const accountNumber = await generateLoanAccountNumber('personal');
+    const collectionDates = getCollectionDates(new Date(), count);
+    const schedule = collectionDates.map((dueDate, idx) => ({
+      installmentNo: idx + 1,
+      month: idx + 1,
+      dueDate,
+      amount: quote.installmentAmount,
+      status: 'pending'
+    }));
+
+    const newLoan = await Loan.create({
+      userId: customer._id,
+      accountNumber,
+      loanType: 'personal',
+      collectionFrequency: '10_days',
+      amount: quote.amount,
+      interestRate: rate,
+      interestRatePerInstallment: rate,
+      cycleDays: 10,
+      installmentsCount: count,
+      tenure: count,
+      installmentAmount: quote.installmentAmount,
+      emiAmount: quote.installmentAmount,
+      processingFee: quote.processingFee,
+      upiCharges: quote.upiCharges,
+      advanceDeduction: quote.advanceDeduction,
+      disbursalAmount: quote.disbursalAmount,
+      totalPayable: quote.totalPayable,
+      remainingAmount: quote.totalPayable,
+      hasChequeFacility: true,
+      purpose: 'Agent Special 5K Offer Loan',
+      status: 'pending',
+      is5kHolderCustomer: true,
+      referredByAgentId: agent._id,
+      agentRecommendation: {
+        recommendedBy: agent._id,
+        agentName: agent.name,
+        agentPhone: agent.phone || '',
+        agentCode: agent.referralCode || '',
+        customInterestRate: rate,
+        explanationNote: explanationNote.trim(),
+        recommendedAt: new Date()
+      },
+      installmentSchedule: schedule,
+      emiSchedule: schedule
+    });
+
+    // Notify customer
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create([{
+        userId: customer._id,
+        targetRole: 'user',
+        type: 'general',
+        title: 'Special 5K Loan Proposal Submitted 📋',
+        message: `Aapke agent ${agent.name} ne aapke liye ₹${numAmount.toLocaleString('en-IN')} ka special low-interest loan propose kiya hai. Loan Staff review ke baad approve karegi.`,
+        data: { loanId: newLoan._id.toString() }
+      }]);
+    } catch (_) {}
+
+    res.json({
+      success: true,
+      message: 'Special 5K Loan Proposal kamyabi ke sath Loan Staff Queue me submit ho gaya!',
+      loan: newLoan
+    });
+  } catch (err) {
+    console.error('Propose special loan error:', err);
+    res.status(500).json({ message: 'Failed to propose loan: ' + err.message });
   }
 });
 

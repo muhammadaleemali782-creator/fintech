@@ -527,7 +527,7 @@ router.post('/agent-commission/requests/:id/reject', protect, admin, async (req,
 });
 
 // ─────────────────────────────────────────────────────────────
-// Deposit Referral Commission & Offers Control (Base ₹5,000 threshold)
+// Deposit Referral Commission & Offers Control (30-Day Holding & Flat Reward)
 // ─────────────────────────────────────────────────────────────
 
 // GET /api/loan-department/deposit-referral - View deposit commission settings
@@ -537,9 +537,9 @@ router.get('/deposit-referral', protect, requirePermission('LOAN_AGENT_COMMISSIO
     const defaultSettings = {
       enabled: true,
       minDepositAmount: 5000,
-      commissionType: 'percent', // 'percent' | 'flat'
-      commissionValue: 2, // 2% or flat rupees
-      description: 'Agent Commission on ₹5,000+ Customer Deposits',
+      holdingDays: 30, // 30-day maintenance rule
+      flatRewardAmount: 100, // Flat reward amount in rupees (Admin configurable, no %)
+      description: 'Agent Flat Reward on ₹5,000 maintained for 30 Days (One-Time Payout)',
       updatedAt: new Date()
     };
     res.json({
@@ -554,13 +554,13 @@ router.get('/deposit-referral', protect, requirePermission('LOAN_AGENT_COMMISSIO
 // PUT /api/loan-department/deposit-referral - Admin updates deposit commission settings
 router.put('/deposit-referral', protect, requirePermission('LOAN_AGENT_COMMISSION_SET'), async (req, res) => {
   try {
-    const { enabled, minDepositAmount, commissionType, commissionValue, description } = req.body;
+    const { enabled, minDepositAmount, holdingDays, flatRewardAmount, description } = req.body;
     const cleanSettings = {
       enabled: enabled !== false,
       minDepositAmount: Number(minDepositAmount) > 0 ? Number(minDepositAmount) : 5000,
-      commissionType: commissionType === 'flat' ? 'flat' : 'percent',
-      commissionValue: Number(commissionValue) >= 0 ? Number(commissionValue) : 2,
-      description: typeof description === 'string' ? description.trim() : 'Agent Commission on Customer Deposits',
+      holdingDays: Number(holdingDays) > 0 ? Number(holdingDays) : 30,
+      flatRewardAmount: Number(flatRewardAmount) >= 0 ? Number(flatRewardAmount) : 100,
+      description: typeof description === 'string' ? description.trim() : 'Agent Flat Reward on ₹5,000 maintained for 30 Days (One-Time Payout)',
       updatedAt: new Date(),
       updatedBy: req.user._id
     };
@@ -573,7 +573,7 @@ router.put('/deposit-referral', protect, requirePermission('LOAN_AGENT_COMMISSIO
 
     res.json({
       success: true,
-      message: 'Deposit referral commission settings updated successfully!',
+      message: '₹5,000 30-Day Holding Referral settings updated successfully!',
       settings: cleanSettings
     });
   } catch (err) {
@@ -581,34 +581,41 @@ router.put('/deposit-referral', protect, requirePermission('LOAN_AGENT_COMMISSIO
   }
 });
 
-// POST /api/loan-department/broadcast-offers - Admin sends offer/announcement to agents
+// POST /api/loan-department/broadcast-offers - Admin sends offer/announcement to agents & users
 router.post('/broadcast-offers', protect, requirePermission('LOAN_AGENT_COMMISSION_SET'), async (req, res) => {
   try {
-    const { title, message, minDeposit, bonusAmount } = req.body;
+    const { title, message, minDeposit, bonusAmount, targetAudience = 'all' } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ success: false, message: 'Offer message is required' });
     }
 
     const Notification = require('../models/Notification');
-    // Find all agents
-    const agents = await User.find({
-      $or: [
-        { role: 'agent' },
-        { isAgent: true },
-        { 'agentProfile.status': 'approved' }
-      ]
-    }).select('_id name phone');
-
-    if (!agents.length) {
-      return res.status(400).json({ success: false, message: 'No registered agents found to send offer' });
+    let userFilter = {};
+    if (targetAudience === 'agents') {
+      userFilter = {
+        $or: [
+          { role: 'agent' },
+          { isAgent: true },
+          { 'agentProfile.status': 'approved' }
+        ]
+      };
+    } else if (targetAudience === 'users') {
+      userFilter = { role: { $ne: 'admin' }, isAgent: { $ne: true } };
+    } else {
+      userFilter = { role: { $ne: 'admin' } }; // all agents and users
     }
 
-    const offerTitle = title && title.trim() ? title.trim() : 'Special 5k Deposit Bonus Offer 🎁';
+    const targets = await User.find(userFilter).select('_id name phone role');
+    if (!targets.length) {
+      return res.status(400).json({ success: false, message: 'No registered targets found to send offer' });
+    }
+
+    const offerTitle = title && title.trim() ? title.trim() : 'Special ₹5,000 Deposit Bonus Offer 🎁';
     const offerMsg = message.trim();
 
-    const notifs = agents.map(agent => ({
+    const notifs = targets.map(u => ({
       type: 'agent_broadcast',
-      userId: agent._id,
+      userId: u._id,
       targetRole: 'user',
       title: offerTitle,
       message: offerMsg,
@@ -634,7 +641,8 @@ router.post('/broadcast-offers', protect, requirePermission('LOAN_AGENT_COMMISSI
           message: offerMsg,
           minDeposit: Number(minDeposit) || 5000,
           bonusAmount: Number(bonusAmount) || 0,
-          sentToCount: agents.length,
+          targetAudience,
+          sentToCount: targets.length,
           sentAt: new Date(),
           sentBy: req.user.name || 'Admin'
         },
@@ -645,8 +653,8 @@ router.post('/broadcast-offers', protect, requirePermission('LOAN_AGENT_COMMISSI
 
     res.json({
       success: true,
-      message: `Offer broadcast successfully sent to ${agents.length} agent(s)!`,
-      sentCount: agents.length
+      message: `Offer broadcast successfully sent to ${targets.length} recipient(s)!`,
+      sentCount: targets.length
     });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to broadcast offer: ' + err.message });

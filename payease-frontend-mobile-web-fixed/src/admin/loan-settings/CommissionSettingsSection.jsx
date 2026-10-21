@@ -44,22 +44,23 @@ export default function CommissionSettingsSection({ showToast }) {
   const [processingRequestId, setProcessingRequestId] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
 
-  // 5k Deposit Referral Commission & Offers State
+  // 5k Deposit Referral Commission & Offers State (30-Day Holding & Flat One-Time Reward)
   const [depositReferral, setDepositReferral] = useState({
     enabled: true,
     minDepositAmount: 5000,
-    commissionType: "percent",
-    commissionValue: 2,
-    description: "Agent Commission on ₹5,000+ Customer Deposits"
+    holdingDays: 30,
+    flatRewardAmount: 100,
+    description: "Agent Flat Reward on ₹5,000 maintained for 30 Days (One-Time Payout)"
   });
   const [loadingDepositRef, setLoadingDepositRef] = useState(false);
   const [savingDepositRef, setSavingDepositRef] = useState(false);
 
   const [offerForm, setOfferForm] = useState({
     title: "Special ₹5,000 Deposit Bonus Offer 🎁",
-    message: "Apne reference se ₹5,000 deposit karwayein aur payein flat ₹100 instant bonus cash reward!",
+    message: "Apne referral se ₹5,000 deposit karwayein aur 30 din maintain karne par payein flat ₹100 instant cash reward!",
     minDeposit: 5000,
-    bonusAmount: 100
+    bonusAmount: 100,
+    targetAudience: "all"
   });
   const [sendingOffer, setSendingOffer] = useState(false);
   const [latestOffer, setLatestOffer] = useState(null);
@@ -517,14 +518,17 @@ export default function CommissionSettingsSection({ showToast }) {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Card 1: 5k Deposit Referral Commission Controller */}
+            {/* Card 1: 5k Deposit Referral Commission Controller (30-Day Holding & Flat One-Time Payout) */}
             <form onSubmit={handleSaveDepositReferral} className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">⚙️</span>
-                  <h4 className="text-xs font-black uppercase text-zinc-200 tracking-wider">
-                    Deposit Commission Settings
-                  </h4>
+                  <span className="text-lg">⏳</span>
+                  <div>
+                    <h4 className="text-xs font-black uppercase text-zinc-200 tracking-wider">
+                      30-Day ₹5,000 Deposit Referral Rule
+                    </h4>
+                    <span className="text-[10px] text-emerald-400 font-bold block">One-Time Flat Cash Reward (No Percentage)</span>
+                  </div>
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <span className="text-xs text-zinc-400 font-bold">
@@ -540,71 +544,71 @@ export default function CommissionSettingsSection({ showToast }) {
               </div>
 
               <div className="space-y-3 text-xs">
-                <div>
-                  <label className="text-zinc-400 font-bold block mb-1">
-                    Minimum Qualifying Deposit Amount (₹):
-                  </label>
-                  <input
-                    type="number"
-                    min="100"
-                    step="500"
-                    value={depositReferral.minDepositAmount}
-                    onChange={(e) => setDepositReferral(prev => ({ ...prev, minDepositAmount: Number(e.target.value) }))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:outline-none focus:border-emerald-400"
-                    placeholder="5000"
-                  />
-                  <p className="text-[10px] text-zinc-500 mt-1">
-                    Customer is amount ya isse zyada deposit karega tabhi agent ko commission credit hoga (Default: ₹5,000).
-                  </p>
-                </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-zinc-400 font-bold block mb-1">
-                      Commission Type:
+                      Min Deposit Target (₹):
                     </label>
-                    <select
-                      value={depositReferral.commissionType}
-                      onChange={(e) => setDepositReferral(prev => ({ ...prev, commissionType: e.target.value }))}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white text-xs font-bold focus:outline-none focus:border-emerald-400"
-                    >
-                      <option value="percent">Percentage (%)</option>
-                      <option value="flat">Flat Cash Reward (₹)</option>
-                    </select>
+                    <input
+                      type="number"
+                      min="100"
+                      step="500"
+                      value={depositReferral.minDepositAmount || 5000}
+                      onChange={(e) => setDepositReferral(prev => ({ ...prev, minDepositAmount: Number(e.target.value) }))}
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:outline-none focus:border-emerald-400"
+                      placeholder="5000"
+                    />
                   </div>
-
                   <div>
                     <label className="text-zinc-400 font-bold block mb-1">
-                      {depositReferral.commissionType === "percent" ? "Rate (%)" : "Flat Amount (₹)"}:
+                      Holding Requirement (Days):
                     </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step={depositReferral.commissionType === "percent" ? "0.1" : "10"}
-                        value={depositReferral.commissionValue}
-                        onChange={(e) => setDepositReferral(prev => ({ ...prev, commissionValue: Number(e.target.value) }))}
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:outline-none focus:border-emerald-400"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-zinc-400">
-                        {depositReferral.commissionType === "percent" ? "%" : "₹"}
-                      </span>
-                    </div>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={depositReferral.holdingDays || 30}
+                      onChange={(e) => setDepositReferral(prev => ({ ...prev, holdingDays: Number(e.target.value) }))}
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:outline-none focus:border-emerald-400"
+                      placeholder="30"
+                    />
                   </div>
                 </div>
 
-                {/* Live Preview Box */}
-                <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 space-y-1">
-                  <div className="text-[11px] text-zinc-400 font-bold uppercase">Live Calculation Preview:</div>
-                  <div className="flex items-center justify-between font-mono text-xs">
-                    <span className="text-zinc-300">Customer ₹{Number(depositReferral.minDepositAmount || 5000).toLocaleString("en-IN")} Deposit</span>
-                    <span className="text-emerald-400 font-black text-sm">
-                      ➔ Agent Earns: ₹{(
-                        depositReferral.commissionType === "flat"
-                          ? Number(depositReferral.commissionValue || 0)
-                          : ((Number(depositReferral.minDepositAmount || 5000) * Number(depositReferral.commissionValue || 0)) / 100)
-                      ).toLocaleString("en-IN")}
-                    </span>
+                <div>
+                  <label className="text-zinc-400 font-bold block mb-1">
+                    Agent Flat Cash Reward Amount (₹) <span className="text-emerald-400">(Admin Set Any Amount)</span>:
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-emerald-400 text-sm">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10"
+                      value={depositReferral.flatRewardAmount || 100}
+                      onChange={(e) => setDepositReferral(prev => ({ ...prev, flatRewardAmount: Number(e.target.value) }))}
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl pl-8 pr-3 py-2 text-white font-mono font-black text-sm focus:outline-none focus:border-emerald-400"
+                      placeholder="100"
+                    />
+                  </div>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Admin jitna chahe utna flat amount likhe (e.g. ₹100, ₹250, ₹500). Koi percentage calculation nahi hai.
+                  </p>
+                </div>
+
+                {/* 3 Strict Rules Highlight Card */}
+                <div className="p-3 bg-zinc-950/80 rounded-xl border border-zinc-800 space-y-2 text-[11px]">
+                  <div className="flex items-start gap-2 text-zinc-300">
+                    <span className="text-amber-400 font-black">1.</span>
+                    <span><strong>30 Din Balance Maintenance:</strong> Customer ko kam se kam ₹{(Number(depositReferral.minDepositAmount) || 5000).toLocaleString("en-IN")} balance 30 days tak maintain rakhna hoga tabhi agent ko commission credit hoga.</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-zinc-300">
+                    <span className="text-emerald-400 font-black">2.</span>
+                    <span><strong>Post-30 Days Safe:</strong> 30 din poore hone ke baad user ka balance kam bhi ho jaye to bhi koi issue nahi (commission revoke nahi hoga).</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-zinc-300">
+                    <span className="text-blue-400 font-black">3.</span>
+                    <span><strong>One-Time Only:</strong> Referral commission strictly 1 baar hi milega. Customer baar-baar 5k dale to baar-baar nahi milega.</span>
                   </div>
                 </div>
 
@@ -612,10 +616,10 @@ export default function CommissionSettingsSection({ showToast }) {
                   <label className="text-zinc-400 font-bold block mb-1">Description / Memo:</label>
                   <input
                     type="text"
-                    value={depositReferral.description}
+                    value={depositReferral.description || ""}
                     onChange={(e) => setDepositReferral(prev => ({ ...prev, description: e.target.value }))}
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-zinc-300 text-xs focus:outline-none focus:border-emerald-400"
-                    placeholder="Agent Commission on ₹5,000+ Customer Deposits"
+                    placeholder="Agent Flat Reward on ₹5,000 maintained for 30 Days (One-Time Payout)"
                   />
                 </div>
               </div>
@@ -628,20 +632,23 @@ export default function CommissionSettingsSection({ showToast }) {
                   type="submit"
                   disabled={savingDepositRef}
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs cursor-pointer transition active:scale-95 shadow-md disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {savingDepositRef ? "Saving..." : "✓ Save Deposit Settings"}
+                > 
+                  {savingDepositRef ? "Saving..." : "✓ Save 30-Day Holding Settings"}
                 </button>
               </div>
             </form>
 
-            {/* Card 2: Send Agent Offers & Broadcast Messenger */}
+            {/* Card 2: Send Offers & Broadcast Messenger to Users & Agents */}
             <form onSubmit={handleSendAgentOffer} className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">📢</span>
-                  <h4 className="text-xs font-black uppercase text-zinc-200 tracking-wider">
-                    Send Offer / Broadcast to Agents
-                  </h4>
+                  <div>
+                    <h4 className="text-xs font-black uppercase text-zinc-200 tracking-wider">
+                      Broadcast Promotional Offers
+                    </h4>
+                    <span className="text-[10px] text-blue-400 font-bold block">Send Instant Notifications to Users & Agents</span>
+                  </div>
                 </div>
                 <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[10px] font-bold">
                   {agents.length} Registered Agents
@@ -649,6 +656,21 @@ export default function CommissionSettingsSection({ showToast }) {
               </div>
 
               <div className="space-y-3 text-xs">
+                <div>
+                  <label className="text-zinc-400 font-bold block mb-1">
+                    Target Audience:
+                  </label>
+                  <select
+                    value={offerForm.targetAudience || "all"}
+                    onChange={(e) => setOfferForm(prev => ({ ...prev, targetAudience: e.target.value }))}
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white text-xs font-bold focus:outline-none focus:border-blue-400"
+                  >
+                    <option value="all">🌐 Sabhi Users & Agents Ko Bhejo (Broadcast All)</option>
+                    <option value="agents">🤝 Sirf Agents Ko Bhejo</option>
+                    <option value="users">👤 Sirf Customers / Users Ko Bhejo</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="text-zinc-400 font-bold block mb-1">
                     Offer Title / Headline:
@@ -679,7 +701,7 @@ export default function CommissionSettingsSection({ showToast }) {
                   </div>
                   <div>
                     <label className="text-zinc-400 font-bold block mb-1">
-                      Extra Bonus (₹):
+                      Extra Bonus / Reward (₹):
                     </label>
                     <input
                       type="number"
@@ -701,11 +723,11 @@ export default function CommissionSettingsSection({ showToast }) {
                     required
                     value={offerForm.message}
                     onChange={(e) => setOfferForm(prev => ({ ...prev, message: e.target.value }))}
-                    placeholder="Apne referral se customer ko ₹5,000 deposit karwayein aur payein flat ₹100 instant bonus reward! Offer limited period ke liye hai."
+                    placeholder="Apne referral se ₹5,000 deposit karwayein aur 30 din maintain karne par flat ₹100 instant bonus cash reward payein!"
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3 text-zinc-200 placeholder-zinc-500 text-xs focus:outline-none focus:border-blue-400 resize-none leading-relaxed"
                   />
                   <p className="text-[10px] text-zinc-500 mt-1">
-                    Yeh message sabhi {agents.length} agents ke mobile app notification panel aur dashboard par turant dikhega.
+                    Yeh offer notification panel aur popup banner me target recipients ko foran deliver hoga.
                   </p>
                 </div>
 
@@ -729,7 +751,7 @@ export default function CommissionSettingsSection({ showToast }) {
                   disabled={sendingOffer}
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl text-xs cursor-pointer transition active:scale-95 shadow-md disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  {sendingOffer ? "Sending..." : "🚀 Send Offer to All Agents"}
+                  {sendingOffer ? "Sending..." : "🚀 Broadcast Offer"}
                 </button>
               </div>
             </form>

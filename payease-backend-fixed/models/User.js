@@ -173,6 +173,20 @@ const userSchema = new mongoose.Schema({
   holdSince: { type: Date, default: null },
   isPremium: { type: Boolean, default: false },
   commissionPaid: { type: Boolean, default: false },
+  referral5kBonusPaid: { type: Boolean, default: false },
+  depositHolding5k: {
+    active: { type: Boolean, default: false },
+    startDate: { type: Date, default: null },
+    maturityDate: { type: Date, default: null },
+    qualifyingAmount: { type: Number, default: 5000 },
+    rewardAmount: { type: Number, default: 100 },
+    referredAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    completed: { type: Boolean, default: false },
+    completedAt: { type: Date, default: null },
+    bonusPaid: { type: Boolean, default: false },
+    broken: { type: Boolean, default: false },
+    brokenAt: { type: Date, default: null }
+  },
   fcmToken: { type: String, default: null },
 
   createdAt: { type: Date, default: Date.now }

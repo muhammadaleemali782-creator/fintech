@@ -427,6 +427,8 @@ router.post('/withdraw', protect, async (req, res) => {
 
       if (!isProfitSource) {
         await User.findByIdAndUpdate(req.user._id, { $min: { lowestBalance24h: newBalance } }, { session });
+        const { handleBalanceDeductionHoldingCheck } = require('../utils/depositHoldingService');
+        await handleBalanceDeductionHoldingCheck(updatedUser, newBalance, session);
       }
 
       const cleanPaymentDetails = {

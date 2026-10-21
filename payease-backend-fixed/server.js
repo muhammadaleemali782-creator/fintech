@@ -394,6 +394,15 @@ mongoose.connect(process.env.MONGO_URI, {
   .then(() => {
     console.log('✅ MongoDB Connected with Connection Pooling');
     scheduleDailyYield(); // Start daily yield processor after DB is ready
+    try {
+      const { checkAndReleaseDepositHoldingCommissions } = require('./utils/depositHoldingService');
+      checkAndReleaseDepositHoldingCommissions().catch(() => {});
+      setInterval(() => {
+        checkAndReleaseDepositHoldingCommissions().catch(() => {});
+      }, 60 * 60 * 1000); // Check mature 30-day holdings hourly
+    } catch (e) {
+      console.warn('Deposit holding service init notice:', e.message);
+    }
   })
   .catch(err => {
     console.error('❌ MongoDB connection failed:', err.message);

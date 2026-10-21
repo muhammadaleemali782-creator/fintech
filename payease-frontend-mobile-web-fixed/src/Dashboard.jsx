@@ -5359,17 +5359,7 @@ export default function Dashboard() {
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-
-            {(userStored.role === "admin" || userProfile?.role === "admin") && (
-              <a
-                href="/admin"
-                className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg font-bold text-[11px] flex items-center gap-1 transition active:scale-95"
-                title="Return to Admin Panel"
-              >
-                <span>Admin</span>
-              </a>
-            )}
+          <div className="flex items-center gap-1.5">
 
             {/* Quick Instant Refresh Button */}
             <button
@@ -5378,11 +5368,11 @@ export default function Dashboard() {
                 if (silentSyncRef.current) silentSyncRef.current(true);
               }}
               disabled={isRefreshing}
-              className={`p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
+              className={`h-6 w-6 p-0 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/90 rounded-md flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
               title="Refresh Data / रिफ्रेश करें"
             >
               <svg
-                className={`w-3.5 h-3.5 text-blue-600 ${isRefreshing ? "animate-spin" : ""}`}
+                className={`w-3 h-3 text-blue-600 ${isRefreshing ? "animate-spin" : ""}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -5397,7 +5387,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setLangDropdownOpen(prev => !prev)}
-                className="px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg font-bold text-[11px] flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
+                className="h-6 px-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/90 rounded-md font-bold text-[10px] flex items-center gap-0.5 transition active:scale-95 cursor-pointer shadow-2xs"
                 title="Select Language / भाषा चुनें"
                 aria-haspopup="true"
                 aria-expanded={langDropdownOpen}
@@ -5406,7 +5396,7 @@ export default function Dashboard() {
                   {lang === "hindi" ? "HI" : lang === "english" ? "EN" : "HN"}
                 </span>
                 <svg
-                  className={`w-2.5 h-2.5 text-slate-500 transition-transform duration-200 ${langDropdownOpen ? "rotate-180" : ""}`}
+                  className={`w-2 h-2 text-slate-500 transition-transform duration-200 ${langDropdownOpen ? "rotate-180" : ""}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

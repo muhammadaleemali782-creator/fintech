@@ -3,11 +3,11 @@ import { calculatePrecloseBreakdown } from "../../utils/precloseCalculator";
 
 export default function CalculatorPreviewSection({ settings, conditions, onOpenReadme }) {
   // Calculator Interactive Inputs
-  const [loanAmount, setLoanAmount] = useState(5000);
+  const [loanAmount, setLoanAmount] = useState(100000);
   const [totalInstallments, setTotalInstallments] = useState(21);
   const [paidInstallments, setPaidInstallments] = useState(12);
-  const [remainingInterest, setRemainingInterest] = useState(450);
-  const [totalPayable, setTotalPayable] = useState(5450);
+  const [remainingInterest, setRemainingInterest] = useState(9000);
+  const [totalPayable, setTotalPayable] = useState(109000);
   const [penaltyAmount, setPenaltyAmount] = useState(0);
   const [selectedLoanType, setSelectedLoanType] = useState("default");
 
@@ -118,27 +118,6 @@ export default function CalculatorPreviewSection({ settings, conditions, onOpenR
               onChange={(e) => setLoanAmount(Number(e.target.value))}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-zinc-500"
             />
-            <div className="flex flex-wrap items-center gap-1 mt-1.5">
-              {[5000, 10000, 25000, 50000, 100000].map((amt) => (
-                <button
-                  key={amt}
-                  type="button"
-                  onClick={() => {
-                    setLoanAmount(amt);
-                    const sampleInterest = Math.round((amt * 9) / 100);
-                    setRemainingInterest(sampleInterest);
-                    setTotalPayable(amt + sampleInterest);
-                  }}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition cursor-pointer active:scale-95 ${
-                    loanAmount === amt
-                      ? "bg-zinc-100 text-zinc-950 border-white shadow-xs font-black"
-                      : "bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white"
-                  }`}
-                >
-                  ₹{amt >= 1000 ? `${amt / 1000}k` : amt}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div>

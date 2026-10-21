@@ -606,7 +606,7 @@ export default function AgentDesk() {
                       Agent Quota: ₹{(agentMetrics?.agentInfo?.loanLimit ?? agentMetrics?.stats?.loanLimit ?? userProfile?.agentProfile?.loanLimit ?? 100000).toLocaleString("en-IN")}
                     </span>
                     <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                      {commissions.loan}% Commission (₹{((5000 * commissions.loan) / 100).toLocaleString("en-IN")} on ₹5k)
+                      {commissions.loan}% Commission
                     </span>
                   </div>
                 </div>
@@ -616,9 +616,8 @@ export default function AgentDesk() {
                       <div className="text-xs font-extrabold text-gray-900">Student Loan</div>
                       <div className="text-[10px] text-gray-400">Padhai & Shiksha</div>
                     </div>
-                    <span className="text-[11px] font-mono font-black text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs text-right">
-                      <span>{commissions.loan}%</span>
-                      <span className="text-[9px] text-emerald-600 block">₹{((5000 * commissions.loan) / 100).toLocaleString("en-IN")} on ₹5k</span>
+                    <span className="text-[11px] font-mono font-black text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs">
+                      {commissions.loan}%
                     </span>
                   </div>
 
@@ -627,9 +626,8 @@ export default function AgentDesk() {
                       <div className="text-xs font-extrabold text-gray-900">Micro Loan</div>
                       <div className="text-[10px] text-gray-400">Chota Vyapar</div>
                     </div>
-                    <span className="text-[11px] font-mono font-black text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs text-right">
-                      <span>{commissions.loan}%</span>
-                      <span className="text-[9px] text-emerald-600 block">₹{((5000 * commissions.loan) / 100).toLocaleString("en-IN")} on ₹5k</span>
+                    <span className="text-[11px] font-mono font-black text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs">
+                      {commissions.loan}%
                     </span>
                   </div>
 
@@ -638,9 +636,8 @@ export default function AgentDesk() {
                       <div className="text-xs font-extrabold text-gray-900">Personal Loan</div>
                       <div className="text-[10px] text-gray-400">Vyaktigat Rin</div>
                     </div>
-                    <span className="text-[11px] font-mono font-black text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs text-right">
-                      <span>{commissions.loan}%</span>
-                      <span className="text-[9px] text-emerald-600 block">₹{((5000 * commissions.loan) / 100).toLocaleString("en-IN")} on ₹5k</span>
+                    <span className="text-[11px] font-mono font-black text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs">
+                      {commissions.loan}%
                     </span>
                   </div>
                 </div>
@@ -889,7 +886,7 @@ export default function AgentDesk() {
                     Loan Category (Student, Micro & Personal Loans)
                   </span>
                   <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
-                    {commissions.loan}% Agent Rate (₹{((5000 * commissions.loan) / 100).toLocaleString("en-IN")} on ₹5k loan)
+                    {commissions.loan}% Agent Rate
                   </span>
                 </div>
 
@@ -901,7 +898,6 @@ export default function AgentDesk() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5 text-[11px] text-gray-600 font-semibold">
-                    <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">₹5k Starter Loan: <strong className="text-emerald-700">₹{((5000 * commissions.loan) / 100).toLocaleString("en-IN")}</strong></span>
                     <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">Student Loan</span>
                     <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">Micro Loan</span>
                     <span className="bg-white px-2.5 py-1 rounded-lg border border-blue-100 shadow-2xs">Personal Loan</span>

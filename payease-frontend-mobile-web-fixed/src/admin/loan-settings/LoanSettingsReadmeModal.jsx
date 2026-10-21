@@ -211,11 +211,11 @@ export default function LoanSettingsReadmeModal({ isOpen, onClose }) {
             </div>
           </div>
 
-          {/* Section 4: Full Numerical Table (₹10,000 & ₹1,00,000 Loans) */}
+          {/* Section 4: Full Numerical Table (₹5,000, ₹10,000 & ₹1,00,000 Loans) */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-black text-white uppercase tracking-wider">
               <span>📊</span>
-              <h3>4. Complete Rate & Amount Reference Table</h3>
+              <h3>4. Complete Rate & Amount Reference Table (₹5,000 Base, ₹10k, ₹1 Lakh)</h3>
             </div>
             <div className="overflow-x-auto rounded-2xl border border-zinc-800">
               <table className="w-full text-[11px] text-left border-collapse">
@@ -226,6 +226,7 @@ export default function LoanSettingsReadmeModal({ isOpen, onClose }) {
                     <th className="py-2.5 px-3 text-emerald-400">Customer Discount</th>
                     <th className="py-2.5 px-3 text-sky-400">Agent Profit (Company Paid)</th>
                     <th className="py-2.5 px-3 text-amber-400">Dept Profit (Company Paid)</th>
+                    <th className="py-2.5 px-3 text-emerald-300">₹5,000 Loan (Base)</th>
                     <th className="py-2.5 px-3">₹10,000 Loan</th>
                     <th className="py-2.5 px-3">₹1,00,000 Loan</th>
                   </tr>
@@ -239,6 +240,7 @@ export default function LoanSettingsReadmeModal({ isOpen, onClose }) {
                     <td className="py-2 px-3 text-zinc-400">0%</td>
                     <td className="py-2 px-3 text-zinc-400">₹0</td>
                     <td className="py-2 px-3 text-zinc-400">₹0</td>
+                    <td className="py-2 px-3 text-zinc-400">₹0</td>
                   </tr>
                   <tr className="hover:bg-zinc-800/40">
                     <td className="py-2 px-3 font-bold text-white font-sans">18 Kist</td>
@@ -246,6 +248,9 @@ export default function LoanSettingsReadmeModal({ isOpen, onClose }) {
                     <td className="py-2 px-3 text-emerald-400 font-bold">1.0%</td>
                     <td className="py-2 px-3 text-sky-400 font-bold">0.5% (Wallet)</td>
                     <td className="py-2 px-3 text-amber-400 font-bold">0.5% (Ledger)</td>
+                    <td className="py-2 px-3 text-emerald-300 font-bold">
+                      Cust: -₹50 | Ag: ₹25 | Dept: ₹25
+                    </td>
                     <td className="py-2 px-3 text-zinc-200">
                       Cust: -₹100 | Ag: ₹50 | Dept: ₹50
                     </td>
@@ -259,6 +264,9 @@ export default function LoanSettingsReadmeModal({ isOpen, onClose }) {
                     <td className="py-2 px-3 text-emerald-400 font-bold">2.0%</td>
                     <td className="py-2 px-3 text-sky-400 font-bold">1.0% (Wallet)</td>
                     <td className="py-2 px-3 text-amber-400 font-bold">1.0% (Ledger)</td>
+                    <td className="py-2 px-3 text-emerald-300 font-bold">
+                      Cust: -₹100 | Ag: ₹50 | Dept: ₹50
+                    </td>
                     <td className="py-2 px-3 text-zinc-200">
                       Cust: -₹200 | Ag: ₹100 | Dept: ₹100
                     </td>
@@ -272,6 +280,9 @@ export default function LoanSettingsReadmeModal({ isOpen, onClose }) {
                     <td className="py-2 px-3 text-emerald-400 font-bold">3.0%</td>
                     <td className="py-2 px-3 text-sky-400 font-bold">1.5% (Wallet)</td>
                     <td className="py-2 px-3 text-amber-400 font-bold">1.5% (Ledger)</td>
+                    <td className="py-2 px-3 text-emerald-300 font-bold">
+                      Cust: -₹150 | Ag: ₹75 | Dept: ₹75
+                    </td>
                     <td className="py-2 px-3 text-zinc-200">
                       Cust: -₹300 | Ag: ₹150 | Dept: ₹150
                     </td>

@@ -438,6 +438,9 @@ export default function CommissionSettingsSection({ showToast }) {
                         <td className="px-4 py-3.5 text-center font-mono">
                           <span className="text-zinc-400 line-through mr-1.5">{req.current_percent}%</span>
                           <span className="text-emerald-400 font-black text-sm">➔ {req.requested_percent}%</span>
+                          <div className="text-[10px] text-zinc-400 mt-0.5">
+                            ₹{((5000 * req.current_percent) / 100).toLocaleString("en-IN")} ➔ <strong className="text-emerald-400">₹{((5000 * req.requested_percent) / 100).toLocaleString("en-IN")}</strong> on ₹5k
+                          </div>
                         </td>
                         <td className="px-4 py-3.5 text-[11px] text-zinc-300">
                           <div className="font-semibold text-white">{req.requested_by?.name || "Staff"}</div>
@@ -570,6 +573,9 @@ export default function CommissionSettingsSection({ showToast }) {
                 <span>
                   Formula: <strong>{isInvestment ? "Platform Net Share" : "Loan Dept Net Share"}</strong> ={" "}
                   {activePoolPercent}% - Agent Commission %
+                  <span className="text-emerald-400 font-semibold ml-2 font-mono">
+                    (Base ₹5,000 Loan: 2% = ₹100 Agent Payout)
+                  </span>
                 </span>
               </span>
               <span className="text-emerald-400 font-semibold text-[10px]">
@@ -685,9 +691,12 @@ export default function CommissionSettingsSection({ showToast }) {
                                     >
                                       {baseRate}%
                                     </span>
+                                    <span className="text-[10px] font-mono text-emerald-400 font-bold block mt-0.5">
+                                      ₹{((5000 * baseRate) / 100).toLocaleString("en-IN")} on ₹5k
+                                    </span>
                                     {pendingReq && (
                                       <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 mt-1 animate-pulse">
-                                        ⏳ Req: {pendingReq.requested_percent}%
+                                        ⏳ Req: {pendingReq.requested_percent}% (₹{((5000 * pendingReq.requested_percent) / 100).toLocaleString("en-IN")})
                                       </span>
                                     )}
                                   </div>
@@ -696,6 +705,9 @@ export default function CommissionSettingsSection({ showToast }) {
                               <td className="px-4 py-3.5 text-center">
                                 <span className="inline-block px-2.5 py-1 rounded-full bg-zinc-950 text-zinc-300 border border-zinc-800 font-bold font-mono">
                                   {currentNetRate}%
+                                </span>
+                                <span className="text-[10px] font-mono text-zinc-400 block mt-0.5">
+                                  ₹{((5000 * currentNetRate) / 100).toLocaleString("en-IN")} on ₹5k
                                 </span>
                               </td>
                               <td className="px-4 py-3.5 text-[11px]">
@@ -832,6 +844,7 @@ export default function CommissionSettingsSection({ showToast }) {
                       ? (requestModal.agent?.investment_commission_percent ?? 2)
                       : (requestModal.agent?.agent_commission_percent ?? 2)}%
                   </strong>
+                  {" "}(₹{(((5000 * (isInvestment ? (requestModal.agent?.investment_commission_percent ?? 2) : (requestModal.agent?.agent_commission_percent ?? 2))) / 100)).toLocaleString("en-IN")} on ₹5k)
                 </div>
               </div>
 
@@ -853,6 +866,11 @@ export default function CommissionSettingsSection({ showToast }) {
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-zinc-400">%</span>
                 </div>
+                {requestModal.rate && !isNaN(Number(requestModal.rate)) && (
+                  <p className="text-[11px] font-mono text-emerald-400 mt-1">
+                    Payout on ₹5,000 Loan: <strong>₹{((5000 * Number(requestModal.rate)) / 100).toLocaleString("en-IN")}</strong>
+                  </p>
+                )}
               </div>
 
               <div>

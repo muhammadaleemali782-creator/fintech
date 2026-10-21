@@ -262,3 +262,29 @@ D:\Backup projects\Paytment website\
 | `educa_admin_cached_loans_list` | localStorage + IDB | Array of all loan applications |
 | `educa_admin_cached_bonds_list` | localStorage + IDB | Array of all platform bonds |
 | `educa_admin_cached_agents_list` | localStorage + IDB | Array of agent applications |
+
+---
+
+## 6. Update N (2026-10-21): Base ₹5,000 Loan & Agent Profit Visibility Across Loan Settings & Agent Desk
+
+### Problem
+- In Loan Settings (`/admin/loan-settings`), the starter ₹5,000 loan amount could not be directly simulated in the Preclose matrix or the Calculator preview.
+- In `CommissionSettingsSection.jsx`, agent commissions were only shown as raw percentages (e.g. `2%`), without making it clear what cash payout the agent earns on the entry-level ₹5,000 loan (which is ₹100 @ 2%).
+- In `LoanSettingsReadmeModal.jsx`, the reference numerical table only showed ₹10,000 and ₹1,00,000 loans.
+
+### Changes Made
+1. **`PrecloseSettingsSection.jsx`**:
+   - Added `5000` to the Quick Amount Switcher array: `[5000, 10000, 25000, 50000, 100000]`.
+   - Default simulation loan amount set to `5000` so that upon loading, the matrix immediately shows the exact Customer Discount, Agent Profit (Company Paid: ₹25 / ₹50 / ₹75), and Dept Profit for a ₹5,000 loan across 15, 18, 21, and 24 kist tenures.
+2. **`CalculatorPreviewSection.jsx`**:
+   - Added quick loan amount selector buttons `[5000, 10000, 25000, 50000, 100000]` under `Loan Principal Amount (₹)`.
+   - Initial interactive preview set to ₹5,000 loan with proportional interest.
+   - Live Agent Profit (Company Paid) card directly reflects the payout on ₹5,000.
+3. **`CommissionSettingsSection.jsx`**:
+   - In Agent Table under `{baseRate}%`, added explicit rupee badge: `₹{((5000 * baseRate) / 100)} on ₹5k`.
+   - Under Dept Net Share, added `₹{((5000 * currentNetRate) / 100)} on ₹5k`.
+   - In Rate Change Requests table and Request Modal, added live rupee calculation for ₹5,000 loan.
+4. **`LoanSettingsReadmeModal.jsx`**:
+   - In Section 4 (Rate & Amount Reference Table), added a dedicated column for `₹5,000 Loan (Base)` displaying Customer Discount, Agent Profit (₹25, ₹50, ₹75), and Dept Profit.
+5. **`AgentDesk.jsx`**:
+   - Displayed the cash payout on the base ₹5,000 starter loan (e.g. `₹100 on ₹5k`) across Agent Rates & Commission tab and Loan products accordion.

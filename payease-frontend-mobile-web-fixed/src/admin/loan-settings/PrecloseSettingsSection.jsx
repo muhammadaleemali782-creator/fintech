@@ -20,7 +20,7 @@ export default function PrecloseSettingsSection({
   onOpenReadme
 }) {
   const [selectedType, setSelectedType] = useState("default");
-  const [simulationLoanAmount, setSimulationLoanAmount] = useState(100000);
+  const [simulationLoanAmount, setSimulationLoanAmount] = useState(5000);
 
   const isDefaultSelected = selectedType === "default";
   const activeTenures = selectedType === "micro_business" ? SYSTEM_DAILY_TENURES : SYSTEM_LOAN_INSTALLMENTS;
@@ -498,7 +498,7 @@ export default function PrecloseSettingsSection({
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] text-zinc-400 font-bold">Loan Amount (Paisa):</span>
             <div className="flex flex-wrap items-center gap-1.5">
-              {[10000, 25000, 50000, 100000].map((amt) => (
+              {[5000, 10000, 25000, 50000, 100000].map((amt) => (
                 <button
                   key={amt}
                   type="button"

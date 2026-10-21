@@ -1116,12 +1116,11 @@ export default function AdminPanel() {
       navigate("/admin/loan-settings");
       return;
     }
-    if (tab === nextTab) return;
     setMobileNavOpen(false);
     setHistoryFilterOpen(false);
-    React.startTransition(() => {
+    if (tab !== nextTab) {
       setTab(nextTab);
-    });
+    }
   }, [tab, navigate]);
 
   const unwrapCachedArray = (val) => {
@@ -4348,11 +4347,14 @@ export default function AdminPanel() {
             <div className="flex items-center gap-2.5 min-w-0">
               <button
                 type="button"
+                style={{ touchAction: "manipulation" }}
                 onClick={() => setMobileNavOpen(true)}
-                className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs flex items-center justify-center text-base active:scale-90 cursor-pointer shrink-0"
+                className="w-9 h-9 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs flex items-center justify-center active:scale-90 active:bg-slate-200 cursor-pointer shrink-0 transition"
                 aria-label="Open menu"
               >
-                ☰
+                <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
               </button>
               <div className="min-w-0">
                 <h1 className="text-slate-900 font-black text-sm leading-tight">Admin Panel</h1>
@@ -4445,94 +4447,107 @@ export default function AdminPanel() {
           )}
 
           {/* MOBILE LEFT SIDEBAR DRAWER (replaces old "Switch Desk" bottom sheet) */}
-          {mobileNavOpen && (
-            <div className="fixed inset-0 z-50 flex lg:hidden">
-              <div
-                className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
-                onClick={() => setMobileNavOpen(false)}
-              />
-              <aside className="relative w-72 max-w-[85vw] h-full bg-white text-slate-800 border-r border-slate-200 shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
-                <div className="shrink-0 px-4 py-4 border-b border-slate-100 flex items-center justify-between safe-top bg-slate-50/50">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <img src="/icon-192.png" alt="Educa" className="w-8 h-8 rounded-full bg-white object-contain p-0.5 border border-slate-200 shrink-0" />
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-black text-slate-900 leading-tight truncate">Educa Admin</h3>
-                      <p className="text-[10px] text-slate-500 leading-tight">Operations Desks</p>
-                    </div>
+          <div
+            className={`fixed inset-0 z-50 flex lg:hidden transition-all duration-200 ${
+              mobileNavOpen ? "pointer-events-auto visible opacity-100" : "pointer-events-none invisible opacity-0"
+            }`}
+          >
+            <div
+              className={`fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity duration-200 ${
+                mobileNavOpen ? "opacity-100" : "opacity-0"
+              }`}
+              onClick={() => setMobileNavOpen(false)}
+            />
+            <aside
+              className={`relative w-72 max-w-[85vw] h-full bg-white text-slate-800 border-r border-slate-200 shadow-2xl flex flex-col z-10 transition-transform duration-200 ease-out ${
+                mobileNavOpen ? "translate-x-0" : "-translate-x-full"
+              }`}
+            >
+              <div className="shrink-0 px-4 py-4 border-b border-slate-100 flex items-center justify-between safe-top bg-slate-50/50">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <img src="/icon-192.png" alt="Educa" className="w-8 h-8 rounded-full bg-white object-contain p-0.5 border border-slate-200 shrink-0" />
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-black text-slate-900 leading-tight truncate">Educa Admin</h3>
+                    <p className="text-[10px] text-slate-500 leading-tight">Operations Desks</p>
                   </div>
+                </div>
+                <button
+                  type="button"
+                  style={{ touchAction: "manipulation" }}
+                  onClick={() => setMobileNavOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 text-sm font-bold active:scale-90 cursor-pointer"
+                  aria-label="Close menu"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <nav className="flex-1 overflow-y-auto p-3 space-y-1 no-scrollbar">
+                {tabs.map(({ key, label, icon, badge }) => {
+                  const isActive = tab === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      style={{ touchAction: "manipulation" }}
+                      onClick={() => switchTab(key)}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition active:scale-[0.97] active:bg-blue-700 cursor-pointer ${
+                        isActive ? "bg-blue-600 text-white shadow-xs font-bold" : "text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5 min-w-0">
+                        <span className="truncate">{label}</span>
+                      </span>
+                      {!!badge && (
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isActive ? "bg-amber-400 text-slate-950" : "bg-rose-500 text-white"}`}>
+                          {badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+
+                {/* Clean inline navigation links scrolled at bottom */}
+                <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
+                  <Link
+                    to="/desk"
+                    style={{ touchAction: "manipulation" }}
+                    onClick={() => setMobileNavOpen(false)}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-[0.97] cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <span className="truncate">Department Desks</span>
+                    </span>
+                    <span className="text-slate-400 text-xs font-bold">→</span>
+                  </Link>
+                  <Link
+                    to="/dashboard"
+                    style={{ touchAction: "manipulation" }}
+                    onClick={() => setMobileNavOpen(false)}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-[0.97] cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <span className="truncate">Customer App View</span>
+                    </span>
+                    <span className="text-slate-400 text-xs font-bold">→</span>
+                  </Link>
                   <button
                     type="button"
-                    onClick={() => setMobileNavOpen(false)}
-                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 text-sm font-bold active:scale-90 cursor-pointer"
-                    aria-label="Close menu"
+                    style={{ touchAction: "manipulation" }}
+                    onClick={() => {
+                      setMobileNavOpen(false);
+                      logout();
+                    }}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition active:scale-[0.97] cursor-pointer"
                   >
-                    ✕
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <span className="truncate">Logout</span>
+                    </span>
                   </button>
                 </div>
-
-                <nav className="flex-1 overflow-y-auto p-3 space-y-1 no-scrollbar">
-                  {tabs.map(({ key, label, icon, badge }) => {
-                    const isActive = tab === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => { switchTab(key); setMobileNavOpen(false); }}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition active:scale-[0.98] cursor-pointer ${
-                          isActive ? "bg-blue-600 text-white shadow-xs font-bold" : "text-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        <span className="flex items-center gap-2.5 min-w-0">
-                          <span className="truncate">{label}</span>
-                        </span>
-                        {!!badge && (
-                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isActive ? "bg-amber-400 text-slate-950" : "bg-rose-500 text-white"}`}>
-                            {badge}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-
-                  {/* Clean inline navigation links scrolled at bottom */}
-                  <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
-                    <Link
-                      to="/desk"
-                      onClick={() => setMobileNavOpen(false)}
-                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-[0.98] cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2.5 min-w-0">
-                        <span className="truncate">Department Desks</span>
-                      </span>
-                      <span className="text-slate-400 text-xs font-bold">→</span>
-                    </Link>
-                    <Link
-                      to="/dashboard"
-                      onClick={() => setMobileNavOpen(false)}
-                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-[0.98] cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2.5 min-w-0">
-                        <span className="truncate">Customer App View</span>
-                      </span>
-                      <span className="text-slate-400 text-xs font-bold">→</span>
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMobileNavOpen(false);
-                        logout();
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition active:scale-[0.98] cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2.5 min-w-0">
-                        <span className="truncate">Logout</span>
-                      </span>
-                    </button>
-                  </div>
-                </nav>
-              </aside>
-            </div>
-          )}
+              </nav>
+            </aside>
+          </div>
 
           {/* ══════════════════════════════════════════════════════
               UNIFIED CAPITAL, LOAN, NIVESH & CASH-OUT HUB
@@ -8368,24 +8383,31 @@ export default function AdminPanel() {
                   {/* 24h Daily Profit Notification Dispatch Button */}
                   <button
                     type="button"
+                    style={{ touchAction: "manipulation" }}
                     onClick={triggerYieldNotifications}
                     disabled={sendingYieldAlert}
                     className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 disabled:opacity-50 shadow-xs"
                     title="Send 24h Daily Profit notification to depositors' phones"
                   >
-                    
+                    <svg className="w-3.5 h-3.5 text-white shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                    </svg>
                     <span>{sendingYieldAlert ? "Dispatching..." : "Send 24h Profit Alert"}</span>
                   </button>
 
                   {/* Refresh Button */}
                   <button
                     type="button"
-                    onClick={loadAuditHistory}
+                    style={{ touchAction: "manipulation" }}
+                    onClick={() => loadAuditHistory(true)}
                     disabled={historyLoading}
+                    title="Refresh Audit History"
                     className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition active:scale-95 disabled:opacity-50 border border-slate-200 shadow-2xs"
                   >
-                    <span className={historyLoading ? "animate-spin" : ""}></span>
-                    <span className="hidden sm:inline">Refresh</span>
+                    <svg className={`w-3.5 h-3.5 text-slate-600 shrink-0 ${historyLoading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span className="text-[11px] font-bold text-slate-700">Refresh</span>
                   </button>
                 </div>
               </div>

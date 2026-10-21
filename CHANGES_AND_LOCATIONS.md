@@ -209,6 +209,23 @@ D:\Backup projects\Paytment website\
 
 ---
 
+### Update L: Audit History Refresh Icon & 0ms Instant Hamburger + Mobile Drawer Navigation
+- **Problem Solved**:
+  1. Audit History header had an empty pill button on mobile next to "Send 24h Profit Alert" due to missing SVG icon and text hidden on small screens.
+  2. Hamburger menu button (☰) and drawer navigation buttons were reacting very slowly on mobile because `React.startTransition` deprioritized tab state updates, and the drawer unmounted/mounted on every open/close, causing heavy DOM recreation and touch lag.
+- **Exact Locations**:
+  1. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L8368-L8395):
+     - Added Refresh SVG icon + visible "Refresh" label to the audit history refresh button.
+     - Added Notification Bell SVG icon to "Send 24h Profit Alert".
+  2. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L4345-L4365):
+     - Enhanced Hamburger button with crisp 3-bar SVG icon, `touchAction: "manipulation"` (removes mobile 300ms tap delay), and instant `active:scale-90 active:bg-slate-200` feedback.
+  3. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L1114-L1125, L4445-L4535):
+     - Removed `React.startTransition` from `switchTab` so `setTab(nextTab)` updates synchronously in 0ms.
+     - Converted mobile drawer to persistent GPU hardware-accelerated CSS slide-in (`translate-x-0` vs `-translate-x-full`), eliminating DOM destruction/re-creation overhead.
+     - Added `touchAction: "manipulation"` and `active:scale-[0.97]` to all 16 drawer navigation buttons.
+
+---
+
 ## 4. Critical Rules & Guardrails ("DO NOT TOUCH")
 
 1. **DO NOT Re-introduce Asynchronous Queuing in `CacheManager.js`**:

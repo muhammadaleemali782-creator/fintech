@@ -353,10 +353,10 @@ const DESK_ROLE_PRESETS = [
 function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" }) {
   const [profit] = useState(() => {
     if (typeof localStorage !== "undefined") {
-      const v = parseCachedNumber(localStorage.getItem("educa_admin_cached_profit"), 0);
-      if (isFinite(v) && v >= 67906.29) return v;
+      const v = parseCachedNumber(localStorage.getItem("educa_admin_cached_profit"), null);
+      if (v !== null && isFinite(v) && v >= 0) return v;
     }
-    return baseProfit > 0 ? baseProfit : 67906.29;
+    return baseProfit >= 0 ? baseProfit : 0;
   });
   const spanRef = useRef(null);
   const currentRef = useRef(profit);
@@ -364,16 +364,15 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
   const lastSaveRef = useRef(0);
 
   useEffect(() => {
-    if (baseProfit > 0) {
-      currentRef.current = Math.max(currentRef.current, baseProfit);
-      if (spanRef.current) {
-        spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
-      }
+    currentRef.current = Number(baseProfit) || 0;
+    if (spanRef.current) {
+      spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
     }
   }, [baseProfit]);
 
   useEffect(() => {
-    const depVal = deposits > 0 ? deposits : 26659057.86;
+    const depVal = deposits > 0 ? deposits : 0;
+    if (depVal <= 0) return;
     const dailyAdminYield = (depVal * 0.12) / 365;
     const perMsAdminYield = dailyAdminYield / 86400000;
     lastRef.current = Date.now();
@@ -399,7 +398,7 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
           if (now - lastSaveRef.current > 3000) {
             lastSaveRef.current = now;
             try {
-              if (currentRef.current > 0) localStorage.setItem("educa_admin_cached_profit", String(currentRef.current));
+              if (currentRef.current >= 0) localStorage.setItem("educa_admin_cached_profit", String(currentRef.current));
             } catch {}
           }
         }
@@ -416,7 +415,7 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
   useEffect(() => {
     const handleSave = () => {
       try {
-        if (currentRef.current > 0) localStorage.setItem("educa_admin_cached_profit", String(currentRef.current));
+        if (currentRef.current >= 0) localStorage.setItem("educa_admin_cached_profit", String(currentRef.current));
       } catch {}
     };
     window.addEventListener("pagehide", handleSave);
@@ -439,11 +438,11 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
 function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" }) {
   const [initialVal] = useState(() => {
     if (typeof localStorage !== "undefined") {
-      const v = parseCachedNumber(localStorage.getItem("educa_admin_cached_reserves"), 0);
-      if (isFinite(v) && v >= 26726964.15) return v;
+      const v = parseCachedNumber(localStorage.getItem("educa_admin_cached_reserves"), null);
+      if (v !== null && isFinite(v) && v >= 0) return v;
     }
-    const d = deposits > 0 ? deposits : 26659057.86;
-    const p = baseProfit > 0 ? baseProfit : 67906.29;
+    const d = deposits > 0 ? deposits : 0;
+    const p = baseProfit > 0 ? baseProfit : 0;
     return d + p;
   });
   const spanRef = useRef(null);
@@ -452,18 +451,17 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
   const lastSaveRef = useRef(0);
 
   useEffect(() => {
-    if (deposits > 0 || baseProfit > 0) {
-      const d = deposits > 0 ? deposits : 26659057.86;
-      const p = baseProfit > 0 ? baseProfit : 67906.29;
-      currentRef.current = Math.max(currentRef.current, d + p);
-      if (spanRef.current) {
-        spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
-      }
+    const d = deposits > 0 ? deposits : 0;
+    const p = baseProfit > 0 ? baseProfit : 0;
+    currentRef.current = d + p;
+    if (spanRef.current) {
+      spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
     }
   }, [deposits, baseProfit]);
 
   useEffect(() => {
-    const depVal = deposits > 0 ? deposits : 26659057.86;
+    const depVal = deposits > 0 ? deposits : 0;
+    if (depVal <= 0) return;
     const dailyAdminYield = (depVal * 0.12) / 365;
     const perMsAdminYield = dailyAdminYield / 86400000;
     lastRef.current = Date.now();
@@ -489,7 +487,7 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
           if (now - lastSaveRef.current > 3000) {
             lastSaveRef.current = now;
             try {
-              if (currentRef.current > 0) localStorage.setItem("educa_admin_cached_reserves", String(currentRef.current));
+              if (currentRef.current >= 0) localStorage.setItem("educa_admin_cached_reserves", String(currentRef.current));
             } catch {}
           }
         }
@@ -506,7 +504,7 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
   useEffect(() => {
     const handleSave = () => {
       try {
-        if (currentRef.current > 0) localStorage.setItem("educa_admin_cached_reserves", String(currentRef.current));
+        if (currentRef.current >= 0) localStorage.setItem("educa_admin_cached_reserves", String(currentRef.current));
       } catch {}
     };
     window.addEventListener("pagehide", handleSave);
@@ -4153,70 +4151,58 @@ export default function AdminPanel() {
     const v = localStorage.getItem(key);
     if (!v) return fallback;
     const n = parseCachedNumber(v, null);
-    return n !== null && isFinite(n) && n > 0 ? n : fallback;
+    return n !== null && isFinite(n) && n >= 0 ? n : fallback;
   };
 
-  const cachedDeposits = readCachedNumber("educa_admin_cached_deposits", 26659057.86);
-  const cachedProfit = Math.max(readCachedNumber("educa_admin_cached_profit", 67906.29), 67906.29);
-  const cachedReserves = Math.max(readCachedNumber("educa_admin_cached_reserves", 26726964.15), 26726964.15);
-  const cachedUsers = readCachedNumber("educa_admin_cached_users_count", 20);
+  const cachedDeposits = readCachedNumber("educa_admin_cached_deposits", 0);
+  const cachedProfit = readCachedNumber("educa_admin_cached_profit", 0);
+  const cachedReserves = readCachedNumber("educa_admin_cached_reserves", 0);
+  const cachedUsers = readCachedNumber("educa_admin_cached_users_count", 0);
   const cachedPending = readCachedNumber("educa_admin_cached_pending_count", 0);
-  const cachedLoans = Math.max(readCachedNumber("educa_admin_cached_loans_count", 2), 2);
+  const cachedLoans = readCachedNumber("educa_admin_cached_loans_count", 0);
 
   const totalDepositsDisplay = Number(
-    (analytics?.stats?.totalDeposits > 0 ? analytics.stats.totalDeposits : null) ??
-    (stats?.totalDeposits > 0 ? stats.totalDeposits : null) ??
+    (analytics?.stats?.totalDeposits !== undefined ? analytics.stats.totalDeposits : null) ??
+    (stats?.totalDeposits !== undefined ? stats.totalDeposits : null) ??
     (cachedDeposits > 0 ? cachedDeposits : null) ??
-    26659057.86
+    0
   );
 
   const chartCumulativeProfit = (analytics?.dailyProfitChart || []).reduce((acc, row) => acc + (Number(row.amount) || 0), 0);
   const totalProfitBase = Number(
-    (analytics?.stats?.totalYieldCredited > 0 ? analytics.stats.totalYieldCredited : null) ??
+    (analytics?.stats?.totalYieldCredited !== undefined ? analytics.stats.totalYieldCredited : null) ??
     (chartCumulativeProfit > 0 ? chartCumulativeProfit : null) ??
-    (analytics?.stats?.totalUserProfits > 0 ? analytics.stats.totalUserProfits : null) ??
-    (stats?.totalUserProfits > 0 ? stats.totalUserProfits : null) ??
-    (stats?.totalYield > 0 ? stats.totalYield : null) ??
+    (analytics?.stats?.totalUserProfits !== undefined ? analytics.stats.totalUserProfits : null) ??
+    (stats?.totalUserProfits !== undefined ? stats.totalUserProfits : null) ??
+    (stats?.totalYield !== undefined ? stats.totalYield : null) ??
     (cachedProfit > 0 ? cachedProfit : null) ??
-    67906.29
+    0
   );
 
   const totalReservesBase = Number(
-    (analytics?.stats?.netFintechReserve > 0 ? analytics.stats.netFintechReserve : null) ??
-    (stats?.netFintechReserve > 0 ? stats.netFintechReserve : null) ??
+    (analytics?.stats?.netFintechReserve !== undefined ? analytics.stats.netFintechReserve : null) ??
+    (stats?.netFintechReserve !== undefined ? stats.netFintechReserve : null) ??
     (cachedReserves > 0 ? cachedReserves : null) ??
-    26726964.15
+    0
   );
 
   // Sync cached reserves, deposits & profit on backend update
   useEffect(() => {
-    const net = Number(analytics?.stats?.netFintechReserve || stats?.netFintechReserve || stats?.totalUserBalances || 0);
-    if (net > 0) {
-      try { localStorage.setItem("educa_admin_cached_reserves", String(net)); } catch {}
-    }
-    if (totalDepositsDisplay > 0) {
-      try { localStorage.setItem("educa_admin_cached_deposits", String(totalDepositsDisplay)); } catch {}
-    }
-    if (totalProfitBase > 0) {
-      try { localStorage.setItem("educa_admin_cached_profit", String(totalProfitBase)); } catch {}
-    }
+    const net = Number(analytics?.stats?.netFintechReserve ?? stats?.netFintechReserve ?? stats?.totalUserBalances ?? 0);
+    try { localStorage.setItem("educa_admin_cached_reserves", String(net)); } catch {}
+    try { localStorage.setItem("educa_admin_cached_deposits", String(totalDepositsDisplay)); } catch {}
+    try { localStorage.setItem("educa_admin_cached_profit", String(totalProfitBase)); } catch {}
   }, [analytics?.stats?.netFintechReserve, stats?.netFintechReserve, stats?.totalUserBalances, totalDepositsDisplay, totalProfitBase]);
 
-  const resolvedTotalUsers = (Array.isArray(users) && users.length > 0 ? users.length : null) ?? stats?.totalUsers ?? analytics?.stats?.totalUsers ?? (cachedUsers > 0 ? cachedUsers : 20);
-  const resolvedPendingTxns = Number(stats?.pendingTxns ?? analytics?.stats?.pendingTxnsCount ?? (Array.isArray(pending) ? pending.length : null) ?? cachedPending ?? 0) || 0;
-  const resolvedActiveLoans = Number(stats?.totalLoans ?? analytics?.stats?.totalLoans ?? (Array.isArray(loans) && loans.length > 0 ? loans.length : null) ?? (cachedLoans > 0 ? cachedLoans : 2)) || 2;
+  const resolvedTotalUsers = Number((Array.isArray(users) ? users.length : null) ?? (stats?.totalUsers !== undefined ? stats.totalUsers : null) ?? (analytics?.stats?.totalUsers !== undefined ? analytics.stats.totalUsers : null) ?? cachedUsers ?? 0);
+  const resolvedPendingTxns = Number((Array.isArray(pending) ? pending.length : null) ?? (stats?.pendingTxns !== undefined ? stats.pendingTxns : null) ?? (analytics?.stats?.pendingTxnsCount !== undefined ? analytics.stats.pendingTxnsCount : null) ?? cachedPending ?? 0);
+  const resolvedActiveLoans = Number((Array.isArray(loans) ? loans.length : null) ?? (stats?.totalLoans !== undefined ? stats.totalLoans : null) ?? (analytics?.stats?.totalLoans !== undefined ? analytics.stats.totalLoans : null) ?? cachedLoans ?? 0);
 
   useEffect(() => {
-    if (resolvedTotalUsers > 0) {
-      try { localStorage.setItem("educa_admin_cached_users_count", String(resolvedTotalUsers)); } catch {}
-    }
-    if (stats?.pendingTxns !== undefined || analytics?.stats?.pendingTxnsCount !== undefined || (Array.isArray(pending) && pending.length > 0)) {
-      try { localStorage.setItem("educa_admin_cached_pending_count", String(resolvedPendingTxns)); } catch {}
-    }
-    if (resolvedActiveLoans > 0) {
-      try { localStorage.setItem("educa_admin_cached_loans_count", String(resolvedActiveLoans)); } catch {}
-    }
-  }, [resolvedTotalUsers, resolvedPendingTxns, resolvedActiveLoans, stats, analytics, pending]);
+    try { localStorage.setItem("educa_admin_cached_users_count", String(resolvedTotalUsers)); } catch {}
+    try { localStorage.setItem("educa_admin_cached_pending_count", String(resolvedPendingTxns)); } catch {}
+    try { localStorage.setItem("educa_admin_cached_loans_count", String(resolvedActiveLoans)); } catch {}
+  }, [resolvedTotalUsers, resolvedPendingTxns, resolvedActiveLoans]);
 
   // Instant open & zero skeleton: values are always rendered immediately
   const isMetricsLoading = false;
@@ -4315,9 +4301,20 @@ export default function AdminPanel() {
             )}
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 if (window.confirm("Admin offline cache clear karein? Sab fresh load hoga.")) {
-                  CacheManager.clearUser("admin", user?._id || user?.id || "admin");
+                  try {
+                    await CacheManager.clearAll();
+                    localStorage.removeItem("educa_admin_backup_history");
+                    localStorage.removeItem("educa_admin_cached_reserves");
+                    localStorage.removeItem("educa_admin_cached_deposits");
+                    localStorage.removeItem("educa_admin_cached_profit");
+                    localStorage.removeItem("educa_admin_cached_users_count");
+                    localStorage.removeItem("educa_admin_cached_pending_count");
+                    localStorage.removeItem("educa_admin_cached_loans_count");
+                    localStorage.removeItem("educa_admin_cached_stats");
+                    localStorage.removeItem("educa_admin_cached_analytics");
+                  } catch (_) {}
                   window.location.reload();
                 }
               }}
@@ -5995,7 +5992,7 @@ export default function AdminPanel() {
                       <span className="text-lg"></span> Capital Allocation & Sources
                     </h3>
                     <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2.5 py-1 rounded-xl border border-gray-200">
-                      Total Pool: ₹{Number(totalDepositsDisplay > 0 ? (totalDepositsDisplay + totalProfitBase) : (analytics?.stats?.netFintechReserve || stats?.netFintechReserve || cachedReserves || 26670026.7471)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      Total Pool: ₹{Number(totalDepositsDisplay > 0 ? (totalDepositsDisplay + totalProfitBase) : (analytics?.stats?.netFintechReserve || stats?.netFintechReserve || cachedReserves || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
 
@@ -14058,7 +14055,24 @@ export default function AdminPanel() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-bold text-gray-700">
                     <span>Local Backup Log (Kab Kab Backup Hua Hai):</span>
-                    <span className="text-gray-400 text-[11px]">{backupHistory.length} Backups Saved</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 text-[11px]">{backupHistory.length} Backups Saved</span>
+                      {backupHistory.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm("Purane browser backup log ko clear karna chahte hain?")) {
+                              setBackupHistory([]);
+                              try { localStorage.removeItem("educa_admin_backup_history"); } catch (_) {}
+                              showToast("Backup log successfully clear ho gaya", "success");
+                            }
+                          }}
+                          className="px-2 py-0.5 text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-md transition cursor-pointer"
+                        >
+                          Clear Log
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {backupHistory.length === 0 ? (

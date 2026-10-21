@@ -1589,18 +1589,20 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
     const dayProgress = Math.min(1, msElapsedToday / (24 * 3600 * 1000));
     const liveAccruedToday = Number(((totalDeposits * 0.12 / 365) * dayProgress).toFixed(2));
 
-    if (!dailyMap[todayStr]) {
-      const [y, m, d] = todayStr.split('-').map(Number);
-      const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-      dailyMap[todayStr] = {
-        date: todayStr,
-        displayDate: dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' }),
-        amount: liveAccruedToday,
-        txnCount: 1,
-        users: new Set()
-      };
-    } else {
-      dailyMap[todayStr].amount = Math.max(dailyMap[todayStr].amount, liveAccruedToday);
+    if (totalDeposits > 0 || yieldTxns.length > 0) {
+      if (!dailyMap[todayStr]) {
+        const [y, m, d] = todayStr.split('-').map(Number);
+        const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+        dailyMap[todayStr] = {
+          date: todayStr,
+          displayDate: dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' }),
+          amount: liveAccruedToday,
+          txnCount: 1,
+          users: new Set()
+        };
+      } else {
+        dailyMap[todayStr].amount = Math.max(dailyMap[todayStr].amount, liveAccruedToday);
+      }
     }
 
     // Ensure all completed past calendar days reflect the full 12% p.a. daily compounding yield

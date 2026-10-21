@@ -3178,13 +3178,23 @@ export default function AdminPanel() {
   };
 
   const toggleBlock = async (id) => {
-    const res = await fetch(`${API}/admin/user/${id}/toggle-block`, { method: "POST", headers });
-    showToast((await res.json()).message);
-    apiCache.clear();
-    loadUsers(true);
+    // ⚡ Optimistic UI update: instant 0ms toggle
+    setUsers(prev => prev.map(u => u._id === id ? { ...u, isBlocked: !u.isBlocked } : u));
+    try {
+      const res = await fetch(`${API}/admin/user/${id}/toggle-block`, { method: "POST", headers });
+      const data = await res.json();
+      showToast(data.message || "User block status updated!", res.ok ? "success" : "error");
+      apiCache.clear();
+      loadUsers(true);
+    } catch {
+      showToast("Failed to toggle user block status", "error");
+      loadUsers(true);
+    }
   };
 
   const toggleUninstallLock = async (userId) => {
+    // ⚡ Optimistic UI update: instant 0ms toggle
+    setUsers(prev => prev.map(u => u._id === userId ? { ...u, isUninstallProtected: !u.isUninstallProtected } : u));
     try {
       const res = await fetch(`${API}/admin/user/${userId}/toggle-uninstall-lock`, { method: "POST", headers });
       const data = await res.json();
@@ -3193,9 +3203,12 @@ export default function AdminPanel() {
         apiCache.clear();
         loadUsers(true);
         loadDevices(true);
+      } else {
+        loadUsers(true);
       }
     } catch {
       showToast("Failed to toggle uninstall protection", "error");
+      loadUsers(true);
     }
   };
 
@@ -3314,6 +3327,23 @@ export default function AdminPanel() {
     const newTier = currentTier === "platinum" || currentUnlocked ? "silver" : "platinum";
     const unlockVal = newTier === "platinum";
     const reason = unlockVal ? "Admin VIP Privilege Override" : "";
+
+    // ⚡ Optimistic UI update: instant 0ms state change so button reacts immediately
+    setUsers(prev => prev.map(u => {
+      if (u._id !== userId) return u;
+      return {
+        ...u,
+        cardTier: newTier,
+        cardStatus: {
+          ...(u.cardStatus || {}),
+          platinum: {
+            ...(u.cardStatus?.platinum || {}),
+            unlocked: unlockVal
+          }
+        }
+      };
+    }));
+
     try {
       const res = await fetch(`${API}/admin/user/${userId}/card-tier`, {
         method: "POST",
@@ -3325,9 +3355,12 @@ export default function AdminPanel() {
       if (res.ok) {
         apiCache.clear();
         loadUsers(true);
+      } else {
+        loadUsers(true);
       }
     } catch {
       showToast("Failed to update card status", "error");
+      loadUsers(true);
     }
   };
 
@@ -5939,7 +5972,7 @@ export default function AdminPanel() {
               {/* ══════════════════════════════════════════════════════
                   GROWTH BREAKDOWN: "KAHAN SE KITNA BADHA KAISE BADHA"
               ══════════════════════════════════════════════════════ */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="w-full">
                 {/* Capital Sources Breakdown (Redesigned with Apple Design Craft) */}
                 <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-5">
                   <div className="flex items-center justify-between pb-3 border-b border-gray-100">
@@ -6024,80 +6057,6 @@ export default function AdminPanel() {
                       </>
                     );
                   })()}
-                </div>
-
-                {/* Capital Activity & Audit Trail (Redesigned with Apple Design Craft) */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4 flex flex-col justify-between">
-                  <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                    <h3 className="text-base font-black font-display text-gray-900 flex items-center gap-2">
-                      <span className="text-lg">⏱️</span> Capital Growth Audit Trail
-                    </h3>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                      Real-Time Ledger
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5 text-xs max-h-[380px] overflow-y-auto pr-1 no-scrollbar">
-                    {analytics?.timeline && analytics.timeline.length > 0 ? (
-                      analytics.timeline.map((item, idx) => {
-                        const isDeposit = item.type === "deposit";
-                        const formattedAmt = Number(item.amount || 0).toLocaleString("en-IN", {
-                          minimumFractionDigits: isDeposit ? 0 : 2,
-                          maximumFractionDigits: 4
-                        });
-
-                        return (
-                          <div
-                            key={idx}
-                            className="p-3 sm:p-3.5 rounded-2xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 hover:shadow-xs transition-all flex items-start gap-3"
-                          >
-                            <div
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 border ${
-                                isDeposit
-                                  ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                  : "bg-blue-50 text-blue-600 border-blue-100"
-                              }`}
-                            >
-                              {isDeposit ? "" : ""}
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2 mb-0.5">
-                                <p className="font-extrabold text-gray-900 text-xs truncate">
-                                  {isDeposit ? "Customer Capital Deposit" : "Daily Savings Yield Added"}
-                                </p>
-                                <span
-                                  className={`font-mono font-bold text-xs px-2 py-0.5 rounded-lg shrink-0 border ${
-                                    isDeposit
-                                      ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-                                      : "text-blue-700 bg-blue-50 border-blue-200"
-                                  }`}
-                                >
-                                  +₹{formattedAmt}
-                                </span>
-                              </div>
-                              <p className="text-gray-500 text-[11px] truncate">
-                                {item.description}
-                              </p>
-                              <p className="text-[10px] text-gray-400 mt-1 font-medium">
-                                {new Date(item.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="py-12 text-center text-gray-400">
-                        <span className="text-3xl block mb-2">{loadingAnalytics ? "" : ""}</span>
-                        <p className="font-bold text-xs text-gray-600">
-                          {loadingAnalytics ? "Live Capital Activity Sync Ho Rahi Hai..." : "Abhi koi capital activity record nahi hui hai"}
-                        </p>
-                        <p className="text-[11px] mt-1 text-gray-400 max-w-xs mx-auto">
-                          {loadingAnalytics ? "Server se audit trail sync ho raha hai..." : "Naye deposits ya daily profit credit hote hi live audit trail yahan appear hoga."}
-                        </p>
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -8050,7 +8009,10 @@ export default function AdminPanel() {
                       onClick={() => exportKycToCsv()}
                       className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-90 active:ring-2 active:ring-emerald-400 transition flex items-center gap-1.5 cursor-pointer select-none"
                     >
-                       Export Selected ({selectedKycIds.size})
+                      <svg className="w-3.5 h-3.5 text-white shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1.8 14l-1.8-2.7-1.8 2.7h-1.6l2.6-3.8-2.5-3.7h1.6l1.7 2.6 1.7-2.6h1.6L16.4 12l2.6 3.9h-1.6zM13 9V3.5L18.5 9H13z" />
+                      </svg>
+                      <span>Export Selected ({selectedKycIds.size})</span>
                     </button>
                   )}
 
@@ -8059,7 +8021,10 @@ export default function AdminPanel() {
                     onClick={() => exportKycToCsv(filteredKycUsers)}
                     className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs active:scale-90 active:ring-2 active:ring-emerald-400 transition flex items-center gap-1.5 cursor-pointer select-none"
                   >
-                     Export All ({filteredKycUsers.length})
+                    <svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1.8 14l-1.8-2.7-1.8 2.7h-1.6l2.6-3.8-2.5-3.7h1.6l1.7 2.6 1.7-2.6h1.6L16.4 12l2.6 3.9h-1.6zM13 9V3.5L18.5 9H13z" />
+                    </svg>
+                    <span>Export All ({filteredKycUsers.length})</span>
                   </button>
                 </div>
               </div>
@@ -8205,10 +8170,12 @@ export default function AdminPanel() {
                               e.stopPropagation();
                               exportKycToCsv(u);
                             }}
-                            className="shrink-0 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-90 active:ring-2 active:ring-emerald-400 cursor-pointer shadow-2xs select-none"
+                            className="shrink-0 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-90 active:ring-2 active:ring-emerald-400 cursor-pointer shadow-2xs select-none"
                           >
-                            
-                            <span className="hidden sm:inline">Excel</span>
+                            <svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1.8 14l-1.8-2.7-1.8 2.7h-1.6l2.6-3.8-2.5-3.7h1.6l1.7 2.6 1.7-2.6h1.6L16.4 12l2.6 3.9h-1.6zM13 9V3.5L18.5 9H13z" />
+                            </svg>
+                            <span className="text-[11px] font-bold text-emerald-900">Excel</span>
                           </button>
                         </div>
 
@@ -10346,18 +10313,33 @@ export default function AdminPanel() {
                         </div>
 
                         {/* MOBILE CONTROLS: CARD TIER */}
-                        <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 mb-3 flex items-center justify-between text-xs">
-                          <span className="font-semibold text-gray-600">Card Tier ({u.loansCount || 0}/4 loans):</span>
-                          <button
-                            onClick={() => toggleUserCard(u._id, u.cardTier, u.cardStatus?.platinum?.unlocked)}
-                            className={`px-2 py-1 rounded-lg text-xs font-bold ${
-                              u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked
-                                ? "bg-amber-100 text-amber-900 border border-amber-300"
-                                : "bg-slate-100 text-slate-700 border border-slate-300"
-                            }`}
-                          >
-                            {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? "Platinum (VIP)" : "Silver (Unlock VIP)"}
-                          </button>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 mb-3 flex items-center justify-between text-xs">
+                          <div>
+                            <span className="font-bold text-slate-700">Card Tier</span>
+                            <span className="text-[11px] text-slate-400 font-mono ml-1.5">({u.loansCount || 0}/4 loans)</span>
+                          </div>
+                          {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-500 text-white shadow-2xs">
+                                👑 PLATINUM (VIP)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => toggleUserCard(u._id, u.cardTier, u.cardStatus?.platinum?.unlocked)}
+                                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer active:scale-95 transition"
+                              >
+                                Revoke
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => toggleUserCard(u._id, u.cardTier, u.cardStatus?.platinum?.unlocked)}
+                              className="px-3 py-1 rounded-lg text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 shadow-2xs cursor-pointer active:scale-95 transition"
+                            >
+                              Silver (Unlock VIP)
+                            </button>
+                          )}
                         </div>
 
                         {/* 4 METRIC SQUARES */}

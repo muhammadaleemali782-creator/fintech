@@ -189,6 +189,26 @@ D:\Backup projects\Paytment website\
 
 ---
 
+### Update K: Capital Growth Audit Trail Removal, 0ms Optimistic VIP Toggles, Global Blue Progress Bar, & Excel Icons
+- **Problem Solved**:
+  1. User requested removing "Capital Growth Audit Trail" from AdminPanel Profit & Reserves tab in both website and app.
+  2. Mobile user Card Tier button (Unlock VIP / Revoke) was delayed and unresponsive due to waiting for slow round-trip network response and `loadUsers(true)` before updating UI state.
+  3. App was missing a visible top progress indicator during user actions to communicate background activity.
+  4. Mobile KYC requests list had an empty box for the 1-click Excel export button because the icon was missing and text was hidden on small screens.
+- **Exact Locations**:
+  1. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L5940-L6060):
+     - Deleted the entire "Capital Growth Audit Trail" card (70 lines of dead JSX).
+     - Expanded "Capital Allocation & Sources" to full width (`w-full`).
+  2. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L3180-L3360, L10313-L10345):
+     - Added 0ms optimistic UI updates to `toggleUserCard`, `toggleBlock`, and `toggleUninstallLock` via `setUsers(prev => ...)`, providing instant visual feedback upon tapping.
+     - Redesigned mobile Card Tier control with sleek `👑 PLATINUM (VIP)` badge + Revoke link, or `Silver (Unlock VIP)` button with tactile `active:scale-95` touch feedback.
+  3. `payease-frontend-mobile-web-fixed/src/components/ui/TopProgressBar.jsx` (L35-L95):
+     - Added global fetch interceptor to trigger the 3px blue/cyan glowing progress bar at the top of the viewport (`z-[99999999]`) during all foreground network actions across both website and app, ignoring silent `/pulse` sync.
+  4. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L8050-L8065, L8170-L8180):
+     - Added green spreadsheet Excel SVG icon and visible "Excel" label to both mobile KYC user cards and the bulk export toolbar.
+
+---
+
 ## 4. Critical Rules & Guardrails ("DO NOT TOUCH")
 
 1. **DO NOT Re-introduce Asynchronous Queuing in `CacheManager.js`**:

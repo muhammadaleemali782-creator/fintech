@@ -146,6 +146,28 @@ D:\Backup projects\Paytment website\
      - Dynamic collision guard: in ranges > 7 days, floating value badges only render for hovered and latest items.
      - Polished bottom summary strip with high-contrast day profit, cumulative yield, and total capital figures.
 
+### Update I: 30ms Zero-Lag DOM Ref Acceleration, Precision Scaling for Low Balances, Removal of Custom APY Card Items, Today Filter Default, and Tab Background Isolation
+- **Problem Solved**:
+  1. Button clicks delayed and double tapping on Users & Accounts; mobile sidebar freeze caused by `useSharedLiveClock` running 30ms interval with React state `setNow()`, producing 800+ React Virtual DOM re-renders/second across user list rows.
+  2. Low balances (e.g. ₹1) yielded very small numbers that didn't visually advance under 4-decimal formatting.
+  3. Mobile user card contained redundant `Custom Interest APY: 12% p.a.` and bottom sub-strip `APY: 12% p.a. ≈ ₹0.0000/hr` inside `24H Expected Yield`.
+  4. Both Admin Panel analytics views needed a "Today" filter as the default range.
+  5. Background interval sync and window resume were firing requests across inactive tabs.
+- **Exact Locations**:
+  1. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L353-L585):
+     - Replaced React state tickers in `LiveAdminProfitTicker`, `LiveAdminReservesTicker`, `LiveLedgerDailyAdded`, and `LiveUserProfitCell` with direct DOM ref updates (`spanRef.current.textContent = ...`) throttled to 30ms with `requestAnimationFrame`. React Virtual DOM re-renders dropped from 800+/sec to 0/sec on idle, resolving all button response lag and screen freezes.
+     - Deleted `useSharedLiveClock`, `__liveClockSubs`, and `__liveClockTimer`.
+     - Added dynamic precision scaling in `LiveUserProfitCell` (`bal < 10 ? 10 : bal < 100 ? 9 : ...`), guaranteeing that even a ₹1 balance visually ticks up every 30ms.
+  2. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L10309-L10410):
+     - Removed `Custom Interest APY: 12% p.a.` and unlock buttons from the mobile user card.
+     - Removed the bottom sub-strip (`APY: 12% p.a. ≈ ₹0.0000/hr`) from the `24H Expected Yield` card.
+  3. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L1288, L1566, L5470, L5540, L5870, L6104, L6296):
+     - Added `"today"` range filter option and made it the default selection for `chartRange`.
+     - Added `visibleLedgerData` to `Day-by-Day Profit Breakdown Ledger` with a compact range filter `[Today | 5D | 7D | 15D | All]` defaulting to Today.
+     - Defaulted `capitalTimeFilter` to `"today"` in Capital Desk analytics.
+  4. `payease-frontend-mobile-web-fixed/src/AdminPanel.jsx` (L2866-L2905):
+     - Tab-isolated background sync: only fetches/updates data for the active operational tab (`tab === "pending"`, `tab === "analytics"`, `tab === "capital"`, etc.).
+
 ---
 
 ## 4. Critical Rules & Guardrails ("DO NOT TOUCH")

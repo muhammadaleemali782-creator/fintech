@@ -351,19 +351,24 @@ const DESK_ROLE_PRESETS = [
 ];
 
 function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" }) {
-  const [profit, setProfit] = useState(() => {
+  const [profit] = useState(() => {
     if (typeof localStorage !== "undefined") {
       const v = parseCachedNumber(localStorage.getItem("educa_admin_cached_profit"), 0);
       if (isFinite(v) && v >= 67906.29) return v;
     }
     return baseProfit > 0 ? baseProfit : 67906.29;
   });
+  const spanRef = useRef(null);
+  const currentRef = useRef(profit);
   const lastRef = useRef(Date.now());
   const lastSaveRef = useRef(0);
 
   useEffect(() => {
     if (baseProfit > 0) {
-      setProfit(prev => Math.max(prev, baseProfit));
+      currentRef.current = Math.max(currentRef.current, baseProfit);
+      if (spanRef.current) {
+        spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+      }
     }
   }, [baseProfit]);
 
@@ -373,31 +378,45 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
     const perMsAdminYield = dailyAdminYield / 86400000;
     lastRef.current = Date.now();
 
-    const timer = setInterval(() => {
-      const now = Date.now();
-      const dt = Math.max(0, now - lastRef.current);
-      lastRef.current = now;
-      if (dt > 0 && perMsAdminYield > 0) {
-        setProfit((prev) => {
-          const next = prev + dt * perMsAdminYield;
+    let rafId = null;
+    let lastTick = 0;
+
+    const update = (timestamp) => {
+      if (typeof document !== "undefined" && document.hidden) {
+        rafId = requestAnimationFrame(update);
+        return;
+      }
+      if (timestamp - lastTick >= 30) {
+        lastTick = timestamp;
+        const now = Date.now();
+        const dt = Math.max(0, now - lastRef.current);
+        lastRef.current = now;
+        if (dt > 0 && perMsAdminYield > 0) {
+          currentRef.current += dt * perMsAdminYield;
+          if (spanRef.current) {
+            spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+          }
           if (now - lastSaveRef.current > 3000) {
             lastSaveRef.current = now;
             try {
-              if (next > 0) localStorage.setItem("educa_admin_cached_profit", String(next));
+              if (currentRef.current > 0) localStorage.setItem("educa_admin_cached_profit", String(currentRef.current));
             } catch {}
           }
-          return next;
-        });
+        }
       }
-    }, 30);
-    return () => clearInterval(timer);
+      rafId = requestAnimationFrame(update);
+    };
+    rafId = requestAnimationFrame(update);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [deposits]);
 
   // Persist immediately on app minimize, phone screen lock, or tab close
   useEffect(() => {
     const handleSave = () => {
       try {
-        if (profit > 0) localStorage.setItem("educa_admin_cached_profit", String(profit));
+        if (currentRef.current > 0) localStorage.setItem("educa_admin_cached_profit", String(currentRef.current));
       } catch {}
     };
     window.addEventListener("pagehide", handleSave);
@@ -408,13 +427,17 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
       window.removeEventListener("beforeunload", handleSave);
       document.removeEventListener("visibilitychange", handleSave);
     };
-  }, [profit]);
+  }, []);
 
-  return <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>₹{Number(profit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
+  return (
+    <span ref={spanRef} className={`font-mono tabular-nums whitespace-nowrap ${className}`}>
+      ₹{Number(profit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+    </span>
+  );
 }
 
 function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" }) {
-  const [accumulated, setAccumulated] = useState(() => {
+  const [initialVal] = useState(() => {
     if (typeof localStorage !== "undefined") {
       const v = parseCachedNumber(localStorage.getItem("educa_admin_cached_reserves"), 0);
       if (isFinite(v) && v >= 26726964.15) return v;
@@ -423,6 +446,8 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
     const p = baseProfit > 0 ? baseProfit : 67906.29;
     return d + p;
   });
+  const spanRef = useRef(null);
+  const currentRef = useRef(initialVal);
   const lastRef = useRef(Date.now());
   const lastSaveRef = useRef(0);
 
@@ -430,7 +455,10 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
     if (deposits > 0 || baseProfit > 0) {
       const d = deposits > 0 ? deposits : 26659057.86;
       const p = baseProfit > 0 ? baseProfit : 67906.29;
-      setAccumulated(prev => Math.max(prev, d + p));
+      currentRef.current = Math.max(currentRef.current, d + p);
+      if (spanRef.current) {
+        spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+      }
     }
   }, [deposits, baseProfit]);
 
@@ -440,31 +468,45 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
     const perMsAdminYield = dailyAdminYield / 86400000;
     lastRef.current = Date.now();
 
-    const timer = setInterval(() => {
-      const now = Date.now();
-      const dt = Math.max(0, now - lastRef.current);
-      lastRef.current = now;
-      if (dt > 0 && perMsAdminYield > 0) {
-        setAccumulated((prev) => {
-          const next = prev + dt * perMsAdminYield;
+    let rafId = null;
+    let lastTick = 0;
+
+    const update = (timestamp) => {
+      if (typeof document !== "undefined" && document.hidden) {
+        rafId = requestAnimationFrame(update);
+        return;
+      }
+      if (timestamp - lastTick >= 30) {
+        lastTick = timestamp;
+        const now = Date.now();
+        const dt = Math.max(0, now - lastRef.current);
+        lastRef.current = now;
+        if (dt > 0 && perMsAdminYield > 0) {
+          currentRef.current += dt * perMsAdminYield;
+          if (spanRef.current) {
+            spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+          }
           if (now - lastSaveRef.current > 3000) {
             lastSaveRef.current = now;
             try {
-              if (next > 0) localStorage.setItem("educa_admin_cached_reserves", String(next));
+              if (currentRef.current > 0) localStorage.setItem("educa_admin_cached_reserves", String(currentRef.current));
             } catch {}
           }
-          return next;
-        });
+        }
       }
-    }, 30);
-    return () => clearInterval(timer);
+      rafId = requestAnimationFrame(update);
+    };
+    rafId = requestAnimationFrame(update);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [deposits, baseProfit]);
 
   // Persist immediately on app minimize, phone screen lock, or tab close
   useEffect(() => {
     const handleSave = () => {
       try {
-        if (accumulated > 0) localStorage.setItem("educa_admin_cached_reserves", String(accumulated));
+        if (currentRef.current > 0) localStorage.setItem("educa_admin_cached_reserves", String(currentRef.current));
       } catch {}
     };
     window.addEventListener("pagehide", handleSave);
@@ -475,17 +517,25 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" 
       window.removeEventListener("beforeunload", handleSave);
       document.removeEventListener("visibilitychange", handleSave);
     };
-  }, [accumulated]);
+  }, []);
 
-  return <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>₹{Number(accumulated).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
+  return (
+    <span ref={spanRef} className={`font-mono tabular-nums whitespace-nowrap ${className}`}>
+      ₹{Number(initialVal).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+    </span>
+  );
 }
 
 function LiveLedgerDailyAdded({ baseAmount = 0, deposits = 0, className = "" }) {
-  const [amount, setAmount] = useState(baseAmount);
+  const spanRef = useRef(null);
+  const currentRef = useRef(baseAmount);
   const lastRef = useRef(Date.now());
 
   useEffect(() => {
-    setAmount(baseAmount);
+    currentRef.current = baseAmount;
+    if (spanRef.current) {
+      spanRef.current.textContent = `+₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+    }
   }, [baseAmount]);
 
   useEffect(() => {
@@ -494,60 +544,82 @@ function LiveLedgerDailyAdded({ baseAmount = 0, deposits = 0, className = "" }) 
     const perMsAdminYield = dailyAdminYield / 86400000;
     lastRef.current = Date.now();
 
-    const timer = setInterval(() => {
-      const now = Date.now();
-      const dt = Math.max(0, now - lastRef.current);
-      lastRef.current = now;
-      if (dt > 0 && perMsAdminYield > 0) {
-        setAmount((prev) => prev + dt * perMsAdminYield);
+    let rafId = null;
+    let lastTick = 0;
+
+    const update = (timestamp) => {
+      if (typeof document !== "undefined" && document.hidden) {
+        rafId = requestAnimationFrame(update);
+        return;
       }
-    }, 30);
-    return () => clearInterval(timer);
+      if (timestamp - lastTick >= 30) {
+        lastTick = timestamp;
+        const now = Date.now();
+        const dt = Math.max(0, now - lastRef.current);
+        lastRef.current = now;
+        if (dt > 0 && perMsAdminYield > 0) {
+          currentRef.current += dt * perMsAdminYield;
+          if (spanRef.current) {
+            spanRef.current.textContent = `+₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+          }
+        }
+      }
+      rafId = requestAnimationFrame(update);
+    };
+    rafId = requestAnimationFrame(update);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [deposits]);
 
-  return <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>+₹{Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>;
-}
-
-// ONE shared 30ms clock for every live profit cell.
-const __liveClockSubs = new Set();
-let __liveClockTimer = null;
-function useSharedLiveClock(enabled) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!enabled) return undefined;
-    const sub = () => setNow(Date.now());
-    __liveClockSubs.add(sub);
-    if (!__liveClockTimer) {
-      __liveClockTimer = setInterval(() => {
-        if (typeof document !== "undefined" && document.hidden) return;
-        __liveClockSubs.forEach((fn) => fn());
-      }, 30);
-    }
-    return () => {
-      __liveClockSubs.delete(sub);
-      if (!__liveClockSubs.size && __liveClockTimer) { clearInterval(__liveClockTimer); __liveClockTimer = null; }
-    };
-  }, [enabled]);
-  return now;
+  return (
+    <span ref={spanRef} className={`font-mono tabular-nums whitespace-nowrap ${className}`}>
+      +₹{Number(baseAmount).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+    </span>
+  );
 }
 
 function LiveUserProfitCell({ user }) {
   const base = Number(user?.profitBalance || 0);
   const bal = Number(user?.balance || 0);
-  const mountRef = useRef(Date.now());
-  const lastBaseRef = useRef(base);
-  if (lastBaseRef.current !== base) { lastBaseRef.current = base; mountRef.current = Date.now(); }
-
-  const now = useSharedLiveClock(bal > 0);
   const rate = Number(user?.interestRate || 12);
-  const perMs = (bal * rate) / (36500 * 86400000);
-  const liveVal = bal > 0 ? base + Math.max(0, now - mountRef.current) * perMs : base;
+  const decimals = bal <= 0 ? 4 : (bal < 10 ? 10 : (bal < 100 ? 9 : (bal < 1000 ? 8 : (bal < 50000 ? 7 : 6))));
+  const spanRef = useRef(null);
+
+  useEffect(() => {
+    if (bal <= 0) return;
+    const perMs = (bal * rate) / (36500 * 86400000);
+    let mountTime = Date.now();
+    let rafId = null;
+    let lastTick = 0;
+
+    const tick = (timestamp) => {
+      if (typeof document !== "undefined" && document.hidden) {
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+      if (timestamp - lastTick >= 30) {
+        lastTick = timestamp;
+        const now = Date.now();
+        const liveVal = base + Math.max(0, now - mountTime) * perMs;
+        if (spanRef.current) {
+          spanRef.current.textContent = `+₹${liveVal.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [base, bal, rate, decimals]);
 
   if (bal <= 0 && base <= 0) return <span className="text-gray-400 text-xs font-mono tabular-nums">₹0.0000</span>;
-  const decimals = bal < 100 ? 8 : (bal < 50000 ? 7 : 6);
+
   return (
-    <span className="font-mono tabular-nums whitespace-nowrap inline-block">
-      +₹{Number(liveVal).toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
+    <span ref={spanRef} className="font-mono tabular-nums whitespace-nowrap inline-block">
+      +₹{Number(base).toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
     </span>
   );
 }
@@ -1213,7 +1285,15 @@ export default function AdminPanel() {
   });
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [chartMode, setChartMode] = useState("daily"); // "daily" | "cumulative"
-  const [chartRange, setChartRange] = useState("5d"); // "5d" | "7d" | "15d" | "all" (Default: 5 days as requested)
+  const [chartRange, setChartRange] = useState("today"); // "today" | "5d" | "7d" | "15d" | "all" (Default: Today as requested)
+  const visibleLedgerData = useMemo(() => {
+    const list = analytics?.dailyProfitChart || [];
+    if (chartRange === "today") return list.slice(-1);
+    if (chartRange === "5d") return list.slice(-5);
+    if (chartRange === "7d") return list.slice(-7);
+    if (chartRange === "15d") return list.slice(-15);
+    return list;
+  }, [analytics?.dailyProfitChart, chartRange]);
   const [hoveredChartBar, setHoveredChartBar] = useState(null);
   const [depositDetails, setDepositDetails] = useState(() => appCache.get("educa_admin_cached_deposit_details", {
     upiId: "educafinance@upi",
@@ -1491,7 +1571,7 @@ export default function AdminPanel() {
   const [capitalSubCategory, setCapitalSubCategory] = useState("loans"); // "loans" | "investments" | "cashout" | "deposits" | "profit"
   const [capitalSearch, setCapitalSearch] = useState("");
   const debouncedCapitalSearch = useDebounce(capitalSearch, 200);
-  const [capitalTimeFilter, setCapitalTimeFilter] = useState("all"); // "all" | "today" | "7days" | "month"
+  const [capitalTimeFilter, setCapitalTimeFilter] = useState("today"); // "today" | "all" | "7days" | "month" (Default: Today as requested)
   const [rejectLoadingId, setRejectLoadingId] = useState(null);
   const [bondActionLoadingId, setBondActionLoadingId] = useState(null);
   const [installmentActionLoadingId, setInstallmentActionLoadingId] = useState(null);
@@ -2783,35 +2863,39 @@ export default function AdminPanel() {
     return () => clearInterval(kycPoll);
   }, [tab, loadUsers, headers]); // eslint-disable-line
 
-  // LIVE BACKGROUND SYNC (Quiet, non-blocking 30s interval on active operational tabs)
+  // LIVE BACKGROUND SYNC (Tab-Isolated: Only sync the currently active operational tab)
   useEffect(() => {
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       if (tab === "pending") {
         loadPending(true);
-        loadLoans(true);
-      } else if (tab === "analytics" || tab === "capital") {
+      } else if (tab === "analytics") {
         loadAnalytics(true);
-        loadLoans(true);
+      } else if (tab === "capital") {
+        loadCapitalMetrics(true);
       } else if (tab === "loans") {
         loadLoans(true);
+      } else if (tab === "users") {
+        loadUsers(true);
       }
     }, 30 * 1000);
     return () => clearInterval(timer);
-  }, [loadPending, loadLoans, loadAnalytics, tab]);
+  }, [loadPending, loadLoans, loadAnalytics, loadCapitalMetrics, loadUsers, tab]);
 
-  // INSTANT SYNC ON RESUME / TAB FOCUS (Web & Native Mobile App)
+  // INSTANT SYNC ON RESUME / TAB FOCUS (Tab-Isolated: Only refresh active tab)
   useEffect(() => {
     const handleResume = () => {
       if (typeof document !== "undefined" && !document.hidden) {
         if (tab === "pending") {
           loadPending(true);
-          loadLoans(true);
-        } else if (tab === "analytics" || tab === "capital") {
+        } else if (tab === "analytics") {
           loadAnalytics(true);
-          loadLoans(true);
+        } else if (tab === "capital") {
+          loadCapitalMetrics(true);
         } else if (tab === "loans") {
           loadLoans(true);
+        } else if (tab === "users") {
+          loadUsers(true);
         }
       }
     };
@@ -2821,7 +2905,7 @@ export default function AdminPanel() {
       document.removeEventListener("visibilitychange", handleResume);
       window.removeEventListener("focus", handleResume);
     };
-  }, [loadPending, loadLoans, loadAnalytics, tab]);
+  }, [loadPending, loadLoans, loadAnalytics, loadCapitalMetrics, loadUsers, tab]);
 
 
   // REAL-TIME SSE CONNECTION FOR LIVE ALERTS & SOUND
@@ -5396,6 +5480,7 @@ export default function AdminPanel() {
                     {/* Compact Date Range Filter */}
                     <div className="flex items-center gap-0.5 p-1 bg-gray-100 rounded-xl shrink-0">
                       {[
+                        { id: "today", label: "Today" },
                         { id: "5d", label: "5D" },
                         { id: "7d", label: "7D" },
                         { id: "15d", label: "15D" },
@@ -5464,8 +5549,9 @@ export default function AdminPanel() {
                       );
                     }
 
-                    // Slice data based on selected range filter (default: 5d)
+                    // Slice data based on selected range filter (default: today)
                     const data = (() => {
+                      if (chartRange === "today") return rawChartData.slice(-1);
                       if (chartRange === "5d") return rawChartData.slice(-5);
                       if (chartRange === "7d") return rawChartData.slice(-7);
                       if (chartRange === "15d") return rawChartData.slice(-15);
@@ -5795,6 +5881,7 @@ export default function AdminPanel() {
                 {(() => {
                   const rawChartData = analytics?.dailyProfitChart || [];
                   const activeRangeData = (() => {
+                    if (chartRange === "today") return rawChartData.slice(-1);
                     if (chartRange === "5d") return rawChartData.slice(-5);
                     if (chartRange === "7d") return rawChartData.slice(-7);
                     if (chartRange === "15d") return rawChartData.slice(-15);
@@ -6018,27 +6105,53 @@ export default function AdminPanel() {
                   DAY-BY-DAY PROFIT LEDGER: "KOUN DIN KITNA ADD HUWA"
               ══════════════════════════════════════════════════════ */}
               <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 mb-4 gap-3">
                   <div>
                     <h3 className="text-base font-black font-display text-gray-900 flex items-center gap-2">
                        Day-by-Day Profit Breakdown Ledger
                     </h3>
                     <p className="text-xs text-gray-500">Har din ka alag-alag credit record date aur remarks ke sath</p>
                   </div>
-                  <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                    {analytics?.dailyProfitChart?.length || 0} Days Credited • Total +₹{Number(analytics?.stats?.totalYieldCredited || 0).toLocaleString("en-IN")}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Compact Date Range Filter */}
+                    <div className="flex items-center gap-0.5 p-1 bg-gray-100 rounded-xl shrink-0">
+                      {[
+                        { id: "today", label: "Today" },
+                        { id: "5d", label: "5D" },
+                        { id: "7d", label: "7D" },
+                        { id: "15d", label: "15D" },
+                        { id: "all", label: "All" }
+                      ].map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => setChartRange(r.id)}
+                          className={`px-2.5 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                            chartRange === r.id
+                              ? "bg-white text-blue-700 shadow-xs font-black"
+                              : "text-gray-500 hover:text-gray-900"
+                          }`}
+                          title={`Show ${r.label} Ledger`}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                      {visibleLedgerData.length} Days Showing
+                    </span>
+                  </div>
                 </div>
 
                 {/* MOBILE CARD LIST (NO HORIZONTAL SCROLL) */}
                 <div className="sm:hidden space-y-2.5">
-                  {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
+                  {(!visibleLedgerData || visibleLedgerData.length === 0) ? (
                     <div className="py-8 text-center text-gray-400 text-xs font-medium bg-slate-50 rounded-xl border border-slate-200">
                       {loadingAnalytics ? "Live ledger sync ho raha hai..." : "Koi daily profit yield abhi tak record nahi hua hai."}
                     </div>
                   ) : (
-                    analytics.dailyProfitChart.map((row, idx) => {
-                      const isToday = idx === analytics.dailyProfitChart.length - 1;
+                    visibleLedgerData.map((row, idx) => {
+                      const isToday = row.date === (analytics?.dailyProfitChart?.[analytics.dailyProfitChart.length - 1]?.date);
                       const rowAmount = Number(row.amount);
                       const rowCumulative = Number(row.cumulativeYield);
                       const dayKey = row.date || `day-${idx}`;
@@ -6185,15 +6298,15 @@ export default function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {(!analytics?.dailyProfitChart || analytics.dailyProfitChart.length === 0) ? (
+                      {(!visibleLedgerData || visibleLedgerData.length === 0) ? (
                         <tr>
                           <td colSpan="5" className="py-8 text-center text-gray-400 font-medium">
                             {loadingAnalytics ? "Live ledger sync ho raha hai..." : "Koi daily profit yield abhi tak record nahi hua hai."}
                           </td>
                         </tr>
                       ) : (
-                        analytics.dailyProfitChart.map((row, idx) => {
-                          const isToday = idx === analytics.dailyProfitChart.length - 1;
+                        visibleLedgerData.map((row, idx) => {
+                          const isToday = row.date === (analytics?.dailyProfitChart?.[analytics.dailyProfitChart.length - 1]?.date);
                           const rowAmount = Number(row.amount);
                           const rowCumulative = Number(row.cumulativeYield);
                           const dayKey = row.date || `day-${idx}`;
@@ -10234,68 +10347,19 @@ export default function AdminPanel() {
                           )}
                         </div>
 
-                        {/* MOBILE CONTROLS: INTEREST + CARD TIER */}
-                        <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2 mb-3">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-semibold text-gray-600">Custom Interest APY:</span>
-                            {isApyLocked ? (
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono font-black text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                  {u.interestRate || 12}% p.a.
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={handleApyLockTap}
-                                  className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[10px] font-bold border border-slate-300 flex items-center gap-1 cursor-pointer transition active:scale-95"
-                                  title="Tap 5 times to unlock APY editor"
-                                >
-                                  
-                                  <span>Locked ({5 - apyTapCount})</span>
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  defaultValue={u.interestRate || 12}
-                                  id={`m-rate-${u._id}`}
-                                  className="w-12 px-1 py-0.5 border border-blue-300 rounded text-xs font-bold text-center text-blue-600 focus:ring-1 focus:ring-blue-500 bg-white"
-                                />
-                                <span className="text-xs font-bold text-gray-400">%</span>
-                                <button
-                                  onClick={() => {
-                                    const val = document.getElementById(`m-rate-${u._id}`)?.value;
-                                    updateCustomInterest(u._id, val);
-                                  }}
-                                  className="px-2 py-0.5 bg-[#1D6AE5] hover:bg-[#1558cc] text-white rounded text-[10px] font-bold cursor-pointer active:scale-95"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleApyLockTap}
-                                  className="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded text-[10px] font-bold cursor-pointer"
-                                  title="Lock editor"
-                                >
-                                  
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-200/60">
-                            <span className="font-semibold text-gray-600">Card Tier ({u.loansCount || 0}/4 loans):</span>
-                            <button
-                              onClick={() => toggleUserCard(u._id, u.cardTier, u.cardStatus?.platinum?.unlocked)}
-                              className={`px-2 py-1 rounded-lg text-xs font-bold ${
-                                u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked
-                                  ? "bg-amber-100 text-amber-900 border border-amber-300"
-                                  : "bg-slate-100 text-slate-700 border border-slate-300"
-                              }`}
-                            >
-                              {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? "Platinum (VIP)" : "Silver (Unlock VIP)"}
-                            </button>
-                          </div>
+                        {/* MOBILE CONTROLS: CARD TIER */}
+                        <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 mb-3 flex items-center justify-between text-xs">
+                          <span className="font-semibold text-gray-600">Card Tier ({u.loansCount || 0}/4 loans):</span>
+                          <button
+                            onClick={() => toggleUserCard(u._id, u.cardTier, u.cardStatus?.platinum?.unlocked)}
+                            className={`px-2 py-1 rounded-lg text-xs font-bold ${
+                              u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked
+                                ? "bg-amber-100 text-amber-900 border border-amber-300"
+                                : "bg-slate-100 text-slate-700 border border-slate-300"
+                            }`}
+                          >
+                            {u.cardTier === "platinum" || u.cardStatus?.platinum?.unlocked ? "Platinum (VIP)" : "Silver (Unlock VIP)"}
+                          </button>
                         </div>
 
                         {/* 4 METRIC SQUARES */}
@@ -10340,26 +10404,15 @@ export default function AdminPanel() {
                           </div>
                         </div>
 
-                        {/* 24-HOUR EXPECTED YIELD CARD (Clean spacious non-colliding layout) */}
-                        <div className="w-full mb-3 p-2.5 bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-slate-50 border border-blue-200/80 rounded-xl shadow-2xs">
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="text-amber-500 text-xs"></span>
-                              <span className="font-extrabold text-slate-800 text-xs leading-none">24H Expected Yield</span>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <span className="font-mono font-black text-indigo-700 text-xs sm:text-sm">
-                                {Number(u.balance || 0) > 0 ? `+₹${((Number(u.balance) * (u.interestRate || 12)) / 36500).toFixed(2)}` : "₹0.00"}
-                                <span className="text-[10px] font-semibold text-slate-500 ml-1">/ din</span>
-                              </span>
-                            </div>
+                        {/* 24-HOUR EXPECTED YIELD CARD */}
+                        <div className="w-full mb-3 p-2.5 bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-slate-50 border border-blue-200/80 rounded-xl shadow-2xs flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-extrabold text-slate-800 text-xs leading-none">24H Expected Yield</span>
                           </div>
-                          <div className="flex items-center justify-between pt-1.5 border-t border-blue-100 text-[10px] font-mono text-slate-600">
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100/70 text-blue-800 font-bold text-[9px]">
-                              APY: {(u.interestRate || 12)}% p.a.
-                            </span>
-                            <span className="font-semibold text-[10px]">
-                              ≈ <strong className="text-indigo-900 font-bold">₹{(((Number(u.balance || 0) * (u.interestRate || 12)) / 36500) / 24).toFixed(4)}/hr</strong>
+                          <div className="text-right shrink-0">
+                            <span className="font-mono font-black text-indigo-700 text-xs sm:text-sm">
+                              {Number(u.balance || 0) > 0 ? `+₹${((Number(u.balance) * (u.interestRate || 12)) / 36500).toFixed(2)}` : "₹0.00"}
+                              <span className="text-[10px] font-semibold text-slate-500 ml-1">/ din</span>
                             </span>
                           </div>
                         </div>

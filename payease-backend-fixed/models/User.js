@@ -35,13 +35,15 @@ const userSchema = new mongoose.Schema({
       loan: { type: Number, default: 2 },
       lending: { type: Number, default: 2 },
       investment: { type: Number, default: 2 },
-      bond: { type: Number, default: 2 }
+      bond: { type: Number, default: 2 },
+      deposit: { type: Number, default: 2 }
     },
     earningsBreakdown: {
       loan: { type: Number, default: 0 },
       lending: { type: Number, default: 0 },
       investment: { type: Number, default: 0 },
-      bond: { type: Number, default: 0 }
+      bond: { type: Number, default: 0 },
+      deposit: { type: Number, default: 0 }
     },
     businessName: { type: String, default: '' },
     city: { type: String, default: '' },
@@ -233,3 +235,4 @@ userSchema.index({ referredBy: 1 }, { sparse: true });
 userSchema.index({ kycStatus: 1 });
 
 module.exports = mongoose.model('User', userSchema);
+

@@ -14,7 +14,7 @@ export default function LoanSettingsSidebar({
     {
       id: "commission",
       label: "Commission Settings",
-      subtitle: "Agent Loan Commission",
+      subtitle: "Loan & 5k Deposit Offers",
       icon: "💼"
     },
     {

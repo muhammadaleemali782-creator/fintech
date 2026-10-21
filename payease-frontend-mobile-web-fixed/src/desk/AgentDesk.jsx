@@ -24,6 +24,8 @@ export default function AgentDesk() {
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [copied, setCopied] = useState(false);
+  const [activeOffer, setActiveOffer] = useState(null);
+  const [depositCommissionSettings, setDepositCommissionSettings] = useState(null);
 
   // Notifications
   const [toast, setToast] = useState({ text: "", type: "" });
@@ -79,9 +81,10 @@ export default function AgentDesk() {
     }
     if (!isSilent) setRefreshing(true);
     try {
-      const [metricsRes, profileRes] = await Promise.all([
+      const [metricsRes, profileRes, offerRes] = await Promise.all([
         fetch(`${API}/user/agent/stats`, { headers }),
-        fetch(`${API}/user/me`, { headers })
+        fetch(`${API}/user/me`, { headers }),
+        fetch(`${API}/user/agent/offer`, { headers })
       ]);
 
       if (metricsRes.status === 401 || profileRes.status === 401) {
@@ -103,6 +106,12 @@ export default function AgentDesk() {
           const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
           localStorage.setItem("user", JSON.stringify({ ...storedUser, ...prof }));
         } catch {}
+      }
+
+      if (offerRes && offerRes.ok) {
+        const offData = await offerRes.json();
+        if (offData.offer) setActiveOffer(offData.offer);
+        if (offData.depositSettings) setDepositCommissionSettings(offData.depositSettings);
       }
     } catch (err) {
       console.error("Agent metrics load error:", err);
@@ -688,6 +697,36 @@ export default function AgentDesk() {
         ══════════════════════════════════════════════════════ */}
         {activeTab === "overview" && (
           <div className="space-y-4">
+            {/* Active Admin Broadcasted Offer Banner */}
+            {activeOffer && (
+              <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border border-emerald-500/30 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs animate-in fade-in">
+                <div className="flex items-start sm:items-center gap-3">
+                  <span className="text-2xl shrink-0">🎁</span>
+                  <div>
+                    <div className="text-xs font-black uppercase text-emerald-950 tracking-wider flex items-center gap-2">
+                      <span>{activeOffer.title}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black">
+                        OFFER LIVE
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-700 font-medium mt-0.5 leading-relaxed">
+                      {activeOffer.message}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-left sm:text-right shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-emerald-500/20">
+                  <span className="text-[10px] text-gray-500 block uppercase font-bold">Min Deposit</span>
+                  <span className="text-sm sm:text-base font-black font-mono text-emerald-700">
+                    ₹{(activeOffer.minDeposit || 5000).toLocaleString("en-IN")}
+                  </span>
+                  {activeOffer.bonusAmount > 0 && (
+                    <span className="text-[10px] font-bold text-blue-600 block">
+                      +₹{activeOffer.bonusAmount} Extra Bonus
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
             {/* Agent Individual Loan Quota Banner (Company Set) */}
             {(() => {
               const agentLoanLimit = agentMetrics?.agentInfo?.loanLimit ?? agentMetrics?.stats?.loanLimit ?? userProfile?.agentProfile?.loanLimit ?? 100000;

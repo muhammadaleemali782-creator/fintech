@@ -217,6 +217,68 @@ router.post('/transaction/:id/approve', protect, staffOrAdmin, async (req, res) 
         }
         txn.status = 'approved';
         txn.isHold = false;
+
+        // Agent Referral Commission on Customer Deposit (Default ₹5,000 threshold)
+        if (user.referredBy && !txn.referralCommissionPaid) {
+          try {
+            const depositRefSettingDoc = await Settings.findOne({ key: 'agentDepositReferral' }).session(session);
+            const depSettings = depositRefSettingDoc?.value || { enabled: true, minDepositAmount: 5000, commissionType: 'percent', commissionValue: 2 };
+
+            if (depSettings.enabled !== false && txn.amount >= (Number(depSettings.minDepositAmount) || 5000)) {
+              const agentUser = await User.findById(user.referredBy).session(session);
+              if (agentUser) {
+                let commRate = Number(depSettings.commissionValue) || 2;
+                if (agentUser.agentProfile?.commissions?.deposit !== undefined && agentUser.agentProfile.commissions.deposit !== null && !isNaN(agentUser.agentProfile.commissions.deposit)) {
+                  commRate = Number(agentUser.agentProfile.commissions.deposit);
+                }
+
+                let commAmount = 0;
+                if (depSettings.commissionType === 'flat') {
+                  commAmount = Number(Number(depSettings.commissionValue || 100).toFixed(2));
+                } else {
+                  commAmount = Number(((txn.amount * commRate) / 100).toFixed(2));
+                }
+
+                if (commAmount > 0) {
+                  const { creditAgentCommission } = require('../utils/agentCommission');
+                  await creditAgentCommission(agentUser._id, commAmount, 'deposit', session);
+
+                  txn.referralCommissionPaid = true;
+                  txn.referralCommissionAmount = commAmount;
+                  txn.referralAgentId = agentUser._id;
+
+                  await Transaction.create([{
+                    userId: agentUser._id,
+                    type: 'referral_bonus',
+                    amount: commAmount,
+                    method: 'system',
+                    status: 'completed',
+                    sourceWallet: 'deposit',
+                    referenceId: txn._id.toString(),
+                    remarks: `Agent Deposit Commission (${depSettings.commissionType === 'flat' ? `₹${commAmount} flat` : `${commRate}%`}) on ₹${txn.amount.toLocaleString("en-IN")} deposit by ${user.name || 'referred user'}`
+                  }], { session });
+
+                  const Notification = require('../models/Notification');
+                  await Notification.create([{
+                    userId: agentUser._id,
+                    targetRole: 'user',
+                    type: 'general',
+                    title: 'Deposit Commission Credited 🎉',
+                    message: `Aapke referred customer ${user.name || 'Customer'} ke ₹${txn.amount.toLocaleString('en-IN')} deposit par ₹${commAmount} commission aapke wallet me credit ho gaya hai.`,
+                    data: {
+                      transactionId: txn._id.toString(),
+                      customerName: user.name,
+                      depositAmount: txn.amount,
+                      commissionAmount: commAmount
+                    }
+                  }], { session });
+                }
+              }
+            }
+          } catch (commErr) {
+            console.error('Agent deposit commission calculation error:', commErr);
+          }
+        }
       } else {
         txn.status = 'completed';
         txn.isHold = false;

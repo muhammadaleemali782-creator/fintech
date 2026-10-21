@@ -262,3 +262,36 @@ D:\Backup projects\Paytment website\
 | `educa_admin_cached_loans_list` | localStorage + IDB | Array of all loan applications |
 | `educa_admin_cached_bonds_list` | localStorage + IDB | Array of all platform bonds |
 | `educa_admin_cached_agents_list` | localStorage + IDB | Array of agent applications |
+
+
+---
+
+## 6. Update O (2026-10-21): Agent 5K Deposit Reference Commission & Offers Hub in Loan Settings
+
+### Requirement
+- When a customer referred by an agent deposits (minimum threshold default ₹5,000), the agent earns deposit referral commission.
+- Admin controls this directly from **Loan Settings** (/admin/loan-settings), can configure the minimum deposit threshold, commission type (% vs flat ₹), rate/value, and can broadcast promotional offers directly to all agents.
+
+### Changes Made
+1. **payease-backend-fixed/utils/agentCommission.js**:
+   - Added 'deposit' to CATEGORIES = ['loan', 'lending', 'investment', 'bond', 'deposit'] allowing atomic commission credits for customer deposits.
+2. **payease-backend-fixed/models/User.js & models/Transaction.js**:
+   - Added deposit to agent commissions and earnings breakdown.
+   - Added referralCommissionPaid, referralCommissionAmount, and referralAgentId to Transaction schema.
+3. **payease-backend-fixed/routes/admin.js**:
+   - In deposit approval (txn.type === 'deposit'), checks if depositing user was referred by an agent (user.referredBy).
+   - If deposit amount >= configured threshold (default ₹5,000), calculates commission (% or flat reward) and atomically credits agent's balance/referralEarnings via creditAgentCommission(agentUser._id, commAmount, 'deposit', session).
+   - Records referral_bonus transaction and notifies agent.
+4. **payease-backend-fixed/routes/loanDepartmentCommission.js**:
+   - Added GET /api/loan-department/deposit-referral and PUT /api/loan-department/deposit-referral to view and update deposit commission settings stored in Settings.
+   - Added POST /api/loan-department/broadcast-offers and GET /api/loan-department/broadcast-offers to broadcast offers/announcements to all registered agents.
+5. **payease-backend-fixed/routes/user.js**:
+   - Added GET /api/user/agent/offer so agents can fetch the latest active promotional offer.
+6. **payease-frontend-mobile-web-fixed/src/admin/loan-settings/CommissionSettingsSection.jsx**:
+   - Added dedicated tab: '🎁 5k Deposit Commission & Offers'.
+   - Contains Deposit Commission Settings Controller (toggle active, min qualifying amount e.g. ₹5,000, % vs flat reward, live calculation preview).
+   - Contains Send Offer / Broadcast to Agents form (offer headline, target deposit, extra bonus, custom message, live agent recipient count, latest sent offer preview).
+7. **payease-frontend-mobile-web-fixed/src/admin/loan-settings/LoanSettingsSidebar.jsx**:
+   - Updated subtitle to 'Loan & 5k Deposit Offers'.
+8. **payease-frontend-mobile-web-fixed/src/desk/AgentDesk.jsx**:
+   - Displays live promotional offer banner at the top of the Overview tab whenever Admin broadcasts a deposit offer.

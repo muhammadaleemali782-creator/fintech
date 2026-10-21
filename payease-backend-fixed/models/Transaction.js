@@ -57,6 +57,9 @@ const transactionSchema = new mongoose.Schema({
   receiverName: String,
   recipientIdentifier: String,
   referenceId: String, // e.g. loanId or bondId
+  referralCommissionPaid: { type: Boolean, default: false },
+  referralCommissionAmount: { type: Number, default: 0 },
+  referralAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   remarks: String,
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   approvedAt: { type: Date },

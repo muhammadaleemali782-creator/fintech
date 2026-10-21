@@ -1160,6 +1160,24 @@ router.get('/agent/stats', protect, async (req, res) => {
   }
 });
 
+// Agent fetch latest Admin Offer (₹5,000 Deposit Promo, etc.)
+router.get('/agent/offer', protect, async (req, res) => {
+  try {
+    const Settings = require('../models/Settings');
+    const [offerDoc, depositDoc] = await Promise.all([
+      Settings.findOne({ key: 'latestAgentOffer' }).lean(),
+      Settings.findOne({ key: 'agentDepositReferral' }).lean()
+    ]);
+    res.json({
+      success: true,
+      offer: offerDoc?.value || null,
+      depositSettings: depositDoc?.value || null
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch agent offer' });
+  }
+});
+
 // Agent Mass Broadcast Message to all referred customers in one click
 router.post('/agent/broadcast', protect, async (req, res) => {
   try {

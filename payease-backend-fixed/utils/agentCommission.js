@@ -1,6 +1,6 @@
 const User = require('../models/User');
 
-const CATEGORIES = ['loan', 'lending', 'investment', 'bond'];
+const CATEGORIES = ['loan', 'lending', 'investment', 'bond', 'deposit'];
 
 /**
  * Credit an agent's referral commission ATOMICALLY (single update, no read-modify-write).

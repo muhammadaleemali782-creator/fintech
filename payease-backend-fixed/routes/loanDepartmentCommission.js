@@ -526,4 +526,144 @@ router.post('/agent-commission/requests/:id/reject', protect, admin, async (req,
   }
 });
 
+// ─────────────────────────────────────────────────────────────
+// Deposit Referral Commission & Offers Control (Base ₹5,000 threshold)
+// ─────────────────────────────────────────────────────────────
+
+// GET /api/loan-department/deposit-referral - View deposit commission settings
+router.get('/deposit-referral', protect, requirePermission('LOAN_AGENT_COMMISSION_VIEW'), async (req, res) => {
+  try {
+    const settingDoc = await Settings.findOne({ key: 'agentDepositReferral' }).lean();
+    const defaultSettings = {
+      enabled: true,
+      minDepositAmount: 5000,
+      commissionType: 'percent', // 'percent' | 'flat'
+      commissionValue: 2, // 2% or flat rupees
+      description: 'Agent Commission on ₹5,000+ Customer Deposits',
+      updatedAt: new Date()
+    };
+    res.json({
+      success: true,
+      settings: settingDoc?.value || defaultSettings
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to load deposit referral settings: ' + err.message });
+  }
+});
+
+// PUT /api/loan-department/deposit-referral - Admin updates deposit commission settings
+router.put('/deposit-referral', protect, requirePermission('LOAN_AGENT_COMMISSION_SET'), async (req, res) => {
+  try {
+    const { enabled, minDepositAmount, commissionType, commissionValue, description } = req.body;
+    const cleanSettings = {
+      enabled: enabled !== false,
+      minDepositAmount: Number(minDepositAmount) > 0 ? Number(minDepositAmount) : 5000,
+      commissionType: commissionType === 'flat' ? 'flat' : 'percent',
+      commissionValue: Number(commissionValue) >= 0 ? Number(commissionValue) : 2,
+      description: typeof description === 'string' ? description.trim() : 'Agent Commission on Customer Deposits',
+      updatedAt: new Date(),
+      updatedBy: req.user._id
+    };
+
+    await Settings.findOneAndUpdate(
+      { key: 'agentDepositReferral' },
+      { key: 'agentDepositReferral', value: cleanSettings, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Deposit referral commission settings updated successfully!',
+      settings: cleanSettings
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to update deposit referral settings: ' + err.message });
+  }
+});
+
+// POST /api/loan-department/broadcast-offers - Admin sends offer/announcement to agents
+router.post('/broadcast-offers', protect, requirePermission('LOAN_AGENT_COMMISSION_SET'), async (req, res) => {
+  try {
+    const { title, message, minDeposit, bonusAmount } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, message: 'Offer message is required' });
+    }
+
+    const Notification = require('../models/Notification');
+    // Find all agents
+    const agents = await User.find({
+      $or: [
+        { role: 'agent' },
+        { isAgent: true },
+        { 'agentProfile.status': 'approved' }
+      ]
+    }).select('_id name phone');
+
+    if (!agents.length) {
+      return res.status(400).json({ success: false, message: 'No registered agents found to send offer' });
+    }
+
+    const offerTitle = title && title.trim() ? title.trim() : 'Special 5k Deposit Bonus Offer 🎁';
+    const offerMsg = message.trim();
+
+    const notifs = agents.map(agent => ({
+      type: 'agent_broadcast',
+      userId: agent._id,
+      targetRole: 'user',
+      title: offerTitle,
+      message: offerMsg,
+      data: {
+        isOffer: true,
+        minDeposit: Number(minDeposit) || 5000,
+        bonusAmount: Number(bonusAmount) || 0,
+        sentAt: new Date()
+      },
+      read: false,
+      createdAt: new Date()
+    }));
+
+    await Notification.insertMany(notifs);
+
+    // Save as latest offer in Settings for reference
+    await Settings.findOneAndUpdate(
+      { key: 'latestAgentOffer' },
+      {
+        key: 'latestAgentOffer',
+        value: {
+          title: offerTitle,
+          message: offerMsg,
+          minDeposit: Number(minDeposit) || 5000,
+          bonusAmount: Number(bonusAmount) || 0,
+          sentToCount: agents.length,
+          sentAt: new Date(),
+          sentBy: req.user.name || 'Admin'
+        },
+        updatedAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({
+      success: true,
+      message: `Offer broadcast successfully sent to ${agents.length} agent(s)!`,
+      sentCount: agents.length
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to broadcast offer: ' + err.message });
+  }
+});
+
+// GET /api/loan-department/broadcast-offers - Get latest offer
+router.get('/broadcast-offers', protect, requirePermission('LOAN_AGENT_COMMISSION_VIEW'), async (req, res) => {
+  try {
+    const doc = await Settings.findOne({ key: 'latestAgentOffer' }).lean();
+    res.json({
+      success: true,
+      offer: doc?.value || null
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to get latest offer: ' + err.message });
+  }
+});
+
 module.exports = router;

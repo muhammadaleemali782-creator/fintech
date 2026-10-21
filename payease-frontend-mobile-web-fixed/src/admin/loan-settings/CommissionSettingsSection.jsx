@@ -44,6 +44,26 @@ export default function CommissionSettingsSection({ showToast }) {
   const [processingRequestId, setProcessingRequestId] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
 
+  // 5k Deposit Referral Commission & Offers State
+  const [depositReferral, setDepositReferral] = useState({
+    enabled: true,
+    minDepositAmount: 5000,
+    commissionType: "percent",
+    commissionValue: 2,
+    description: "Agent Commission on ₹5,000+ Customer Deposits"
+  });
+  const [loadingDepositRef, setLoadingDepositRef] = useState(false);
+  const [savingDepositRef, setSavingDepositRef] = useState(false);
+
+  const [offerForm, setOfferForm] = useState({
+    title: "Special ₹5,000 Deposit Bonus Offer 🎁",
+    message: "Apne reference se ₹5,000 deposit karwayein aur payein flat ₹100 instant bonus cash reward!",
+    minDeposit: 5000,
+    bonusAmount: 100
+  });
+  const [sendingOffer, setSendingOffer] = useState(false);
+  const [latestOffer, setLatestOffer] = useState(null);
+
   const previewAmount = 100000;
   const isInvestment = commissionCategory === "investment";
   const activePoolPercent = isInvestment ? investmentPoolPercent : loanPoolPercent;
@@ -107,10 +127,101 @@ export default function CommissionSettingsSection({ showToast }) {
     }
   }, [canView, showToast]);
 
+  // 2b. Fetch Deposit Referral Settings & Latest Offer
+  const fetchDepositReferral = useCallback(async () => {
+    if (!canView) return;
+    setLoadingDepositRef(true);
+    try {
+      const activeToken = getAuthToken();
+      const [res, offerRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/loan-department/deposit-referral`, {
+          headers: { Authorization: `Bearer ${activeToken}` }
+        }),
+        fetch(`${API_BASE_URL}/loan-department/broadcast-offers`, {
+          headers: { Authorization: `Bearer ${activeToken}` }
+        })
+      ]);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) setDepositReferral(data.settings);
+      }
+      if (offerRes.ok) {
+        const oData = await offerRes.json();
+        if (oData.offer) setLatestOffer(oData.offer);
+      }
+    } catch (_) {}
+    finally {
+      setLoadingDepositRef(false);
+    }
+  }, [canView]);
+
   useEffect(() => {
     fetchAgentCommissions();
     fetchCommissionRequests();
-  }, [fetchAgentCommissions, fetchCommissionRequests]);
+    fetchDepositReferral();
+  }, [fetchAgentCommissions, fetchCommissionRequests, fetchDepositReferral]);
+
+  // Handle Save 5K Deposit Referral Settings
+  const handleSaveDepositReferral = async (e) => {
+    if (e) e.preventDefault();
+    setSavingDepositRef(true);
+    try {
+      const activeToken = getAuthToken();
+      const res = await fetch(`${API_BASE_URL}/loan-department/deposit-referral`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${activeToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(depositReferral)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update deposit referral settings");
+      if (showToast) showToast("₹5,000 Deposit Referral Commission settings successfully saved!", false);
+      if (data.settings) setDepositReferral(data.settings);
+    } catch (err) {
+      if (showToast) showToast(err.message, true);
+    } finally {
+      setSavingDepositRef(false);
+    }
+  };
+
+  // Handle Send Offer / Broadcast to Agents
+  const handleSendAgentOffer = async (e) => {
+    if (e) e.preventDefault();
+    if (!offerForm.message || !offerForm.message.trim()) {
+      if (showToast) showToast("Offer message likhein!", true);
+      return;
+    }
+    setSendingOffer(true);
+    try {
+      const activeToken = getAuthToken();
+      const res = await fetch(`${API_BASE_URL}/loan-department/broadcast-offers`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${activeToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(offerForm)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to send offer");
+      if (showToast) showToast(data.message || "Offer sabhi agents ko bhej diya gaya!", false);
+      setLatestOffer({
+        title: offerForm.title,
+        message: offerForm.message,
+        minDeposit: offerForm.minDeposit,
+        bonusAmount: offerForm.bonusAmount,
+        sentToCount: data.sentCount || agents.length,
+        sentAt: new Date(),
+        sentBy: "Admin"
+      });
+    } catch (err) {
+      if (showToast) showToast(err.message, true);
+    } finally {
+      setSendingOffer(false);
+    }
+  };
 
   // 3. Save Department Pool (Admin only)
   const handleSavePool = async () => {
@@ -354,6 +465,22 @@ export default function CommissionSettingsSection({ showToast }) {
         <button
           type="button"
           onClick={() => {
+            setCommissionCategory("deposit_offers");
+            setAdminEditingAgentId(null);
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer active:scale-95 ${
+            commissionCategory === "deposit_offers"
+              ? "bg-emerald-400 text-zinc-950 font-black shadow-sm"
+              : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
+          }`}
+        >
+          <span className="text-base">🎁</span>
+          <span>5k Deposit Commission & Offers</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
             setCommissionCategory("requests");
             setAdminEditingAgentId(null);
           }}
@@ -373,8 +500,242 @@ export default function CommissionSettingsSection({ showToast }) {
         </button>
       </div>
 
-      {/* VIEW 1: Rate Change Requests View (Admin Approval) */}
-      {commissionCategory === "requests" ? (
+      {/* VIEW: 5K Deposit Commission & Agent Offers */}
+      {commissionCategory === "deposit_offers" ? (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="p-5 rounded-2xl border border-zinc-800 bg-zinc-900 space-y-2 shadow-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🎁</span>
+              <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                Agent ₹5,000 Deposit Reference Commission & Offers Hub
+              </h3>
+            </div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Jab kisi agent ke reference se koi customer ₹5,000 ya usse zyada deposit karta hai, to agent ko milne wale reward / commission ko yahan se control karein aur sabhi agents ko direct promotional offers bhein.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Card 1: 5k Deposit Referral Commission Controller */}
+            <form onSubmit={handleSaveDepositReferral} className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">⚙️</span>
+                  <h4 className="text-xs font-black uppercase text-zinc-200 tracking-wider">
+                    Deposit Commission Settings
+                  </h4>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <span className="text-xs text-zinc-400 font-bold">
+                    {depositReferral.enabled ? "Active" : "Disabled"}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={depositReferral.enabled}
+                    onChange={(e) => setDepositReferral(prev => ({ ...prev, enabled: e.target.checked }))}
+                    className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="text-zinc-400 font-bold block mb-1">
+                    Minimum Qualifying Deposit Amount (₹):
+                  </label>
+                  <input
+                    type="number"
+                    min="100"
+                    step="500"
+                    value={depositReferral.minDepositAmount}
+                    onChange={(e) => setDepositReferral(prev => ({ ...prev, minDepositAmount: Number(e.target.value) }))}
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:outline-none focus:border-emerald-400"
+                    placeholder="5000"
+                  />
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Customer is amount ya isse zyada deposit karega tabhi agent ko commission credit hoga (Default: ₹5,000).
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-zinc-400 font-bold block mb-1">
+                      Commission Type:
+                    </label>
+                    <select
+                      value={depositReferral.commissionType}
+                      onChange={(e) => setDepositReferral(prev => ({ ...prev, commissionType: e.target.value }))}
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white text-xs font-bold focus:outline-none focus:border-emerald-400"
+                    >
+                      <option value="percent">Percentage (%)</option>
+                      <option value="flat">Flat Cash Reward (₹)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-zinc-400 font-bold block mb-1">
+                      {depositReferral.commissionType === "percent" ? "Rate (%)" : "Flat Amount (₹)"}:
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step={depositReferral.commissionType === "percent" ? "0.1" : "10"}
+                        value={depositReferral.commissionValue}
+                        onChange={(e) => setDepositReferral(prev => ({ ...prev, commissionValue: Number(e.target.value) }))}
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:outline-none focus:border-emerald-400"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-zinc-400">
+                        {depositReferral.commissionType === "percent" ? "%" : "₹"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Preview Box */}
+                <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 space-y-1">
+                  <div className="text-[11px] text-zinc-400 font-bold uppercase">Live Calculation Preview:</div>
+                  <div className="flex items-center justify-between font-mono text-xs">
+                    <span className="text-zinc-300">Customer ₹{Number(depositReferral.minDepositAmount || 5000).toLocaleString("en-IN")} Deposit</span>
+                    <span className="text-emerald-400 font-black text-sm">
+                      ➔ Agent Earns: ₹{(
+                        depositReferral.commissionType === "flat"
+                          ? Number(depositReferral.commissionValue || 0)
+                          : ((Number(depositReferral.minDepositAmount || 5000) * Number(depositReferral.commissionValue || 0)) / 100)
+                      ).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-zinc-400 font-bold block mb-1">Description / Memo:</label>
+                  <input
+                    type="text"
+                    value={depositReferral.description}
+                    onChange={(e) => setDepositReferral(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-zinc-300 text-xs focus:outline-none focus:border-emerald-400"
+                    placeholder="Agent Commission on ₹5,000+ Customer Deposits"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
+                <span className="text-[11px] text-zinc-500">
+                  {loadingDepositRef ? "Loading settings..." : "Direct system update"}
+                </span>
+                <button
+                  type="submit"
+                  disabled={savingDepositRef}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs cursor-pointer transition active:scale-95 shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {savingDepositRef ? "Saving..." : "✓ Save Deposit Settings"}
+                </button>
+              </div>
+            </form>
+
+            {/* Card 2: Send Agent Offers & Broadcast Messenger */}
+            <form onSubmit={handleSendAgentOffer} className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📢</span>
+                  <h4 className="text-xs font-black uppercase text-zinc-200 tracking-wider">
+                    Send Offer / Broadcast to Agents
+                  </h4>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[10px] font-bold">
+                  {agents.length} Registered Agents
+                </span>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="text-zinc-400 font-bold block mb-1">
+                    Offer Title / Headline:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={offerForm.title}
+                    onChange={(e) => setOfferForm(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white text-xs font-bold focus:outline-none focus:border-blue-400"
+                    placeholder="Special ₹5,000 Deposit Bonus Offer 🎁"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-zinc-400 font-bold block mb-1">
+                      Min Deposit Target (₹):
+                    </label>
+                    <input
+                      type="number"
+                      min="500"
+                      step="500"
+                      value={offerForm.minDeposit}
+                      onChange={(e) => setOfferForm(prev => ({ ...prev, minDeposit: Number(e.target.value) }))}
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-zinc-400 font-bold block mb-1">
+                      Extra Bonus (₹):
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      value={offerForm.bonusAmount}
+                      onChange={(e) => setOfferForm(prev => ({ ...prev, bonusAmount: Number(e.target.value) }))}
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-zinc-400 font-bold block mb-1">
+                    Offer Message / Details <span className="text-rose-400">*</span>:
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={offerForm.message}
+                    onChange={(e) => setOfferForm(prev => ({ ...prev, message: e.target.value }))}
+                    placeholder="Apne referral se customer ko ₹5,000 deposit karwayein aur payein flat ₹100 instant bonus reward! Offer limited period ke liye hai."
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3 text-zinc-200 placeholder-zinc-500 text-xs focus:outline-none focus:border-blue-400 resize-none leading-relaxed"
+                  />
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Yeh message sabhi {agents.length} agents ke mobile app notification panel aur dashboard par turant dikhega.
+                  </p>
+                </div>
+
+                {latestOffer && (
+                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 space-y-1">
+                    <div className="text-[10px] text-zinc-400 uppercase font-bold flex items-center justify-between">
+                      <span>Last Sent Offer:</span>
+                      <span className="text-zinc-500 font-mono">
+                        {new Date(latestOffer.sentAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    <div className="font-bold text-white text-xs">{latestOffer.title}</div>
+                    <p className="text-[11px] text-zinc-400 truncate">"{latestOffer.message}"</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-zinc-800 flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={sendingOffer}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl text-xs cursor-pointer transition active:scale-95 shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {sendingOffer ? "Sending..." : "🚀 Send Offer to All Agents"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : commissionCategory === "requests" ? (
         <div className="space-y-4">
           <div className="p-5 rounded-2xl border border-zinc-800 bg-zinc-900 space-y-2 shadow-lg">
             <div className="flex items-center gap-2">

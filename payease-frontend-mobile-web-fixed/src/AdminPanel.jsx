@@ -1197,6 +1197,21 @@ export default function AdminPanel() {
   });
   const [r2Testing, setR2Testing] = useState(false);
   const [r2Saving, setR2Saving] = useState(false);
+  const [analytics, setAnalytics] = useState(() => {
+    const cached = appCache.get("educa_admin_cached_analytics", null);
+    if (cached && typeof cached === "object" && cached.stats) {
+      return cached;
+    }
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_analytics") : null;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.stats) return parsed;
+      } catch {}
+    }
+    return DEFAULT_ANALYTICS;
+  });
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [chartMode, setChartMode] = useState("daily"); // "daily" | "cumulative"
   const [chartRange, setChartRange] = useState("5d"); // "5d" | "7d" | "15d" | "all" (Default: 5 days as requested)
   const [hoveredChartBar, setHoveredChartBar] = useState(null);

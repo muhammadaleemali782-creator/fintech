@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { tokenStorage } from "../../utils/tokenStorage";
 import { API_BASE_URL } from "../../config";
 import LoanSettingsSidebar from "./LoanSettingsSidebar";
+import LoansLedgerSection from "./LoansLedgerSection";
+import IssueLoanSection from "./IssueLoanSection";
 import CommissionSettingsSection from "./CommissionSettingsSection";
 import PrecloseSettingsSection from "./PrecloseSettingsSection";
 import CustomConditionsSection from "./CustomConditionsSection";
@@ -19,13 +21,21 @@ import {
 
 export default function LoanSettingsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const getAuthToken = () => tokenStorage.getToken() || localStorage.getItem("token") || "";
 
   // Read Me Modal State
   const [isReadmeOpen, setIsReadmeOpen] = useState(false);
 
-  // Sidebar navigation state
-  const [activeSection, setActiveSection] = useState("commission");
+  // Sidebar navigation state - support URL search query if provided
+  const querySection = searchParams.get("section") || searchParams.get("tab");
+  const [activeSection, setActiveSection] = useState(() => {
+    if (querySection === "loans" || querySection === "loans-ledger") return "loans-ledger";
+    if (querySection === "issue-loan" || querySection === "issue-loan-desk") return "issue-loan-desk";
+    if (["commission", "preclose", "conditions", "calculator"].includes(querySection)) return querySection;
+    return "loans-ledger";
+  });
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem("educa_loan_settings_sidebar_collapsed") === "true";
@@ -124,7 +134,6 @@ export default function LoanSettingsPage() {
 
   // Save Preclose Settings & Conditions
   const handleSave = async () => {
-    // Validate default shares
     const agentShare = Number(settings?.default?.agent_share_percent ?? DEFAULT_AGENT_SHARE_PERCENT);
     const deptShare = Number(settings?.default?.loan_department_share_percent ?? DEFAULT_LOAN_DEPARTMENT_SHARE_PERCENT);
 
@@ -213,7 +222,7 @@ export default function LoanSettingsPage() {
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setIsMobileDrawerOpen(true)}
-            className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+            className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
           >
             ☰
           </button>
@@ -237,6 +246,8 @@ export default function LoanSettingsPage() {
         <LoanSettingsSidebar
           activeSection={activeSection}
           onSelectSection={setActiveSection}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
           onBackToAdmin={handleBackToAdmin}
           onOpenReadme={() => setIsReadmeOpen(true)}
           isMobileOpen={isMobileDrawerOpen}
@@ -283,41 +294,67 @@ export default function LoanSettingsPage() {
             </div>
           )}
 
-          {loading ? (
-            <div className="flex flex-col items-center justify-center min-h-[40vh] space-y-3">
-              <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-slate-500 font-bold">Loading Loan Settings...</span>
-            </div>
-          ) : (
-            <>
-              {activeSection === "commission" && (
-                <CommissionSettingsSection showToast={showToast} />
-              )}
+          {/* Section 1: Loans & Ledger */}
+          {activeSection === "loans-ledger" && (
+            <LoansLedgerSection
+              onSwitchToIssueLoan={() => setActiveSection("issue-loan-desk")}
+              showToast={showToast}
+            />
+          )}
 
-              {activeSection === "preclose" && (
-                <PrecloseSettingsSection
-                  settings={settings}
-                  onChangeSettings={setSettings}
-                  isDirty={isDirty}
-                  onOpenReadme={() => setIsReadmeOpen(true)}
-                />
-              )}
+          {/* Section 2: Issue Loan Desk */}
+          {activeSection === "issue-loan-desk" && (
+            <IssueLoanSection
+              onSuccess={() => setActiveSection("loans-ledger")}
+              onCancel={() => setActiveSection("loans-ledger")}
+              showToast={showToast}
+            />
+          )}
 
-              {activeSection === "conditions" && (
-                <CustomConditionsSection
-                  conditions={conditions}
-                  onChangeConditions={setConditions}
-                />
-              )}
+          {/* Section 3: Commission Settings */}
+          {activeSection === "commission" && (
+            <CommissionSettingsSection showToast={showToast} />
+          )}
 
-              {activeSection === "calculator" && (
-                <CalculatorPreviewSection
-                  settings={settings}
-                  conditions={conditions}
-                  onOpenReadme={() => setIsReadmeOpen(true)}
-                />
-              )}
-            </>
+          {/* Section 4: Preclose Settings */}
+          {activeSection === "preclose" && (
+            loading ? (
+              <div className="flex flex-col items-center justify-center min-h-[40vh] space-y-3">
+                <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-slate-500 font-bold">Loading Preclose Settings...</span>
+              </div>
+            ) : (
+              <PrecloseSettingsSection
+                settings={settings}
+                onChangeSettings={setSettings}
+                isDirty={isDirty}
+                onOpenReadme={() => setIsReadmeOpen(true)}
+              />
+            )
+          )}
+
+          {/* Section 5: Custom Conditions */}
+          {activeSection === "conditions" && (
+            loading ? (
+              <div className="flex flex-col items-center justify-center min-h-[40vh] space-y-3">
+                <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-slate-500 font-bold">Loading Custom Conditions...</span>
+              </div>
+            ) : (
+              <CustomConditionsSection
+                conditions={conditions}
+                onChangeConditions={setConditions}
+              />
+            )
+          )}
+
+          {/* Section 6: Calculator Preview */}
+          {activeSection === "calculator" && (
+            <CalculatorPreviewSection
+              settings={settings}
+              conditions={conditions}
+              onOpenReadme={() => setIsReadmeOpen(true)}
+            />
           )}
         </main>
       </div>

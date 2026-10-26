@@ -1,32 +1,27 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 
 export default function LoanSettingsSidebar({
   activeSection,
   onSelectSection,
+  isCollapsed,
+  onToggleCollapse,
   onBackToAdmin,
   onOpenReadme,
   isMobileOpen,
   onCloseMobile
 }) {
-  const navigate = useNavigate();
-
   const sections = [
     {
       id: "loans-ledger",
       label: "Loans & Ledger",
       subtitle: "All Loans & Active Dues",
-      icon: "📋",
-      isRoute: true,
-      onClick: () => navigate("/admin?tab=loans")
+      icon: "📋"
     },
     {
       id: "issue-loan-desk",
       label: "Issue Loan Desk",
       subtitle: "Apply on Behalf & Disburse",
-      icon: "✍️",
-      isRoute: true,
-      onClick: () => navigate("/admin?tab=issue-loan")
+      icon: "✍️"
     },
     {
       id: "commission",
@@ -56,8 +51,42 @@ export default function LoanSettingsSidebar({
 
   const sidebarContent = (
     <div className="h-full flex flex-col justify-between bg-white border-r border-slate-200 text-slate-800 select-none shadow-xs">
-      {/* Top Header & Navigation - Cleanly Aligned from Top */}
+      {/* Top Header & Sleek Minimal Collapse Toggle */}
       <div className="p-3">
+        {/* Sleek Minimalist Collapse Header (Desktop) & Close Drawer (Mobile) */}
+        <div className={`flex items-center pb-2.5 mb-2.5 border-b border-slate-100 ${
+          isCollapsed ? "justify-center" : "justify-between"
+        }`}>
+          {!isCollapsed && (
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm">⚙️</span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 truncate">
+                Loan Settings
+              </span>
+            </div>
+          )}
+
+          {/* Desktop Small Professional Collapse Button (No text, just icon) */}
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="hidden md:flex w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs border border-slate-200 text-xs shrink-0"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            <span>{isCollapsed ? "▶" : "◀"}</span>
+          </button>
+
+          {/* Mobile Drawer Close Button */}
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="md:hidden w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center transition active:scale-95 cursor-pointer border border-slate-200 text-xs shrink-0"
+            title="Close Drawer"
+          >
+            <span>✕</span>
+          </button>
+        </div>
+
         {/* Navigation Sections */}
         <nav className="space-y-1.5">
           {sections.map((sec) => {
@@ -67,27 +96,25 @@ export default function LoanSettingsSidebar({
                 key={sec.id}
                 type="button"
                 onClick={() => {
-                  if (sec.onClick) {
-                    sec.onClick();
-                  } else {
-                    onSelectSection(sec.id);
-                  }
+                  onSelectSection(sec.id);
                   if (onCloseMobile) onCloseMobile();
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition active:scale-95 cursor-pointer ${
                   isActive
                     ? "bg-blue-50 text-blue-700 border border-blue-200 font-bold shadow-2xs"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium border border-transparent"
-                }`}
+                } ${isCollapsed ? "justify-center" : ""}`}
                 title={sec.label}
               >
                 <span className="text-base shrink-0">{sec.icon}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs leading-tight truncate font-bold">{sec.label}</div>
-                  <div className={`text-[10px] leading-tight truncate mt-0.5 ${isActive ? "text-blue-600" : "text-slate-500"}`}>
-                    {sec.subtitle}
+                {!isCollapsed && (
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs leading-tight truncate font-bold">{sec.label}</div>
+                    <div className={`text-[10px] leading-tight truncate mt-0.5 ${isActive ? "text-blue-600" : "text-slate-500"}`}>
+                      {sec.subtitle}
+                    </div>
                   </div>
-                </div>
+                )}
               </button>
             );
           })}
@@ -103,22 +130,26 @@ export default function LoanSettingsSidebar({
             if (onOpenReadme) onOpenReadme();
             if (onCloseMobile) onCloseMobile();
           }}
-          className="w-full flex items-center justify-start gap-2.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition active:scale-95 text-xs font-bold cursor-pointer shadow-2xs"
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition active:scale-95 text-xs font-bold cursor-pointer shadow-2xs ${
+            isCollapsed ? "justify-center" : "justify-start"
+          }`}
           title="Read Me (Policy & Logic Guide)"
         >
           <span className="text-sm">📖</span>
-          <span className="truncate">Read Me Guide</span>
+          {!isCollapsed && <span className="truncate">Read Me Guide</span>}
         </button>
 
         {/* Back to Admin Panel Button */}
         <button
           type="button"
           onClick={onBackToAdmin}
-          className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition active:scale-95 text-xs font-bold border border-slate-200 cursor-pointer shadow-2xs"
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition active:scale-95 text-xs font-bold border border-slate-200 cursor-pointer shadow-2xs ${
+            isCollapsed ? "justify-center" : "justify-start"
+          }`}
           title="Back to Admin Panel"
         >
           <span className="text-sm">←</span>
-          <span className="truncate">Back to Admin Panel</span>
+          {!isCollapsed && <span className="truncate">Back to Admin Panel</span>}
         </button>
       </div>
     </div>
@@ -127,7 +158,9 @@ export default function LoanSettingsSidebar({
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden md:block shrink-0 w-64 h-full">
+      <aside className={`hidden md:block shrink-0 h-full transition-all duration-200 ${
+        isCollapsed ? "w-16" : "w-64"
+      }`}>
         {sidebarContent}
       </aside>
 

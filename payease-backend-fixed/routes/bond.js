@@ -596,6 +596,18 @@ router.post('/:id/approve', protect, staffOrAdmin, async (req, res) => {
       }
     }
 
+    // Verify user has sufficient live wallet balance before approving
+    const investorUser = await User.findById(bond.userId);
+    if (!investorUser) return res.status(404).json({ message: 'User not found' });
+    const currentBalance = Number(investorUser.balance || 0);
+    const requiredAmount = Number(bond.principalAmount || 0);
+
+    if (currentBalance < requiredAmount) {
+      return res.status(400).json({
+        message: `Insufficient balance! User ke account me abhi sirf ₹${currentBalance.toLocaleString('en-IN')} hai, jabki required amount ₹${requiredAmount.toLocaleString('en-IN')} hai. Approval blocked.`
+      });
+    }
+
     bond.status = 'active';
     bond.handledBy = {
       userId: req.user._id,

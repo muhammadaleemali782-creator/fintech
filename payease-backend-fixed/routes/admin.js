@@ -1898,7 +1898,7 @@ router.patch('/notifications/read-all', protect, admin, async (req, res) => {
 // All bonds / lending records
 router.get('/bonds', protect, admin, async (req, res) => {
   try {
-    const bonds = await Bond.find().populate('userId', 'name email phone').sort({ createdAt: -1 });
+    const bonds = await Bond.find().populate('userId', 'name email phone balance').sort({ createdAt: -1 });
     for (const b of bonds) {
       if (!b.accountNumber || !b.accountNumber.startsWith('EFS0000')) {
         b.accountNumber = await generateAccountNumber(Bond);
@@ -2741,7 +2741,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
       promises.push(
         Transaction.find(txQuery)
           .select('userId type amount status isHold sourceWallet referenceId utrNumber method upiId accountNumber remarks createdAt claim approvedAt handledBy updatedAt')
-          .populate('userId', 'name email phone accountNumber')
+          .populate('userId', 'name email phone accountNumber balance')
           .sort({ createdAt: -1 })
           .limit(80)
           .maxTimeMS(8000)
@@ -2861,7 +2861,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
       promises.push(
         Bond.find({ status: 'pending' })
           .select('userId bondType amount tenure interestRate status createdAt')
-          .populate('userId', 'name email phone accountNumber')
+          .populate('userId', 'name email phone accountNumber balance')
           .sort({ createdAt: -1 })
           .limit(60)
           .maxTimeMS(8000)

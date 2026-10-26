@@ -7296,95 +7296,128 @@ export default function AdminPanel() {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl text-xs">
-                              <div>
-                                <span className="text-gray-400 block font-medium">Principal Deposited</span>
-                                <span className="font-extrabold text-gray-900 text-base font-mono">₹{Number(b.principalAmount || 0).toLocaleString("en-IN")}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400 block font-medium">Monthly Payout</span>
-                                <span className="font-bold text-emerald-700 text-sm font-mono">₹{Number(b.monthlyPayout || 0).toLocaleString("en-IN")}/mo</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400 block font-medium">Total Return</span>
-                                <span className="font-bold text-gray-900 text-sm font-mono">₹{Number(b.returnAmount || 0).toLocaleString("en-IN")}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400 block font-medium">Tenure</span>
-                                <span className="font-bold text-gray-900 text-sm">{b.tenureMonths ? `${b.tenureMonths} Months` : b.bondType === "bond_25" ? "25 Months" : b.bondType === "bond_50" ? "50 Months" : `${b.tenureDays || 365} Days`}</span>
-                              </div>
-                            </div>
+                            {(() => {
+                              const uBal = Number(b.userId?.balance !== undefined ? b.userId.balance : (users.find(u => String(u._id) === String(b.userId?._id || b.userId))?.balance || 0));
+                              const reqAmt = Number(b.principalAmount || 0);
+                              const isInsufficient = uBal < reqAmt;
 
-                            {/* Documents */}
-                            {(docs.aadharUrl || docs.doc1Url || docs.panUrl || docs.doc2Url || docs.chequeUrl) && (
-                              <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2">
-                                <span className="text-xs font-bold text-slate-800 block">Submitted Investor Documents:</span>
-                                <div className="flex flex-wrap gap-2">
-                                  {(docs.aadharUrl || docs.doc1Url) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => { setLightboxImg(docs.aadharUrl || docs.doc1Url); setZoomLevel(1); }}
-                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
-                                    >
-                                      <span>🆔</span> Aadhaar (Front) 
-                                    </button>
-                                  )}
-                                  {(docs.aadharBackUrl || docs.doc1BackUrl) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => { setLightboxImg(docs.aadharBackUrl || docs.doc1BackUrl); setZoomLevel(1); }}
-                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
-                                    >
-                                      <span>🆔</span> Aadhaar (Back) 
-                                    </button>
-                                  )}
-                                  {(docs.panUrl || docs.doc2Url) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => { setLightboxImg(docs.panUrl || docs.doc2Url); setZoomLevel(1); }}
-                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
-                                    >
-                                       PAN Card 
-                                    </button>
-                                  )}
-                                  {docs.chequeUrl && (
-                                    <button
-                                      type="button"
-                                      onClick={() => { setLightboxImg(docs.chequeUrl); setZoomLevel(1); }}
-                                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
-                                    >
-                                       Cheque 
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                              return (
+                                <>
+                                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-slate-50 p-3.5 rounded-xl text-xs">
+                                    <div>
+                                      <span className="text-gray-400 block font-medium">Principal Required</span>
+                                      <span className="font-extrabold text-gray-900 text-base font-mono">₹{reqAmt.toLocaleString("en-IN")}</span>
+                                    </div>
+                                    <div className={isInsufficient ? "bg-rose-50 p-1.5 rounded-lg border border-rose-200" : ""}>
+                                      <span className={`block font-medium ${isInsufficient ? "text-rose-600 font-bold" : "text-gray-400"}`}>User Wallet Balance</span>
+                                      <span className={`font-mono text-sm font-black ${isInsufficient ? "text-rose-700" : "text-emerald-700"}`}>
+                                        ₹{uBal.toLocaleString("en-IN")}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-400 block font-medium">Monthly Payout</span>
+                                      <span className="font-bold text-emerald-700 text-sm font-mono">₹{Number(b.monthlyPayout || 0).toLocaleString("en-IN")}/mo</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-400 block font-medium">Total Return</span>
+                                      <span className="font-bold text-gray-900 text-sm font-mono">₹{Number(b.returnAmount || 0).toLocaleString("en-IN")}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-400 block font-medium">Tenure</span>
+                                      <span className="font-bold text-gray-900 text-sm">{b.tenureMonths ? `${b.tenureMonths} Months` : b.bondType === "bond_25" ? "25 Months" : b.bondType === "bond_50" ? "50 Months" : `${b.tenureDays || 365} Days`}</span>
+                                    </div>
+                                  </div>
 
-                            <div className="flex gap-2 sm:gap-3 pt-1">
-                              <button
-                                type="button"
-                                disabled={bondActionLoadingId === b._id}
-                                onClick={() => approveBond(b._id)}
-                                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
-                              >
-                                {bondActionLoadingId === b._id ? (
-                                  <>
-                                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    <span>Approving...</span>
-                                  </>
-                                ) : (
-                                  <span>Approve Bond</span>
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={bondActionLoadingId === b._id}
-                                onClick={() => rejectBond(b._id)}
-                                className="px-5 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
-                              >
-                                {bondActionLoadingId === b._id ? "Rejecting..." : "✗ Reject & Refund"}
-                              </button>
-                            </div>
+                                  {isInsufficient && (
+                                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-1">
+                                      <div className="flex items-center gap-1.5 font-bold text-rose-800">
+                                        <span>⚠️ Insufficient Wallet Balance (Approval Blocked)</span>
+                                      </div>
+                                      <p className="text-[11px] text-rose-700">
+                                        User ke wallet me abhi sirf <strong>₹{uBal.toLocaleString("en-IN")}</strong> bacha hai, jabki request <strong>₹{reqAmt.toLocaleString("en-IN")}</strong> ki hai. User ne request lagane ke baad paise transfer kar diye hain, isliye ye request approve nahi ki ja sakti.
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {/* Documents */}
+                                  {(docs.aadharUrl || docs.doc1Url || docs.panUrl || docs.doc2Url || docs.chequeUrl) && (
+                                    <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2">
+                                      <span className="text-xs font-bold text-slate-800 block">Submitted Investor Documents:</span>
+                                      <div className="flex flex-wrap gap-2">
+                                        {(docs.aadharUrl || docs.doc1Url) && (
+                                          <button
+                                            type="button"
+                                            onClick={() => { setLightboxImg(docs.aadharUrl || docs.doc1Url); setZoomLevel(1); }}
+                                            className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                          >
+                                            <span>🆔</span> Aadhaar (Front) 
+                                          </button>
+                                        )}
+                                        {(docs.aadharBackUrl || docs.doc1BackUrl) && (
+                                          <button
+                                            type="button"
+                                            onClick={() => { setLightboxImg(docs.aadharBackUrl || docs.doc1BackUrl); setZoomLevel(1); }}
+                                            className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                          >
+                                            <span>🆔</span> Aadhaar (Back) 
+                                          </button>
+                                        )}
+                                        {(docs.panUrl || docs.doc2Url) && (
+                                          <button
+                                            type="button"
+                                            onClick={() => { setLightboxImg(docs.panUrl || docs.doc2Url); setZoomLevel(1); }}
+                                            className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                          >
+                                             PAN Card 
+                                          </button>
+                                        )}
+                                        {docs.chequeUrl && (
+                                          <button
+                                            type="button"
+                                            onClick={() => { setLightboxImg(docs.chequeUrl); setZoomLevel(1); }}
+                                            className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                          >
+                                             Cheque 
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <div className="flex gap-2 sm:gap-3 pt-1">
+                                    <button
+                                      type="button"
+                                      disabled={bondActionLoadingId === b._id || isInsufficient}
+                                      onClick={() => approveBond(b._id)}
+                                      className={`flex-1 py-3 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-60 ${
+                                        isInsufficient
+                                          ? "bg-gray-400 cursor-not-allowed shadow-none"
+                                          : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
+                                      }`}
+                                    >
+                                      {bondActionLoadingId === b._id ? (
+                                        <>
+                                          <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                          <span>Approving...</span>
+                                        </>
+                                      ) : isInsufficient ? (
+                                        <span>⚠️ Insufficient Balance (₹{uBal.toLocaleString("en-IN")})</span>
+                                      ) : (
+                                        <span>Approve Bond</span>
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={bondActionLoadingId === b._id}
+                                      onClick={() => rejectBond(b._id)}
+                                      className="px-5 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                    >
+                                      {bondActionLoadingId === b._id ? "Rejecting..." : "✗ Reject"}
+                                    </button>
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
                         );
                       })}
@@ -10813,11 +10846,11 @@ export default function AdminPanel() {
 
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-sm mb-4">
                                 {[
-                                  { label: "Loan Sanctioned", value: `₹${l.amount.toLocaleString("en-IN")}` },
+                                  { label: "Loan Sanctioned", value: isRejected ? `₹${l.amount.toLocaleString("en-IN")} (Rejected)` : `₹${l.amount.toLocaleString("en-IN")}` },
                                   { label: "Khate Me Jayega", value: isRejected ? "₹0 (Rejected)" : `₹${inHand.toLocaleString("en-IN")}`, highlight: !isRejected },
-                                  { label: "Rate (locked)", value: `${l.interestRate}% p.a.` },
+                                  { label: "Rate (locked)", value: isRejected ? "0%" : `${l.interestRate}% p.a.` },
                                   { label: "Per Installment", value: isRejected ? "₹0" : `₹${l.installmentAmount || l.emiAmount}` },
-                                  { label: "Paid / Total", value: `${paidCount} / ${totalCount} Paid` },
+                                  { label: "Paid / Total", value: isRejected ? "0 / 0 (Rejected)" : `${paidCount} / ${totalCount} Paid` },
                                   { label: "Remaining Dues", value: isRejected ? "₹0 (Rejected)" : `₹${(l.remainingAmount ?? l.amount).toLocaleString("en-IN")}` },
                                 ].map(({ label, value, highlight }) => (
                                   <div key={label} className={highlight ? "bg-emerald-50/60 p-1.5 rounded-lg border border-emerald-200/60" : ""}>
@@ -11114,7 +11147,7 @@ export default function AdminPanel() {
                         })()}
 
                         {/* INSTALLMENT SCHEDULE EXPANDER */}
-                        {schedule.length > 0 && l.status !== "pending" && (
+                        {schedule.length > 0 && l.status !== "pending" && l.status !== "rejected" && (
                           <div className="mt-3 pt-3 border-t border-gray-100">
                             <button
                               type="button"

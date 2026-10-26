@@ -364,7 +364,7 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
         .limit(60)
         .lean(),
       Bond.find()
-        .populate('userId', 'name email phone')
+        .populate('userId', 'name email phone balance')
         .sort({ createdAt: -1 })
         .limit(40)
         .lean(),

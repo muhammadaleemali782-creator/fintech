@@ -1318,6 +1318,8 @@ export default function AdminPanel() {
     const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_approved_requests") : null;
     return unwrapCachedArray(raw);
   });
+  const [pendingDeskCounts, setPendingDeskCounts] = useState(() => appCache.get("educa_admin_cached_pending_counts", null));
+  const [loadingDeskCounts, setLoadingDeskCounts] = useState(false);
   const [approvedLoading, setApprovedLoading] = useState(false);
   const [approvedFilter, setApprovedFilter] = useState("all");
   const [approvedSearch, setApprovedSearch] = useState("");
@@ -2137,6 +2139,23 @@ export default function AdminPanel() {
     }
   }, [headers]); // eslint-disable-line
 
+  const loadPendingDeskCounts = useCallback(async (force = false) => {
+    try {
+      setLoadingDeskCounts(true);
+      const res = await cachedAdminFetch(`${API}/admin/pending-desk-counts`, { headers }, 2000, force);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.success && data.counts) {
+        setPendingDeskCounts(data.counts);
+        try { appCache.set("educa_admin_cached_pending_counts", data.counts); } catch {}
+      }
+    } catch (e) {
+      console.warn("Failed to fetch pending desk counts:", e);
+    } finally {
+      setLoadingDeskCounts(false);
+    }
+  }, [headers]); // eslint-disable-line
+
   const viewKycDocInLightbox = useCallback(async (item, docKey) => {
     const directUrl = item?.documents?.[docKey];
     if (directUrl && (directUrl.startsWith("http://") || directUrl.startsWith("https://") || directUrl.startsWith("data:"))) {
@@ -2879,6 +2898,7 @@ export default function AdminPanel() {
   useEffect(() => {
     loadBootstrapAdmin(true);
     loadAnalytics(true);
+    loadPendingDeskCounts(true);
   }, []); // eslint-disable-line
 
   // Persist admin state immediately on pagehide / visibilitychange / beforeunload
@@ -2942,11 +2962,15 @@ export default function AdminPanel() {
         loadStats(true);
       }, 45 * 1000);
     } else if (tab === "pending") {
-      loadPending(true);
-      loadLoans(true);
-      loadBonds(true);
-      loadHoldData(true);
-      loadDepositDetails(true);
+      loadPendingDeskCounts(true);
+      Promise.allSettled([
+        loadPending(true),
+        loadLoans(true),
+        loadBonds(true),
+        loadHoldData(true),
+        loadApprovedRequests(true),
+        loadDepositDetails(true)
+      ]);
       if (pending.length === 0 && pendingLoans.length > 0) {
         setPendingSubTab("loans");
       }
@@ -3012,7 +3036,12 @@ export default function AdminPanel() {
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       if (tab === "pending") {
+        loadPendingDeskCounts(true);
         loadPending(true);
+        if (pendingSubTab === "loans") loadLoans(true);
+        else if (pendingSubTab === "bonds") loadBonds(true);
+        else if (pendingSubTab === "hold") loadHoldData(true);
+        else if (pendingSubTab === "approved") loadApprovedRequests(true);
       } else if (tab === "analytics") {
         loadAnalytics(true);
       } else if (tab === "capital") {
@@ -3024,14 +3053,19 @@ export default function AdminPanel() {
       }
     }, 30 * 1000);
     return () => clearInterval(timer);
-  }, [loadPending, loadLoans, loadAnalytics, loadCapitalMetrics, loadUsers, tab]);
+  }, [loadPendingDeskCounts, loadPending, loadLoans, loadBonds, loadHoldData, loadApprovedRequests, loadAnalytics, loadCapitalMetrics, loadUsers, tab, pendingSubTab]);
 
   // INSTANT SYNC ON RESUME / TAB FOCUS (Tab-Isolated: Only refresh active tab)
   useEffect(() => {
     const handleResume = () => {
       if (typeof document !== "undefined" && !document.hidden) {
         if (tab === "pending") {
+          loadPendingDeskCounts(true);
           loadPending(true);
+          if (pendingSubTab === "loans") loadLoans(true);
+          else if (pendingSubTab === "bonds") loadBonds(true);
+          else if (pendingSubTab === "hold") loadHoldData(true);
+          else if (pendingSubTab === "approved") loadApprovedRequests(true);
         } else if (tab === "analytics") {
           loadAnalytics(true);
         } else if (tab === "capital") {
@@ -3049,7 +3083,7 @@ export default function AdminPanel() {
       document.removeEventListener("visibilitychange", handleResume);
       window.removeEventListener("focus", handleResume);
     };
-  }, [loadPending, loadLoans, loadAnalytics, loadCapitalMetrics, loadUsers, tab]);
+  }, [loadPendingDeskCounts, loadPending, loadLoans, loadBonds, loadHoldData, loadApprovedRequests, loadAnalytics, loadCapitalMetrics, loadUsers, tab, pendingSubTab]);
 
 
   // REAL-TIME SSE CONNECTION FOR LIVE ALERTS & SOUND
@@ -6613,114 +6647,151 @@ export default function AdminPanel() {
                 </button>
               </div>
 
-              {/* Sub-Navigation: Active Deposits vs Loans vs Bonds vs On Hold (Duplicate UTR) */}
+              {/* Sub-Navigation: Active Deposits vs Loans vs Bonds vs On Hold (Duplicate UTR) vs Approved Requests */}
               <div className="flex flex-wrap items-center justify-between gap-3 mb-5 border-b border-gray-100 pb-3">
-                <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-2xl w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl w-full sm:w-auto overflow-x-auto scrollbar-thin">
+                  {/* Deposits Pill */}
                   <button
                     type="button"
-                    onClick={() => setPendingSubTab("active")}
-                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    onClick={() => {
+                      setPendingSubTab("active");
+                      loadPending(true);
+                    }}
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 ${
                       pendingSubTab === "active"
                         ? "bg-white text-slate-900 shadow-xs"
                         : "text-slate-500 hover:text-slate-900"
                     }`}
                   >
-                    <span>Deposits ({pending.length})</span>
+                    <span>Deposits</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black min-w-[20px] text-center inline-flex items-center justify-center ${
+                      (pending.length > 0 || (pendingDeskCounts?.deposits || 0) > 0)
+                        ? pendingSubTab === "active"
+                          ? "bg-slate-900 text-white"
+                          : "bg-emerald-100 text-emerald-900 border border-emerald-300 font-extrabold"
+                        : "bg-slate-200 text-slate-600"
+                    }`}>
+                      {(loadingPending || loadingDeskCounts) && pending.length === 0 && !pendingDeskCounts ? (
+                        <span className="w-3.5 h-3 bg-slate-400/60 rounded-full animate-pulse inline-block" />
+                      ) : (
+                        pending.length > 0 ? pending.length : (pendingDeskCounts?.deposits ?? 0)
+                      )}
+                    </span>
                   </button>
 
+                  {/* Loans Pill */}
                   <button
                     type="button"
                     onClick={() => {
                       setPendingSubTab("loans");
                       loadLoans(true);
                     }}
-                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 ${
                       pendingSubTab === "loans"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-blue-700 hover:text-blue-900 hover:bg-blue-50"
                     }`}
                   >
                     <span>Loans</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                      pendingLoans.length > 0
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black min-w-[20px] text-center inline-flex items-center justify-center ${
+                      (pendingLoans.length > 0 || (pendingDeskCounts?.loans || 0) > 0)
                         ? pendingSubTab === "loans"
                           ? "bg-white text-blue-900 animate-pulse"
-                          : "bg-blue-100 text-blue-900 animate-pulse border border-blue-300"
+                          : "bg-blue-100 text-blue-900 animate-pulse border border-blue-300 font-extrabold"
                         : "bg-slate-200 text-slate-600"
                     }`}>
-                      {pendingLoans.length}
+                      {(loadingLoans || loadingDeskCounts) && pendingLoans.length === 0 && !pendingDeskCounts ? (
+                        <span className="w-3.5 h-3 bg-blue-400/60 rounded-full animate-pulse inline-block" />
+                      ) : (
+                        pendingLoans.length > 0 ? pendingLoans.length : (pendingDeskCounts?.loans ?? 0)
+                      )}
                     </span>
                   </button>
 
+                  {/* Bonds Pill */}
                   <button
                     type="button"
                     onClick={() => {
                       setPendingSubTab("bonds");
                       loadBonds(true);
                     }}
-                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 ${
                       pendingSubTab === "bonds"
                         ? "bg-indigo-600 text-white shadow-xs"
                         : "text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50"
                     }`}
                   >
                     <span>Bonds</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                      pendingBonds.length > 0
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black min-w-[20px] text-center inline-flex items-center justify-center ${
+                      (pendingBonds.length > 0 || (pendingDeskCounts?.bonds || 0) > 0)
                         ? pendingSubTab === "bonds"
                           ? "bg-white text-indigo-900 animate-pulse"
-                          : "bg-indigo-100 text-indigo-900 animate-pulse border border-indigo-300"
+                          : "bg-indigo-100 text-indigo-900 animate-pulse border border-indigo-300 font-extrabold"
                         : "bg-slate-200 text-slate-600"
                     }`}>
-                      {pendingBonds.length}
+                      {(loadingBonds || loadingDeskCounts) && pendingBonds.length === 0 && !pendingDeskCounts ? (
+                        <span className="w-3.5 h-3 bg-indigo-400/60 rounded-full animate-pulse inline-block" />
+                      ) : (
+                        pendingBonds.length > 0 ? pendingBonds.length : (pendingDeskCounts?.bonds ?? 0)
+                      )}
                     </span>
                   </button>
 
+                  {/* On Hold Pill */}
                   <button
                     type="button"
                     onClick={() => {
                       setPendingSubTab("hold");
                       loadHoldData(true);
                     }}
-                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 ${
                       pendingSubTab === "hold"
                         ? "bg-rose-600 text-white shadow-xs"
                         : "text-rose-600 hover:text-rose-800 hover:bg-rose-50"
                     }`}
                   >
                     <span>On Hold</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                      (holdData?.holdCount || 0) > 0
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black min-w-[20px] text-center inline-flex items-center justify-center ${
+                      ((holdData?.holdCount || 0) > 0 || (pendingDeskCounts?.hold || 0) > 0)
                         ? pendingSubTab === "hold"
                           ? "bg-white text-rose-700 animate-pulse"
-                          : "bg-rose-100 text-rose-800 animate-pulse border border-rose-300"
+                          : "bg-rose-100 text-rose-800 animate-pulse border border-rose-300 font-extrabold"
                         : "bg-slate-200 text-slate-600"
                     }`}>
-                      {holdData?.holdCount || 0}
+                      {(loadingHold || loadingDeskCounts) && (holdData?.holdCount || 0) === 0 && !pendingDeskCounts ? (
+                        <span className="w-3.5 h-3 bg-rose-400/60 rounded-full animate-pulse inline-block" />
+                      ) : (
+                        (holdData?.holdCount || 0) > 0 ? (holdData?.holdCount || 0) : (pendingDeskCounts?.hold ?? 0)
+                      )}
                     </span>
                   </button>
 
+                  {/* Approved Requests Pill */}
                   <button
                     type="button"
                     onClick={() => {
                       setPendingSubTab("approved");
                       loadApprovedRequests(true);
                     }}
-                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 ${
                       pendingSubTab === "approved"
                         ? "bg-emerald-600 text-white shadow-xs"
                         : "text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50"
                     }`}
                   >
                     <span>Approved Requests</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                      approvedRequests.length > 0
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black min-w-[20px] text-center inline-flex items-center justify-center ${
+                      (approvedRequests.length > 0 || (pendingDeskCounts?.approved || 0) > 0)
                         ? pendingSubTab === "approved"
                           ? "bg-white text-emerald-900"
-                          : "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                          : "bg-emerald-100 text-emerald-900 border border-emerald-300 font-extrabold"
                         : "bg-slate-200 text-slate-600"
                     }`}>
-                      {approvedRequests.length}
+                      {(approvedLoading || loadingDeskCounts) && approvedRequests.length === 0 && !pendingDeskCounts ? (
+                        <span className="w-3.5 h-3 bg-emerald-400/60 rounded-full animate-pulse inline-block" />
+                      ) : (
+                        approvedRequests.length > 0 ? approvedRequests.length : (pendingDeskCounts?.approved ?? 0)
+                      )}
                     </span>
                   </button>
                 </div>
@@ -6729,6 +6800,7 @@ export default function AdminPanel() {
                   <button
                     type="button"
                     onClick={() => {
+                      loadPendingDeskCounts(true);
                       if (pendingSubTab === "hold") loadHoldData(true);
                       else if (pendingSubTab === "loans") loadLoans(true);
                       else if (pendingSubTab === "bonds") loadBonds(true);
@@ -7836,20 +7908,41 @@ export default function AdminPanel() {
 
               {/* SUB-TAB 5: APPROVED REQUESTS DESK (With Granular Universal Filters) */}
               {pendingSubTab === "approved" && (() => {
-                const depCount = approvedRequests.filter(i => i.category === "deposit" || i.type === "deposit").length;
-                const withCount = approvedRequests.filter(i => i.category === "withdrawal" || i.type === "withdrawal").length;
-                const normKycCount = approvedRequests.filter(i => i.category === "kyc" && i.subCategory === "normal_kyc").length;
-                const fullKycCount = approvedRequests.filter(i => i.category === "kyc" && i.subCategory === "loan_lending_kyc").length;
-                const loanCount = approvedRequests.filter(i => i.category === "loan").length;
+                const depCount = approvedRequests.filter(i => (i.category === "deposit" || i.type === "deposit") && !i.isLoanRejected && !i.isRejected).length;
+                const withCount = approvedRequests.filter(i => (i.category === "withdrawal" || i.type === "withdrawal") && !i.isLoanRejected && !i.isRejected).length;
+                const normKycCount = approvedRequests.filter(i => i.category === "kyc" && i.subCategory === "normal_kyc" && !i.isLoanRejected && !i.isRejected).length;
+                const fullKycCount = approvedRequests.filter(i => i.category === "kyc" && i.subCategory === "loan_lending_kyc" && !i.isLoanRejected && !i.isRejected).length;
+                const loanCount = approvedRequests.filter(i => i.category === "loan" && !i.isLoanRejected && !i.isRejected).length;
                 const bondCount = approvedRequests.filter(i => i.category === "bond").length;
+                const rejectedCount = approvedRequests.filter(i =>
+                  Boolean(i.isLoanRejected) ||
+                  Boolean(i.isRejected) ||
+                  i.status === "rejected" ||
+                  String(i.status || "").toLowerCase().includes("reject") ||
+                  String(i.reference || "").toLowerCase().includes("reject") ||
+                  String(i.remarks || "").toLowerCase().includes("reject") ||
+                  String(i.notes || "").toLowerCase().includes("reject") ||
+                  String(i.title || "").toLowerCase().includes("reject")
+                ).length;
 
                 const filtered = approvedRequests.filter(item => {
-                  if (approvedFilter === "deposit" && !(item.category === "deposit" || item.type === "deposit")) return false;
-                  if (approvedFilter === "withdrawal" && !(item.category === "withdrawal" || item.type === "withdrawal")) return false;
-                  if (approvedFilter === "normal_kyc" && !(item.category === "kyc" && item.subCategory === "normal_kyc")) return false;
-                  if (approvedFilter === "loan_kyc" && !(item.category === "kyc" && item.subCategory === "loan_lending_kyc")) return false;
-                  if (approvedFilter === "loan" && item.category !== "loan") return false;
-                  if (approvedFilter === "bond" && item.category !== "bond") return false;
+                  const isItemRejected = 
+                    Boolean(item.isLoanRejected) ||
+                    Boolean(item.isRejected) ||
+                    item.status === "rejected" ||
+                    String(item.status || "").toLowerCase().includes("reject") ||
+                    String(item.reference || "").toLowerCase().includes("reject") ||
+                    String(item.remarks || "").toLowerCase().includes("reject") ||
+                    String(item.notes || "").toLowerCase().includes("reject") ||
+                    String(item.title || "").toLowerCase().includes("reject");
+
+                  if (approvedFilter === "rejected") return isItemRejected;
+                  if (approvedFilter === "deposit" && (!(item.category === "deposit" || item.type === "deposit") || isItemRejected)) return false;
+                  if (approvedFilter === "withdrawal" && (!(item.category === "withdrawal" || item.type === "withdrawal") || isItemRejected)) return false;
+                  if (approvedFilter === "normal_kyc" && (!(item.category === "kyc" && item.subCategory === "normal_kyc") || isItemRejected)) return false;
+                  if (approvedFilter === "loan_kyc" && (!(item.category === "kyc" && item.subCategory === "loan_lending_kyc") || isItemRejected)) return false;
+                  if (approvedFilter === "loan" && (item.category !== "loan" || isItemRejected)) return false;
+                  if (approvedFilter === "bond" && (item.category !== "bond" || isItemRejected)) return false;
 
                   if (approvedSearch && approvedSearch.trim()) {
                     const s = approvedSearch.trim().toLowerCase();
@@ -7859,7 +7952,9 @@ export default function AdminPanel() {
                       (item.userPhone || "").toLowerCase().includes(s) ||
                       (item.accountNumber || "").toLowerCase().includes(s) ||
                       (item.reference || "").toLowerCase().includes(s) ||
-                      (item.remarks || "").toLowerCase().includes(s)
+                      (item.remarks || "").toLowerCase().includes(s) ||
+                      (item.notes || "").toLowerCase().includes(s) ||
+                      (item.title || "").toLowerCase().includes(s)
                     );
                   }
                   return true;
@@ -7890,7 +7985,7 @@ export default function AdminPanel() {
                       </div>
                     </div>
 
-                    {/* Filter Pills Bar (User requested: kyc, payment, withdrawal, full kyc vs normal kyc, loans, bonds) */}
+                    {/* Filter Pills Bar (User requested: kyc, payment, withdrawal, full kyc vs normal kyc, loans, bonds, rejected) */}
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
                       <button
                         type="button"
@@ -7969,6 +8064,19 @@ export default function AdminPanel() {
                       >
                         Bonds ({bondCount})
                       </button>
+                      {rejectedCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setApprovedFilter("rejected")}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer active:scale-95 ${
+                            approvedFilter === "rejected"
+                              ? "bg-rose-600 text-white shadow-xs font-black"
+                              : "bg-white text-rose-700 hover:bg-rose-50 border border-rose-300 font-bold"
+                          }`}
+                        >
+                          ❌ Rejected ({rejectedCount})
+                        </button>
+                      )}
                     </div>
 
                     {/* Search Bar */}
@@ -7984,6 +8092,13 @@ export default function AdminPanel() {
                         className="w-full pl-8 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
                       />
                     </div>
+
+                    {/* Loading top bar indicator when updating in background */}
+                    {approvedLoading && approvedRequests.length > 0 && (
+                      <div className="w-full bg-emerald-100 h-1 rounded-full overflow-hidden">
+                        <div className="bg-emerald-600 h-full w-2/5 animate-pulse rounded-full" />
+                      </div>
+                    )}
 
                     {/* Content List */}
                     {approvedLoading && approvedRequests.length === 0 ? (
@@ -8004,7 +8119,19 @@ export default function AdminPanel() {
                           const isLoan = item.category === "loan";
                           const isBond = item.category === "bond";
 
-                          const badgeBg = isDeposit
+                          const isRejectedRecord =
+                            Boolean(item.isLoanRejected) ||
+                            Boolean(item.isRejected) ||
+                            item.status === "rejected" ||
+                            String(item.status || "").toLowerCase().includes("reject") ||
+                            String(item.reference || "").toLowerCase().includes("reject") ||
+                            String(item.remarks || "").toLowerCase().includes("reject") ||
+                            String(item.notes || "").toLowerCase().includes("reject") ||
+                            String(item.title || "").toLowerCase().includes("reject");
+
+                          const badgeBg = isRejectedRecord
+                            ? "bg-rose-100 text-rose-800 border-rose-300 font-extrabold shadow-2xs"
+                            : isDeposit
                             ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                             : isWithdrawal
                             ? "bg-blue-100 text-blue-800 border-blue-300"
@@ -8016,22 +8143,45 @@ export default function AdminPanel() {
                             ? "bg-indigo-100 text-indigo-800 border-indigo-300"
                             : "bg-violet-100 text-violet-800 border-violet-300";
 
-                          const icon = isDeposit ? "" : isWithdrawal ? "" : isNormalKyc ? "🪪" : isFullKyc ? "" : isLoan ? "" : "";
+                          const icon = isRejectedRecord ? "❌" : isDeposit ? "" : isWithdrawal ? "" : isNormalKyc ? "🪪" : isFullKyc ? "" : isLoan ? "" : "";
+
+                          const badgeLabel = isRejectedRecord
+                            ? "LOAN APPLICATION REJECTED (NO DISBURSAL)"
+                            : isDeposit
+                            ? "Deposit Approved"
+                            : isWithdrawal
+                            ? "Withdrawal Completed"
+                            : isNormalKyc
+                            ? "Normal KYC Verified"
+                            : isFullKyc
+                            ? "Full KYC Verified (Barrier)"
+                            : isLoan
+                            ? "Loan Disbursed"
+                            : isBond
+                            ? "Bond Activated"
+                            : item.title;
 
                           return (
-                            <div key={item.id || idx} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3 transition hover:border-slate-300">
+                            <div
+                              key={item.id || idx}
+                              className={`rounded-2xl p-4 shadow-2xs space-y-3 transition ${
+                                isRejectedRecord
+                                  ? "bg-rose-50/50 border-2 border-rose-300 ring-2 ring-rose-200/60 hover:border-rose-400"
+                                  : "bg-white border border-slate-200 hover:border-slate-300"
+                              }`}
+                            >
                               {/* Top Bar: Icon + Badge + Date */}
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <div className="flex items-center gap-2">
                                   <span className="text-lg">{icon}</span>
                                   <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeBg}`}>
-                                    {isDeposit ? "Deposit Approved" : isWithdrawal ? "Withdrawal Completed" : isNormalKyc ? "Normal KYC Verified" : isFullKyc ? "Full KYC Verified (Barrier)" : isLoan ? "Loan Disbursed" : isBond ? "Bond Activated" : item.title}
+                                    {badgeLabel}
                                   </span>
                                 </div>
-                                <div className="text-[11px] text-slate-500 font-medium">
-                                  <span>{item.approvedAt ? new Date(item.approvedAt).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Approved"}</span>
+                                <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
+                                  <span>{item.approvedAt ? new Date(item.approvedAt).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : (isRejectedRecord ? "Rejected" : "Approved")}</span>
                                   {item.turnaround && (
-                                    <span className="ml-2 font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    <span className={`ml-2 font-mono font-bold px-1.5 py-0.5 rounded border ${isRejectedRecord ? "text-rose-700 bg-rose-50 border-rose-200" : "text-emerald-700 bg-emerald-50 border-emerald-200"}`}>
                                       {item.turnaround}
                                     </span>
                                   )}
@@ -8039,12 +8189,18 @@ export default function AdminPanel() {
                               </div>
 
                               {/* Middle Row: User Details + Amount */}
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                              <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border ${
+                                isRejectedRecord
+                                  ? "bg-rose-100/50 border-rose-200"
+                                  : "bg-slate-50 border-slate-100"
+                              }`}>
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <span className="font-bold text-slate-900 text-sm">{item.userName || "User"}</span>
                                     {item.accountNumber && item.accountNumber !== "—" && (
-                                      <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                      <span className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                        isRejectedRecord ? "text-rose-700 bg-white border-rose-200" : "text-blue-700 bg-blue-50 border-blue-200"
+                                      }`}>
                                         {item.accountNumber}
                                       </span>
                                     )}
@@ -8055,26 +8211,46 @@ export default function AdminPanel() {
                                   </div>
                                 </div>
 
-                                {item.amount > 0 && (
+                                {item.amount > 0 ? (
                                   <div className="text-left sm:text-right">
-                                    <span className="text-[10px] text-slate-400 block font-bold uppercase">Amount</span>
-                                    <span className="font-black font-mono text-base text-emerald-700">
+                                    <span className={`text-[10px] block font-bold uppercase tracking-wider ${isRejectedRecord ? "text-rose-600 font-black" : "text-slate-400"}`}>
+                                      {isRejectedRecord ? "Loan Cancelled" : "Amount"}
+                                    </span>
+                                    <span className={`font-black font-mono text-base ${isRejectedRecord ? "text-rose-700 line-through decoration-rose-500" : "text-emerald-700"}`}>
                                       ₹{Number(item.amount).toLocaleString("en-IN")}
                                     </span>
+                                    {isRejectedRecord && (
+                                      <span className="block text-[10px] font-black text-rose-600">Disbursed: ₹0</span>
+                                    )}
                                   </div>
-                                )}
+                                ) : isRejectedRecord ? (
+                                  <div className="text-left sm:text-right">
+                                    <span className="text-[10px] text-rose-600 block font-black uppercase tracking-wider">Disbursal</span>
+                                    <span className="font-black text-xs text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-200 inline-block">
+                                      ₹0 Disbursed (Rejected)
+                                    </span>
+                                  </div>
+                                ) : null}
                               </div>
 
                               {/* Details / Notes / References */}
                               {(item.reference || item.notes || item.remarks) && (
-                                <div className="text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-100 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <div className={`text-[11px] p-2 rounded-lg border flex flex-wrap items-center gap-x-3 gap-y-1 ${
+                                  isRejectedRecord
+                                    ? "text-rose-900 bg-white border-rose-200"
+                                    : "text-slate-600 bg-white border-slate-100"
+                                }`}>
                                   {item.reference && (
-                                    <span className="font-mono font-bold text-slate-800">
-                                      Ref: {item.reference}
+                                    <span className={`font-mono font-bold px-2 py-0.5 rounded border ${
+                                      isRejectedRecord || String(item.reference).toLowerCase().includes("reject")
+                                        ? "text-rose-800 bg-rose-100 border-rose-300 font-black"
+                                        : "text-slate-800 bg-slate-50 border-slate-200"
+                                    }`}>
+                                      {isRejectedRecord && "❌ "}Ref: {item.reference}
                                     </span>
                                   )}
                                   {(item.notes || item.remarks) && (
-                                    <span className="text-slate-500">
+                                    <span className={isRejectedRecord ? "text-rose-700 font-bold" : "text-slate-500"}>
                                       • {item.notes || item.remarks}
                                     </span>
                                   )}
@@ -8159,9 +8335,9 @@ export default function AdminPanel() {
                                   )}
                                 </div>
 
-                                <div className="text-[10px] text-slate-400 font-medium ml-auto flex items-center gap-1">
+                                <div className={`text-[10px] font-medium ml-auto flex items-center gap-1 ${isRejectedRecord ? "text-rose-600 font-bold" : "text-slate-400"}`}>
                                   <span>{item.approverDevice || "Admin Console"}</span>
-                                  <span>• Approved by {item.approverName || "Admin"}</span>
+                                  <span>• {isRejectedRecord ? `Handled by ${item.approverName || "Admin"} (Rejected)` : `Approved by ${item.approverName || "Admin"}`}</span>
                                 </div>
                               </div>
                             </div>

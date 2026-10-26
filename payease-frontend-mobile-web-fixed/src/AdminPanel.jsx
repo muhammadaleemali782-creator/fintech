@@ -4196,7 +4196,7 @@ export default function AdminPanel() {
 
   const resolvedTotalUsers = Number((Array.isArray(users) ? users.length : null) ?? (stats?.totalUsers !== undefined ? stats.totalUsers : null) ?? (analytics?.stats?.totalUsers !== undefined ? analytics.stats.totalUsers : null) ?? cachedUsers ?? 0);
   const resolvedPendingTxns = Number((Array.isArray(pending) ? pending.length : null) ?? (stats?.pendingTxns !== undefined ? stats.pendingTxns : null) ?? (analytics?.stats?.pendingTxnsCount !== undefined ? analytics.stats.pendingTxnsCount : null) ?? cachedPending ?? 0);
-  const resolvedActiveLoans = Number((Array.isArray(loans) ? loans.length : null) ?? (stats?.totalLoans !== undefined ? stats.totalLoans : null) ?? (analytics?.stats?.totalLoans !== undefined ? analytics.stats.totalLoans : null) ?? cachedLoans ?? 0);
+  const resolvedActiveLoans = Number((Array.isArray(loans) ? loans.filter(l => l.status === "active").length : null) ?? (stats?.totalLoans !== undefined ? stats.totalLoans : null) ?? (analytics?.stats?.totalLoans !== undefined ? analytics.stats.totalLoans : null) ?? cachedLoans ?? 0);
 
   useEffect(() => {
     try { localStorage.setItem("educa_admin_cached_users_count", String(resolvedTotalUsers)); } catch {}
@@ -10631,9 +10631,10 @@ export default function AdminPanel() {
 
               {/* High-Level Loan Portfolio Summary Card (Kitne ko gaya & Total kitna gaya) */}
               {(() => {
-                const uniqueBorrowerIds = new Set(loans.map(l => String(l.userId?._id || l.userId?.id || l.userId || "")).filter(Boolean));
-                const totalDisbursedAmt = loans.reduce((s, l) => s + (l.amount || 0), 0);
-                const totalPaidAmt = loans.reduce((s, l) => s + (l.paidAmount || 0), 0);
+                const disbursedLoans = loans.filter(l => l.status === "active" || l.status === "approved" || l.status === "closed");
+                const uniqueBorrowerIds = new Set(disbursedLoans.map(l => String(l.userId?._id || l.userId?.id || l.userId || "")).filter(Boolean));
+                const totalDisbursedAmt = disbursedLoans.reduce((s, l) => s + (l.amount || 0), 0);
+                const totalPaidAmt = disbursedLoans.reduce((s, l) => s + (l.paidAmount || 0), 0);
                 const activeOutstandingAmt = loans.filter(l => l.status === "active").reduce((s, l) => s + Number(l.remainingAmount !== undefined ? l.remainingAmount : (Math.max(0, (l.totalPayable || l.amount || 0) - (l.paidAmount || 0)))), 0);
                 const activeLoansCount = loans.filter(l => l.status === "active").length;
 
@@ -10642,7 +10643,7 @@ export default function AdminPanel() {
                     <div className="p-3 sm:p-4 rounded-xl bg-blue-50/80 border border-blue-200/80">
                       <span className="text-[11px] font-bold text-blue-700 block">Kitne Ko Loan Gaya</span>
                       <div className="text-base sm:text-xl font-black text-blue-950 mt-0.5">
-                        {uniqueBorrowerIds.size} <span className="text-xs font-semibold text-blue-700">Borrowers ({loans.length} Loans)</span>
+                        {uniqueBorrowerIds.size} <span className="text-xs font-semibold text-blue-700">Borrowers ({disbursedLoans.length} Loans)</span>
                       </div>
                     </div>
                     <div className="p-3 sm:p-4 rounded-xl bg-emerald-50/80 border border-emerald-200/80">
@@ -12500,12 +12501,14 @@ export default function AdminPanel() {
                           {count} Kist ({count * 10} Din)
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                         {[
                           { kist: 15, days: "150 Din" },
                           { kist: 18, days: "180 Din" },
                           { kist: 21, days: "210 Din" },
-                          { kist: 24, days: "240 Din" }
+                          { kist: 24, days: "240 Din" },
+                          { kist: 26, days: "260 Din" },
+                          { kist: 30, days: "300 Din" }
                         ].map(({ kist, days }) => (
                           <button
                             key={kist}

@@ -13,7 +13,9 @@ export const SYSTEM_LOAN_INSTALLMENTS = [
   { count: 15, days: 150, label: "15 Kist (150 Din)", amountLabel: "₹5,000 - ₹1,00,000" },
   { count: 18, days: 180, label: "18 Kist (180 Din)", amountLabel: "₹5,000 - ₹1,00,000" },
   { count: 21, days: 210, label: "21 Kist (210 Din)", amountLabel: "₹5,000 - ₹1,00,000" },
-  { count: 24, days: 240, label: "24 Kist (240 Din)", amountLabel: "₹5,000 - ₹1,00,000" }
+  { count: 24, days: 240, label: "24 Kist (240 Din)", amountLabel: "₹5,000 - ₹1,00,000" },
+  { count: 26, days: 260, label: "26 Kist (260 Din)", amountLabel: "₹5,000 - ₹1,00,000" },
+  { count: 30, days: 300, label: "30 Kist (300 Din)", amountLabel: "₹5,000 - ₹1,00,000" }
 ];
 
 export const SYSTEM_DAILY_TENURES = [

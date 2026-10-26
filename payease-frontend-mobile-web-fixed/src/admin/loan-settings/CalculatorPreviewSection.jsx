@@ -130,7 +130,7 @@ export default function CalculatorPreviewSection({ settings, conditions, onOpenR
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-zinc-500"
             />
             <div className="flex flex-wrap items-center gap-1 mt-1.5">
-              {(selectedLoanType === "micro_business" ? [60, 80, 100, 120] : [15, 18, 21, 24]).map((k) => (
+              {(selectedLoanType === "micro_business" ? [60, 80, 100, 120] : [15, 18, 21, 24, 26, 30]).map((k) => (
                 <button
                   key={k}
                   type="button"

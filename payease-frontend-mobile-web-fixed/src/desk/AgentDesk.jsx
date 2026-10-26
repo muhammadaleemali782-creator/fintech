@@ -1882,7 +1882,10 @@ export default function AgentDesk() {
                     <option value={15}>15 Installments (150 Days)</option>
                     <option value={18}>18 Installments (180 Days)</option>
                     <option value={20}>20 Installments (200 Days)</option>
+                    <option value={21}>21 Installments (210 Days)</option>
                     <option value={24}>24 Installments (240 Days)</option>
+                    <option value={26}>26 Installments (260 Days)</option>
+                    <option value={30}>30 Installments (300 Days)</option>
                   </select>
                 </div>
 

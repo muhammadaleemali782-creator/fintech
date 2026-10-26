@@ -164,14 +164,17 @@ export default function StaffDesk() {
     let totalRepayable = 0;
     let totalCollected = 0;
     let activeCount = 0;
+    let validLoansCount = 0;
 
     list.forEach(l => {
+      if (l.status === "rejected" || l.status === "pending" || l.status === "cancelled") return;
       const amt = Number(l.amount || 0);
       const payable = Number(l.totalPayable || (amt * 1.12));
       const paid = Number(l.paidAmount || 0);
       totalDisbursed += amt;
       totalRepayable += payable;
       totalCollected += paid;
+      validLoansCount++;
       if (l.status === "active") activeCount++;
     });
 
@@ -185,7 +188,7 @@ export default function StaffDesk() {
       totalRemaining,
       recoveryRate,
       activeCount,
-      totalCount: list.length
+      totalCount: validLoansCount
     };
   }, [queues.loan]);
 
@@ -2340,19 +2343,19 @@ export default function StaffDesk() {
                 <label className="text-xs font-bold text-gray-700 block mb-1">
                   Tenure (Kist Count)
                 </label>
-                <div className="flex gap-2">
-                  {[15, 30].map((count) => (
+                <div className="flex flex-wrap gap-1.5">
+                  {[15, 18, 21, 24, 26, 30].map((count) => (
                     <button
                       key={count}
                       type="button"
                       onClick={() => setIssueInstallmentsCount(count)}
-                      className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
                         Number(issueInstallmentsCount) === count
-                          ? "bg-blue-50 text-blue-700 border-blue-300 font-black"
+                          ? "bg-blue-50 text-blue-700 border-blue-300 font-black shadow-xs"
                           : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                       }`}
                     >
-                      {count} Installments
+                      {count} Kist
                     </button>
                   ))}
                 </div>

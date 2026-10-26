@@ -11139,8 +11139,12 @@ export default function AdminPanel() {
                 const activeOutstandingAmt = loans.filter(l => l.status === "active").reduce((s, l) => s + Number(l.remainingAmount !== undefined ? l.remainingAmount : (Math.max(0, (l.totalPayable || l.amount || 0) - (l.paidAmount || 0)))), 0);
                 const activeLoansCount = loans.filter(l => l.status === "active").length;
 
-                const poolTotal = Number(loanDepartmentPool.totalPool || 1000000);
-                const poolAvailable = loanDepartmentPool.availablePool !== undefined ? Number(loanDepartmentPool.availablePool) : Math.max(0, poolTotal - totalDisbursedAmt);
+                const poolBase = Number(loanDepartmentPool.basePool || 1000000);
+                const earnedSurplus = Number(loanDepartmentPool.earnedSurplus || 0);
+                const poolTotal = Math.round(poolBase + earnedSurplus);
+                const poolAvailable = loanDepartmentPool.availablePool !== undefined 
+                  ? Number(loanDepartmentPool.availablePool) 
+                  : Math.max(0, poolTotal - totalDisbursedAmt + totalPaidAmt);
                 const poolUtilPercent = poolTotal > 0 ? ((totalDisbursedAmt / poolTotal) * 100).toFixed(1) : "0.0";
 
                 return (

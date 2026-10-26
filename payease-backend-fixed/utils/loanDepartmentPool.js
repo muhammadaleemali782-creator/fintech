@@ -8,17 +8,23 @@ const POOL_CACHE_TTL_SECS = 4; // Fast cache TTL for ultra-low latency & fresh d
 /**
  * Calculates the dynamic Loan Department Pool.
  *
- * Mathematical Model:
- * 1. Base Pool (`basePool`): Initial capital allocated by Admin (Default ₹10,00,000 / 10 Lakhs).
- * 2. Disbursals (`marketDisbursed`): Principal lent to borrowers.
- *    - Disbursing loans does NOT increase limit. It only locks capital in the market.
- *    - Rejected/Pending loans have 0 impact.
- * 3. Repayments / Recoveries (`earnedSurplus`):
- *    - As borrowers repay installments, fees, penalties, or pre-close loans,
- *      the surplus returned above principal (Interest + Fees + Penalties)
- *      AUTOMATICALLY expands the Loan Department's total lending limit:
- *      totalPool = basePool + earnedSurplus
- * 4. Available Liquidity (`availablePool`):
+ * Mathematical & Business Rules:
+ * 1. Base Pool (`basePool`):
+ *    - Initial capital allocated by Admin (Default ₹10,00,000 / 10 Lakhs).
+ * 2. Disbursals (`marketDisbursed`):
+ *    - Principal amount lent out to borrowers for active / approved loans.
+ *    - When loans are disbursed, available cash decreases: (basePool - marketDisbursed).
+ *    - Disbursing loans does NOT increase limit. Limit remains basePool.
+ * 3. Repayments / Recoveries (`totalRecovered`):
+ *    - Actual repayments received back from borrowers (paidAmount + penaltyPaid).
+ *    - As repayments come in, the available pool fills back up.
+ * 4. Automatic Limit Expansion (`totalPool`):
+ *    - When repayments are 0, totalPool is strictly basePool (₹10,00,000).
+ *    - Upfront fees do NOT inflate the limit.
+ *    - ONLY when borrowers repay returns/interest/penalties exceeding principal,
+ *      or closed loans produce net profit above principal, does totalPool expand:
+ *      totalPool = basePool + earnedSurplus!
+ * 5. Available Lending Pool (`availablePool`):
  *    - availablePool = Math.max(0, totalPool - marketDisbursed)
  */
 async function calculateLoanDepartmentPool(options = {}) {
@@ -55,44 +61,44 @@ async function calculateLoanDepartmentPool(options = {}) {
     const amt = Number(l.amount || 0);
     const payable = Number(l.totalPayable || amt);
     const paid = Number(l.paidAmount || 0);
-    const procFee = Number(l.processingFee || 0);
     const penalty = Number(l.penaltyPaid || 0);
     const precloseProfit = Number(l.precloseCompanyProfit || 0);
 
     if (l.status === 'closed') {
       closedLoansCount += 1;
       const totalPaid = paid > 0 ? paid : payable;
-      const totalCollected = totalPaid + penalty + procFee;
+      const totalCollected = totalPaid + penalty;
+      // Realized profit strictly above principal
       const surplus = precloseProfit > 0 
-        ? (precloseProfit + procFee + penalty) 
+        ? (precloseProfit + penalty) 
         : Math.max(0, totalCollected - amt);
 
       earnedSurplus += surplus;
       totalPrincipalRepaid += amt;
       totalRecovered += totalCollected;
-      // marketDisbursed remains 0 for closed loans because principal has returned!
+      // For closed loans, principal is 100% returned; marketDisbursed is 0
     } else if (l.status === 'active' || l.status === 'approved') {
       activeLoansCount += 1;
 
-      if (paid > 0) {
-        // Proportional split of installment payment between principal and interest
-        const principalRatio = payable > 0 ? (amt / payable) : 1;
-        const principalPaidSoFar = Math.min(amt, Math.round(paid * principalRatio));
-        const interestPaidSoFar = Math.max(0, paid - principalPaidSoFar);
+      if (paid > 0 || penalty > 0) {
+        // Borrower has actually paid money back!
+        const totalReceivedFromBorrower = paid + penalty;
+        totalRecovered += totalReceivedFromBorrower;
 
-        const remainingPrincipalInMarket = Math.max(0, amt - principalPaidSoFar);
-        const surplus = interestPaidSoFar + procFee + penalty;
+        // How much of this paid amount covers principal vs surplus
+        const principalRepaid = Math.min(amt, paid);
+        const remainingPrincipal = Math.max(0, amt - principalRepaid);
 
-        marketDisbursed += remainingPrincipalInMarket;
-        totalPrincipalRepaid += principalPaidSoFar;
-        earnedSurplus += surplus;
-        totalRecovered += (paid + procFee + penalty);
+        marketDisbursed += remainingPrincipal;
+        totalPrincipalRepaid += principalRepaid;
+
+        // Only expand surplus above principal if total returned exceeds loan amount
+        if (totalReceivedFromBorrower > amt) {
+          earnedSurplus += (totalReceivedFromBorrower - amt);
+        }
       } else {
-        // 0 paid so far, full principal is in the market
+        // Zero paid so far: Full principal is in the market, 0 recovered, 0 surplus
         marketDisbursed += amt;
-        // Upfront fee collected is surplus earned
-        earnedSurplus += procFee;
-        totalRecovered += procFee;
       }
     }
   }
@@ -103,7 +109,8 @@ async function calculateLoanDepartmentPool(options = {}) {
   totalRecovered = Math.round(totalRecovered);
   totalPrincipalRepaid = Math.round(totalPrincipalRepaid);
 
-  // Dynamic Total Pool Limit = Base Pool + Returns/Surplus earned
+  // Dynamic Total Pool Limit = Base Pool + Returns/Surplus earned above principal
+  // If no repayments returned or no surplus earned, totalPool is strictly basePool (e.g. ₹10,00,000)
   const totalPool = Math.round(basePool + earnedSurplus);
   const availablePool = Math.max(0, totalPool - marketDisbursed);
   const utilizationPercent = totalPool > 0 

@@ -195,8 +195,12 @@ export default function StaffDesk() {
   // Derived Live Central Loan Department Pool Calculations (Always accurate & auto-deducted)
   const poolStats = useMemo(() => {
     const totalPool = Number(deptPool.totalPool) || 1000000;
-    const marketDisbursed = Math.max(Number(deptPool.marketDisbursed) || 0, Number(loanStats.totalDisbursed) || 0);
-    const availablePool = Math.max(0, totalPool - marketDisbursed);
+    const marketDisbursed = deptPool.marketDisbursed !== undefined
+      ? Number(deptPool.marketDisbursed)
+      : Math.max(0, (Number(loanStats.totalDisbursed) || 0) - (Number(loanStats.totalCollected) || 0));
+    const availablePool = deptPool.availablePool !== undefined
+      ? Number(deptPool.availablePool)
+      : Math.max(0, totalPool - marketDisbursed);
     const utilizationPercent = totalPool > 0
       ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1)))
       : 0;
@@ -207,7 +211,7 @@ export default function StaffDesk() {
       availablePool,
       utilizationPercent
     };
-  }, [deptPool, loanStats.totalDisbursed]);
+  }, [deptPool, loanStats.totalDisbursed, loanStats.totalCollected]);
 
   const depositStats = useMemo(() => {
     const list = queues.deposit || [];

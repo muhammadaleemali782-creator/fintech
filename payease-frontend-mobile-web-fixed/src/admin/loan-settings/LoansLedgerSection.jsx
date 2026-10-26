@@ -190,8 +190,14 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
   const activeOutstandingAmt = useMemo(() => loans.filter(l => l.status === "active").reduce((s, l) => s + Number(l.remainingAmount !== undefined ? l.remainingAmount : Math.max(0, (l.totalPayable || l.amount || 0) - (l.paidAmount || 0))), 0), [loans]);
   const activeLoansCount = useMemo(() => loans.filter(l => l.status === "active").length, [loans]);
 
-  const poolTotal = Number(loanDepartmentPool.totalPool || 1000000);
-  const poolAvailable = loanDepartmentPool.availablePool !== undefined ? Number(loanDepartmentPool.availablePool) : Math.max(0, poolTotal - totalDisbursedAmt);
+  const poolBase = Number(loanDepartmentPool.basePool || 1000000);
+  const earnedSurplus = Number(loanDepartmentPool.earnedSurplus || 0);
+  // Total Sanctioned Limit expands strictly above basePool only when actual surplus profit has arrived
+  const poolTotal = Math.round(poolBase + earnedSurplus);
+  // Available Cash: poolTotal minus disbursed plus repayments that have come back in
+  const poolAvailable = loanDepartmentPool.availablePool !== undefined 
+    ? Number(loanDepartmentPool.availablePool) 
+    : Math.max(0, poolTotal - totalDisbursedAmt + totalPaidAmt);
   const poolUtilPercent = poolTotal > 0 ? ((totalDisbursedAmt / poolTotal) * 100).toFixed(1) : "0.0";
 
   return (

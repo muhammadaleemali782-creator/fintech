@@ -1703,6 +1703,19 @@ export default function AdminPanel() {
   const [capitalSearch, setCapitalSearch] = useState("");
   const debouncedCapitalSearch = useDebounce(capitalSearch, 200);
   const [capitalTimeFilter, setCapitalTimeFilter] = useState("today"); // "today" | "all" | "7days" | "month" (Default: Today as requested)
+  const [adminLang, setAdminLang] = useState(() => {
+    try {
+      return localStorage.getItem("educa_admin_lang") || "hinglish";
+    } catch {
+      return "hinglish";
+    }
+  });
+  const toggleAdminLang = (lang) => {
+    setAdminLang(lang);
+    try {
+      localStorage.setItem("educa_admin_lang", lang);
+    } catch {}
+  };
   const [rejectLoadingId, setRejectLoadingId] = useState(null);
   const [bondActionLoadingId, setBondActionLoadingId] = useState(null);
   const [installmentActionLoadingId, setInstallmentActionLoadingId] = useState(null);
@@ -4028,8 +4041,6 @@ export default function AdminPanel() {
     { key: "history", label: "Audit History", icon: "" },
     { key: "alerts", label: "Live Alerts", icon: "", badge: unreadNotifs },
     { key: "agents", label: "Agent Partners", icon: "", badge: pendingAgentsCount },
-    { key: "loans", label: "Loans", icon: "", badge: pendingLoans.length || undefined },
-    { key: "issue-loan", label: "Issue Loan Desk", icon: "" },
     { key: "lending", label: "Lending Accounts", icon: "", badge: pendingBonds.length || bonds.length || undefined },
     { key: "users", label: "Users & Accounts", icon: "" },
     { key: "devices", label: "App Lock", icon: "", badge: devices.filter(d => d.adminStatus === "active").length },
@@ -4439,7 +4450,7 @@ export default function AdminPanel() {
               onClick={() => switchTab(key)}
               title={isSidebarCollapsed ? label : undefined}
               className={`w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3 py-2.5"} rounded-xl font-semibold text-xs transition cursor-pointer relative group ${
-                tab === key
+                (tab === key || (key === "loan-settings" && (tab === "loans" || tab === "issue-loan")))
                   ? "bg-blue-600 text-white shadow-xs font-bold"
                   : "text-slate-300 hover:bg-slate-800 hover:text-white"
               }`}
@@ -4668,7 +4679,7 @@ export default function AdminPanel() {
 
               <nav className="flex-1 overflow-y-auto p-3 space-y-1 no-scrollbar">
                 {tabs.map(({ key, label, icon, badge }) => {
-                  const isActive = tab === key;
+                  const isActive = tab === key || (key === "loan-settings" && (tab === "loans" || tab === "issue-loan"));
                   return (
                     <button
                       key={key}
@@ -11044,17 +11055,71 @@ export default function AdminPanel() {
           {/* LOANS */}
           {tab === "loans" && (
             <div className="bg-white rounded-2xl shadow-sm p-3.5 sm:p-6 border border-gray-100">
+              {/* Unified Loan Department Subtab Switcher & Language Switcher */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4 pb-3 border-b border-gray-100">
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl border border-slate-200/90 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => switchTab("loans")}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-white text-blue-700 shadow-2xs cursor-pointer"
+                  >
+                    <span>📋</span>
+                    <span>{adminLang === "en" ? "Loans & Ledger" : "Loans & Ledger"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchTab("issue-loan")}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer"
+                  >
+                    <span>✍️</span>
+                    <span>{adminLang === "en" ? "Issue Loan Desk" : "Issue Loan Desk"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/loan-settings")}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer"
+                  >
+                    <span>⚙️</span>
+                    <span>{adminLang === "en" ? "Loan Settings" : "Loan Policy & Settings"}</span>
+                  </button>
+                </div>
+
+                {/* System Language Toggle */}
+                <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 px-1">Lang:</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleAdminLang("en")}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      adminLang === "en" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    English
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleAdminLang("hinglish")}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      adminLang === "hinglish" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Hinglish
+                  </button>
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-5 pb-3 border-b border-gray-100">
                 <div>
                   <h3 className="text-base sm:text-lg font-bold font-display text-gray-900 flex items-center gap-2">
-                    
-                    <span>Loan Applications & Ledger</span>
+                    <span>{adminLang === "en" ? "Loan Applications & Ledger" : "Loan Applications & Ledger"}</span>
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-800">
                       {loans.filter(l => l.status === "active" || l.status === "approved" || l.status === "closed").length}
                     </span>
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Sabhi active, pending aur completed loans ka live record aur kist schedule.
+                    {adminLang === "en"
+                      ? "Live portfolio records, customer schedules, installment collections, and audit logs."
+                      : "Sabhi active, pending aur completed loans ka live record aur kist schedule."}
                   </p>
                 </div>
                 <button
@@ -11062,11 +11127,11 @@ export default function AdminPanel() {
                   onClick={() => switchTab("issue-loan")}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
                 >
-                   Issue Loan / Apply on Behalf
+                   {adminLang === "en" ? "Issue Loan / Apply on Behalf" : "Issue Loan / Apply on Behalf"}
                 </button>
               </div>
 
-              {/* High-Level Loan Portfolio Summary Card (Kitne ko gaya & Total kitna gaya) */}
+              {/* High-Level Loan Portfolio Summary Cards */}
               {(() => {
                 const disbursedLoans = loans.filter(l => l.status === "active" || l.status === "approved" || l.status === "closed");
                 const uniqueBorrowerIds = new Set(disbursedLoans.map(l => String(l.userId?._id || l.userId?.id || l.userId || "")).filter(Boolean));
@@ -11075,50 +11140,75 @@ export default function AdminPanel() {
                 const activeOutstandingAmt = loans.filter(l => l.status === "active").reduce((s, l) => s + Number(l.remainingAmount !== undefined ? l.remainingAmount : (Math.max(0, (l.totalPayable || l.amount || 0) - (l.paidAmount || 0)))), 0);
                 const activeLoansCount = loans.filter(l => l.status === "active").length;
 
-                const totalDeptFees = disbursedLoans.reduce((s, l) => {
-                  const pf = Number(l.processingFee !== undefined && l.processingFee !== null ? l.processingFee : Math.round((l.amount || 0) * 0.05));
-                  const uf = Number(l.upiCharges !== undefined && l.upiCharges !== null ? l.upiCharges : Math.round((l.amount || 0) * 0.01));
-                  return s + pf + uf;
-                }, 0);
-                const totalDeptReceived = totalDeptFees + totalPaidAmt;
+                const poolTotal = Number(loanDepartmentPool.totalPool || 1000000);
+                const poolAvailable = loanDepartmentPool.availablePool !== undefined ? Number(loanDepartmentPool.availablePool) : Math.max(0, poolTotal - totalDisbursedAmt);
+                const poolUtilPercent = poolTotal > 0 ? ((totalDisbursedAmt / poolTotal) * 100).toFixed(1) : "0.0";
 
                 return (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 mb-5">
-                    <div className="p-3 sm:p-4 rounded-xl bg-blue-50/80 border border-blue-200/80">
-                      <span className="text-[11px] font-bold text-blue-700 block">Kitne Ko Loan Gaya</span>
-                      <div className="text-base sm:text-xl font-black text-blue-950 mt-0.5">
-                        {uniqueBorrowerIds.size} <span className="text-xs font-semibold text-blue-700">Borrowers ({disbursedLoans.length} Loans)</span>
+                    {/* Card 1: Loan Department Total Sanctioned / Assigned Pool */}
+                    <div className="p-3 sm:p-4 rounded-xl bg-purple-50/80 border border-purple-200/80">
+                      <span className="text-[11px] font-bold text-purple-700 block truncate">
+                        {adminLang === "en" ? "Dept Sanctioned Limit" : "Loan Dept Total Assigned"}
+                      </span>
+                      <div className="text-base sm:text-xl font-black text-purple-950 font-mono mt-0.5">
+                        ₹{poolTotal.toLocaleString("en-IN")}
                       </div>
+                      <span className="text-[10px] text-purple-700 font-semibold block mt-0.5">
+                        {adminLang === "en" ? `Available: ₹${poolAvailable.toLocaleString("en-IN")}` : `Baki Available: ₹${poolAvailable.toLocaleString("en-IN")}`}
+                      </span>
                     </div>
+
+                    {/* Card 2: Kitne Me Se Kitna Diya Gaya */}
                     <div className="p-3 sm:p-4 rounded-xl bg-emerald-50/80 border border-emerald-200/80">
-                      <span className="text-[11px] font-bold text-emerald-700 block">Total Kitna Paisa Gaya</span>
+                      <span className="text-[11px] font-bold text-emerald-700 block truncate">
+                        {adminLang === "en" ? "Disbursed vs Pool" : "Kitne Me Se Kitna Diya"}
+                      </span>
                       <div className="text-base sm:text-xl font-black text-emerald-950 font-mono mt-0.5">
                         ₹{totalDisbursedAmt.toLocaleString("en-IN")}
                       </div>
+                      <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
+                        {adminLang === "en" ? `Out of ₹${poolTotal.toLocaleString("en-IN")} (${poolUtilPercent}%)` : `₹${poolTotal.toLocaleString("en-IN")} me se (${poolUtilPercent}%)`}
+                      </span>
                     </div>
+
+                    {/* Card 3: Kitne Ko Loan Gaya */}
+                    <div className="p-3 sm:p-4 rounded-xl bg-blue-50/80 border border-blue-200/80">
+                      <span className="text-[11px] font-bold text-blue-700 block truncate">
+                        {adminLang === "en" ? "Total Borrowers" : "Kitne Ko Loan Gaya"}
+                      </span>
+                      <div className="text-base sm:text-xl font-black text-blue-950 mt-0.5">
+                        {uniqueBorrowerIds.size} <span className="text-xs font-semibold text-blue-700">Borrowers</span>
+                      </div>
+                      <span className="text-[10px] text-blue-700 font-semibold block mt-0.5">
+                        {disbursedLoans.length} {adminLang === "en" ? "Total Loans Disbursed" : "Total Loans Diye"}
+                      </span>
+                    </div>
+
+                    {/* Card 4: Kitna Wapas Aaya (Paid) */}
                     <div className="p-3 sm:p-4 rounded-xl bg-teal-50/80 border border-teal-200/80">
-                      <span className="text-[11px] font-bold text-teal-700 block">Kitna Wapas Aaya (Paid)</span>
+                      <span className="text-[11px] font-bold text-teal-700 block truncate">
+                        {adminLang === "en" ? "Total Repayments" : "Kitna Wapas Aaya (Paid)"}
+                      </span>
                       <div className="text-base sm:text-xl font-black text-teal-950 font-mono mt-0.5">
                         ₹{totalPaidAmt.toLocaleString("en-IN")}
                       </div>
+                      <span className="text-[10px] text-teal-700 font-semibold block mt-0.5">
+                        {adminLang === "en" ? "EMIs & Recovered Capital" : "Recovered Paisa"}
+                      </span>
                     </div>
-                    <div className="p-3 sm:p-4 rounded-xl bg-amber-50/80 border border-amber-200/80">
-                      <span className="text-[11px] font-bold text-amber-700 block">Bacha Hua Due (Active)</span>
+
+                    {/* Card 5: Bacha Hua Due (Active) */}
+                    <div className="p-3 sm:p-4 rounded-xl bg-amber-50/80 border border-amber-200/80 col-span-2 sm:col-span-1">
+                      <span className="text-[11px] font-bold text-amber-700 block truncate">
+                        {adminLang === "en" ? "Active Dues" : "Bacha Hua Due (Active)"}
+                      </span>
                       <div className="text-base sm:text-xl font-black text-amber-950 font-mono mt-0.5">
-                        ₹{activeOutstandingAmt.toLocaleString("en-IN")} <span className="text-[10px] text-amber-700">({activeLoansCount} Active)</span>
+                        ₹{activeOutstandingAmt.toLocaleString("en-IN")}
                       </div>
-                    </div>
-                    <div className="p-3 sm:p-4 rounded-xl bg-indigo-50/80 border border-indigo-200/80 col-span-2 sm:col-span-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-indigo-700 block">Loan Dept Ko Mila</span>
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold">Fees + Paid</span>
-                      </div>
-                      <div className="text-base sm:text-xl font-black text-indigo-950 font-mono mt-0.5">
-                        ₹{totalDeptReceived.toLocaleString("en-IN")}
-                      </div>
-                      <div className="text-[10px] text-indigo-700 font-medium truncate mt-0.5">
-                        ₹{totalDeptFees.toLocaleString("en-IN")} Upfront Fees • ₹{totalPaidAmt.toLocaleString("en-IN")} Rec.
-                      </div>
+                      <span className="text-[10px] text-amber-700 font-semibold block mt-0.5">
+                        {activeLoansCount} {adminLang === "en" ? "Active Loans in Market" : "Active Loans"}
+                      </span>
                     </div>
                   </div>
                 );
@@ -11953,20 +12043,75 @@ export default function AdminPanel() {
 
             return (
               <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100 space-y-6">
+                {/* Unified Loan Department Subtab Switcher & Language Switcher */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl border border-slate-200/90 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => switchTab("loans")}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer"
+                    >
+                      <span>📋</span>
+                      <span>{adminLang === "en" ? "Loans & Ledger" : "Loans & Ledger"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => switchTab("issue-loan")}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-white text-blue-700 shadow-2xs cursor-pointer"
+                    >
+                      <span>✍️</span>
+                      <span>{adminLang === "en" ? "Issue Loan Desk" : "Issue Loan Desk"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/admin/loan-settings")}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer"
+                    >
+                      <span>⚙️</span>
+                      <span>{adminLang === "en" ? "Loan Settings" : "Loan Policy & Settings"}</span>
+                    </button>
+                  </div>
+
+                  {/* System Language Toggle */}
+                  <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 px-1">Lang:</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleAdminLang("en")}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        adminLang === "en" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      English
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleAdminLang("hinglish")}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        adminLang === "hinglish" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Hinglish
+                    </button>
+                  </div>
+                </div>
+
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-100">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-2xl"></span>
                       <h3 className="text-base sm:text-lg font-bold font-display text-gray-900">
-                        Admin Loan Desk — Apply On Behalf
+                        {adminLang === "en" ? "Admin Loan Desk — Issue & Apply On Behalf" : "Admin Loan Desk — Apply On Behalf"}
                       </h3>
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 uppercase">
                         Admin Authority
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Admin kisi bhi agent ke existing user ka loan apply kar sakta hai ya new user register karke loan apply kar sakta hai. Application pending queue me jayegi jahan aap ise final review karke approve karenge.
+                      {adminLang === "en"
+                        ? "Admin can apply or backfill loans directly on behalf of any customer or register new borrowers with customized collection schedules."
+                        : "Admin kisi bhi agent ke existing user ka loan apply kar sakta hai ya new user register karke loan apply kar sakta hai. Application pending queue me jayegi jahan aap ise final review karke approve karenge."}
                     </p>
                   </div>
                   <button

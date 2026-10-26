@@ -187,7 +187,7 @@ export default function LoanSettingsPage() {
   };
 
   return (
-    <div className="h-screen max-h-screen flex flex-col font-sans select-none overflow-hidden bg-zinc-950 text-zinc-100">
+    <div className="h-screen max-h-screen flex flex-col font-sans select-none overflow-hidden bg-slate-50 text-slate-800">
       {/* Toast Notification */}
       {toast.msg && (
         <div
@@ -209,21 +209,21 @@ export default function LoanSettingsPage() {
       )}
 
       {/* Mobile Top Header */}
-      <header className="md:hidden bg-zinc-900 border-b border-zinc-800 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shrink-0">
+      <header className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shrink-0 shadow-2xs">
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setIsMobileDrawerOpen(true)}
-            className="p-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white"
+            className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
           >
             ☰
           </button>
-          <span className="text-xs font-black uppercase tracking-wider text-white">Loan Settings</span>
+          <span className="text-xs font-black uppercase tracking-wider text-slate-900">Loan Settings</span>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setIsReadmeOpen(true)}
-            className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1 active:scale-95 cursor-pointer"
+            className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-bold flex items-center gap-1 active:scale-95 cursor-pointer"
           >
             <span>📖</span>
             <span>Read Me</span>
@@ -233,12 +233,10 @@ export default function LoanSettingsPage() {
 
       {/* Main Layout Container */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Collapsible Sidebar */}
+        {/* Sidebar */}
         <LoanSettingsSidebar
           activeSection={activeSection}
           onSelectSection={setActiveSection}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={toggleSidebar}
           onBackToAdmin={handleBackToAdmin}
           onOpenReadme={() => setIsReadmeOpen(true)}
           isMobileOpen={isMobileDrawerOpen}
@@ -246,12 +244,12 @@ export default function LoanSettingsPage() {
         />
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-5 pb-12">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-5 pb-12 bg-slate-50">
           {/* Compact Top Action Bar - ONLY visible when settings are edited (isDirty) */}
           {isDirty && (activeSection === "preclose" || activeSection === "conditions") && (
-            <div className="sticky top-0 z-30 px-3.5 py-2 bg-zinc-900/95 backdrop-blur-md border border-amber-500/40 rounded-xl flex items-center justify-between gap-2 shadow-xl animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <div className="sticky top-0 z-30 px-3.5 py-2 bg-amber-50/95 backdrop-blur-md border border-amber-300 rounded-xl flex items-center justify-between gap-2 shadow-sm animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                 <span>Unsaved changes pending</span>
               </div>
               <div className="flex items-center gap-2">
@@ -259,7 +257,7 @@ export default function LoanSettingsPage() {
                   type="button"
                   onClick={handleResetToDefault}
                   disabled={saving}
-                  className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 rounded-lg text-[11px] font-bold transition active:scale-95 cursor-pointer"
+                  className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-[11px] font-bold transition active:scale-95 cursor-pointer"
                 >
                   Reset
                 </button>
@@ -267,11 +265,11 @@ export default function LoanSettingsPage() {
                   type="button"
                   onClick={handleSave}
                   disabled={saving}
-                  className="px-3 py-1 bg-zinc-100 hover:bg-white text-zinc-950 font-black rounded-lg text-[11px] transition flex items-center gap-1 shadow-sm active:scale-95 cursor-pointer"
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg text-[11px] transition flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer"
                 >
                   {saving ? (
                     <>
-                      <span className="w-3 h-3 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                      <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span>Saving...</span>
                     </>
                   ) : (
@@ -287,8 +285,8 @@ export default function LoanSettingsPage() {
 
           {loading ? (
             <div className="flex flex-col items-center justify-center min-h-[40vh] space-y-3">
-              <div className="w-8 h-8 border-3 border-zinc-400 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-zinc-400 font-bold">Loading Loan Settings...</span>
+              <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-slate-500 font-bold">Loading Loan Settings...</span>
             </div>
           ) : (
             <>

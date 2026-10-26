@@ -114,15 +114,15 @@ export default function CustomConditionsSection({
   return (
     <div className="space-y-6 pb-16">
       {/* Overview Banner */}
-      <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+      <div className="p-5 bg-white border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xl">⚡</span>
-            <h3 className="text-sm font-black text-white uppercase tracking-wider">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
               Custom Dynamic Preclose Conditions
             </h3>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Vishesh paristhitiyon me standard rules ko override karne ke liye dynamic rules set karein (jaise remaining installments {'>='} 9 hone par zyada discount).
           </p>
         </div>
@@ -138,7 +138,7 @@ export default function CustomConditionsSection({
       {/* Conditions List */}
       <div className="space-y-3">
         {conditions.length === 0 ? (
-          <div className="p-8 text-center bg-zinc-900 border border-zinc-800 rounded-2xl text-zinc-500 text-xs">
+          <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl text-slate-400 text-xs">
             Abhi koi custom condition nahi banayi gayi hai. "Add New Condition" par click karke naya rule jodein.
           </div>
         ) : (
@@ -151,27 +151,27 @@ export default function CustomConditionsSection({
                 key={idx}
                 className={`p-4 rounded-2xl border transition ${
                   cond.is_active
-                    ? "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
-                    : "bg-zinc-900/50 border-zinc-800/40 opacity-60"
+                    ? "bg-white border-slate-200 hover:border-slate-200"
+                    : "bg-slate-50/50 border-slate-200/40 opacity-60"
                 }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-400 text-[10px] font-mono font-bold">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-mono font-bold">
                         Priority #{cond.priority || idx + 1}
                       </span>
-                      <h4 className="text-xs font-black text-white">{cond.condition_name}</h4>
+                      <h4 className="text-xs font-black text-slate-900">{cond.condition_name}</h4>
                       {!cond.is_active && (
-                        <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">
                           Disabled
                         </span>
                       )}
                     </div>
 
                     {/* Formula statement */}
-                    <div className="text-xs text-zinc-200 font-mono font-bold flex items-center gap-1.5 flex-wrap">
-                      <span className="text-zinc-400 font-normal">RULE:</span>
+                    <div className="text-xs text-slate-800 font-mono font-bold flex items-center gap-1.5 flex-wrap">
+                      <span className="text-slate-500 font-normal">RULE:</span>
                       <span>IF</span>
                       <span className="text-white underline">{fieldLabel}</span>
                       <span className="text-amber-400">{cond.operator}</span>
@@ -183,7 +183,7 @@ export default function CustomConditionsSection({
                     </div>
 
                     {/* Live Calculation Preview Note */}
-                    <p className="text-[11px] text-zinc-400">
+                    <p className="text-[11px] text-slate-500">
                       💡 Is condition se result: Jab bhi <strong>{fieldLabel}</strong> {cond.operator} <strong>{cond.condition_value}</strong> hoga, system automatically <strong>{actionLabel}</strong> ko <strong>{cond.action_value}</strong> set kar dega.
                     </p>
                   </div>
@@ -194,7 +194,7 @@ export default function CustomConditionsSection({
                     <button
                       disabled={idx === 0}
                       onClick={() => handleMove(idx, -1)}
-                      className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition border border-zinc-700/60"
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition border border-slate-200"
                       title="Move Up"
                     >
                       ▲
@@ -202,7 +202,7 @@ export default function CustomConditionsSection({
                     <button
                       disabled={idx === conditions.length - 1}
                       onClick={() => handleMove(idx, 1)}
-                      className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition border border-zinc-700/60"
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition border border-slate-200"
                       title="Move Down"
                     >
                       ▼
@@ -213,8 +213,8 @@ export default function CustomConditionsSection({
                       onClick={() => handleToggleActive(idx)}
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
                         cond.is_active
-                          ? "bg-zinc-800 text-emerald-400 border border-zinc-700 hover:bg-zinc-700"
-                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                          ? "bg-slate-100 text-emerald-400 border border-slate-200 hover:bg-slate-200"
+                          : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                       }`}
                     >
                       {cond.is_active ? "Active" : "Enable"}
@@ -223,7 +223,7 @@ export default function CustomConditionsSection({
                     {/* Edit */}
                     <button
                       onClick={() => handleOpenEdit(idx)}
-                      className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-[11px] font-bold transition"
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-[11px] font-bold transition"
                     >
                       Edit
                     </button>
@@ -231,7 +231,7 @@ export default function CustomConditionsSection({
                     {/* Delete */}
                     <button
                       onClick={() => handleDelete(idx)}
-                      className="p-1 rounded-lg bg-zinc-800 hover:bg-rose-500/20 text-rose-400 text-xs transition border border-zinc-700"
+                      className="p-1 rounded-lg bg-slate-100 hover:bg-rose-500/20 text-rose-400 text-xs transition border border-slate-200"
                       title="Delete"
                     >
                       🗑️
@@ -247,37 +247,37 @@ export default function CustomConditionsSection({
       {/* Add / Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-xs" onClick={() => setModalOpen(false)} />
-          <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl z-10 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
-              <h3 className="text-sm font-black text-white">
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-xs" onClick={() => setModalOpen(false)} />
+          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl p-5 shadow-2xl z-10 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="text-sm font-black text-slate-900">
                 {editingIndex !== null ? "Edit Condition" : "Add New Condition"}
               </h3>
-              <button onClick={() => setModalOpen(false)} className="text-zinc-400 hover:text-white text-sm">
+              <button onClick={() => setModalOpen(false)} className="text-slate-500 hover:text-white text-sm">
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleSaveCondition} className="space-y-4 text-xs">
               <div>
-                <label className="text-zinc-300 font-bold block mb-1">Condition Name</label>
+                <label className="text-slate-700 font-bold block mb-1">Condition Name</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Higher Remaining Installments Bonus"
                   value={formData.condition_name}
                   onChange={(e) => setFormData({ ...formData, condition_name: e.target.value })}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 bg-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
-                  <label className="text-zinc-300 font-bold block mb-1">IF Field</label>
+                  <label className="text-slate-700 font-bold block mb-1">IF Field</label>
                   <select
                     value={formData.condition_field}
                     onChange={(e) => setFormData({ ...formData, condition_field: e.target.value })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 bg-white focus:outline-none focus:border-zinc-500"
                   >
                     {CONDITION_FIELDS.map((f) => (
                       <option key={f.value} value={f.value}>
@@ -288,11 +288,11 @@ export default function CustomConditionsSection({
                 </div>
 
                 <div>
-                  <label className="text-zinc-300 font-bold block mb-1">Operator</label>
+                  <label className="text-slate-700 font-bold block mb-1">Operator</label>
                   <select
                     value={formData.operator}
                     onChange={(e) => setFormData({ ...formData, operator: e.target.value })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 bg-white focus:outline-none focus:border-zinc-500"
                   >
                     {OPERATORS.map((op) => (
                       <option key={op.value} value={op.value}>
@@ -303,25 +303,25 @@ export default function CustomConditionsSection({
                 </div>
 
                 <div>
-                  <label className="text-zinc-300 font-bold block mb-1">Value</label>
+                  <label className="text-slate-700 font-bold block mb-1">Value</label>
                   <input
                     type="number"
                     step="any"
                     required
                     value={formData.condition_value}
                     onChange={(e) => setFormData({ ...formData, condition_value: e.target.value })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-zinc-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 bg-white font-mono focus:outline-none focus:border-zinc-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-zinc-300 font-bold block mb-1">THEN Action Field</label>
+                  <label className="text-slate-700 font-bold block mb-1">THEN Action Field</label>
                   <select
                     value={formData.action_field}
                     onChange={(e) => setFormData({ ...formData, action_field: e.target.value })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 bg-white focus:outline-none focus:border-zinc-500"
                   >
                     {ACTION_FIELDS.map((a) => (
                       <option key={a.value} value={a.value}>
@@ -332,27 +332,27 @@ export default function CustomConditionsSection({
                 </div>
 
                 <div>
-                  <label className="text-zinc-300 font-bold block mb-1">Action Value</label>
+                  <label className="text-slate-700 font-bold block mb-1">Action Value</label>
                   <input
                     type="number"
                     step="any"
                     required
                     value={formData.action_value}
                     onChange={(e) => setFormData({ ...formData, action_value: e.target.value })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-zinc-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 bg-white font-mono focus:outline-none focus:border-zinc-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <div>
-                  <label className="text-zinc-300 font-bold block mb-1">Priority</label>
+                  <label className="text-slate-700 font-bold block mb-1">Priority</label>
                   <input
                     type="number"
                     min="1"
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: Number(e.target.value) })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-zinc-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 bg-white font-mono focus:outline-none focus:border-zinc-500"
                   />
                 </div>
 
@@ -362,19 +362,19 @@ export default function CustomConditionsSection({
                     id="condActive"
                     checked={formData.is_active}
                     onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="w-4 h-4 rounded text-zinc-100 bg-zinc-950 border-zinc-700 cursor-pointer"
+                    className="w-4 h-4 rounded text-slate-900 bg-white border-slate-200 cursor-pointer"
                   />
-                  <label htmlFor="condActive" className="text-zinc-300 font-bold cursor-pointer">
+                  <label htmlFor="condActive" className="text-slate-700 font-bold cursor-pointer">
                     Enable Condition
                   </label>
                 </div>
               </div>
 
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-zinc-800">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 rounded-xl font-bold cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl font-bold cursor-pointer"
                 >
                   Cancel
                 </button>

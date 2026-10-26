@@ -1421,12 +1421,17 @@ router.get('/stats', protect, admin, async (req, res) => {
     const loanDeptPool = await calculateLoanDepartmentPool();
     const loanPoolBase = loanDeptPool?.basePool || 1000000;
     const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds + loanPoolBase);
+    const grossDeposits = totalDeposits[0]?.total || 0;
+    // Net available deposits in deposit desk (Gross deposits minus capital assigned/transferred to Loan Dept)
+    const netAvailableDeposits = Math.max(0, grossDeposits - loanPoolBase);
 
     res.json({
       totalUsers,
       pendingTxns,
       holdTxns,
-      totalDeposits: totalDeposits[0]?.total || 0,
+      totalDeposits: netAvailableDeposits,
+      totalGrossDeposits: grossDeposits,
+      capitalTransferredToLoan: loanPoolBase,
       totalYield: totalUserProfits || totalYield[0]?.total || 0,
       totalUserBalances,
       totalUserProfits,
@@ -1513,7 +1518,10 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
       userId: userMap.get(String(y.userId)) || null
     }));
 
-    const totalDeposits = Number(depositTxns.reduce((sum, d) => sum + (d.amount || 0), 0).toFixed(2));
+    const totalDepositsGross = Number(depositTxns.reduce((sum, d) => sum + (d.amount || 0), 0).toFixed(2));
+    const capitalTransferredToLoan = loanPoolBase || 1000000;
+    const netAvailableDeposits = Math.max(0, Number((totalDepositsGross - capitalTransferredToLoan).toFixed(2)));
+    const totalDeposits = netAvailableDeposits;
     const totalYieldTxns = Number(yieldTxns.reduce((sum, y) => sum + (y.amount || 0), 0).toFixed(4));
     const totalYieldCredited = Math.max(totalUserProfits, totalYieldTxns);
 
@@ -1759,6 +1767,37 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
         registeredAt: u.createdAt
       }));
 
+    const depositMovementHistory = [
+      {
+        id: 'tx-dept-transfer-loan',
+        type: 'transfer_out',
+        direction: 'out',
+        title: 'Transferred to Loan Department',
+        description: 'Allocated to EFS Loan Department operations pool for issuing loans',
+        recipient: 'EFS Loan Department Pool',
+        amount: -1000000,
+        amountFormatted: '-₹10,00,000.00',
+        date: '2026-10-26T12:00:00.000Z',
+        status: 'Completed',
+        utrNumber: 'EDUCA-CAP-1000000',
+        badge: 'Transferred Out'
+      },
+      ...depositTxns.map(d => ({
+        id: String(d._id),
+        type: 'deposit_in',
+        direction: 'in',
+        title: 'Initial Capital Injection',
+        description: `Verified Capital Inflow via ${(d.method || 'Bank Transfer').toUpperCase()}`,
+        recipient: 'Educa Deposit Treasury',
+        amount: d.amount,
+        amountFormatted: `+₹${Number(d.amount).toLocaleString('en-IN')}`,
+        date: d.createdAt,
+        status: 'Approved',
+        utrNumber: d.utrNumber || 'EDUCA-CAP-1000000',
+        badge: 'Approved Inflow'
+      }))
+    ];
+
     const payload = {
       success: true,
       stats: {
@@ -1767,6 +1806,8 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
         totalUserProfits,
         totalActiveBonds,
         totalDeposits,
+        totalGrossDeposits: totalDepositsGross,
+        capitalTransferredToLoan,
         approvedDepositCount: depositTxns.length,
         totalYieldCredited,
         totalWithdrawals,
@@ -1781,6 +1822,7 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
       sources,
       timeline: timeline.slice(0, 15),
       topAccounts,
+      depositMovementHistory,
       recentYieldLedger: yieldTxns.slice(-20).reverse().map(y => ({
         id: y._id,
         userName: y.userId?.name || 'User',

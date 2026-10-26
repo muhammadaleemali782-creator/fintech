@@ -1030,6 +1030,12 @@ export default function AdminPanel() {
       if (cachedProf && Number(cachedProf) > 0) {
         localStorage.setItem("educa_admin_cached_profit", "0");
       }
+      // Purge stale deposits cache where company loan capital was counted as unallocated deposit
+      const cachedDep = localStorage.getItem("educa_admin_cached_deposits");
+      if (cachedDep && Number(cachedDep) >= 1000000) {
+        localStorage.setItem("educa_admin_cached_deposits", "0");
+        appCache.set("educa_admin_cached_deposits", 0);
+      }
       // Purge stale analytics cache with synthetic 12% yield on loan capital
       const cachedAn = localStorage.getItem("educa_admin_cached_analytics");
       if (cachedAn && (cachedAn.includes("328.77") || cachedAn.includes("14.51") || cachedAn.includes("329"))) {
@@ -4183,7 +4189,8 @@ export default function AdminPanel() {
     return n !== null && isFinite(n) && n >= 0 ? n : fallback;
   };
 
-  const cachedDeposits = readCachedNumber("educa_admin_cached_deposits", 0);
+  const rawCachedDeposits = readCachedNumber("educa_admin_cached_deposits", 0);
+  const cachedDeposits = rawCachedDeposits >= 1000000 ? 0 : rawCachedDeposits;
   const cachedProfit = readCachedNumber("educa_admin_cached_profit", 0);
   const cachedReserves = readCachedNumber("educa_admin_cached_reserves", 0);
   const cachedUsers = readCachedNumber("educa_admin_cached_users_count", 0);
@@ -4645,39 +4652,104 @@ export default function AdminPanel() {
                 {cardDetailModal === "deposits" && (
                   <div className="space-y-4 text-xs">
                     <div className="p-4 rounded-2xl bg-gradient-to-br from-green-600 to-emerald-700 text-white shadow-md">
-                      <span className="text-[11px] font-semibold text-emerald-100 block uppercase tracking-wider">
-                        Total Deposits Inflow
-                      </span>
-                      <div className="text-2xl sm:text-3xl font-black font-mono mt-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-emerald-100 uppercase tracking-wider">
+                          Net Available Deposits
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white">
+                          Loan Dept Assigned
+                        </span>
+                      </div>
+                      <div className="text-3xl font-black font-mono mt-1">
                         ₹{totalDepositsDisplay.toLocaleString("en-IN")}
                       </div>
                       <div className="mt-2 text-[11px] text-emerald-100 font-medium">
-                        Verified Capital Deposit Injected into Platform
+                        Capital deposit aaya aur turnt Loan Department ko transfer kar diya gaya.
                       </div>
                     </div>
 
-                    <div className="space-y-2.5 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
-                      <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                        <span className="font-semibold text-slate-600">Company Capital (Admin):</span>
-                        <span className="font-bold font-mono text-slate-900">₹10,00,000</span>
+                    {/* Breakdown Badges */}
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                        <span className="text-[10px] text-emerald-600 font-bold block">Inflow</span>
+                        <span className="font-mono font-black text-xs text-emerald-800">+₹10,00,000</span>
                       </div>
-                      <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                        <span className="font-semibold text-slate-600">Department Assigned:</span>
-                        <span className="font-bold text-purple-700">EFS Loan Department</span>
+                      <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200">
+                        <span className="text-[10px] text-purple-600 font-bold block">Transferred Out</span>
+                        <span className="font-mono font-black text-xs text-purple-800">-₹10,00,000</span>
                       </div>
-                      <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                        <span className="font-semibold text-slate-600">Retail Customer Deposits:</span>
-                        <span className="font-bold font-mono text-slate-900">₹0.00</span>
+                      <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span className="text-[10px] text-slate-600 font-bold block">Deposit Desk Balance</span>
+                        <span className="font-mono font-black text-xs text-slate-900">₹0.00</span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-slate-600">Reference / UTR:</span>
-                        <span className="font-mono text-slate-700 text-[11px]">EDUCA-CAP-1000000</span>
+                    </div>
+
+                    {/* Movement History / Audit Trail */}
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider mb-2 flex items-center justify-between">
+                        <span>Capital & Deposit Movement History</span>
+                        <span className="text-[10px] font-semibold text-slate-400">2 Transactions</span>
+                      </h4>
+                      <div className="space-y-2">
+                        {/* Transaction 1: Transferred Out to Loan Dept */}
+                        <div className="p-3 rounded-xl border border-purple-200 bg-purple-50/60 flex items-start justify-between gap-2.5">
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                              ↗
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-900 text-xs">Transferred to Loan Department</span>
+                                <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold bg-purple-200 text-purple-900">Outflow</span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Allocated to EFS Loan Department operations pool for issuing loans
+                              </p>
+                              <span className="font-mono text-[10px] text-slate-400 mt-1 block">
+                                Ref: EDUCA-CAP-1000000 • 26 Oct 2026
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-black font-mono text-xs text-purple-700 block">
+                              -₹10,00,000
+                            </span>
+                            <span className="text-[9px] font-bold text-purple-600">Transferred</span>
+                          </div>
+                        </div>
+
+                        {/* Transaction 2: Initial Capital Inflow */}
+                        <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-start justify-between gap-2.5">
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                              📥
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-900 text-xs">Initial Capital Deposit</span>
+                                <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold bg-emerald-200 text-emerald-900">Inflow</span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Company capital seed deposit injected via Bank Transfer
+                              </p>
+                              <span className="font-mono text-[10px] text-slate-400 mt-1 block">
+                                UTR: EDUCA-CAP-1000000 • 26 Oct 2026
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-black font-mono text-xs text-emerald-700 block">
+                              +₹10,00,000
+                            </span>
+                            <span className="text-[9px] font-bold text-emerald-600">Approved</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs">
-                      <span className="font-bold block mb-1">ℹ️ Deposit Allocation Rule:</span>
-                      Paisa pehle deposit me aaya, aur use turnt Loan Department ko assign kar diya gaya. Yeh paisa Loan Department me loans dene ke kaam aa raha hai.
+                      <span className="font-bold block mb-1">🏛️ Fintech Reserve Note:</span>
+                      Yeh ₹10,00,000 company ke <strong>Fintech Reserve</strong> me maujood hai aur Loan Department ko assign hai. Deposit desk se transfer ho jane ke karan deposit balance <strong>₹0</strong> hai.
                     </div>
                   </div>
                 )}

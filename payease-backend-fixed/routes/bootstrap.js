@@ -488,7 +488,7 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
     const payload = {
       analytics: {
         totalUsers,
-        totalDeposits: netFintechReserve,
+        totalDeposits: totalUserBalances,
         fintechReserves: netFintechReserve,
         totalProfitCredited: totalUserProfits,
         pendingTxns: pendingTxns.length,

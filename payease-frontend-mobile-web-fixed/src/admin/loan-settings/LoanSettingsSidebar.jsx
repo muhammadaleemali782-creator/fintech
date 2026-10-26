@@ -143,12 +143,13 @@ export default function LoanSettingsSidebar({
         <button
           type="button"
           onClick={onBackToAdmin}
+          style={{ touchAction: "manipulation" }}
           className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition active:scale-95 text-xs font-bold border border-slate-200 cursor-pointer shadow-2xs ${
             isCollapsed ? "justify-center" : "justify-start"
           }`}
           title="Back to Admin Panel"
         >
-          <span className="text-sm">←</span>
+          <span className="text-sm font-black">←</span>
           {!isCollapsed && <span className="truncate">Back to Admin Panel</span>}
         </button>
       </div>

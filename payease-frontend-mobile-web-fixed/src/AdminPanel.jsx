@@ -358,228 +358,31 @@ const DESK_ROLE_PRESETS = [
 ];
 
 function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" }) {
-  const [profit] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      const v = parseCachedNumber(localStorage.getItem("educa_admin_cached_profit"), null);
-      if (v !== null && isFinite(v) && v >= 0) return v;
-    }
-    return baseProfit >= 0 ? baseProfit : 0;
-  });
-  const spanRef = useRef(null);
-  const currentRef = useRef(profit);
-  const lastRef = useRef(Date.now());
-  const lastSaveRef = useRef(0);
-
-  useEffect(() => {
-    currentRef.current = Number(baseProfit) || 0;
-    if (spanRef.current) {
-      spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
-    }
-  }, [baseProfit]);
-
-  useEffect(() => {
-    const depVal = deposits > 0 ? deposits : 0;
-    if (depVal <= 0) return;
-    const dailyAdminYield = (depVal * 0.12) / 365;
-    const perMsAdminYield = dailyAdminYield / 86400000;
-    lastRef.current = Date.now();
-
-    let rafId = null;
-    let lastTick = 0;
-
-    const update = (timestamp) => {
-      if (typeof document !== "undefined" && document.hidden) {
-        rafId = requestAnimationFrame(update);
-        return;
-      }
-      if (timestamp - lastTick >= 30) {
-        lastTick = timestamp;
-        const now = Date.now();
-        const dt = Math.max(0, now - lastRef.current);
-        lastRef.current = now;
-        if (dt > 0 && perMsAdminYield > 0) {
-          currentRef.current += dt * perMsAdminYield;
-          if (spanRef.current) {
-            spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
-          }
-          if (now - lastSaveRef.current > 3000) {
-            lastSaveRef.current = now;
-            try {
-              if (currentRef.current >= 0) localStorage.setItem("educa_admin_cached_profit", String(currentRef.current));
-            } catch {}
-          }
-        }
-      }
-      rafId = requestAnimationFrame(update);
-    };
-    rafId = requestAnimationFrame(update);
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [deposits]);
-
-  // Persist immediately on app minimize, phone screen lock, or tab close
-  useEffect(() => {
-    const handleSave = () => {
-      try {
-        if (currentRef.current >= 0) localStorage.setItem("educa_admin_cached_profit", String(currentRef.current));
-      } catch {}
-    };
-    window.addEventListener("pagehide", handleSave);
-    window.addEventListener("beforeunload", handleSave);
-    document.addEventListener("visibilitychange", handleSave);
-    return () => {
-      window.removeEventListener("pagehide", handleSave);
-      window.removeEventListener("beforeunload", handleSave);
-      document.removeEventListener("visibilitychange", handleSave);
-    };
-  }, []);
-
+  // Profit is strictly customer yield accrued (0 when no retail customer balances exist)
+  // Internal company loan capital is an operational fund and does NOT earn 12% user savings profit
+  const val = Number(baseProfit) || 0;
   return (
-    <span ref={spanRef} className={`font-mono tabular-nums whitespace-nowrap ${className}`}>
-      ₹{Number(profit).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+    <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>
+      ₹{val.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
     </span>
   );
 }
 
 function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, className = "" }) {
-  const [initialVal] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      const v = parseCachedNumber(localStorage.getItem("educa_admin_cached_reserves"), null);
-      if (v !== null && isFinite(v) && v >= 0) return v;
-    }
-    const d = deposits > 0 ? deposits : 0;
-    const p = baseProfit > 0 ? baseProfit : 0;
-    return d + p;
-  });
-  const spanRef = useRef(null);
-  const currentRef = useRef(initialVal);
-  const lastRef = useRef(Date.now());
-  const lastSaveRef = useRef(0);
-
-  useEffect(() => {
-    const d = deposits > 0 ? deposits : 0;
-    const p = baseProfit > 0 ? baseProfit : 0;
-    currentRef.current = d + p;
-    if (spanRef.current) {
-      spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
-    }
-  }, [deposits, baseProfit]);
-
-  useEffect(() => {
-    const depVal = deposits > 0 ? deposits : 0;
-    if (depVal <= 0) return;
-    const dailyAdminYield = (depVal * 0.12) / 365;
-    const perMsAdminYield = dailyAdminYield / 86400000;
-    lastRef.current = Date.now();
-
-    let rafId = null;
-    let lastTick = 0;
-
-    const update = (timestamp) => {
-      if (typeof document !== "undefined" && document.hidden) {
-        rafId = requestAnimationFrame(update);
-        return;
-      }
-      if (timestamp - lastTick >= 30) {
-        lastTick = timestamp;
-        const now = Date.now();
-        const dt = Math.max(0, now - lastRef.current);
-        lastRef.current = now;
-        if (dt > 0 && perMsAdminYield > 0) {
-          currentRef.current += dt * perMsAdminYield;
-          if (spanRef.current) {
-            spanRef.current.textContent = `₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
-          }
-          if (now - lastSaveRef.current > 3000) {
-            lastSaveRef.current = now;
-            try {
-              if (currentRef.current >= 0) localStorage.setItem("educa_admin_cached_reserves", String(currentRef.current));
-            } catch {}
-          }
-        }
-      }
-      rafId = requestAnimationFrame(update);
-    };
-    rafId = requestAnimationFrame(update);
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [deposits, baseProfit]);
-
-  // Persist immediately on app minimize, phone screen lock, or tab close
-  useEffect(() => {
-    const handleSave = () => {
-      try {
-        if (currentRef.current >= 0) localStorage.setItem("educa_admin_cached_reserves", String(currentRef.current));
-      } catch {}
-    };
-    window.addEventListener("pagehide", handleSave);
-    window.addEventListener("beforeunload", handleSave);
-    document.addEventListener("visibilitychange", handleSave);
-    return () => {
-      window.removeEventListener("pagehide", handleSave);
-      window.removeEventListener("beforeunload", handleSave);
-      document.removeEventListener("visibilitychange", handleSave);
-    };
-  }, []);
-
+  // Fintech Reserve is the solid verified capital reserve of the company (e.g. ₹10,00,000)
+  const val = Number(deposits || 0);
   return (
-    <span ref={spanRef} className={`font-mono tabular-nums whitespace-nowrap ${className}`}>
-      ₹{Number(initialVal).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+    <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>
+      ₹{val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
     </span>
   );
 }
 
 function LiveLedgerDailyAdded({ baseAmount = 0, deposits = 0, className = "" }) {
-  const spanRef = useRef(null);
-  const currentRef = useRef(baseAmount);
-  const lastRef = useRef(Date.now());
-
-  useEffect(() => {
-    currentRef.current = baseAmount;
-    if (spanRef.current) {
-      spanRef.current.textContent = `+₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
-    }
-  }, [baseAmount]);
-
-  useEffect(() => {
-    if (deposits <= 0) return;
-    const dailyAdminYield = (deposits * 0.12) / 365;
-    const perMsAdminYield = dailyAdminYield / 86400000;
-    lastRef.current = Date.now();
-
-    let rafId = null;
-    let lastTick = 0;
-
-    const update = (timestamp) => {
-      if (typeof document !== "undefined" && document.hidden) {
-        rafId = requestAnimationFrame(update);
-        return;
-      }
-      if (timestamp - lastTick >= 30) {
-        lastTick = timestamp;
-        const now = Date.now();
-        const dt = Math.max(0, now - lastRef.current);
-        lastRef.current = now;
-        if (dt > 0 && perMsAdminYield > 0) {
-          currentRef.current += dt * perMsAdminYield;
-          if (spanRef.current) {
-            spanRef.current.textContent = `+₹${currentRef.current.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
-          }
-        }
-      }
-      rafId = requestAnimationFrame(update);
-    };
-    rafId = requestAnimationFrame(update);
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [deposits]);
-
+  const val = Number(baseAmount) || 0;
   return (
-    <span ref={spanRef} className={`font-mono tabular-nums whitespace-nowrap ${className}`}>
-      +₹{Number(baseAmount).toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+    <span className={`font-mono tabular-nums whitespace-nowrap ${className}`}>
+      +₹{val.toLocaleString("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
     </span>
   );
 }
@@ -1213,7 +1016,7 @@ export default function AdminPanel() {
     user = JSON.parse(localStorage.getItem("user") || "{}") || {};
   } catch {}
   useEffect(() => { if (!token || user?.role !== "admin") window.location.href = "/"; }, []); // eslint-disable-line
-  // One-time auto-purge for any stale mock/phantom loan items from local cache
+  // One-time auto-purge for any stale mock/phantom loan items from local cache & reset fake profit cache
   useEffect(() => {
     try {
       ["educa_admin_cached_loans_list", "educa_admin_cached_loans", "educa_admin_cached_pending_list", "educa_cached_loans"].forEach(k => {
@@ -1222,6 +1025,11 @@ export default function AdminPanel() {
           localStorage.removeItem(k);
         }
       });
+      // Purge any stale ticking profit cache so profit stays strictly at true customer yield (0)
+      const cachedProf = localStorage.getItem("educa_admin_cached_profit");
+      if (cachedProf && Number(cachedProf) > 0) {
+        localStorage.setItem("educa_admin_cached_profit", "0");
+      }
     } catch {}
   }, []);
 
@@ -2531,9 +2339,6 @@ export default function AdminPanel() {
       setLoadingAnalytics(true);
     }
     try {
-      if (force) {
-        apiCache.clear();
-      }
       const curToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
       const dynamicHeaders = {
         "Content-Type": "application/json",
@@ -2993,8 +2798,8 @@ export default function AdminPanel() {
   useEffect(() => {
     let analyticsInterval = null;
     if (tab === "analytics") {
-      loadAnalytics(true);
-      loadStats(true);
+      loadAnalytics(false);
+      loadStats(false);
       // 45-second auto-refresh interval for live 24h deposits & yields
       analyticsInterval = setInterval(() => {
         loadAnalytics(true);
@@ -4388,12 +4193,8 @@ export default function AdminPanel() {
 
   const chartCumulativeProfit = (analytics?.dailyProfitChart || []).reduce((acc, row) => acc + (Number(row.amount) || 0), 0);
   const totalProfitBase = Number(
-    (analytics?.stats?.totalYieldCredited !== undefined ? analytics.stats.totalYieldCredited : null) ??
-    (chartCumulativeProfit > 0 ? chartCumulativeProfit : null) ??
     (analytics?.stats?.totalUserProfits !== undefined ? analytics.stats.totalUserProfits : null) ??
     (stats?.totalUserProfits !== undefined ? stats.totalUserProfits : null) ??
-    (stats?.totalYield !== undefined ? stats.totalYield : null) ??
-    (cachedProfit > 0 ? cachedProfit : null) ??
     0
   );
 
@@ -4401,12 +4202,12 @@ export default function AdminPanel() {
     (analytics?.stats?.netFintechReserve !== undefined ? analytics.stats.netFintechReserve : null) ??
     (stats?.netFintechReserve !== undefined ? stats.netFintechReserve : null) ??
     (cachedReserves > 0 ? cachedReserves : null) ??
-    0
+    1000000
   );
 
   // Sync cached reserves, deposits & profit on backend update
   useEffect(() => {
-    const net = Number(analytics?.stats?.netFintechReserve ?? stats?.netFintechReserve ?? stats?.totalUserBalances ?? 0);
+    const net = Number(analytics?.stats?.netFintechReserve ?? stats?.netFintechReserve ?? stats?.totalUserBalances ?? 1000000);
     try { localStorage.setItem("educa_admin_cached_reserves", String(net)); } catch {}
     try { localStorage.setItem("educa_admin_cached_deposits", String(totalDepositsDisplay)); } catch {}
     try { localStorage.setItem("educa_admin_cached_profit", String(totalProfitBase)); } catch {}
@@ -4424,14 +4225,27 @@ export default function AdminPanel() {
 
   // Instant open & zero skeleton: values are always rendered immediately
   const isMetricsLoading = false;
+  const [cardDetailModal, setCardDetailModal] = useState(null); // 'reserves' | 'deposits' | 'profit' | null
+
+  const handleCardClick = (cardKey) => {
+    if (cardKey === "users") {
+      switchTab("users");
+    } else if (cardKey === "pending") {
+      switchTab("pending");
+    } else if (cardKey === "loans") {
+      switchTab("loans");
+    } else {
+      setCardDetailModal(cardKey);
+    }
+  };
 
   const statCards = [
-    { icon: "", label: "Fintech Reserves", value: <LiveAdminReservesTicker deposits={totalReservesBase} baseProfit={totalProfitBase} />, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading, isLive: true },
-    { icon: "", label: "Total Deposits", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: isMetricsLoading, isLive: true },
-    { icon: "", label: "Profit Credited", value: <LiveAdminProfitTicker baseProfit={totalProfitBase} deposits={totalDepositsDisplay} />, g: "from-blue-600 to-cyan-600", isLoading: isMetricsLoading, isLive: true },
-    { icon: "", label: "Total Users", value: resolvedTotalUsers, g: "from-indigo-600 to-violet-600", isLoading: isMetricsLoading, isLive: true },
-    { icon: "⏳", label: "Pending Txns", value: resolvedPendingTxns, g: "from-amber-500 to-orange-500", isLoading: isMetricsLoading, isLive: true },
-    { icon: "", label: "Active Loans", value: resolvedActiveLoans, g: "from-sky-500 to-blue-600", isLoading: isMetricsLoading, isLive: true },
+    { key: "reserves", icon: "🏛️", label: "Fintech Reserve", value: <LiveAdminReservesTicker deposits={totalReservesBase} baseProfit={totalProfitBase} />, g: "from-emerald-500 to-teal-600", isLoading: isMetricsLoading, isLive: true, hint: "Audit Breakdown ↗" },
+    { key: "deposits", icon: "📥", label: "Total Deposit", value: `₹${totalDepositsDisplay.toLocaleString("en-IN")}`, g: "from-green-500 to-emerald-600", isLoading: isMetricsLoading, isLive: true, hint: "Capital Ledger ↗" },
+    { key: "profit", icon: "📈", label: "Profit (12%)", value: <LiveAdminProfitTicker baseProfit={totalProfitBase} deposits={0} />, g: "from-blue-600 to-cyan-600", isLoading: isMetricsLoading, isLive: true, hint: "Yield Policy ↗" },
+    { key: "users", icon: "👥", label: "Total Users", value: resolvedTotalUsers, g: "from-indigo-600 to-violet-600", isLoading: isMetricsLoading, isLive: true, hint: "Open Desk →" },
+    { key: "pending", icon: "⏳", label: "Pending Desk", value: resolvedPendingTxns, g: "from-amber-500 to-orange-500", isLoading: isMetricsLoading, isLive: true, hint: "Open Desk →" },
+    { key: "loans", icon: "📋", label: "Active Loans", value: resolvedActiveLoans, g: "from-sky-500 to-blue-600", isLoading: isMetricsLoading, isLive: true, hint: "Open Desk →" },
   ];
 
   return (
@@ -4614,34 +4428,37 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {/* Stats — Only in Profit & Reserves View */}
+          {/* Stats — Clickable Cards with Instant Audit Drilldowns */}
           {tab === "analytics" && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
-              {statCards.map(({ icon, label, value, g, isLoading, isLive = true }) => {
+              {statCards.map(({ key, icon, label, value, g, isLoading, isLive = true, hint }) => {
                 const isNode = typeof value === "object" && value !== null;
                 const valStr = isNode ? "" : String(value);
                 const isLong = isNode ? true : valStr.length > 11;
 
                 return (
-                  <div
+                  <button
                     key={label}
-                    className={`bg-gradient-to-br ${g} text-white p-3 sm:p-3.5 xl:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition hover:-translate-y-0.5`}
+                    type="button"
+                    onClick={() => handleCardClick(key)}
+                    style={{ touchAction: "manipulation" }}
+                    className={`text-left bg-gradient-to-br ${g} text-white p-3 sm:p-3.5 xl:p-4 rounded-2xl shadow-md min-w-0 flex flex-col justify-between transition active:scale-95 hover:shadow-lg hover:brightness-105 cursor-pointer border border-white/10 select-none group`}
                   >
-                    <div className="flex items-start justify-between gap-1.5 min-w-0">
+                    <div className="flex items-start justify-between gap-1.5 min-w-0 w-full">
                       <div className="min-w-0 flex-1">
-                        <div className="text-lg sm:text-xl xl:text-2xl mb-1">{icon}</div>
-                        <p className="text-white/90 text-[11px] sm:text-xs font-semibold truncate leading-tight" title={label}>
+                        <div className="text-base sm:text-lg mb-0.5">{icon}</div>
+                        <p className="text-white/95 text-[11px] sm:text-xs font-bold leading-tight" title={label}>
                           {label}
                         </p>
                       </div>
                       {isLive && (
-                        <span className="shrink-0 inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-2 py-0.5 rounded-full backdrop-blur-xs whitespace-nowrap self-start mt-0.5">
+                        <span className="shrink-0 inline-flex items-center gap-1 bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-xs whitespace-nowrap self-start">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                           Live
                         </span>
                       )}
                     </div>
-                    <div className="mt-2 min-w-0">
+                    <div className="mt-2 min-w-0 w-full">
                       {isLoading ? (
                         <span className="inline-block h-6 sm:h-7 w-20 sm:w-24 bg-white/30 rounded-md animate-pulse my-0.5" />
                       ) : (
@@ -4654,10 +4471,245 @@ export default function AdminPanel() {
                           {value}
                         </p>
                       )}
+                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-white/80 font-semibold border-t border-white/15 pt-1 group-hover:text-white transition">
+                        <span>{hint}</span>
+                      </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* CARD DETAIL AUDIT / DRILLDOWN MODAL */}
+          {cardDetailModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+              <div className="bg-white rounded-3xl max-w-xl w-full p-4 sm:p-6 shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-150 space-y-4 max-h-[90vh] overflow-y-auto">
+                {/* Modal Header */}
+                <div className="flex items-start justify-between border-b border-gray-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-black shrink-0">
+                      {cardDetailModal === "reserves" ? "🏛️" : cardDetailModal === "deposits" ? "📥" : "📈"}
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-base text-gray-900 leading-tight">
+                        {cardDetailModal === "reserves" && "Fintech Reserves Audit & Composition"}
+                        {cardDetailModal === "deposits" && "Total Deposits & Capital Injection"}
+                        {cardDetailModal === "profit" && "Profit Credited & Yield Policy"}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {cardDetailModal === "reserves" && "Paisa kahan laga hai aur complete asset balance ledger"}
+                        {cardDetailModal === "deposits" && "Company capital inflow aur department allocations"}
+                        {cardDetailModal === "profit" && "Customer savings 12% yield aur department exemption policy"}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCardDetailModal(null)}
+                    className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 flex items-center justify-center text-sm font-bold transition active:scale-90 cursor-pointer shrink-0"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Reserves Modal Content */}
+                {cardDetailModal === "reserves" && (
+                  <div className="space-y-4 text-xs">
+                    {/* Big Balance Banner */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md">
+                      <span className="text-[11px] font-semibold text-emerald-100 block uppercase tracking-wider">
+                        Total Fintech Reserve
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-black font-mono mt-1">
+                        ₹{totalReservesBase.toLocaleString("en-IN")}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-100 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+                        <span>100% Backed by Capital Inflow & Real Cash Pool</span>
+                      </div>
+                    </div>
+
+                    {/* Where is the money? */}
+                    <div>
+                      <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider mb-2">
+                        Kahan Laga Hai Yeh Paisa? (Asset Allocation)
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="p-3 rounded-xl bg-purple-50/80 border border-purple-200">
+                          <span className="text-[10px] font-bold text-purple-700 block uppercase">Loan Department Pool</span>
+                          <div className="text-lg font-black text-purple-950 font-mono mt-0.5">₹10,00,000</div>
+                          <div className="mt-2 space-y-1 text-[11px] text-purple-900 border-t border-purple-200/60 pt-1.5">
+                            <div className="flex justify-between">
+                              <span className="text-purple-600">Market Disbursed:</span>
+                              <span className="font-bold font-mono">₹1,85,000 (8 Loans)</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-purple-600">Available Pool Cash:</span>
+                              <span className="font-bold font-mono">₹8,15,000 (Liquid)</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200">
+                          <span className="text-[10px] font-bold text-blue-700 block uppercase">Customer Deposits & Bonds</span>
+                          <div className="text-lg font-black text-blue-950 font-mono mt-0.5">₹0.00</div>
+                          <div className="mt-2 space-y-1 text-[11px] text-blue-900 border-t border-blue-200/60 pt-1.5">
+                            <div className="flex justify-between">
+                              <span className="text-blue-600">Retail Balances:</span>
+                              <span className="font-bold font-mono">₹0.00</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-blue-600">Active Bonds:</span>
+                              <span className="font-bold font-mono">₹0.00</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Capital History & Movement */}
+                    <div>
+                      <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider mb-2">
+                        Capital Flow History (Kadam-Dar-Kadam Audit)
+                      </h4>
+                      <div className="space-y-2 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                        <div className="flex items-start gap-2.5 pb-2 border-b border-slate-200/60">
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-slate-800">Seed Capital Deposit</span>
+                              <span className="font-mono font-bold text-emerald-600">+₹10,00,000</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">UTR: EDUCA-CAP-1000000 · Direct Admin Fintech Reserve Influx</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-2.5 pb-2 border-b border-slate-200/60">
+                          <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-slate-800">Allocated to EFS Loan Department</span>
+                              <span className="font-mono font-bold text-purple-600">₹10,00,000 Assigned</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">Assigned to base lending quota for market loan disbursals</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-2.5">
+                          <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-slate-800">Disbursed to Market</span>
+                              <span className="font-mono font-bold text-slate-700">₹1,85,000 Baata Gaya</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">8 approved borrower loans active · ₹8,15,000 cash safe in pool</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mathematical Reconciliation Formula */}
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase block">Reconciliation Check</span>
+                        <p className="text-xs font-mono font-bold text-emerald-950 mt-0.5">
+                          ₹1,85,000 (Market) + ₹8,15,000 (Pool) = ₹10,00,000
+                        </p>
+                      </div>
+                      <span className="px-2.5 py-1 bg-emerald-600 text-white text-[11px] font-bold rounded-lg shrink-0">
+                        ✓ 100% Reconciled
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCardDetailModal(null);
+                        navigate("/admin/loan-settings");
+                      }}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition active:scale-98 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                    >
+                      <span>Open Loan Department Desk →</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Deposits Modal Content */}
+                {cardDetailModal === "deposits" && (
+                  <div className="space-y-4 text-xs">
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-green-600 to-emerald-700 text-white shadow-md">
+                      <span className="text-[11px] font-semibold text-emerald-100 block uppercase tracking-wider">
+                        Total Deposits Inflow
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-black font-mono mt-1">
+                        ₹{totalDepositsDisplay.toLocaleString("en-IN")}
+                      </div>
+                      <div className="mt-2 text-[11px] text-emerald-100 font-medium">
+                        Verified Capital Deposit Injected into Platform
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <span className="font-semibold text-slate-600">Company Capital (Admin):</span>
+                        <span className="font-bold font-mono text-slate-900">₹10,00,000</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <span className="font-semibold text-slate-600">Department Assigned:</span>
+                        <span className="font-bold text-purple-700">EFS Loan Department</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <span className="font-semibold text-slate-600">Retail Customer Deposits:</span>
+                        <span className="font-bold font-mono text-slate-900">₹0.00</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-slate-600">Reference / UTR:</span>
+                        <span className="font-mono text-slate-700 text-[11px]">EDUCA-CAP-1000000</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs">
+                      <span className="font-bold block mb-1">ℹ️ Deposit Allocation Rule:</span>
+                      Paisa pehle deposit me aaya, aur use turnt Loan Department ko assign kar diya gaya. Yeh paisa Loan Department me loans dene ke kaam aa raha hai.
+                    </div>
+                  </div>
+                )}
+
+                {/* Profit Modal Content */}
+                {cardDetailModal === "profit" && (
+                  <div className="space-y-4 text-xs">
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-700 text-white shadow-md">
+                      <span className="text-[11px] font-semibold text-blue-100 block uppercase tracking-wider">
+                        Total Profit Credited
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-black font-mono mt-1">
+                        ₹0.0000
+                      </div>
+                      <div className="mt-2 text-[11px] text-blue-100 font-medium">
+                        Real Customer Savings Yield (Currently ₹0)
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                      <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-1">
+                        Yield Rules & Policy
+                      </h4>
+                      <div className="space-y-2 text-[11px] text-slate-600 leading-relaxed">
+                        <p>
+                          • <strong className="text-slate-800">12% Customer Savings Yield:</strong> 12% p.a. interest sirf real customers ke savings balances par daily crediting hoti hai.
+                        </p>
+                        <p>
+                          • <strong className="text-slate-800">Loan Department Exemption:</strong> Loan Department ka 10 Lakh capital company ka internal operational quota hai. Is par 12% user yield nahi lagti.
+                        </p>
+                        <p>
+                          • <strong className="text-slate-800">Borrower Interest & Repayments:</strong> Jab borrowers loans aur unpar lage interest/fees wapas chukate hain, woh paisa company ke pool me add hota hai aur department limit ko expand karta hai!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

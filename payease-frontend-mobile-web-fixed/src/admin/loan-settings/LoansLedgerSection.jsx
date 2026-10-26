@@ -22,6 +22,8 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
   const [expandedLoanId, setExpandedLoanId] = useState(null);
   const [expandedAuditId, setExpandedAuditId] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [markPaidModal, setMarkPaidModal] = useState(null); // { loan, installment, paymentMode, utrNumber, evidenceNote }
+  const [submittingPayment, setSubmittingPayment] = useState(false);
 
   // Admin Language preference (English | Hinglish)
   const [adminLang, setAdminLang] = useState(() => {
@@ -122,6 +124,37 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
       if (showToast) showToast("Error rejecting loan", true);
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const handleAdminMarkPaid = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!markPaidModal) return;
+    const { loan, installment, paymentMode, utrNumber, evidenceNote } = markPaidModal;
+    setSubmittingPayment(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE_URL}/loan/admin/${loan._id}/installment/${installment.installmentNo}/admin-pay`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          utrNumber: utrNumber ? utrNumber.trim() : `OFFLINE-${Date.now()}`,
+          evidenceNote: `${paymentMode || "UPI"}: ${evidenceNote || "Admin verified offline repayment"}`
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to mark installment paid");
+
+      if (showToast) showToast(data.message || `Installment #${installment.installmentNo} safaltapoorvak PAID mark ho gayi! Pool balance badh gaya.`);
+      setMarkPaidModal(null);
+      fetchLoansData();
+    } catch (err) {
+      if (showToast) showToast(err.message || "Payment process karne me error aaya", true);
+    } finally {
+      setSubmittingPayment(false);
     }
   };
 
@@ -588,6 +621,7 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
                           <th className="px-3 py-2">Status</th>
                           <th className="px-3 py-2">Paid On</th>
                           <th className="px-3 py-2">UTR / Proof</th>
+                          <th className="px-3 py-2 text-right">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -617,6 +651,28 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
                             <td className="px-3 py-2 font-mono text-[11px] text-slate-600">
                               {inst.utrNumber || (inst.proofUrl ? "Proof Uploaded" : "-")}
                             </td>
+                            <td className="px-3 py-2 text-right">
+                              {inst.status === "paid" ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                  ✓ Paid
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setMarkPaidModal({
+                                    loan: l,
+                                    installment: inst,
+                                    paymentMode: "UPI",
+                                    utrNumber: "",
+                                    evidenceNote: ""
+                                  })}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs inline-flex items-center gap-1"
+                                  title="Admin Paid / Record Payment"
+                                >
+                                  <span>Paid Karein</span>
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -626,6 +682,139 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Admin Mark Paid / Record Installment Modal */}
+      {markPaidModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-150 space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-sm">
+                  ₹
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-gray-900 leading-tight">
+                    Record Installment Payment
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    Kist ko PAID mark karein aur loan pool me wapas add karein
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMarkPaidModal(null)}
+                className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 flex items-center justify-center text-xs font-bold transition active:scale-90 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Installment Summary Card */}
+            <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-emerald-800 font-semibold">Borrower:</span>
+                <span className="font-bold text-emerald-950 font-mono">
+                  {markPaidModal.loan.userId?.name || markPaidModal.loan.applicantName || "Customer"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-emerald-800 font-semibold">Installment No:</span>
+                <span className="font-bold font-mono text-emerald-950">
+                  #{markPaidModal.installment.installmentNo}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-emerald-800 font-semibold">Due Date:</span>
+                <span className="font-mono text-slate-700">
+                  {markPaidModal.installment.dueDate ? new Date(markPaidModal.installment.dueDate).toLocaleDateString("en-IN") : "-"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center border-t border-emerald-200 pt-1.5">
+                <span className="text-emerald-900 font-black">Amount to Collect:</span>
+                <span className="text-base font-black font-mono text-emerald-700">
+                  ₹{markPaidModal.installment.amount?.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAdminMarkPaid} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Payment Mode / Tareeka *
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {["UPI", "Bank / NEFT", "Cash"].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMarkPaidModal(prev => ({ ...prev, paymentMode: m }))}
+                      className={`py-2 rounded-xl font-bold border text-center transition cursor-pointer active:scale-95 ${
+                        markPaidModal.paymentMode === m
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  UTR / Reference / Receipt Number *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. UPI-123456789012 ya CASH-REC-01"
+                  value={markPaidModal.utrNumber}
+                  onChange={(e) => setMarkPaidModal(prev => ({ ...prev, utrNumber: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Verification Note / Proof Remarks (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Offline received by Admin / Deposited in branch"
+                  value={markPaidModal.evidenceNote}
+                  onChange={(e) => setMarkPaidModal(prev => ({ ...prev, evidenceNote: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 focus:bg-white"
+                />
+              </div>
+
+              <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-[11px] leading-tight">
+                💡 <span className="font-bold">Automatic Pool Refill:</span> Jaise hi aap ise Paid mark karenge, yeh ₹{markPaidModal.installment.amount?.toLocaleString("en-IN")} turnt Loan Department ke Available Pool me wapas jama ho jayega aur market outstanding kam ho jayegi!
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setMarkPaidModal(null)}
+                  disabled={submittingPayment}
+                  className="w-1/2 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-bold transition active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingPayment}
+                  className="w-1/2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition active:scale-95 cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {submittingPayment ? "Processing..." : "✓ Confirm & Mark Paid"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

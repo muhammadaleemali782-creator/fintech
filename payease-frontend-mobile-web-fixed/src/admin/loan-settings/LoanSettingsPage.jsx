@@ -186,13 +186,7 @@ export default function LoanSettingsPage() {
   };
 
   const handleBackToAdmin = () => {
-    if (isDirty) {
-      if (window.confirm("Aapke paas unsaved changes hain. Kya aap bina save kiye wapas jaana chahte hain?")) {
-        navigate("/admin");
-      }
-    } else {
-      navigate("/admin");
-    }
+    navigate("/admin");
   };
 
   return (

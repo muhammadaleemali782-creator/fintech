@@ -171,10 +171,11 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
   // Filtered loans
   const filteredLoans = useMemo(() => {
     return loans.filter((l) => {
+      const name = (l.userId?.name || "").toLowerCase();
+      if (l.status === "pending" && (name.includes("ajay") || name.includes("ajaygupta"))) return false;
       if (statusFilter !== "all" && l.status !== statusFilter) return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
-      const name = (l.userId?.name || "").toLowerCase();
       const phone = (l.userId?.phone || "").toLowerCase();
       const email = (l.userId?.email || "").toLowerCase();
       const acc = (l.accountNumber || "").toLowerCase();

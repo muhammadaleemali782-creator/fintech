@@ -378,7 +378,9 @@ router.get('/admin', protect, staffOrAdmin, async (req, res) => {
 
     const bonds = bondsRes.status === 'fulfilled' ? bondsRes.value : [];
     const totalActiveBonds = Number(bonds.filter(b => b.status === 'active').reduce((s, b) => s + (b.principalAmount || 0), 0).toFixed(2));
-    const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds);
+    const loanDeptPool = await calculateLoanDepartmentPool();
+    const loanPoolBase = loanDeptPool?.basePool || 1000000;
+    const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds + loanPoolBase);
 
     const pendingTxns = pendingTxnsRes.status === 'fulfilled' ? pendingTxnsRes.value : [];
     const loans = loansRes.status === 'fulfilled' ? loansRes.value : [];

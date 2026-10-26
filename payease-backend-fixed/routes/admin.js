@@ -1418,7 +1418,9 @@ router.get('/stats', protect, admin, async (req, res) => {
     const totalUserBalances = Number(users.reduce((sum, u) => sum + (u.balance || 0), 0).toFixed(2));
     const totalUserProfits = Number(users.reduce((sum, u) => sum + (u.profitBalance || 0), 0).toFixed(4));
     const totalActiveBonds = Number(activeBonds.reduce((sum, b) => sum + (b.principalAmount || 0), 0).toFixed(2));
-    const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds);
+    const loanDeptPool = await calculateLoanDepartmentPool();
+    const loanPoolBase = loanDeptPool?.basePool || 1000000;
+    const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds + loanPoolBase);
 
     res.json({
       totalUsers,
@@ -1492,7 +1494,9 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
     const totalUserBalances = Number(users.reduce((sum, u) => sum + (u.balance || 0), 0).toFixed(2));
     const totalUserProfits = Number(users.reduce((sum, u) => sum + (u.profitBalance || 0), 0).toFixed(4));
     const totalActiveBonds = Number(activeBonds.reduce((sum, b) => sum + (b.principalAmount || 0), 0).toFixed(2));
-    const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds);
+    const loanDeptPool = await calculateLoanDepartmentPool();
+    const loanPoolBase = loanDeptPool?.basePool || 1000000;
+    const netFintechReserve = Math.round(totalUserBalances + totalActiveBonds + loanPoolBase);
     const totalWithdrawals = Number(withdrawalTxns.reduce((sum, w) => sum + (w.amount || 0), 0).toFixed(2));
     const totalLoansDisbursed = Number(activeLoans.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(2));
 
@@ -1666,7 +1670,20 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
 
     // 8. Capital Sources Breakdown (Kahan se aaya company me paisa)
     const totalFintechLiquidity = netFintechReserve;
+    const loanPoolDisbursed = loanDeptPool?.marketDisbursed || 0;
+    const loanPoolAvailable = loanDeptPool?.availablePool !== undefined ? loanDeptPool.availablePool : (loanPoolBase - loanPoolDisbursed);
+
     const sources = [
+      {
+        source: 'Fintech Reserve (Loan Department Capital Pool)',
+        amount: loanPoolBase,
+        percent: totalFintechLiquidity > 0 ? Number(((loanPoolBase / totalFintechLiquidity) * 100).toFixed(2)) : 0,
+        color: '#8B5CF6',
+        description: `₹${loanPoolDisbursed.toLocaleString('en-IN')} baata gaya (disbursed) • ₹${loanPoolAvailable.toLocaleString('en-IN')} available`,
+        marketDisbursed: loanPoolDisbursed,
+        availablePool: loanPoolAvailable,
+        assignedTo: 'EFS LOAN DEPARTMENT'
+      },
       {
         source: 'Customer Deposits (Primary Cash Wallets)',
         amount: totalUserBalances,

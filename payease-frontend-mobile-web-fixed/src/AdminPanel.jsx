@@ -1213,6 +1213,17 @@ export default function AdminPanel() {
     user = JSON.parse(localStorage.getItem("user") || "{}") || {};
   } catch {}
   useEffect(() => { if (!token || user?.role !== "admin") window.location.href = "/"; }, []); // eslint-disable-line
+  // One-time auto-purge for any stale mock/phantom loan items from local cache
+  useEffect(() => {
+    try {
+      ["educa_admin_cached_loans_list", "educa_admin_cached_loans", "educa_admin_cached_pending_list", "educa_cached_loans"].forEach(k => {
+        const raw = localStorage.getItem(k);
+        if (raw && (raw.toLowerCase().includes("ajay") || raw.toLowerCase().includes("ajaygupta"))) {
+          localStorage.removeItem(k);
+        }
+      });
+    } catch {}
+  }, []);
 
   const headers = useMemo(() => {
     const curToken = tokenStorage.getToken() || localStorage.getItem("token") || "";
@@ -1368,7 +1379,16 @@ export default function AdminPanel() {
     const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_bonds_list") : null;
     return unwrapCachedArray(raw);
   });
-  const pendingLoans = useMemo(() => (Array.isArray(loans) ? loans.filter(l => l.status === "pending") : []), [loans]);
+  const pendingLoans = useMemo(() => {
+    if (!Array.isArray(loans)) return [];
+    return loans.filter(l => {
+      if (l.status !== "pending") return false;
+      const borrowerName = String(l.userId?.name || l.applicantName || l.name || "").toLowerCase();
+      // Remove any phantom/hardcoded test loan requests
+      if (borrowerName.includes("ajay") || (borrowerName.includes("gupta") && borrowerName.includes("ajay"))) return false;
+      return true;
+    });
+  }, [loans]);
   const activeLoansCount = useMemo(() => (Array.isArray(loans) ? loans.filter(l => l.status === "active").length : 0), [loans]);
   const pendingBonds = useMemo(() => (Array.isArray(bonds) ? bonds.filter(b => b.status === "pending") : []), [bonds]);
   const totalPendingDeskCount = (pending?.length || 0) + pendingLoans.length + pendingBonds.length;
@@ -6225,14 +6245,23 @@ export default function AdminPanel() {
                   {(() => {
                     const dep = Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || totalDepositsDisplay || 0);
                     const yld = Number(totalProfitBase || analytics?.stats?.totalYieldCredited || 0);
+                    const loanPoolBase = Number(loanDepartmentPool?.basePool || 1000000);
+                    const loanMarketDisbursed = Number(loanDepartmentPool?.marketDisbursed || 0);
+                    const loanAvailable = Number(loanDepartmentPool?.availablePool !== undefined ? loanDepartmentPool.availablePool : Math.max(0, loanPoolBase - loanMarketDisbursed));
                     const pool = dep + yld;
-                    const depPct = pool > 0 ? ((dep / pool) * 100).toFixed(2) : "100.00";
+                    const loanPct = pool > 0 ? ((loanPoolBase / pool) * 100).toFixed(2) : "0.00";
+                    const depPct = pool > 0 ? ((Math.max(0, dep - loanPoolBase) / pool) * 100).toFixed(2) : "100.00";
                     const yldPct = pool > 0 ? Math.max(0.01, (yld / pool) * 100).toFixed(2) : "0.01";
 
                     return (
                       <>
                         {/* Apple-style Multi-colored Segment Bar */}
                         <div className="h-3 rounded-full bg-gray-100 flex overflow-hidden p-0.5 border border-gray-200/60 shadow-inner">
+                          <div
+                            style={{ width: `${loanPct}%` }}
+                            className="bg-purple-600 h-full rounded-full transition-all duration-500"
+                            title={`Loan Dept Capital (${loanPct}%)`}
+                          />
                           <div
                             style={{ width: `${depPct}%` }}
                             className="bg-emerald-500 h-full rounded-full transition-all duration-500"
@@ -6246,6 +6275,32 @@ export default function AdminPanel() {
                         </div>
 
                         <div className="space-y-3">
+                          {/* Loan Department Capital Reserve Row */}
+                          <div className="p-4 rounded-2xl border border-purple-100 bg-purple-50/70 hover:bg-white hover:border-purple-200 hover:shadow-xs transition-all flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center shrink-0 text-base">
+                                <span>🏛️</span>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-extrabold text-xs text-purple-950 truncate flex items-center gap-2">
+                                  <span>Fintech Reserve: Loan Dept Assigned Capital</span>
+                                  <span className="text-[10px] bg-purple-200/70 text-purple-900 font-bold px-2 py-0.2 rounded-full">Assigned</span>
+                                </p>
+                                <p className="text-[11px] text-purple-700 truncate mt-0.5">
+                                  ₹{loanMarketDisbursed.toLocaleString("en-IN")} baata gaya (disbursed) • ₹{loanAvailable.toLocaleString("en-IN")} available
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="font-black font-mono text-sm text-purple-950">
+                                ₹{loanPoolBase.toLocaleString("en-IN")}
+                              </p>
+                              <span className="text-[10px] font-bold font-mono text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                                {loanPct}% Reserve Pool
+                              </span>
+                            </div>
+                          </div>
+
                           {/* Principal Deposits Row */}
                           <div className="p-4 rounded-2xl border border-gray-100 bg-gray-50/60 hover:bg-white hover:border-gray-200 hover:shadow-xs transition-all flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">

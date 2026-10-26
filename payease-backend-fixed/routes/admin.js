@@ -1522,8 +1522,12 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
     for (const dt of depositTxns) {
       const dKey = new Date(dt.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
       if (!dayDepositsMap[dKey]) dayDepositsMap[dKey] = [];
-      const rate = dt.userId?.interestRate || 12;
-      const dailyYieldForAmount = Number(((dt.amount * (rate / 100)) / 365).toFixed(2));
+      const isInternalCapital = !dt.userId || dt.userId.role === 'admin' || String(dt.utrNumber || '').includes('EDUCA-CAP');
+      const rate = isInternalCapital ? 0 : (dt.userId?.interestRate || 12);
+      const dailyYieldForAmount = isInternalCapital ? 0 : Number(((dt.amount * (rate / 100)) / 365).toFixed(2));
+      const rateText = isInternalCapital
+        ? "Assigned to Loan Dept • Operations Pool (0% User Yield)"
+        : `${rate}% p.a. • +₹${dailyYieldForAmount}/day profit`;
       dayDepositsMap[dKey].push({
         id: dt._id,
         amount: dt.amount,
@@ -1537,7 +1541,7 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
         method: dt.method || 'wallet',
         utr: dt.utrNumber || dt.referenceId || 'Direct',
         utrNumber: dt.utrNumber || dt.referenceId || 'Direct',
-        rateText: `${rate}% p.a. • +₹${dailyYieldForAmount}/day profit`,
+        rateText,
         dailyYieldForAmount,
         proofUrl: '', // On-demand via /txn-proof/:id prevents megabyte payload crashing mobile app
         hasProof: true
@@ -1586,15 +1590,24 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
       }
     }
 
+    // Calculate customer deposits eligible for 12% retail savings yield
+    // Note: Company capital allocated to Loan Department does NOT earn 12% customer yield!
+    const customerDepositsYieldEligible = Number(
+      depositTxns
+        .filter(d => d.userId && d.userId.role !== 'admin' && !String(d.utrNumber || '').includes('EDUCA-CAP'))
+        .reduce((sum, d) => sum + (d.amount || 0), 0)
+        .toFixed(2)
+    );
+
     // Ensure today's live accrued yield is accurately reflected in dailyMap without blocking DB operations
     const now = new Date();
     const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const istMidnight = new Date(`${todayStr}T00:00:00+05:30`);
     const msElapsedToday = Math.max(0, now.getTime() - istMidnight.getTime());
     const dayProgress = Math.min(1, msElapsedToday / (24 * 3600 * 1000));
-    const liveAccruedToday = Number(((totalDeposits * 0.12 / 365) * dayProgress).toFixed(2));
+    const liveAccruedToday = Number(((customerDepositsYieldEligible * 0.12 / 365) * dayProgress).toFixed(2));
 
-    if (totalDeposits > 0 || yieldTxns.length > 0) {
+    if (customerDepositsYieldEligible > 0 || yieldTxns.length > 0) {
       if (!dailyMap[todayStr]) {
         const [y, m, d] = todayStr.split('-').map(Number);
         const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
@@ -1611,7 +1624,7 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
     }
 
     // Ensure all completed past calendar days reflect the full 12% p.a. daily compounding yield
-    const fullDayCompoundingYield = Number(((totalDeposits * 0.12) / 365).toFixed(2));
+    const fullDayCompoundingYield = Number(((customerDepositsYieldEligible * 0.12) / 365).toFixed(2));
     if (fullDayCompoundingYield > 0) {
       for (const dKey of Object.keys(dailyMap)) {
         if (dKey < todayStr && dKey >= '2026-10-09') {

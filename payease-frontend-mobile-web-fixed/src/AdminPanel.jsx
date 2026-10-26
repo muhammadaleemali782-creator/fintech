@@ -1030,6 +1030,12 @@ export default function AdminPanel() {
       if (cachedProf && Number(cachedProf) > 0) {
         localStorage.setItem("educa_admin_cached_profit", "0");
       }
+      // Purge stale analytics cache with synthetic 12% yield on loan capital
+      const cachedAn = localStorage.getItem("educa_admin_cached_analytics");
+      if (cachedAn && (cachedAn.includes("328.77") || cachedAn.includes("14.51") || cachedAn.includes("329"))) {
+        localStorage.removeItem("educa_admin_cached_analytics");
+        appCache.remove("educa_admin_cached_analytics");
+      }
     } catch {}
   }, []);
 
@@ -6012,7 +6018,7 @@ export default function AdminPanel() {
                             data.map((d, i) => {
                               const barW = Math.min(54, Math.max(22, slotW * 0.45));
                               const amount = Number(d.amount || 0);
-                              const barH = Math.max((amount / maxVal) * plotH, 6);
+                              const barH = amount > 0 ? Math.max((amount / maxVal) * plotH, 6) : 3;
                               const xCenter = getXCenter(i);
                               const x = xCenter - barW / 2;
                               const y = padTop + plotH - barH;
@@ -6072,7 +6078,7 @@ export default function AdminPanel() {
                                           isHovered ? "fill-white" : "fill-blue-700"
                                         }`}
                                       >
-                                        +₹{amount.toFixed(0)}
+                                        {amount > 0 ? `+₹${amount.toFixed(0)}` : "₹0"}
                                       </text>
                                     </g>
                                   )}
@@ -6566,7 +6572,7 @@ export default function AdminPanel() {
                               <span className="text-slate-400 block text-[10px]">Daily Profit Added</span>
                               <span className="font-mono font-black text-emerald-600">
                                 {isToday ? (
-                                  <LiveLedgerDailyAdded baseAmount={rowAmount} deposits={totalDepositsDisplay} />
+                                  <LiveLedgerDailyAdded baseAmount={rowAmount} deposits={0} />
                                 ) : (
                                   `+₹${rowAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                 )}
@@ -6576,7 +6582,7 @@ export default function AdminPanel() {
                               <span className="text-slate-400 block text-[10px]">Cumulative Yield</span>
                               <span className="font-mono font-bold text-blue-700">
                                 {isToday ? (
-                                  <LiveAdminProfitTicker baseProfit={rowCumulative} deposits={totalDepositsDisplay} />
+                                  <LiveAdminProfitTicker baseProfit={rowCumulative} deposits={0} />
                                 ) : (
                                   `₹${rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                 )}
@@ -6670,20 +6676,20 @@ export default function AdminPanel() {
                                   <div className="space-y-0.5">
                                     <div className="font-mono font-black text-emerald-600 text-xs">
                                       {isToday ? (
-                                        <LiveLedgerDailyAdded baseAmount={rowAmount} deposits={totalDepositsDisplay} />
+                                        <LiveLedgerDailyAdded baseAmount={rowAmount} deposits={0} />
                                       ) : (
                                         `+₹${rowAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                       )}
                                     </div>
                                     <div className="text-[10px] text-slate-400 font-semibold">
-                                      @ 12% p.a.
+                                      {rowAmount > 0 ? "@ 12% p.a." : "₹0 Profit"}
                                     </div>
                                   </div>
                                 </td>
                                 <td className="py-3 px-3 align-middle">
                                   <div className="font-mono font-black text-blue-700 text-xs">
                                     {isToday ? (
-                                      <LiveAdminProfitTicker baseProfit={rowCumulative} deposits={totalDepositsDisplay} />
+                                      <LiveAdminProfitTicker baseProfit={rowCumulative} deposits={0} />
                                     ) : (
                                       `₹${rowCumulative.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                     )}

@@ -1528,14 +1528,16 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
     // Group Deposits by dateKey (IST Calendar) for daily cards breakup & totals
     const dayDepositsMap = {};
     for (const dt of depositTxns) {
+      const isInternalCapital = !dt.userId || dt.userId.role === 'admin' || String(dt.utrNumber || '').includes('EDUCA-CAP');
+      // Loan department capital pool is internal company liquidity (0% retail yield).
+      // Strictly exclude internal company capital from customer daily profit chart & retail yield ledger!
+      if (isInternalCapital) continue;
+
       const dKey = new Date(dt.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
       if (!dayDepositsMap[dKey]) dayDepositsMap[dKey] = [];
-      const isInternalCapital = !dt.userId || dt.userId.role === 'admin' || String(dt.utrNumber || '').includes('EDUCA-CAP');
-      const rate = isInternalCapital ? 0 : (dt.userId?.interestRate || 12);
-      const dailyYieldForAmount = isInternalCapital ? 0 : Number(((dt.amount * (rate / 100)) / 365).toFixed(2));
-      const rateText = isInternalCapital
-        ? "Assigned to Loan Dept • Operations Pool (0% User Yield)"
-        : `${rate}% p.a. • +₹${dailyYieldForAmount}/day profit`;
+      const rate = dt.userId?.interestRate || 12;
+      const dailyYieldForAmount = Number(((dt.amount * (rate / 100)) / 365).toFixed(2));
+      const rateText = `${rate}% p.a. • +₹${dailyYieldForAmount}/day profit`;
       dayDepositsMap[dKey].push({
         id: dt._id,
         amount: dt.amount,
@@ -1655,7 +1657,7 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
       }
     }
 
-    if (sortedDailyList.length === 0 && (totalYieldCredited > 0 || totalDeposits > 0)) {
+    if (sortedDailyList.length === 0 && (totalYieldCredited > 0 || (totalDeposits > 0 && customerDepositsYieldEligible > 0))) {
       const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
       const [y, m, d] = todayStr.split('-').map(Number);
       const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));

@@ -1036,9 +1036,15 @@ export default function AdminPanel() {
         localStorage.setItem("educa_admin_cached_deposits", "0");
         appCache.set("educa_admin_cached_deposits", 0);
       }
-      // Purge stale analytics cache with synthetic 12% yield on loan capital
+      // Purge stale analytics cache with synthetic 12% yield on loan capital or loan dept capital in chart
       const cachedAn = localStorage.getItem("educa_admin_cached_analytics");
-      if (cachedAn && (cachedAn.includes("328.77") || cachedAn.includes("14.51") || cachedAn.includes("329"))) {
+      if (cachedAn && (
+        cachedAn.includes("328.77") ||
+        cachedAn.includes("14.51") ||
+        cachedAn.includes("329") ||
+        cachedAn.includes("EFS LOAN") ||
+        cachedAn.includes("EDUCA-CAP")
+      )) {
         localStorage.removeItem("educa_admin_cached_analytics");
         appCache.remove("educa_admin_cached_analytics");
       }
@@ -1257,7 +1263,14 @@ export default function AdminPanel() {
   const [chartMode, setChartMode] = useState("daily"); // "daily" | "cumulative"
   const [chartRange, setChartRange] = useState("today"); // "today" | "5d" | "7d" | "15d" | "all" (Default: Today as requested)
   const visibleLedgerData = useMemo(() => {
-    const list = analytics?.dailyProfitChart || [];
+    const list = (analytics?.dailyProfitChart || []).filter(row => {
+      const isInternalLoan = row.deposits?.some(d =>
+        String(d.user || d.userName || "").includes("EFS LOAN") ||
+        String(d.utrNumber || d.utr || "").includes("EDUCA-CAP")
+      );
+      if (isInternalLoan && Number(row.amount || 0) <= 0) return false;
+      return true;
+    });
     if (chartRange === "today") return list.slice(-1);
     if (chartRange === "5d") return list.slice(-5);
     if (chartRange === "7d") return list.slice(-7);
@@ -5950,7 +5963,14 @@ export default function AdminPanel() {
                 {/* SVG Visual Chart */}
                 <div className="mt-6">
                   {(() => {
-                    const rawChartData = analytics?.dailyProfitChart || [];
+                    const rawChartData = (analytics?.dailyProfitChart || []).filter(row => {
+                      const isInternalLoan = row.deposits?.some(d =>
+                        String(d.user || d.userName || "").includes("EFS LOAN") ||
+                        String(d.utrNumber || d.utr || "").includes("EDUCA-CAP")
+                      );
+                      if (isInternalLoan && Number(row.amount || 0) <= 0) return false;
+                      return true;
+                    });
 
                     if (!rawChartData || rawChartData.length === 0) {
                       return (
@@ -6300,7 +6320,14 @@ export default function AdminPanel() {
 
                 {/* Hover / Active Day Details Card */}
                 {(() => {
-                  const rawChartData = analytics?.dailyProfitChart || [];
+                  const rawChartData = (analytics?.dailyProfitChart || []).filter(row => {
+                    const isInternalLoan = row.deposits?.some(d =>
+                      String(d.user || d.userName || "").includes("EFS LOAN") ||
+                      String(d.utrNumber || d.utr || "").includes("EDUCA-CAP")
+                    );
+                    if (isInternalLoan && Number(row.amount || 0) <= 0) return false;
+                    return true;
+                  });
                   const activeRangeData = (() => {
                     if (chartRange === "today") return rawChartData.slice(-1);
                     if (chartRange === "5d") return rawChartData.slice(-5);

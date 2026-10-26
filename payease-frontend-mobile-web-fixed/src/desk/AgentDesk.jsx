@@ -1320,9 +1320,29 @@ export default function AgentDesk() {
                 </div>
               ) : (
                 <div className="text-center py-8 px-4 bg-white rounded-2xl border border-gray-200 text-xs text-gray-500">
-                  {loading
-                    ? "Customer data load ho raha hai..."
-                    : "Abhi tak koi referred customer onboard nahi hua hai. Upar diye gaye 'Add Customer' button ya Referral Link se customers ko jodein."}
+                  {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="p-4 bg-white rounded-2xl border border-gray-100 shadow-2xs space-y-3 animate-pulse">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-200" />
+                          <div className="space-y-1.5">
+                            <div className="h-3.5 bg-slate-200 rounded w-28" />
+                            <div className="h-2.5 bg-slate-100 rounded w-36" />
+                          </div>
+                        </div>
+                        <div className="h-6 w-16 bg-slate-200 rounded-full" />
+                      </div>
+                      <div className="h-3 bg-slate-100 rounded w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 px-4 bg-white rounded-2xl border border-gray-200 text-xs text-gray-500">
+                  Abhi tak koi referred customer onboard nahi hua hai. Upar diye gaye 'Add Customer' button ya Referral Link se customers ko jodein.
+                </div>
+              )}
                 </div>
               )}
             </div>

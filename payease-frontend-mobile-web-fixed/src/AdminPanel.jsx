@@ -2,6 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom";
 import Toast from "./components/Toast";
 import StatusBadge from "./components/StatusBadge";
+import {
+  PendingActiveSkeleton,
+  PendingLoansSkeleton,
+  PendingBondsSkeleton,
+  PendingHoldSkeleton,
+  ApprovedRequestsSkeleton
+} from "./components/PendingDeskSkeletons";
 
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
@@ -1180,6 +1187,18 @@ export default function AdminPanel() {
     const raw = typeof localStorage !== "undefined" ? localStorage.getItem("educa_admin_cached_pending_list") : null;
     return unwrapCachedArray(raw);
   });
+  const [loadingPending, setLoadingPending] = useState(() => {
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_pending_list", null));
+    return v.length === 0;
+  });
+  const [loadingLoans, setLoadingLoans] = useState(() => {
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_loans_list", null));
+    return v.length === 0;
+  });
+  const [loadingBonds, setLoadingBonds] = useState(() => {
+    const v = unwrapCachedArray(appCache.get("educa_admin_cached_bonds_list", null));
+    return v.length === 0;
+  });
   const [pendingSubTab, setPendingSubTab] = useState("active"); // "active" | "loans" | "bonds" | "hold" | "approved"
   const [approvedRequests, setApprovedRequests] = useState(() => {
     const v = unwrapCachedArray(appCache.get("educa_admin_cached_approved_requests", null));
@@ -1930,6 +1949,7 @@ export default function AdminPanel() {
   }, []); // eslint-disable-line
 
   const loadPending = useCallback(async (force = false) => {
+    setLoadingPending(true);
     try {
       const res = await cachedAdminFetch(`${API}/admin/transactions/pending`, { headers }, 2000, force);
       if (res.status === 429) {
@@ -1959,6 +1979,9 @@ export default function AdminPanel() {
         setRateLimitError(null);
       }
     } catch {}
+    finally {
+      setLoadingPending(false);
+    }
   }, []); // eslint-disable-line
 
   const loadHoldData = useCallback(async (force = false) => {
@@ -2109,6 +2132,7 @@ export default function AdminPanel() {
   }, []); // eslint-disable-line
 
   const loadLoans = useCallback(async (force = false) => {
+    setLoadingLoans(true);
     try {
       const res = await cachedAdminFetch(`${API}/loan/all`, { headers }, 2000, force);
       if (res.status === 429) return;
@@ -2147,9 +2171,13 @@ export default function AdminPanel() {
           }
         }).catch(() => {});
     } catch {}
+    finally {
+      setLoadingLoans(false);
+    }
   }, []); // eslint-disable-line
 
   const loadBonds = useCallback(async (force = false) => {
+    setLoadingBonds(true);
     try {
       const res = await cachedAdminFetch(`${API}/admin/bonds`, { headers }, 2000, force);
       if (res.status === 429) return;
@@ -2161,6 +2189,9 @@ export default function AdminPanel() {
         appCache.set("educa_admin_cached_bonds", d);
       }
     } catch {}
+    finally {
+      setLoadingBonds(false);
+    }
   }, []); // eslint-disable-line
 
   const loadDevices = useCallback(async (force = false) => {
@@ -2719,6 +2750,9 @@ export default function AdminPanel() {
     } finally {
       setIsRefreshing(false);
       setLoadingStats(false);
+      setLoadingPending(false);
+      setLoadingLoans(false);
+      setLoadingBonds(false);
     }
   }, [headers]); // eslint-disable-line
 
@@ -6609,7 +6643,9 @@ export default function AdminPanel() {
                     </span>
                   </div>
 
-                  {pending.length === 0 ? (
+                  {loadingPending && pending.length === 0 ? (
+                    <PendingActiveSkeleton />
+                  ) : pending.length === 0 ? (
                     pendingLoans.length > 0 ? (
                       <div className="p-6 bg-blue-50/70 border-2 border-blue-200 rounded-2xl space-y-3">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -6964,7 +7000,9 @@ export default function AdminPanel() {
                     </button>
                   </div>
 
-                  {pendingLoans.length === 0 ? (
+                  {loadingLoans && pendingLoans.length === 0 ? (
+                    <PendingLoansSkeleton />
+                  ) : pendingLoans.length === 0 ? (
                     <div className="py-12 text-center space-y-3 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
                       <span className="text-4xl block"></span>
                       <p className="font-extrabold text-gray-800 text-sm">No Pending Loan Requests</p>
@@ -7259,7 +7297,9 @@ export default function AdminPanel() {
                     </button>
                   </div>
 
-                  {pendingBonds.length === 0 ? (
+                  {loadingBonds && pendingBonds.length === 0 ? (
+                    <PendingBondsSkeleton />
+                  ) : pendingBonds.length === 0 ? (
                     <div className="py-12 text-center space-y-2 border-2 border-dashed border-gray-100 rounded-3xl bg-slate-50/50">
                       <span className="text-4xl block"></span>
                       <p className="font-extrabold text-gray-800 text-sm">No Pending Bond Requests</p>
@@ -7446,10 +7486,7 @@ export default function AdminPanel() {
                   </div>
 
                   {loadingHold ? (
-                    <div className="py-12 text-center text-sm text-gray-500 font-medium">
-                      <div className="w-8 h-8 border-3 border-rose-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                      Duplicate UTR conflicts scan ho rahe hain...
-                    </div>
+                    <PendingHoldSkeleton />
                   ) : (!holdData.groups || holdData.groups.length === 0) ? (
                     <div className="py-14 text-center space-y-2 border-2 border-dashed border-gray-200 rounded-3xl bg-slate-50/50">
                       <span className="text-4xl block"></span>
@@ -7818,10 +7855,7 @@ export default function AdminPanel() {
 
                     {/* Content List */}
                     {approvedLoading && approvedRequests.length === 0 ? (
-                      <div className="py-14 text-center text-slate-500 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2">
-                        <div className="text-2xl animate-spin inline-block"></div>
-                        <p className="text-xs font-bold text-slate-700">Approved records sync ho rahe hain...</p>
-                      </div>
+                      <ApprovedRequestsSkeleton />
                     ) : filtered.length === 0 ? (
                       <div className="py-14 text-center text-gray-400 bg-slate-50 rounded-2xl border border-dashed border-gray-200">
                         <span className="text-3xl block mb-2"></span>

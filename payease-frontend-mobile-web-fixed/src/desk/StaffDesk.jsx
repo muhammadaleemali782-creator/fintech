@@ -1368,9 +1368,23 @@ export default function StaffDesk() {
 
         {/* Queue Items Grid / List */}
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-3 text-gray-400">
-            <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
-            <p className="text-xs font-semibold text-gray-500">Loading department queue...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-200/80 p-4 shadow-2xs space-y-3 animate-pulse">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-slate-200" />
+                    <div className="space-y-1">
+                      <div className="h-3.5 bg-slate-200 rounded w-24" />
+                      <div className="h-2.5 bg-slate-100 rounded w-32" />
+                    </div>
+                  </div>
+                  <div className="h-5 w-16 bg-slate-200 rounded-full" />
+                </div>
+                <div className="h-4 bg-slate-200 rounded w-20" />
+                <div className="h-9 bg-slate-100 rounded-xl" />
+              </div>
+            ))}
           </div>
         ) : currentItems.length === 0 ? (
           <div className="py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 shadow-2xs">

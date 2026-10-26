@@ -8,6 +8,7 @@ import StatusBadge from "./components/StatusBadge";
 import BottomNav from "./components/BottomNav";
 import FloatingCuteRobotAdvisor from "./components/FloatingCuteRobotAdvisor";
 import LiveRefreshBadge from "./components/LiveRefreshBadge";
+import { TransactionListSkeleton, UserLoansSkeleton, ProfitStatementSkeleton } from "./components/DashboardSkeletons";
 
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
@@ -533,6 +534,7 @@ export default function Dashboard() {
     return pickValidNumber(userScoped, globalCached, profPb, rawLocal, rolledLocal, userStored?.profitBalance);
   });
   const [loadingDashboard, setLoadingDashboard] = useState(!appCache.has("educa_cached_profile"));
+  const [loadingLoans, setLoadingLoans] = useState(false);
   const [txns, setTxns] = useState(() => {
     const userScoped = currentUserId ? CacheManager.getSync(CacheManager.createKey(userRole, currentUserId, "transactions"), null) : null;
     const a1 = unwrapCachedArray(userScoped);
@@ -2599,6 +2601,7 @@ export default function Dashboard() {
   };
 
   const loadLoans = async () => {
+    setLoadingLoans(true);
     try {
       const res = await silentFetch(`${API}/loan/my`, { headers }, 35000);
       if (res.notModified) return;
@@ -2608,6 +2611,9 @@ export default function Dashboard() {
       }
       setShowLoans(true);
     } catch {}
+    finally {
+      setLoadingLoans(false);
+    }
     loadActiveLoanDetails();
     fetch(`${API}/loan/department-pool`, { headers })
       .then(r => r.ok ? r.json() : fetch(`${API}/loans/department-pool`, { headers }).then(r2 => r2.json()))
@@ -6434,8 +6440,8 @@ export default function Dashboard() {
 
               if (loadingProfitHistory && displayProfitList.length === 0) {
                 return (
-                  <div className="py-8 text-center text-gray-400 text-xs animate-pulse">
-                    Loading profit statement...
+                  <div className="py-2">
+                    <ProfitStatementSkeleton count={3} />
                   </div>
                 );
               }
@@ -9127,7 +9133,9 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {loans.length === 0 ? (
+            {loadingLoans && loans.length === 0 ? (
+              <UserLoansSkeleton count={2} />
+            ) : loans.length === 0 ? (
               <div className="py-6 text-center bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-2">
                 <span className="text-3xl block"></span>
                 <h5 className="font-bold text-sm text-gray-800">Abhi Koi Active Loan Nahi Hai</h5>
@@ -10654,7 +10662,9 @@ export default function Dashboard() {
               </h3>
               <span className="text-[11px] text-gray-400 font-semibold">{loans.length} active</span>
             </div>
-            {loans.length === 0 ? (
+            {loadingLoans && loans.length === 0 ? (
+              <UserLoansSkeleton count={2} />
+            ) : loans.length === 0 ? (
               <p className="text-gray-400 text-center py-4 text-xs">No active loans found</p>
             ) : (
               <div className="space-y-3">
@@ -10743,7 +10753,9 @@ export default function Dashboard() {
               <span className="text-[11px] text-gray-400 font-semibold">{txns.length} records</span>
             </div>
 
-            {txns.length === 0 ? (
+            {loadingDashboard && txns.length === 0 ? (
+              <TransactionListSkeleton count={4} />
+            ) : txns.length === 0 ? (
               <p className="py-4 text-center text-gray-300 text-xs">No transactions yet</p>
             ) : (
               <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">

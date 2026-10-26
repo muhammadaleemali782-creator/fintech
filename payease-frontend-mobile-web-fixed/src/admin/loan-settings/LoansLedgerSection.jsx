@@ -215,14 +215,13 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Language Switcher */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-              <span className="text-[10px] uppercase font-bold text-slate-400 px-1">Lang:</span>
+            {/* Language Switcher - Compact & Mobile-Optimized */}
+            <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 shadow-2xs">
               <button
                 type="button"
                 onClick={() => toggleAdminLang("en")}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  adminLang === "en" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                  adminLang === "en" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-500 hover:text-slate-900"
                 }`}
               >
                 English
@@ -230,8 +229,8 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
               <button
                 type="button"
                 onClick={() => toggleAdminLang("hinglish")}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  adminLang === "hinglish" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                  adminLang === "hinglish" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-500 hover:text-slate-900"
                 }`}
               >
                 Hinglish

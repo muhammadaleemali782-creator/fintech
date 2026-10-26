@@ -11084,14 +11084,13 @@ export default function AdminPanel() {
                   </button>
                 </div>
 
-                {/* System Language Toggle */}
-                <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 px-1">Lang:</span>
+                {/* System Language Toggle - Compact & Mobile-Optimized */}
+                <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 self-start sm:self-auto shadow-2xs">
                   <button
                     type="button"
                     onClick={() => toggleAdminLang("en")}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      adminLang === "en" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                      adminLang === "en" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-500 hover:text-slate-900"
                     }`}
                   >
                     English
@@ -11099,8 +11098,8 @@ export default function AdminPanel() {
                   <button
                     type="button"
                     onClick={() => toggleAdminLang("hinglish")}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      adminLang === "hinglish" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                      adminLang === "hinglish" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-500 hover:text-slate-900"
                     }`}
                   >
                     Hinglish
@@ -12073,13 +12072,13 @@ export default function AdminPanel() {
                   </div>
 
                   {/* System Language Toggle */}
-                  <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 px-1">Lang:</span>
+                  {/* System Language Toggle - Compact & Mobile-Optimized */}
+                  <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 self-start sm:self-auto shadow-2xs">
                     <button
                       type="button"
                       onClick={() => toggleAdminLang("en")}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                        adminLang === "en" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                        adminLang === "en" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-500 hover:text-slate-900"
                       }`}
                     >
                       English
@@ -12087,8 +12086,8 @@ export default function AdminPanel() {
                     <button
                       type="button"
                       onClick={() => toggleAdminLang("hinglish")}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                        adminLang === "hinglish" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                        adminLang === "hinglish" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-500 hover:text-slate-900"
                       }`}
                     >
                       Hinglish

@@ -22,8 +22,14 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
   const [expandedLoanId, setExpandedLoanId] = useState(null);
   const [expandedAuditId, setExpandedAuditId] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [cardAdvanceOptions, setCardAdvanceOptions] = useState({}); // { [loanId]: "none" | "deduct" | "waive" }
+  const [installmentActionLoadingId, setInstallmentActionLoadingId] = useState(null);
   const [markPaidModal, setMarkPaidModal] = useState(null); // { loan, installment, paymentMode, utrNumber, evidenceNote }
   const [submittingPayment, setSubmittingPayment] = useState(false);
+
+  // Lightbox Modal State
+  const [lightboxImg, setLightboxImg] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   // Admin Language preference (English | Hinglish)
   const [adminLang, setAdminLang] = useState(() => {
@@ -74,7 +80,8 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
 
   // Loan Action Handlers (Approve / Reject)
   const handleApproveLoan = async (loanId) => {
-    if (!window.confirm("Kya aap is loan application ko APPROVE karna chahte hain?")) return;
+    const advanceOption = cardAdvanceOptions[loanId] || "none";
+    if (!window.confirm(`Kya aap is loan application ko APPROVE karna chahte hain? (Pehli kist setting: ${advanceOption.toUpperCase()})`)) return;
     setActionLoadingId(loanId);
     try {
       const token = getAuthToken();
@@ -83,7 +90,8 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
-        }
+        },
+        body: JSON.stringify({ advanceOption })
       });
       const data = await res.json();
       if (res.ok) {
@@ -127,6 +135,51 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
     }
   };
 
+  // Toggle Penalty Waiver for a loan (Admin authority)
+  const togglePenaltyWaiver = async (loanId, shouldWaive) => {
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE_URL}/loan/${loanId}/toggle-penalty-waiver`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ waive: shouldWaive })
+      });
+      const data = await res.json();
+      if (showToast) showToast(data.message || "Penalty setting updated!", !res.ok);
+      if (res.ok) fetchLoansData();
+    } catch {
+      if (showToast) showToast("Failed to toggle penalty waiver", true);
+    }
+  };
+
+  // Approve single installment proof
+  const handleApproveInstallmentProof = async (loanId, installmentNo) => {
+    if (!window.confirm(`Installment #${installmentNo} proof approve karein? Balance update ho jayega.`)) return;
+    setInstallmentActionLoadingId(`${loanId}_${installmentNo}`);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE_URL}/loan/admin/${loanId}/installment/${installmentNo}/approve`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ approverName: "Admin" })
+      });
+      const data = await res.json();
+      if (showToast) showToast(data.message || `Installment #${installmentNo} approved!`, !res.ok);
+      if (res.ok) fetchLoansData();
+    } catch {
+      if (showToast) showToast("Failed to approve installment", true);
+    } finally {
+      setInstallmentActionLoadingId(null);
+    }
+  };
+
+  // Admin Mark Paid
   const handleAdminMarkPaid = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!markPaidModal) return;
@@ -161,41 +214,23 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
   // Loan Actor Helper (Raised By & Approved/Rejected By)
   const getLoanActors = (l) => {
     let raised = { type: "user", label: "Self (Borrower)", name: l.userId?.name || "Customer" };
-    const adminNote = String(l.documents?.adminNotes || l.adminNotes || "").toLowerCase();
-    const hasAdminOnBehalf = adminNote.includes("applied by admin") || adminNote.includes("issue loan") || adminNote.includes("on behalf");
-    const agentRec = l.agentRecommendation;
-    const agentRef = l.referredByAgentId;
-    const createdHistory = Array.isArray(l.history) ? l.history.find(h => h.action === "created" || h.action === "applied" || h.action === "issued") : null;
-
-    if (agentRec?.subAgentName) {
-      raised = { type: "sub_agent", label: `Sub-Agent: ${agentRec.subAgentName}`, name: agentRec.subAgentName };
-    } else if (agentRec?.agentName) {
-      raised = { type: "agent", label: `Agent: ${agentRec.agentName}`, name: agentRec.agentName };
-    } else if (agentRef && typeof agentRef === "object" && agentRef.name) {
-      raised = { type: "agent", label: `Agent: ${agentRef.name}`, name: agentRef.name };
-    } else if (hasAdminOnBehalf || createdHistory?.actorRole === "admin") {
-      raised = { type: "admin", label: "Admin (On Behalf)", name: "Admin" };
-    } else if (createdHistory?.actorRole === "staff" || l.handledBy?.role === "staff") {
-      const staffName = createdHistory?.actorName || l.handledBy?.name || "Staff";
-      raised = { type: "staff", label: `Staff: ${staffName}`, name: staffName };
-    } else {
-      raised = { type: "user", label: `Self: ${l.userId?.name || "Borrower"}`, name: l.userId?.name || "Borrower" };
+    if (l.appliedByRole === "agent") {
+      raised = { type: "agent", label: `Agent (${l.appliedByName || l.agentRecommendation?.agentName || "Agent Partner"})`, name: l.appliedByName || "Agent" };
+    } else if (l.appliedByRole === "sub_agent") {
+      raised = { type: "sub_agent", label: `Sub-Agent (${l.appliedByName || "Sub-Agent"})`, name: l.appliedByName || "Sub-Agent" };
+    } else if (l.appliedByRole === "admin") {
+      raised = { type: "admin", label: "Admin (On Behalf)", name: l.appliedByName || "Admin" };
+    } else if (l.appliedByRole === "staff") {
+      raised = { type: "staff", label: `Staff (${l.appliedByName || "Staff Desk"})`, name: l.appliedByName || "Staff Desk" };
     }
 
-    let approved = { status: l.status, label: "Approved by", name: l.approverName || "Admin", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: "✓" };
-    if (l.status === "rejected") {
-      const rejectActor = l.handledBy?.action === "reject" ? l.handledBy.name : (Array.isArray(l.history) ? l.history.find(h => h.action === "reject")?.actorName : null);
-      approved = {
-        status: "rejected",
-        label: "Rejected by",
-        name: rejectActor || l.approverName || "Admin",
-        badgeClass: "bg-rose-100 text-rose-800 border-rose-200",
-        icon: "✕"
-      };
-    } else if (l.status === "pending") {
-      approved = { status: "pending", label: "Status", name: "Pending Review", badgeClass: "bg-amber-100 text-amber-800 border-amber-200", icon: "⏳" };
-    } else if (l.status === "closed") {
-      approved = { status: "closed", label: "Closed", name: "Fully Paid", badgeClass: "bg-slate-100 text-slate-800 border-slate-200", icon: "✓" };
+    let approved = { status: "pending", label: "Decision", name: "Under Review", icon: "⏳", badgeClass: "bg-amber-100 text-amber-800 border-amber-300" };
+    if (l.status === "approved" || l.status === "active" || l.status === "closed") {
+      const byWhom = l.approvedByRole === "agent" ? `Agent (${l.approvedByName || "Agent"})` : l.approvedByName || "Admin";
+      approved = { status: "approved", label: "Approved By", name: byWhom, icon: "✓", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300" };
+    } else if (l.status === "rejected") {
+      const byWhom = l.approvedByName || "Admin";
+      approved = { status: "rejected", label: "Rejected By", name: byWhom, icon: "✕", badgeClass: "bg-rose-100 text-rose-800 border-rose-300" };
     }
 
     return { raised, approved };
@@ -249,8 +284,8 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               {adminLang === "en"
-                ? "Live portfolio records, customer schedules, installment collections, and audit logs."
-                : "Sabhi active, pending aur completed loans ka live record, kist schedule aur audit."}
+                ? "Live portfolio records, customer schedules, installment collections, verification documents, and audit logs."
+                : "Sabhi active, pending aur completed loans ka live record, kist schedule, verification documents aur audit."}
             </p>
           </div>
 
@@ -426,15 +461,43 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
           <p className="text-xs text-slate-500">Filter ya search query ke hisab se koi loan record nahi mila.</p>
         </div>
       ) : (
-        <div className="space-y-3.5">
+        <div className="space-y-4">
           {filteredLoans.map((l) => {
             const schedule = (l.installmentSchedule && l.installmentSchedule.length > 0) ? l.installmentSchedule : (l.emiSchedule || []);
             const paidCount = schedule.filter(s => s.status === "paid").length;
+            const submittedCount = schedule.filter(s => s.status === "submitted").length;
             const totalCount = schedule.length || l.installmentsCount || l.tenure || 0;
             const isExpanded = expandedLoanId === l._id;
             const { raised, approved } = getLoanActors(l);
             const isAuditOpen = expandedAuditId === l._id;
             const isRejected = l.status === "rejected";
+            const isPending = l.status === "pending";
+
+            const pFee = Number(l.processingFee !== undefined && l.processingFee !== null ? l.processingFee : Math.round(l.amount * 0.05));
+            const uFee = Number(l.upiCharges !== undefined && l.upiCharges !== null ? l.upiCharges : Math.round(l.amount * 0.01));
+            const inHand = isRejected ? 0 : Number(l.disbursalAmount || Math.max(0, l.amount - pFee - uFee));
+            const loanDeptShare = isRejected ? 0 : (pFee + uFee + Number(l.paidAmount || 0));
+
+            // Documents
+            const userKyc = l.userId?.kycDocuments || {};
+            const docs = { ...userKyc, ...(l.documents || {}) };
+            const aadharFront = docs.doc1Url || docs.aadharUrl;
+            const aadharBack = docs.doc1BackUrl || docs.aadharBackUrl;
+            const panFront = docs.doc2Url || docs.panUrl || docs.panCardUrl;
+            const panBack = docs.doc2BackUrl || docs.panBackUrl || docs.panCardBackUrl;
+            const chequeFront = docs.chequeUrl || docs.chequeFrontUrl || docs.bearerChequeUrl;
+            const chequeBack = docs.chequeBackUrl || docs.bearerChequeBackUrl;
+            const studentFront = docs.studentProofUrl;
+            const studentBack = docs.studentProofBackUrl;
+            const offlineProof = docs.offlineEvidenceUrl || l.documents?.offlineEvidenceUrl;
+            const hasAnyDocs = Boolean(aadharFront || aadharBack || panFront || panBack || chequeFront || chequeBack || studentFront || studentBack || offlineProof);
+
+            // Pending advance selection
+            const chosenAdvance = cardAdvanceOptions[l._id] || "none";
+            const basePayout = Math.max(0, l.amount - (pFee + uFee));
+            const instAmt = l.installmentAmount || l.emiAmount || 0;
+            const advancePayout = Math.max(0, basePayout - instAmt);
+            const currentDisburseAmount = chosenAdvance === "none" ? basePayout : chosenAdvance === "deduct" ? advancePayout : basePayout;
 
             return (
               <div
@@ -443,7 +506,7 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
                   isRejected ? "border-rose-200 bg-rose-50/20" : "border-slate-200 hover:border-slate-300"
                 }`}
               >
-                {/* Header row */}
+                {/* 1. Header row */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -470,34 +533,13 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
 
                   {/* Actions & Status Badge */}
                   <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
-                    {l.status === "pending" && (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          disabled={actionLoadingId === l._id}
-                          onClick={() => handleApproveLoan(l._id)}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition active:scale-95 cursor-pointer shadow-2xs"
-                        >
-                          {actionLoadingId === l._id ? "..." : "✓ Approve"}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={actionLoadingId === l._id}
-                          onClick={() => handleRejectLoan(l._id)}
-                          className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition active:scale-95 cursor-pointer shadow-2xs"
-                        >
-                          ✕ Reject
-                        </button>
-                      </div>
-                    )}
-
                     <span className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${
                       isRejected
                         ? "bg-rose-100 text-rose-800 border border-rose-300 font-black"
                         : l.status === "active"
                         ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                         : l.status === "pending"
-                        ? "bg-amber-100 text-amber-800 border border-amber-300"
+                        ? "bg-amber-100 text-amber-800 border border-amber-300 font-bold"
                         : "bg-slate-100 text-slate-800 border border-slate-300"
                     }`}>
                       {l.status.toUpperCase()}
@@ -505,7 +547,7 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
                   </div>
                 </div>
 
-                {/* Origin & Approver Status Bar */}
+                {/* 2. Origin & Approver Status Bar */}
                 <div className="my-3 p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                     <div className="flex items-center gap-1">
@@ -520,6 +562,13 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
                       <span className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md border text-[11px] shadow-2xs ${approved.badgeClass}`}>
                         <span>{approved.icon}</span>
                         <span>{approved.name}</span>
+                      </span>
+                    </div>
+                    <span className="text-slate-300 hidden md:inline">•</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Dept Mila:</span>
+                      <span className="font-mono font-black text-[11px] text-indigo-900 bg-indigo-50/80 px-1.5 py-0.5 rounded border border-indigo-200">
+                        ₹{loanDeptShare.toLocaleString("en-IN")}
                       </span>
                     </div>
                   </div>
@@ -544,139 +593,535 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
                         <span className="text-slate-400 block text-[10px] font-bold uppercase">Decision Status</span>
                         <p className="font-bold text-slate-800 mt-0.5">{approved.name} ({approved.status.toUpperCase()})</p>
                       </div>
-                      <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
-                        <span className="text-slate-400 block text-[10px] font-bold uppercase">Applied Date</span>
-                        <p className="font-bold text-slate-800 mt-0.5">
-                          {l.createdAt ? new Date(l.createdAt).toLocaleDateString("en-IN") : "-"}
+                      <div className="p-2 bg-indigo-50/70 rounded-lg border border-indigo-100">
+                        <span className="text-indigo-700 block text-[10px] font-bold uppercase">Loan Dept Received</span>
+                        <p className="font-mono font-black text-indigo-950 mt-0.5">₹{loanDeptShare.toLocaleString("en-IN")}</p>
+                        <p className="text-[10px] text-indigo-700 mt-0.5">
+                          {isRejected ? "Loan rejected (No fee collected)" : `₹${pFee + uFee} Upfront Fees + ₹${l.paidAmount || 0} Collected`}
                         </p>
+                      </div>
+                    </div>
+                    {(l.documents?.adminNotes || l.agentRecommendation?.explanationNote) && (
+                      <p className="text-[10px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 font-mono">
+                        <strong>Note:</strong> {l.documents?.adminNotes || l.agentRecommendation?.explanationNote}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. 10:00 AM Cutoff & Rollover Policy Desk */}
+                {l.status === "active" && (
+                  <div className="mb-3 p-3 bg-indigo-50/80 border border-indigo-200 rounded-xl text-xs space-y-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-1 font-extrabold text-indigo-950">
+                      <span className="flex items-center gap-1.5">
+                        <span>⏰</span> Collection Cutoff & Rollover Niyam
+                      </span>
+                      <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+                        Subah 10:00 AM Deadline
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-indigo-900 leading-relaxed">
+                      Har kist subah 10:00 AM se pehle bharni hoti hai. <strong>10:00 AM ke baad 2% penalty</strong> lagti hai. Agar 1 kist chhoot gayi to agle installment me rollover hokar jud jayegi.
+                    </p>
+                    {Boolean(l.penaltyDue > 0 || l.overdueInstallmentsCount > 0 || l.overdueCount > 0) && (
+                      <div className="mt-2 p-2.5 bg-white rounded-lg border border-rose-200 text-[11px] space-y-1 font-mono">
+                        <div className="flex justify-between text-gray-700">
+                          <span>Chhooti Hui Kist (Missed EMIs):</span>
+                          <span className="font-bold text-gray-900">₹{(((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)).toLocaleString("en-IN")} ({l.overdueInstallmentsCount || l.overdueCount || 1} Kist)</span>
+                        </div>
+                        <div className="flex justify-between text-rose-700">
+                          <span>2% Overdue Penalty:</span>
+                          <span className="font-bold text-rose-700">+₹{Number(l.penaltyDue || 0).toLocaleString("en-IN")}</span>
+                        </div>
+                        <div className="flex justify-between text-indigo-950 font-black pt-1 border-t border-rose-100 text-xs">
+                          <span>Kul Vasooli (EMI + Penalty Abhi Lena Hai):</span>
+                          <span className="text-emerald-700 font-black">₹{((((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)) + Number(l.penaltyDue || 0)).toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 4. Overdue Penalty Controller & Banner */}
+                {l.status === "active" && (l.penaltyDue > 0 || l.overdueInstallmentsCount > 0 || l.penaltyWaived) && (
+                  <div className={`mb-3 p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
+                    l.penaltyWaived ? "bg-amber-50 border-amber-200 text-amber-900" : "bg-rose-50 border-rose-200 text-rose-900"
+                  }`}>
+                    <div>
+                      <span className="font-extrabold flex items-center gap-1.5">
+                        <span>{l.penaltyWaived ? "⏸️" : "⚠️"}</span>
+                        <span>{l.penaltyWaived ? "Overdue Penalty Waived / On Hold" : `Active Overdue Penalty: ₹${Number(l.penaltyDue || 0).toLocaleString("en-IN")}`}</span>
+                      </span>
+                      <p className="text-[11px] opacity-80 mt-0.5">
+                        {l.penaltyWaived
+                          ? "Admin authority se penalty waive kar rakhi hai. Borrower se penalty nahi li jayegi."
+                          : `${l.overdueInstallmentsCount || l.overdueCount || 1} overdue installment par 2% per installment jod kar penalty calculate hui hai.`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => togglePenaltyWaiver(l._id, !l.penaltyWaived)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer self-start sm:self-auto shadow-2xs ${
+                        l.penaltyWaived
+                          ? "bg-rose-600 hover:bg-rose-700 text-white"
+                          : "bg-amber-600 hover:bg-amber-700 text-white"
+                      }`}
+                    >
+                      {l.penaltyWaived ? "Re-apply 2% Penalty" : "Waive / Hold Penalty"}
+                    </button>
+                  </div>
+                )}
+
+                {/* 5. User In-Hand Disbursal Breakdown Desk */}
+                {isRejected ? (
+                  <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-1">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 font-bold text-rose-950">
+                      <span>Loan Application Status: REJECTED</span>
+                      <span className="text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-mono">₹0 Disbursed</span>
+                    </div>
+                    <p className="text-[11px] text-rose-800">Ye loan reject ho gaya tha. Is par koi paisa transfer nahi hua.</p>
+                  </div>
+                ) : (
+                  <div className="mb-3 p-3 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-xs space-y-1">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 font-black text-emerald-950">
+                        <span>User Ke Account Me Jayega (In-Hand):</span>
+                        <span className="font-mono text-sm font-black text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-lg border border-emerald-300/60">
+                          ₹{inHand.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full font-mono">
+                        Net Disbursed
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-900 leading-relaxed font-medium">
+                      <strong>Kyu itna gaya:</strong> Sanctioned loan ₹{l.amount.toLocaleString("en-IN")} me se <strong>₹{pFee.toLocaleString("en-IN")} (5% Processing Fee)</strong> aur <strong>₹{uFee.toLocaleString("en-IN")} (1% Transfer/UPI Charge)</strong> deduct hokar user ko transfer hota hai. (Dept Upfront Fee: <strong>₹{(pFee + uFee).toLocaleString("en-IN")}</strong>).
+                    </p>
+                  </div>
+                )}
+
+                {/* 6. 7 Financial Metric Tiles */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 p-3 bg-slate-50/80 rounded-xl border border-slate-100 text-xs mb-3">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Loan Sanctioned</span>
+                    <span className="text-xs sm:text-sm font-black text-slate-900 font-mono">₹{(l.amount || 0).toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="bg-emerald-50/60 p-1 rounded-lg border border-emerald-200/60">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase block">Khate Me Jayega</span>
+                    <span className="text-xs sm:text-sm font-black text-emerald-700 font-mono">₹{inHand.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="bg-indigo-50/60 p-1 rounded-lg border border-indigo-200/60">
+                    <span className="text-[10px] font-bold text-indigo-800 uppercase block">Dept Fee Cut</span>
+                    <span className="text-xs sm:text-sm font-black text-indigo-900 font-mono">₹{(pFee + uFee).toLocaleString("en-IN")}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Rate (locked)</span>
+                    <span className="text-xs sm:text-sm font-black text-slate-800">{isRejected ? "0%" : `${l.interestRate}% p.a.`}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Per Installment</span>
+                    <span className="text-xs sm:text-sm font-black text-slate-900 font-mono">₹{(l.installmentAmount || l.emiAmount || 0).toLocaleString("en-IN")}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Paid / Total</span>
+                    <span className="text-xs sm:text-sm font-black text-blue-700 font-mono">{isRejected ? "0 / 0" : `${paidCount} / ${totalCount}`}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Remaining Dues</span>
+                    <span className="text-xs sm:text-sm font-black text-rose-700 font-mono">₹{(l.remainingAmount !== undefined ? l.remainingAmount : (l.totalPayable || 0)).toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+
+                {/* 7. Referral Commission Banner */}
+                {l.referralCommissionPaid && (
+                  <div className="mb-3 text-xs bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-orange-700 font-semibold flex items-center gap-1.5">
+                    <span>🎁</span>
+                    <span>Referral commission ₹{l.referralCommissionAmount} paid on this loan</span>
+                  </div>
+                )}
+
+                {/* 8. Early Pre-Closed (Foreclosure 3-Way Split) */}
+                {l.earlyClosed && (
+                  <div className="mb-3 text-xs bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-950 space-y-1.5">
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <span>⚡</span> Early Pre-Closed (Foreclosure 3-Way Split)
+                      </span>
+                      <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-extrabold uppercase">
+                        {l.precloseDiscountPercent ? `${l.precloseDiscountPercent}% Total Pool` : 'Closed Early'}
+                      </span>
+                    </div>
+                    {l.precloseTotalPool > 0 ? (
+                      <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-emerald-200/60 text-[11px]">
+                        <div className="bg-white/90 p-2 rounded-lg border border-emerald-100 shadow-2xs">
+                          <span className="text-gray-500 block text-[10px] font-semibold">User Discount</span>
+                          <strong className="text-emerald-700 text-xs font-mono">₹{(l.precloseUserDiscount || 0).toLocaleString("en-IN")}</strong>
+                        </div>
+                        <div className="bg-white/90 p-2 rounded-lg border border-emerald-100 shadow-2xs">
+                          <span className="text-gray-500 block text-[10px] font-semibold">Agent Benefit</span>
+                          <strong className="text-amber-700 text-xs font-mono">₹{(l.precloseAgentBenefit || 0).toLocaleString("en-IN")}</strong>
+                        </div>
+                        <div className="bg-white/90 p-2 rounded-lg border border-emerald-100 shadow-2xs">
+                          <span className="text-gray-500 block text-[10px] font-semibold">Company Profit</span>
+                          <strong className="text-blue-700 text-xs font-mono">₹{(l.precloseCompanyProfit || 0).toLocaleString("en-IN")}</strong>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-gray-600">Standard early closure payoff.</p>
+                    )}
+                  </div>
+                )}
+
+                {/* 9. Submitted Loan Documents Viewer */}
+                {hasAnyDocs && (
+                  <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2 mb-3">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                      <span className="flex items-center gap-1.5">
+                        <span>📁</span> Submitted Loan Verification Documents
+                      </span>
+                      {l.hasChequeFacility && (
+                        <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold">
+                          Cheque Facility Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                      {offlineProof && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(offlineProof); setZoomLevel(1); }}
+                          className="flex items-center justify-center gap-1 px-2 py-2 bg-emerald-50 border border-emerald-300 rounded-lg text-[11px] font-bold text-emerald-900 hover:bg-emerald-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                        >
+                          <span>🧾</span> Offline Slip ↗
+                        </button>
+                      )}
+                      {aadharFront && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(aadharFront); setZoomLevel(1); }}
+                          className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                        >
+                          <span>🆔</span> Aadhaar (Front) ↗
+                        </button>
+                      )}
+                      {aadharBack && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(aadharBack); setZoomLevel(1); }}
+                          className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                        >
+                          <span>🆔</span> Aadhaar (Back) ↗
+                        </button>
+                      )}
+                      {panFront && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(panFront); setZoomLevel(1); }}
+                          className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                        >
+                          <span>💳</span> PAN (Front) ↗
+                        </button>
+                      )}
+                      {panBack && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(panBack); setZoomLevel(1); }}
+                          className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                        >
+                          <span>💳</span> PAN (Back) ↗
+                        </button>
+                      )}
+                      {chequeFront && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(chequeFront); setZoomLevel(1); }}
+                          className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-amber-300 rounded-lg text-[11px] font-semibold text-amber-900 hover:bg-amber-50 transition active:scale-95 cursor-pointer shadow-2xs"
+                        >
+                          <span>🏛️</span> Cheque (Front) ↗
+                        </button>
+                      )}
+                      {chequeBack && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(chequeBack); setZoomLevel(1); }}
+                          className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-amber-300 rounded-lg text-[11px] font-semibold text-amber-900 hover:bg-amber-50 transition active:scale-95 cursor-pointer shadow-2xs"
+                        >
+                          <span>🏛️</span> Cheque (Back) ↗
+                        </button>
+                      )}
+                      {studentFront && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(studentFront); setZoomLevel(1); }}
+                          className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-sky-200 rounded-lg text-[11px] font-semibold text-sky-800 hover:bg-sky-50 transition active:scale-95 cursor-pointer shadow-2xs"
+                        >
+                          <span>🎓</span> Student ID (Front) ↗
+                        </button>
+                      )}
+                      {studentBack && (
+                        <button
+                          type="button"
+                          onClick={() => { setLightboxImg(studentBack); setZoomLevel(1); }}
+                          className="flex items-center justify-center gap-1 px-2 py-2 bg-white border border-sky-200 rounded-lg text-[11px] font-semibold text-sky-800 hover:bg-sky-50 transition active:scale-95 cursor-pointer shadow-2xs"
+                        >
+                          <span>🎓</span> Student ID (Back) ↗
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 10. Pending Loan Decision & Advance Choice Desk */}
+                {isPending && (
+                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
+                    <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5 shadow-2xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                        <div>
+                          <h5 className="text-xs font-black text-gray-900 leading-tight">
+                            Pehli Installment Setting (Admin Choice)
+                          </h5>
+                          <p className="text-[10px] text-gray-500 font-medium">
+                            Admin chun sakta hai ki pehli kist abhi advance leni hai ya baad me:
+                          </p>
+                        </div>
+                        <span className={`inline-flex items-center whitespace-nowrap text-[10px] font-black px-2.5 py-0.5 rounded-full border shadow-2xs ${
+                          chosenAdvance === "none"
+                            ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                            : chosenAdvance === "deduct"
+                            ? "bg-amber-100 text-amber-800 border-amber-300"
+                            : "bg-sky-100 text-sky-800 border-sky-300"
+                        }`}>
+                          {chosenAdvance === "none" ? "NA LEIN (Pura Paisa)" : chosenAdvance === "deduct" ? "Advance Kaatein" : "Waive/Maaf"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "none" }))}
+                          className={`p-3 rounded-xl border text-left transition active:scale-95 cursor-pointer ${
+                            chosenAdvance === "none"
+                              ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-400 text-emerald-950 font-bold shadow-xs"
+                              : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="font-black text-xs text-emerald-950">Pehli Kist NA lein</span>
+                            <span className="text-[9px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-black">RECOMMENDED</span>
+                          </div>
+                          <p className="text-[11px] text-gray-800 font-semibold">
+                            Borrower ko milega: <strong className="text-emerald-700 font-extrabold text-xs">₹{basePayout.toLocaleString("en-IN")}</strong>
+                          </p>
+                          <p className="text-[10px] text-emerald-700 font-medium mt-0.5">
+                            ✓ Kist #1 regular schedule me pending rahegi (user baad me bharega).
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setCardAdvanceOptions(prev => ({ ...prev, [l._id]: "deduct" }))}
+                          className={`p-3 rounded-xl border text-left transition active:scale-95 cursor-pointer ${
+                            chosenAdvance === "deduct"
+                              ? "bg-amber-50 border-amber-500 ring-2 ring-amber-400 text-amber-950 font-bold shadow-xs"
+                              : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="font-black text-xs text-amber-950">Pehli Kist Advance Kaatein</span>
+                            <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-black">ADVANCE DEDUCTION</span>
+                          </div>
+                          <p className="text-[11px] text-gray-800 font-semibold">
+                            Borrower ko milega: <strong className="text-amber-800 font-extrabold text-xs">₹{advancePayout.toLocaleString("en-IN")}</strong>
+                          </p>
+                          <p className="text-[10px] text-amber-800 font-medium mt-0.5">
+                            ✓ Kist #1 (₹{instAmt.toLocaleString("en-IN")}) abhi kat jayegi aur PAID mark hogi.
+                          </p>
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
+                        <button
+                          type="button"
+                          disabled={actionLoadingId === l._id}
+                          onClick={() => handleApproveLoan(l._id)}
+                          className="w-full sm:flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <span>{actionLoadingId === l._id ? "Processing..." : `✓ Approve & Disburse (₹${currentDisburseAmount.toLocaleString("en-IN")})`}</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionLoadingId === l._id}
+                          onClick={() => handleRejectLoan(l._id)}
+                          className="w-full sm:w-auto px-5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <span>✕ Reject Application</span>
+                        </button>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Financial Numbers Bar */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 p-3 bg-slate-50/60 rounded-xl border border-slate-100 text-xs">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Loan Sanctioned</span>
-                    <span className="text-sm font-black text-slate-900 font-mono">₹{(l.amount || 0).toLocaleString("en-IN")}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Disbursal Payout</span>
-                    <span className="text-sm font-black text-emerald-700 font-mono">
-                      {isRejected ? "₹0 (Rejected)" : `₹${(l.disbursalAmount || l.amount || 0).toLocaleString("en-IN")}`}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Dept Fee Cut</span>
-                    <span className="text-sm font-black text-indigo-700 font-mono">
-                      {isRejected ? "₹0 (Rejected)" : `₹${((l.processingFee || 0) + (l.upiCharges || 0)).toLocaleString("en-IN")}`}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Installment EMI</span>
-                    <span className="text-sm font-black text-slate-900 font-mono">
-                      {isRejected ? "₹0" : `₹${(l.installmentAmount || l.emiAmount || 0).toLocaleString("en-IN")}`}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Paid / Total</span>
-                    <span className="text-sm font-black text-blue-700 font-mono">
-                      {isRejected ? "0 / 0" : `${paidCount} / ${totalCount}`}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Remaining Dues</span>
-                    <span className="text-sm font-black text-rose-700 font-mono">
-                      {isRejected ? "₹0" : `₹${(l.remainingAmount !== undefined ? l.remainingAmount : (l.totalPayable || 0)).toLocaleString("en-IN")}`}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Installment Schedule Toggle */}
-                {!isRejected && schedule.length > 0 && (
-                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                {/* 11. Installment Schedule Expander */}
+                {!isRejected && !isPending && schedule.length > 0 && (
+                  <div className="mt-3 pt-2 border-t border-slate-100">
                     <button
                       type="button"
                       onClick={() => setExpandedLoanId(isExpanded ? null : l._id)}
-                      className="text-xs font-bold text-blue-600 hover:text-blue-800 transition flex items-center gap-1 cursor-pointer"
+                      className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-between transition cursor-pointer shadow-2xs"
                     >
-                      <span>📅</span>
-                      <span>{isExpanded ? "Hide Installment Schedule ▲" : `View Installment Schedule (${paidCount}/${totalCount} Paid) ▾`}</span>
+                      <span className="flex items-center gap-2">
+                        <span>📅</span>
+                        <span>Installment Schedule ({paidCount}/{totalCount} Paid)</span>
+                        {submittedCount > 0 && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold animate-pulse">
+                            {submittedCount} Submitted for Review
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-blue-600 font-bold">
+                        {isExpanded ? "▲ Hide Schedule" : "▼ View Installments & Pay"}
+                      </span>
                     </button>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Cycle: {l.collectionFrequency === "daily" ? "Daily" : "10 Days"}
-                    </span>
-                  </div>
-                )}
 
-                {/* Expanded Schedule Table */}
-                {isExpanded && schedule.length > 0 && (
-                  <div className="mt-3 overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-2xs">
-                    <table className="w-full text-xs text-left">
-                      <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
-                        <tr>
-                          <th className="px-3 py-2">#</th>
-                          <th className="px-3 py-2">Due Date</th>
-                          <th className="px-3 py-2">Amount</th>
-                          <th className="px-3 py-2">Status</th>
-                          <th className="px-3 py-2">Paid On</th>
-                          <th className="px-3 py-2">UTR / Proof</th>
-                          <th className="px-3 py-2 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {schedule.map((inst, idx) => (
-                          <tr key={idx} className={inst.status === "paid" ? "bg-emerald-50/30" : ""}>
-                            <td className="px-3 py-2 font-mono font-bold">{inst.installmentNo || (idx + 1)}</td>
-                            <td className="px-3 py-2 font-mono">
-                              {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "-"}
-                            </td>
-                            <td className="px-3 py-2 font-mono font-bold">₹{inst.amount?.toLocaleString("en-IN")}</td>
-                            <td className="px-3 py-2">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                inst.status === "paid"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : inst.status === "submitted"
-                                  ? "bg-amber-100 text-amber-800"
-                                  : inst.status === "overdue"
-                                  ? "bg-rose-100 text-rose-800"
-                                  : "bg-slate-100 text-slate-600"
-                              }`}>
-                                {inst.status?.toUpperCase()}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-slate-500 font-mono">
-                              {inst.paidOn ? new Date(inst.paidOn).toLocaleDateString("en-IN") : "-"}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-[11px] text-slate-600">
-                              {inst.utrNumber || (inst.proofUrl ? "Proof Uploaded" : "-")}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              {inst.status === "paid" ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                  ✓ Paid
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setMarkPaidModal({
-                                    loan: l,
-                                    installment: inst,
-                                    paymentMode: "UPI",
-                                    utrNumber: "",
-                                    evidenceNote: ""
-                                  })}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs inline-flex items-center gap-1"
-                                  title="Admin Paid / Record Payment"
-                                >
-                                  <span>Paid Karein</span>
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    {isExpanded && (
+                      <div className="mt-3 space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto p-1">
+                          {schedule.map((inst) => {
+                            const isPaid = inst.status === "paid";
+                            const isSubmitted = inst.status === "submitted";
+                            const isOverdue = inst.status === "overdue";
+
+                            return (
+                              <div
+                                key={inst.installmentNo}
+                                className={`p-3 rounded-xl border text-xs flex flex-col justify-between gap-2 shadow-2xs ${
+                                  isPaid
+                                    ? "bg-emerald-50/60 border-emerald-200 text-emerald-950"
+                                    : isSubmitted
+                                    ? "bg-amber-50 border-amber-300 text-amber-950"
+                                    : isOverdue
+                                    ? "bg-rose-50 border-rose-200 text-rose-950"
+                                    : "bg-white border-slate-200 text-slate-900"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-extrabold">Installment #{inst.installmentNo}</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                    isPaid ? "bg-emerald-200 text-emerald-900" :
+                                    isSubmitted ? "bg-amber-200 text-amber-900" :
+                                    isOverdue ? "bg-rose-200 text-rose-900" : "bg-slate-100 text-slate-700"
+                                  }`}>
+                                    {inst.status}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-0.5 text-[11px] text-slate-600">
+                                  <div className="flex justify-between">
+                                    <span>Amount:</span>
+                                    <span className="font-bold text-slate-900 font-mono">₹{inst.amount?.toLocaleString("en-IN")}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Due Date:</span>
+                                    <span>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString("en-IN") : "N/A"} • <span className="font-semibold text-indigo-700">10:00 AM</span></span>
+                                  </div>
+                                  {isOverdue && (
+                                    <div className="text-[10px] text-rose-700 font-bold">
+                                      10:00 AM cutoff miss hui • Rolled over (+2% penalty)
+                                    </div>
+                                  )}
+                                  {isPaid && (
+                                    <div className="space-y-0.5">
+                                      <div className="flex justify-between text-emerald-700 font-semibold">
+                                        <span>Paid on:</span>
+                                        <span>{inst.paidOn ? new Date(inst.paidOn).toLocaleDateString("en-IN") : "Verified"}</span>
+                                      </div>
+                                      {inst.paymentMethod && (
+                                        <div className="text-[10px] text-emerald-800 font-bold uppercase">
+                                          Mode: {inst.paymentMethod}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  {inst.utrNumber && (
+                                    <div className="text-[10px] font-mono text-blue-700 truncate">
+                                      UTR: {inst.utrNumber}
+                                    </div>
+                                  )}
+                                  {inst.adminEvidenceNote && (
+                                    <div className="text-[10px] italic text-slate-500 truncate">
+                                      Note: {inst.adminEvidenceNote}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-200/60">
+                                  {isPaid && inst.proofUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
+                                      className="w-full py-1 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold border border-emerald-300 flex items-center justify-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
+                                    >
+                                      <span>🧾 View Receipt / Slip ↗</span>
+                                    </button>
+                                  )}
+                                  {isSubmitted && (
+                                    <>
+                                      {inst.proofUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => { setLightboxImg(inst.proofUrl); setZoomLevel(1); }}
+                                          className="w-full py-1 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold border border-blue-200 flex items-center justify-center gap-1 cursor-pointer"
+                                        >
+                                          <span>🔍 View Proof (Front) ↗</span>
+                                        </button>
+                                      )}
+                                      {inst.proofBackUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => { setLightboxImg(inst.proofBackUrl); setZoomLevel(1); }}
+                                          className="w-full py-1 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold border border-blue-200 flex items-center justify-center gap-1 cursor-pointer"
+                                        >
+                                          <span>🔍 View Proof (Back) ↗</span>
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        disabled={installmentActionLoadingId === `${l._id}_${inst.installmentNo}`}
+                                        onClick={() => handleApproveInstallmentProof(l._id, inst.installmentNo)}
+                                        className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-xs active:scale-95 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
+                                      >
+                                        {installmentActionLoadingId === `${l._id}_${inst.installmentNo}` ? (
+                                          <span>Approving...</span>
+                                        ) : (
+                                          <span>✓ Approve Installment Proof</span>
+                                        )}
+                                      </button>
+                                    </>
+                                  )}
+
+                                  {!isPaid && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setMarkPaidModal({
+                                        loan: l,
+                                        installment: inst,
+                                        paymentMode: "UPI",
+                                        utrNumber: "",
+                                        evidenceNote: ""
+                                      })}
+                                      className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-xs active:scale-95 transition cursor-pointer flex items-center justify-center gap-1"
+                                    >
+                                      <span>Paid Mark Karein</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -814,6 +1259,65 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal for Full Image Viewing */}
+      {lightboxImg && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={() => setLightboxImg(null)}
+        >
+          <div className="absolute top-4 right-4 flex items-center gap-3 z-10" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md rounded-xl p-1 border border-white/20">
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.max(0.5, z - 0.25))}
+                className="px-2.5 py-1 text-white hover:bg-white/20 rounded-lg text-xs font-bold transition"
+                title="Zoom Out"
+              >
+                -
+              </button>
+              <span className="text-white text-xs font-mono px-1">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.min(3, z + 0.25))}
+                className="px-2.5 py-1 text-white hover:bg-white/20 rounded-lg text-xs font-bold transition"
+                title="Zoom In"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomLevel(1)}
+                className="px-2 py-1 text-white hover:bg-white/20 rounded-lg text-xs transition"
+                title="Reset Zoom"
+              >
+                Reset
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLightboxImg(null)}
+              className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center font-bold text-sm transition"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div
+            className="max-w-4xl max-h-[85vh] overflow-auto flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImg}
+              alt="Verification Document"
+              style={{ transform: `scale(${zoomLevel})`, transition: "transform 0.15s ease-out" }}
+              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+            />
           </div>
         </div>
       )}

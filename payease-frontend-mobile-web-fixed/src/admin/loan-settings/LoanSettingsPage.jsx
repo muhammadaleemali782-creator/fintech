@@ -33,7 +33,7 @@ export default function LoanSettingsPage() {
     if (querySection === "loans" || querySection === "loans-ledger") return "loans-ledger";
     if (querySection === "issue-loan" || querySection === "issue-loan-desk") return "issue-loan-desk";
     if (["commission", "preclose", "conditions", "calculator"].includes(querySection)) return querySection;
-    return "loans-ledger";
+    return "commission";
   });
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {

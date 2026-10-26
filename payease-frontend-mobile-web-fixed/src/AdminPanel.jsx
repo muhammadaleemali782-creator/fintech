@@ -1093,6 +1093,118 @@ function DisbursalBreakdownDesk({ loan, chosenOpt = "none" }) {
   );
 }
 
+function getLoanActors(l) {
+  if (!l) {
+    return {
+      raised: { type: "user", label: "Self (Borrower)", name: "Customer" },
+      approved: { status: "pending", label: "Status", name: "Pending", badgeClass: "bg-amber-100 text-amber-800 border-amber-200", icon: "⏳" }
+    };
+  }
+
+  // 1. Resolve Raised By
+  let raised = { type: "user", label: "Self (Borrower)", name: l.userId?.name || "Customer", details: null };
+
+  const adminNote = String(l.documents?.adminNotes || l.adminNotes || "").toLowerCase();
+  const hasAdminOnBehalf = adminNote.includes("applied by admin") || adminNote.includes("issue loan") || adminNote.includes("on behalf");
+  const agentRec = l.agentRecommendation;
+  const agentRef = l.referredByAgentId;
+  const createdHistory = Array.isArray(l.history) ? l.history.find(h => h.action === "created" || h.action === "applied" || h.action === "issued") : null;
+
+  if (agentRec?.subAgentName) {
+    raised = {
+      type: "sub_agent",
+      label: `Sub-Agent: ${agentRec.subAgentName}`,
+      name: agentRec.subAgentName,
+      badge: "Sub-Agent",
+      details: agentRec.agentName ? `Referred via Agent: ${agentRec.agentName}${agentRec.agentCode ? ` (${agentRec.agentCode})` : ""}` : null
+    };
+  } else if (agentRec?.agentName) {
+    raised = {
+      type: "agent",
+      label: `Agent: ${agentRec.agentName}`,
+      name: agentRec.agentName,
+      badge: "Agent",
+      details: agentRec.agentCode ? `Agent Code: ${agentRec.agentCode}${agentRec.agentPhone ? ` • ${agentRec.agentPhone}` : ""}` : null
+    };
+  } else if (agentRef && typeof agentRef === "object" && agentRef.name) {
+    raised = {
+      type: "agent",
+      label: `Agent: ${agentRef.name}`,
+      name: agentRef.name,
+      badge: "Agent",
+      details: agentRef.referralCode ? `Agent Code: ${agentRef.referralCode}` : null
+    };
+  } else if (hasAdminOnBehalf || createdHistory?.actorRole === "admin" || (l.approverName && !l.createdAt && hasAdminOnBehalf)) {
+    raised = {
+      type: "admin",
+      label: "Admin (On Behalf)",
+      name: "Admin",
+      badge: "Admin",
+      details: l.documents?.adminNotes || "Admin Panel se on-behalf raise kiya gaya"
+    };
+  } else if (createdHistory?.actorRole === "staff" || l.handledBy?.role === "staff") {
+    const staffName = createdHistory?.actorName || l.handledBy?.name || "Staff";
+    raised = {
+      type: "staff",
+      label: `Staff: ${staffName}`,
+      name: staffName,
+      badge: "Staff Desk",
+      details: l.handledBy?.department ? `Desk: ${l.handledBy.department.toUpperCase()}` : null
+    };
+  } else {
+    raised = {
+      type: "user",
+      label: `Self: ${l.userId?.name || "Borrower"}`,
+      name: l.userId?.name || "Borrower",
+      badge: "Self Applied",
+      details: l.userId?.phone ? `Mobile: ${l.userId.phone}` : null
+    };
+  }
+
+  // 2. Resolve Approved / Rejected By
+  let approved = { status: l.status, label: "Approved by", name: "Admin", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: "✓" };
+
+  if (l.status === "rejected") {
+    const rejectActor = l.handledBy?.action === "reject" ? l.handledBy.name : (Array.isArray(l.history) ? l.history.find(h => h.action === "reject")?.actorName : null);
+    const rejectName = rejectActor || l.approverName || "Admin";
+    approved = {
+      status: "rejected",
+      label: "Rejected by",
+      name: rejectName,
+      badgeClass: "bg-rose-100 text-rose-800 border-rose-200",
+      icon: "✕",
+      at: l.handledBy?.at || null,
+      note: l.documents?.adminNotes || null
+    };
+  } else if (l.status === "pending") {
+    approved = {
+      status: "pending",
+      label: "Approval Status",
+      name: "Pending Review",
+      badgeClass: "bg-amber-100 text-amber-800 border-amber-200",
+      icon: "⏳",
+      at: null,
+      note: null
+    };
+  } else {
+    // active, approved, closed
+    const approveActor = l.handledBy?.action === "approve" ? l.handledBy.name : (Array.isArray(l.history) ? l.history.find(h => h.action === "approve")?.actorName : null);
+    const approverName = l.approverName || approveActor || (l.handledBy?.name) || "Admin";
+    const approverRole = l.handledBy?.role === "staff" ? "Staff" : "Admin";
+    approved = {
+      status: "approved",
+      label: "Approved by",
+      name: `${approverName}${approverRole === "Staff" ? " (Staff)" : ""}`,
+      badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      icon: "✓",
+      at: l.approvedAt || l.handledBy?.at || null,
+      device: l.approverDevice || null
+    };
+  }
+
+  return { raised, approved };
+}
+
 export default function AdminPanel() {
   const navigate = useNavigate();
   const token = tokenStorage.getToken();
@@ -1547,6 +1659,7 @@ export default function AdminPanel() {
   };
 
   const [expandedLoanId, setExpandedLoanId] = useState(null);
+  const [expandedLoanAuditId, setExpandedLoanAuditId] = useState(null);
   const [adminPayModal, setAdminPayModal] = useState(null);
   const [adminPayLoading, setAdminPayLoading] = useState(false);
   const [loanApproveModal, setLoanApproveModal] = useState(null);
@@ -7055,6 +7168,25 @@ export default function AdminPanel() {
                               </div>
                             </div>
 
+                            {/* Compact Origin / Raised By Bar */}
+                            {(() => {
+                              const { raised } = getLoanActors(l);
+                              return (
+                                <div className="px-3 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs flex flex-wrap items-center justify-between gap-1.5 shadow-2xs">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Raised By:</span>
+                                    <span className="inline-flex items-center gap-1 font-bold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-[11px] shadow-2xs">
+                                      <span>{raised.type === "agent" ? "🤝" : raised.type === "sub_agent" ? "🏷️" : raised.type === "admin" ? "👑" : raised.type === "staff" ? "🛡️" : "👤"}</span>
+                                      <span>{raised.label}</span>
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                    ⏳ Verification Pending
+                                  </span>
+                                </div>
+                              );
+                            })()}
+
                             {/* Loan Terms Grid */}
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl text-xs">
                               <div>
@@ -10705,8 +10837,15 @@ export default function AdminPanel() {
                 const activeOutstandingAmt = loans.filter(l => l.status === "active").reduce((s, l) => s + Number(l.remainingAmount !== undefined ? l.remainingAmount : (Math.max(0, (l.totalPayable || l.amount || 0) - (l.paidAmount || 0)))), 0);
                 const activeLoansCount = loans.filter(l => l.status === "active").length;
 
+                const totalDeptFees = disbursedLoans.reduce((s, l) => {
+                  const pf = Number(l.processingFee !== undefined && l.processingFee !== null ? l.processingFee : Math.round((l.amount || 0) * 0.05));
+                  const uf = Number(l.upiCharges !== undefined && l.upiCharges !== null ? l.upiCharges : Math.round((l.amount || 0) * 0.01));
+                  return s + pf + uf;
+                }, 0);
+                const totalDeptReceived = totalDeptFees + totalPaidAmt;
+
                 return (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5 mb-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 mb-5">
                     <div className="p-3 sm:p-4 rounded-xl bg-blue-50/80 border border-blue-200/80">
                       <span className="text-[11px] font-bold text-blue-700 block">Kitne Ko Loan Gaya</span>
                       <div className="text-base sm:text-xl font-black text-blue-950 mt-0.5">
@@ -10729,6 +10868,18 @@ export default function AdminPanel() {
                       <span className="text-[11px] font-bold text-amber-700 block">Bacha Hua Due (Active)</span>
                       <div className="text-base sm:text-xl font-black text-amber-950 font-mono mt-0.5">
                         ₹{activeOutstandingAmt.toLocaleString("en-IN")} <span className="text-[10px] text-amber-700">({activeLoansCount} Active)</span>
+                      </div>
+                    </div>
+                    <div className="p-3 sm:p-4 rounded-xl bg-indigo-50/80 border border-indigo-200/80 col-span-2 sm:col-span-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-indigo-700 block">Loan Dept Ko Mila</span>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold">Fees + Paid</span>
+                      </div>
+                      <div className="text-base sm:text-xl font-black text-indigo-950 font-mono mt-0.5">
+                        ₹{totalDeptReceived.toLocaleString("en-IN")}
+                      </div>
+                      <div className="text-[10px] text-indigo-700 font-medium truncate mt-0.5">
+                        ₹{totalDeptFees.toLocaleString("en-IN")} Upfront Fees • ₹{totalPaidAmt.toLocaleString("en-IN")} Rec.
                       </div>
                     </div>
                   </div>
@@ -10769,6 +10920,100 @@ export default function AdminPanel() {
                           </div>
                           <span className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${loanStatusColor[l.status] || "bg-gray-100"}`}>{l.status.toUpperCase()}</span>
                         </div>
+
+                        {/* Compact Actor Line (Raised By & Approved By + Collapsible Audit) */}
+                        {(() => {
+                          const { raised, approved } = getLoanActors(l);
+                          const isAuditOpen = expandedLoanAuditId === l._id;
+                          const pFee = Number(l.processingFee !== undefined && l.processingFee !== null ? l.processingFee : Math.round(l.amount * 0.05));
+                          const uFee = Number(l.upiCharges !== undefined && l.upiCharges !== null ? l.upiCharges : Math.round(l.amount * 0.01));
+                          const loanDeptShare = l.status === "rejected" ? 0 : (pFee + uFee + Number(l.paidAmount || 0));
+
+                          return (
+                            <div className="mb-3 rounded-xl border border-slate-200/90 bg-slate-50/80 overflow-hidden shadow-2xs">
+                              {/* Compact Status Bar (Always Visible, Mobile Friendly) */}
+                              <div className="px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs">
+                                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 min-w-0">
+                                  {/* Raised By */}
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Raised:</span>
+                                    <span className="inline-flex items-center gap-1 font-bold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-[11px] truncate max-w-[210px] sm:max-w-none shadow-2xs">
+                                      <span>{raised.type === "agent" ? "🤝" : raised.type === "sub_agent" ? "🏷️" : raised.type === "admin" ? "👑" : raised.type === "staff" ? "🛡️" : "👤"}</span>
+                                      <span className="truncate">{raised.label}</span>
+                                    </span>
+                                  </div>
+
+                                  <span className="text-slate-300 hidden sm:inline">•</span>
+
+                                  {/* Approved By */}
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">{approved.label}:</span>
+                                    <span className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md border text-[11px] shadow-2xs ${approved.badgeClass}`}>
+                                      <span>{approved.icon}</span>
+                                      <span>{approved.name}</span>
+                                    </span>
+                                  </div>
+
+                                  <span className="text-slate-300 hidden md:inline">•</span>
+
+                                  {/* Dept Received for this loan */}
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Dept Mila:</span>
+                                    <span className="font-mono font-black text-[11px] text-indigo-900 bg-indigo-50/80 px-1.5 py-0.5 rounded border border-indigo-200">
+                                      ₹{loanDeptShare.toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Collapsible toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedLoanAuditId(isAuditOpen ? null : l._id)}
+                                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition cursor-pointer flex items-center gap-1 self-end sm:self-auto shrink-0 pt-0.5 sm:pt-0"
+                                >
+                                  <span>{isAuditOpen ? "Chhupayein ▲" : "Audit Details ▾"}</span>
+                                </button>
+                              </div>
+
+                              {/* Collapsible Extended Audit Details */}
+                              {isAuditOpen && (
+                                <div className="px-3 py-2.5 bg-white border-t border-slate-200 text-[11px] space-y-2 animate-in fade-in duration-150">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                      <span className="text-gray-400 block text-[10px] font-bold uppercase">Application Origin</span>
+                                      <p className="font-bold text-slate-800 mt-0.5">{raised.label}</p>
+                                      {raised.details && <p className="text-[10px] text-slate-500 mt-0.5">{raised.details}</p>}
+                                    </div>
+
+                                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                      <span className="text-gray-400 block text-[10px] font-bold uppercase">Approval / Decision</span>
+                                      <p className="font-bold text-slate-800 mt-0.5">{approved.name} ({approved.status.toUpperCase()})</p>
+                                      {approved.at && (
+                                        <p className="text-[10px] text-slate-500 mt-0.5">
+                                          Timestamp: {new Date(approved.at).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <div className="p-2 bg-indigo-50/60 rounded-lg border border-indigo-100">
+                                      <span className="text-indigo-700 block text-[10px] font-bold uppercase">Loan Dept Received</span>
+                                      <p className="font-mono font-black text-indigo-950 mt-0.5">₹{loanDeptShare.toLocaleString("en-IN")}</p>
+                                      <p className="text-[10px] text-indigo-700 mt-0.5">
+                                        {l.status === "rejected" ? "Loan rejected (No fee collected)" : `₹${pFee + uFee} Upfront Fees (5%+1%) + ₹${l.paidAmount || 0} Collected`}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {(l.documents?.adminNotes || l.agentRecommendation?.explanationNote) && (
+                                    <p className="text-[10px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 font-mono">
+                                      <strong>Note:</strong> {l.documents?.adminNotes || l.agentRecommendation?.explanationNote}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {/* 10:00 AM Cutoff & Rollover Policy Desk */}
                         {l.status === "active" && (
@@ -10873,23 +11118,24 @@ export default function AdminPanel() {
                                     </span>
                                   </div>
                                   <p className="text-[11px] text-emerald-900 leading-relaxed font-medium">
-                                    <strong>Kyu itna gaya:</strong> Sanctioned loan ₹{l.amount.toLocaleString("en-IN")} me se <strong>₹{pFee.toLocaleString("en-IN")} (5% Processing Fee)</strong> aur <strong>₹{uFee.toLocaleString("en-IN")} (1% Transfer/UPI Charge)</strong> deduct hokar seedhe user ke bank/wallet me transfer hota hai.
+                                    <strong>Kyu itna gaya:</strong> Sanctioned loan ₹{l.amount.toLocaleString("en-IN")} me se <strong>₹{pFee.toLocaleString("en-IN")} (5% Processing Fee)</strong> aur <strong>₹{uFee.toLocaleString("en-IN")} (1% Transfer/UPI Charge)</strong> deduct hokar seedhe user ke bank/wallet me transfer hota hai. (Kul Loan Dept Upfront Share: <strong>₹{(pFee + uFee).toLocaleString("en-IN")}</strong>).
                                   </p>
                                 </div>
                               )}
 
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-sm mb-4">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3 text-sm mb-4">
                                 {[
                                   { label: "Loan Sanctioned", value: isRejected ? `₹${l.amount.toLocaleString("en-IN")} (Rejected)` : `₹${l.amount.toLocaleString("en-IN")}` },
                                   { label: "Khate Me Jayega", value: isRejected ? "₹0 (Rejected)" : `₹${inHand.toLocaleString("en-IN")}`, highlight: !isRejected },
+                                  { label: "Dept Fee Cut", value: isRejected ? "₹0 (Rejected)" : `₹${(pFee + uFee).toLocaleString("en-IN")}`, dept: !isRejected },
                                   { label: "Rate (locked)", value: isRejected ? "0%" : `${l.interestRate}% p.a.` },
                                   { label: "Per Installment", value: isRejected ? "₹0" : `₹${l.installmentAmount || l.emiAmount}` },
                                   { label: "Paid / Total", value: isRejected ? "0 / 0 (Rejected)" : `${paidCount} / ${totalCount} Paid` },
                                   { label: "Remaining Dues", value: isRejected ? "₹0 (Rejected)" : `₹${(l.remainingAmount ?? l.amount).toLocaleString("en-IN")}` },
-                                ].map(({ label, value, highlight }) => (
-                                  <div key={label} className={highlight ? "bg-emerald-50/60 p-1.5 rounded-lg border border-emerald-200/60" : ""}>
+                                ].map(({ label, value, highlight, dept }) => (
+                                  <div key={label} className={highlight ? "bg-emerald-50/60 p-1.5 rounded-lg border border-emerald-200/60" : dept ? "bg-indigo-50/60 p-1.5 rounded-lg border border-indigo-200/60" : ""}>
                                     <p className="text-gray-400 text-xs">{label}</p>
-                                    <p className={`font-bold ${highlight ? "text-emerald-700 font-black text-sm font-mono" : ""}`}>{value}</p>
+                                    <p className={`font-bold ${highlight ? "text-emerald-700 font-black text-sm font-mono" : dept ? "text-indigo-900 font-black text-sm font-mono" : ""}`}>{value}</p>
                                   </div>
                                 ))}
                               </div>

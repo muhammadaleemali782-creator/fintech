@@ -8,6 +8,7 @@ const Bond = require('../models/Bond');
 const Settings = require('../models/Settings');
 const Device = require('../models/Device');
 const memoryCache = require('../utils/cache');
+const { calculateLoanDepartmentPool } = require('../utils/loanDepartmentPool');
 const { processDailyYield } = require('./user');
 const { decryptData } = require('../utils/cryptoHelper');
 
@@ -114,23 +115,9 @@ async function getDepositDetails() {
   return payload;
 }
 
-// Helper to get cached or fresh loan department pool
+// Helper to get dynamic loan department pool (auto-expands when money returns)
 async function getLoanDepartmentPool() {
-  const cached = memoryCache.get('loan_dept_pool');
-  if (cached) return cached;
-  const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).lean();
-  const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
-  const activeLoansAgg = await Loan.aggregate([
-    { $match: { status: { $in: ['active', 'approved'] } } },
-    { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
-  ]);
-  const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
-  const activeLoansCount = activeLoansAgg[0]?.count || 0;
-  const availablePool = Math.max(0, totalPool - marketDisbursed);
-  const utilizationPercent = totalPool > 0 ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1))) : 0;
-  const payload = { totalPool, marketDisbursed, availablePool, activeLoansCount, utilizationPercent };
-  memoryCache.set('loan_dept_pool', payload, 10);
-  return payload;
+  return await calculateLoanDepartmentPool();
 }
 
 // -------------------------------------------------------------

@@ -12,6 +12,7 @@ const { sendNotification, notifyPermissionsChanged } = require('../utils/notifie
 const { hasPermission, getAllowedDepartments } = require('../utils/permissions');
 const { generateAccountNumber } = require('../utils/accountNumber');
 const memoryCache = require('../utils/cache');
+const { calculateLoanDepartmentPool, invalidateLoanDeptPoolCache } = require('../utils/loanDepartmentPool');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { updateEducaMailPassword, sendEducaMailMessage } = require('../utils/educaMail');
@@ -2117,6 +2118,7 @@ router.get('/pending-desk-counts', protect, staffOrAdmin, async (req, res) => {
     ]);
 
     const totalApproved = approvedTxns + verifiedUsers + approvedLoans + activeBonds;
+    const loanDeptPool = await calculateLoanDepartmentPool();
 
     const result = {
       success: true,
@@ -2127,6 +2129,7 @@ router.get('/pending-desk-counts', protect, staffOrAdmin, async (req, res) => {
         hold: holdCount,
         approved: totalApproved
       },
+      loanDepartmentPool: loanDeptPool,
       timestamp: Date.now()
     };
 
@@ -2948,16 +2951,7 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
 
     let deptPool = null;
     if (allowedDepts.includes('loan')) {
-      const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).lean();
-      const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
-      const activeLoansAgg = await Loan.aggregate([
-        { $match: { status: { $in: ['active', 'approved'] } } },
-        { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
-      ]);
-      const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
-      const activeLoansCount = activeLoansAgg[0]?.count || 0;
-      const availablePool = Math.max(0, totalPool - marketDisbursed);
-      const utilizationPercent = totalPool > 0 ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1))) : 0;
+      deptPool = await calculateLoanDepartmentPool();
 
       // Fetch all agents and their active loan metrics
       const agents = await User.find({
@@ -3059,27 +3053,8 @@ router.get('/desk/queues', protect, staffOrAdmin, async (req, res) => {
 // Loan Department Central Pool Admin Endpoints & Direct Aliases
 router.get(['/department-pool', '/loans/department-pool', '/loan/department-pool'], protect, async (req, res) => {
   try {
-    const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).lean();
-    const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
-
-    const activeLoansAgg = await Loan.aggregate([
-      { $match: { status: { $in: ['active', 'approved'] } } },
-      { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
-    ]);
-
-    const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
-    const activeLoansCount = activeLoansAgg[0]?.count || 0;
-    const availablePool = Math.max(0, totalPool - marketDisbursed);
-    const utilizationPercent = totalPool > 0 ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1))) : 0;
-
-    res.json({
-      success: true,
-      totalPool,
-      marketDisbursed,
-      availablePool,
-      activeLoansCount,
-      utilizationPercent
-    });
+    const pool = await calculateLoanDepartmentPool();
+    res.json(pool);
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch loan pool' });
   }
@@ -3099,23 +3074,14 @@ router.post(['/department-pool', '/loans/department-pool', '/loan/department-poo
       { upsert: true, new: true }
     );
 
-    const activeLoansAgg = await Loan.aggregate([
-      { $match: { status: { $in: ['active', 'approved'] } } },
-      { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
-    ]);
-    const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
-    const activeLoansCount = activeLoansAgg[0]?.count || 0;
-    const availablePool = Math.max(0, poolNum - marketDisbursed);
-    const utilizationPercent = poolNum > 0 ? Math.min(100, Number(((marketDisbursed / poolNum) * 100).toFixed(1))) : 0;
+    invalidateLoanDeptPoolCache();
+
+    const pool = await calculateLoanDepartmentPool({ forceFresh: true });
 
     res.json({
+      ...pool,
       success: true,
-      message: `✅ Loan Department Pool updated to ₹${poolNum.toLocaleString('en-IN')}`,
-      totalPool: poolNum,
-      marketDisbursed,
-      availablePool,
-      activeLoansCount,
-      utilizationPercent
+      message: `✅ Loan Department Base Pool updated to ₹${poolNum.toLocaleString('en-IN')}`
     });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to update loan department pool' });

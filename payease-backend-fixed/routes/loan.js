@@ -16,6 +16,7 @@ const { syncToGoogleDrive } = require('../utils/drive');
 const { encryptData, decryptData } = require('../utils/cryptoHelper');
 const { uploadToR2 } = require('../utils/r2');
 const memoryCache = require('../utils/cache');
+const { calculateLoanDepartmentPool, invalidateLoanDeptPoolCache } = require('../utils/loanDepartmentPool');
 const { sendNotification } = require('../utils/notifier');
 const { acquireLock, releaseLock } = require('../utils/lock');
 const router = express.Router();
@@ -1007,6 +1008,8 @@ router.post('/:id/pay-installment', protect, async (req, res) => {
       resultLoan = loan;
     });
 
+    invalidateLoanDeptPoolCache();
+
     if (resultLoan && resultLoan.status === 'closed') {
       dispatchLoanUserAlert(
         req.user._id,
@@ -1189,6 +1192,8 @@ router.post('/:id/close-early', protect, async (req, res) => {
       resultLoan = loan;
     });
 
+    invalidateLoanDeptPoolCache();
+
     const isAdmin = req.user.role === 'admin';
     res.json({
       message: 'Loan successfully closed in full! Limit upgraded.',
@@ -1212,18 +1217,8 @@ router.post('/:id/close-early', protect, async (req, res) => {
 // Loan Department Central Pool Limit & Market Stats
 router.get('/department-pool', protect, async (req, res) => {
   try {
-    const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).lean();
-    const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
-
-    const activeLoansAgg = await Loan.aggregate([
-      { $match: { status: { $in: ['active', 'approved'] } } },
-      { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
-    ]);
-
-    const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
-    const activeLoansCount = activeLoansAgg[0]?.count || 0;
-    const availablePool = Math.max(0, totalPool - marketDisbursed);
-    const utilizationPercent = totalPool > 0 ? Math.min(100, Number(((marketDisbursed / totalPool) * 100).toFixed(1))) : 0;
+    const pool = await calculateLoanDepartmentPool();
+    const { totalPool, basePool, earnedSurplus, marketDisbursed, availablePool, activeLoansCount, closedLoansCount, utilizationPercent } = pool;
 
     // Fetch all active agents and their quotas & live market portfolios
     const agents = await User.find({
@@ -1306,10 +1301,13 @@ router.get('/department-pool', protect, async (req, res) => {
 
     res.json({
       success: true,
+      basePool,
+      earnedSurplus,
       totalPool,
       marketDisbursed,
       availablePool,
       activeLoansCount,
+      closedLoansCount,
       utilizationPercent,
       totalAssignedToAgents,
       unassignedPool,
@@ -1335,23 +1333,13 @@ router.post('/department-pool', protect, admin, async (req, res) => {
       { upsert: true, new: true }
     );
 
-    const activeLoansAgg = await Loan.aggregate([
-      { $match: { status: { $in: ['active', 'approved'] } } },
-      { $group: { _id: null, totalDisbursed: { $sum: '$amount' }, count: { $sum: 1 } } }
-    ]);
-    const marketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
-    const activeLoansCount = activeLoansAgg[0]?.count || 0;
-    const availablePool = Math.max(0, poolNum - marketDisbursed);
-    const utilizationPercent = poolNum > 0 ? Math.min(100, Number(((marketDisbursed / poolNum) * 100).toFixed(1))) : 0;
+    invalidateLoanDeptPoolCache();
+    const pool = await calculateLoanDepartmentPool({ forceFresh: true });
 
     res.json({
+      ...pool,
       success: true,
-      message: `✅ Loan Department Pool updated to ₹${poolNum.toLocaleString('en-IN')}`,
-      totalPool: poolNum,
-      marketDisbursed,
-      availablePool,
-      activeLoansCount,
-      utilizationPercent
+      message: `✅ Loan Department Base Pool updated to ₹${poolNum.toLocaleString('en-IN')}`
     });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to update loan department pool' });
@@ -1808,17 +1796,10 @@ router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_o
     const disbursalPayout = quote.disbursalAmount || Math.max(0, numAmount - (quote.processingFee || 0) - (quote.upiCharges || 0));
 
     if (isDirectActive && req.user.role === 'staff') {
-      const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' });
-      const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
-      const activeLoansAgg = await Loan.aggregate([
-        { $match: { status: { $in: ['active', 'approved'] } } },
-        { $group: { _id: null, totalDisbursed: { $sum: '$amount' } } }
-      ]);
-      const currentMarketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
-      const availablePool = Math.max(0, totalPool - currentMarketDisbursed);
-      if (quote.amount > availablePool) {
+      const pool = await calculateLoanDepartmentPool();
+      if (quote.amount > pool.availablePool) {
         return res.status(403).json({
-          message: `Loan amount (₹${quote.amount.toLocaleString('en-IN')}) exceeds Loan Department available pool (₹${availablePool.toLocaleString('en-IN')}). Total Department Limit: ₹${totalPool.toLocaleString('en-IN')}`
+          message: `Loan amount (₹${quote.amount.toLocaleString('en-IN')}) exceeds Loan Department available pool (₹${pool.availablePool.toLocaleString('en-IN')}). Total Department Limit: ₹${pool.totalPool.toLocaleString('en-IN')}`
         });
       }
     }
@@ -1986,6 +1967,7 @@ router.post('/admin/create-on-behalf', protect, requirePermission('loan.create_o
       : `Loan application for ${targetUser.name} created successfully! Ab aap ise review karke approve kar sakte hain.`;
 
     memoryCache.delPrefix('desk_queues');
+    invalidateLoanDeptPoolCache();
 
     res.json({
       success: true,
@@ -2075,18 +2057,10 @@ router.post('/:id/approve', protect, requirePermission('loan.process', 'loan.dis
       }
 
       // Loan Department Central Pool Limit check (shared across all loan staff)
-      const poolSetting = await Settings.findOne({ key: 'loanDepartmentPool' }).session(session);
-      const totalPool = poolSetting ? Number(poolSetting.value) || 1000000 : 1000000;
-      const activeLoansAgg = await Loan.aggregate([
-        { $match: { status: { $in: ['active', 'approved'] } } },
-        { $group: { _id: null, totalDisbursed: { $sum: '$amount' } } }
-      ]).session(session);
-      const currentMarketDisbursed = activeLoansAgg[0]?.totalDisbursed || 0;
-      const availablePool = Math.max(0, totalPool - currentMarketDisbursed);
-
-      if (req.user.role === 'staff' && loan.amount > availablePool) {
+      const pool = await calculateLoanDepartmentPool({ session });
+      if (req.user.role === 'staff' && loan.amount > pool.availablePool) {
         throw Object.assign(
-          new Error(`Loan amount (₹${loan.amount.toLocaleString('en-IN')}) exceeds Loan Department available pool (₹${availablePool.toLocaleString('en-IN')}). Total Department Limit: ₹${totalPool.toLocaleString('en-IN')}`),
+          new Error(`Loan amount (₹${loan.amount.toLocaleString('en-IN')}) exceeds Loan Department available pool (₹${pool.availablePool.toLocaleString('en-IN')}). Total Department Limit: ₹${pool.totalPool.toLocaleString('en-IN')}`),
           { status: 403 }
         );
       }
@@ -2290,6 +2264,8 @@ router.post('/:id/approve', protect, requirePermission('loan.process', 'loan.dis
       resultLoan = loan;
     });
 
+    invalidateLoanDeptPoolCache();
+
     if (resultLoan && resultLoan.userId) {
       dispatchLoanUserAlert(
         resultLoan.userId,
@@ -2410,6 +2386,8 @@ router.post('/:id/reject', protect, requirePermission('loan.process'), async (re
       ip: req.ip || '',
       userAgent: req.headers['user-agent'] || ''
     });
+
+    invalidateLoanDeptPoolCache();
 
     res.json({ message: 'Loan rejected', loan });
   } catch (err) {
@@ -2624,6 +2602,8 @@ router.post('/admin/:loanId/installment/:installmentNo/approve', protect, requir
       updatedLoan = loan;
     });
 
+    invalidateLoanDeptPoolCache();
+
     res.json({
       success: true,
       message: `Installment #${req.params.installmentNo} approve ho gayi aur loan balance update ho gaya!`,
@@ -2693,6 +2673,8 @@ router.post('/admin/:loanId/installment/:installmentNo/admin-pay', protect, requ
 
       updatedLoan = loan;
     });
+
+    invalidateLoanDeptPoolCache();
 
     res.json({
       success: true,

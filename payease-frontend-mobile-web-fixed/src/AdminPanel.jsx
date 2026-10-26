@@ -2145,9 +2145,15 @@ export default function AdminPanel() {
       const res = await cachedAdminFetch(`${API}/admin/pending-desk-counts`, { headers }, 2000, force);
       if (!res.ok) return;
       const data = await res.json();
-      if (data && data.success && data.counts) {
-        setPendingDeskCounts(data.counts);
-        try { appCache.set("educa_admin_cached_pending_counts", data.counts); } catch {}
+      if (data && data.success) {
+        if (data.counts) {
+          setPendingDeskCounts(data.counts);
+          try { appCache.set("educa_admin_cached_pending_counts", data.counts); } catch {}
+        }
+        if (data.loanDepartmentPool) {
+          setLoanDepartmentPool(data.loanDepartmentPool);
+          try { appCache.set("educa_admin_cached_loan_pool", data.loanDepartmentPool); } catch {}
+        }
       }
     } catch (e) {
       console.warn("Failed to fetch pending desk counts:", e);
@@ -4957,16 +4963,16 @@ export default function AdminPanel() {
                             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                             <div>
                               <div className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-200">
-                                Loan Department Central Pool
+                                Loan Department Dynamic Pool
                               </div>
                               <div className="text-xs text-blue-300 font-medium">
-                                Shared Department Lending Quota • Default ₹10 Lakh Limit
+                                Base Capital ₹{(loanDepartmentPool.basePool || 1000000).toLocaleString("en-IN")} • Auto-Expands On Repayment & Profit
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-blue-100 font-bold">
-                              Active Loans: {loanDepartmentPool.activeLoansCount || 0}
+                              Active: {loanDepartmentPool.activeLoansCount || 0} | Closed: {loanDepartmentPool.closedLoansCount || 0}
                             </span>
                             <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold">
                               {loanDepartmentPool.utilizationPercent || 0}% Utilized
@@ -4974,29 +4980,49 @@ export default function AdminPanel() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 pt-2 border-t border-white/10">
                           <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
                             <span className="text-[10px] text-blue-300 uppercase font-bold block">Dept Total Limit</span>
-                            <div className="text-xl sm:text-2xl font-black font-mono text-white mt-0.5">
+                            <div className="text-lg sm:text-2xl font-black font-mono text-white mt-0.5">
                               ₹{(loanDepartmentPool.totalPool || 1000000).toLocaleString("en-IN")}
                             </div>
-                            <span className="text-[9px] text-blue-300/80">Configured Department Pool</span>
+                            {Number(loanDepartmentPool.earnedSurplus || 0) > 0 ? (
+                              <span className="text-[9px] text-emerald-300 font-bold bg-emerald-500/20 px-1.5 py-0.5 rounded inline-block mt-1">
+                                Base: ₹{(loanDepartmentPool.basePool || 1000000).toLocaleString("en-IN")} + ₹{(loanDepartmentPool.earnedSurplus || 0).toLocaleString("en-IN")}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-blue-300/80 block mt-1">Base: ₹{(loanDepartmentPool.basePool || 1000000).toLocaleString("en-IN")}</span>
+                            )}
                           </div>
 
                           <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
                             <span className="text-[10px] text-rose-300 uppercase font-bold block">Market me Diya Loan</span>
-                            <div className="text-xl sm:text-2xl font-black font-mono text-rose-300 mt-0.5">
+                            <div className="text-lg sm:text-2xl font-black font-mono text-rose-300 mt-0.5">
                               ₹{(loanDepartmentPool.marketDisbursed || 0).toLocaleString("en-IN")}
                             </div>
-                            <span className="text-[9px] text-rose-200/80">Active Disbursed Capital</span>
+                            <span className="text-[9px] text-rose-200/80 block mt-1">Active Principal in Market</span>
+                          </div>
+
+                          <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
+                            <span className="text-[10px] text-indigo-300 uppercase font-bold block">Wapas Aya Paisa</span>
+                            <div className="text-lg sm:text-2xl font-black font-mono text-indigo-200 mt-0.5">
+                              ₹{(loanDepartmentPool.totalRecovered || 0).toLocaleString("en-IN")}
+                            </div>
+                            {Number(loanDepartmentPool.earnedSurplus || 0) > 0 ? (
+                              <span className="text-[9px] text-emerald-300 font-bold block mt-1">
+                                +₹{(loanDepartmentPool.earnedSurplus || 0).toLocaleString("en-IN")} Limit Added
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-indigo-300/80 block mt-1">Total Returns & Fees</span>
+                            )}
                           </div>
 
                           <div className="bg-emerald-500/10 backdrop-blur-xs p-3 rounded-xl border border-emerald-400/20">
                             <span className="text-[10px] text-emerald-300 uppercase font-bold block">Available Lending Pool</span>
-                            <div className="text-xl sm:text-2xl font-black font-mono text-emerald-300 mt-0.5">
+                            <div className="text-lg sm:text-2xl font-black font-mono text-emerald-300 mt-0.5">
                               ₹{(loanDepartmentPool.availablePool !== undefined ? loanDepartmentPool.availablePool : 1000000).toLocaleString("en-IN")}
                             </div>
-                            <span className="text-[9px] text-emerald-200/80">Available Approval Balance</span>
+                            <span className="text-[9px] text-emerald-200/80 block mt-1">Live Approval Quota</span>
                           </div>
                         </div>
 
@@ -5007,6 +5033,14 @@ export default function AdminPanel() {
                               className="h-full bg-gradient-to-r from-blue-400 to-emerald-400 transition-all duration-500 rounded-full"
                               style={{ width: `${Math.min(100, Math.max(0, loanDepartmentPool.utilizationPercent || 0))}%` }}
                             />
+                          </div>
+                        </div>
+
+                        {/* Explanatory Rule Footer */}
+                        <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between gap-2 flex-wrap text-[10px] text-blue-200/90 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            <span>💡</span>
+                            <span>Auto-Limit: Loan baantne par limit nahi badhegi; jab repayment & returns wapas aayenge tab surplus limit me jud kar limit badhegi.</span>
                           </div>
                         </div>
                       </div>
@@ -7105,16 +7139,16 @@ export default function AdminPanel() {
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                         <div>
                           <div className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-blue-200">
-                            Loan Department Central Pool
+                            Loan Department Dynamic Pool
                           </div>
                           <div className="text-xs text-blue-300 font-medium">
-                            Shared Department Lending Quota • Default ₹10 Lakh Limit
+                            Base Capital ₹{(loanDepartmentPool.basePool || 1000000).toLocaleString("en-IN")} • Auto-Expands On Repayment & Profit
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-blue-100 font-bold">
-                          Active Loans: {loanDepartmentPool.activeLoansCount || 0}
+                          Active: {loanDepartmentPool.activeLoansCount || 0} | Closed: {loanDepartmentPool.closedLoansCount || 0}
                         </span>
                         <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold">
                           {loanDepartmentPool.utilizationPercent || 0}% Utilized
@@ -7122,29 +7156,49 @@ export default function AdminPanel() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 pt-2 border-t border-white/10">
                       <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
                         <span className="text-[10px] text-blue-300 uppercase font-bold block">Dept Total Limit</span>
-                        <div className="text-xl sm:text-2xl font-black font-mono text-white mt-0.5">
+                        <div className="text-lg sm:text-2xl font-black font-mono text-white mt-0.5">
                           ₹{(loanDepartmentPool.totalPool || 1000000).toLocaleString("en-IN")}
                         </div>
-                        <span className="text-[9px] text-blue-300/80">Configured Department Pool</span>
+                        {Number(loanDepartmentPool.earnedSurplus || 0) > 0 ? (
+                          <span className="text-[9px] text-emerald-300 font-bold bg-emerald-500/20 px-1.5 py-0.5 rounded inline-block mt-1">
+                            Base: ₹{(loanDepartmentPool.basePool || 1000000).toLocaleString("en-IN")} + ₹{(loanDepartmentPool.earnedSurplus || 0).toLocaleString("en-IN")}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] text-blue-300/80 block mt-1">Base: ₹{(loanDepartmentPool.basePool || 1000000).toLocaleString("en-IN")}</span>
+                        )}
                       </div>
 
                       <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
                         <span className="text-[10px] text-rose-300 uppercase font-bold block">Market me Diya Loan</span>
-                        <div className="text-xl sm:text-2xl font-black font-mono text-rose-300 mt-0.5">
+                        <div className="text-lg sm:text-2xl font-black font-mono text-rose-300 mt-0.5">
                           ₹{(loanDepartmentPool.marketDisbursed || 0).toLocaleString("en-IN")}
                         </div>
-                        <span className="text-[9px] text-rose-200/80">Active Disbursed Capital</span>
+                        <span className="text-[9px] text-rose-200/80 block mt-1">Active Principal in Market</span>
+                      </div>
+
+                      <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
+                        <span className="text-[10px] text-indigo-300 uppercase font-bold block">Wapas Aya Paisa</span>
+                        <div className="text-lg sm:text-2xl font-black font-mono text-indigo-200 mt-0.5">
+                          ₹{(loanDepartmentPool.totalRecovered || 0).toLocaleString("en-IN")}
+                        </div>
+                        {Number(loanDepartmentPool.earnedSurplus || 0) > 0 ? (
+                          <span className="text-[9px] text-emerald-300 font-bold block mt-1">
+                            +₹{(loanDepartmentPool.earnedSurplus || 0).toLocaleString("en-IN")} Limit Added
+                          </span>
+                        ) : (
+                          <span className="text-[9px] text-indigo-300/80 block mt-1">Total Returns & Fees</span>
+                        )}
                       </div>
 
                       <div className="bg-emerald-500/10 backdrop-blur-xs p-3 rounded-xl border border-emerald-400/20">
                         <span className="text-[10px] text-emerald-300 uppercase font-bold block">Available Lending Pool</span>
-                        <div className="text-xl sm:text-2xl font-black font-mono text-emerald-300 mt-0.5">
+                        <div className="text-lg sm:text-2xl font-black font-mono text-emerald-300 mt-0.5">
                           ₹{(loanDepartmentPool.availablePool !== undefined ? loanDepartmentPool.availablePool : 1000000).toLocaleString("en-IN")}
                         </div>
-                        <span className="text-[9px] text-emerald-200/80">Remaining Approval Quota</span>
+                        <span className="text-[9px] text-emerald-200/80 block mt-1">Remaining Approval Quota</span>
                       </div>
                     </div>
 
@@ -7155,6 +7209,14 @@ export default function AdminPanel() {
                           className="h-full bg-gradient-to-r from-blue-400 to-emerald-400 transition-all duration-500 rounded-full"
                           style={{ width: `${Math.min(100, Math.max(0, loanDepartmentPool.utilizationPercent || 0))}%` }}
                         />
+                      </div>
+                    </div>
+
+                    {/* Explanatory Rule Footer */}
+                    <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between gap-2 flex-wrap text-[10px] text-blue-200/90 font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <span>💡</span>
+                        <span>Auto-Limit: Loan baantne par limit nahi badhegi; jab repayment & returns wapas aayenge tab surplus limit me jud kar limit badhegi.</span>
                       </div>
                     </div>
                   </div>

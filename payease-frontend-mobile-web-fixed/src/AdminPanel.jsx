@@ -10613,7 +10613,7 @@ export default function AdminPanel() {
                     
                     <span>Loan Applications & Ledger</span>
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-800">
-                      {loans.length}
+                      {loans.filter(l => l.status === "active" || l.status === "approved" || l.status === "closed").length}
                     </span>
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -10766,39 +10766,59 @@ export default function AdminPanel() {
                           </div>
                         )}
                         {(() => {
+                          const isRejected = l.status === "rejected";
                           const pFee = Number(l.processingFee !== undefined && l.processingFee !== null ? l.processingFee : Math.round(l.amount * 0.05));
                           const uFee = Number(l.upiCharges !== undefined && l.upiCharges !== null ? l.upiCharges : Math.round(l.amount * 0.01));
-                          const inHand = Number(l.disbursalAmount || Math.max(0, l.amount - pFee - uFee));
+                          const inHand = isRejected ? 0 : Number(l.disbursalAmount || Math.max(0, l.amount - pFee - uFee));
 
                           return (
                             <>
                               {/* User In-Hand Disbursal Breakdown Desk */}
-                              <div className="mb-3.5 p-3 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-xs space-y-1">
-                                <div className="flex flex-wrap items-center justify-between gap-1.5">
-                                  <div className="flex items-center gap-1.5 font-black text-emerald-950">
-                                    <span className="text-sm"></span>
-                                    <span>User Ke Account Me Jayega (In-Hand):</span>
-                                    <span className="font-mono text-sm font-black text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-lg border border-emerald-300/60">
-                                      ₹{inHand.toLocaleString("en-IN")}
+                              {isRejected ? (
+                                <div className="mb-3.5 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-1">
+                                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                    <div className="flex items-center gap-1.5 font-black text-rose-950">
+                                      <span>Loan Application Status:</span>
+                                      <span className="font-mono text-sm font-black text-rose-700 bg-rose-100/70 px-2 py-0.5 rounded-lg border border-rose-300/60">
+                                        REJECTED (No Disbursal)
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded-full font-mono">
+                                      ₹0 Disbursed
                                     </span>
                                   </div>
-                                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full font-mono">
-                                    Net Disbursed
-                                  </span>
+                                  <p className="text-[11px] text-rose-800 leading-relaxed font-medium">
+                                    Ye loan reject ho gaya tha. Is par koi paisa transfer nahi hua aur borrower par koi remaining due ya repayment nahi hai.
+                                  </p>
                                 </div>
-                                <p className="text-[11px] text-emerald-900 leading-relaxed font-medium">
-                                  <strong>Kyu itna gaya:</strong> Sanctioned loan ₹{l.amount.toLocaleString("en-IN")} me se <strong>₹{pFee.toLocaleString("en-IN")} (5% Processing Fee)</strong> aur <strong>₹{uFee.toLocaleString("en-IN")} (1% Transfer/UPI Charge)</strong> deduct hokar seedhe user ke bank/wallet me transfer hota hai.
-                                </p>
-                              </div>
+                              ) : (
+                                <div className="mb-3.5 p-3 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-xs space-y-1">
+                                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                    <div className="flex items-center gap-1.5 font-black text-emerald-950">
+                                      <span className="text-sm"></span>
+                                      <span>User Ke Account Me Jayega (In-Hand):</span>
+                                      <span className="font-mono text-sm font-black text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-lg border border-emerald-300/60">
+                                        ₹{inHand.toLocaleString("en-IN")}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full font-mono">
+                                      Net Disbursed
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-emerald-900 leading-relaxed font-medium">
+                                    <strong>Kyu itna gaya:</strong> Sanctioned loan ₹{l.amount.toLocaleString("en-IN")} me se <strong>₹{pFee.toLocaleString("en-IN")} (5% Processing Fee)</strong> aur <strong>₹{uFee.toLocaleString("en-IN")} (1% Transfer/UPI Charge)</strong> deduct hokar seedhe user ke bank/wallet me transfer hota hai.
+                                  </p>
+                                </div>
+                              )}
 
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-sm mb-4">
                                 {[
                                   { label: "Loan Sanctioned", value: `₹${l.amount.toLocaleString("en-IN")}` },
-                                  { label: "Khate Me Jayega", value: `₹${inHand.toLocaleString("en-IN")}`, highlight: true },
+                                  { label: "Khate Me Jayega", value: isRejected ? "₹0 (Rejected)" : `₹${inHand.toLocaleString("en-IN")}`, highlight: !isRejected },
                                   { label: "Rate (locked)", value: `${l.interestRate}% p.a.` },
-                                  { label: "Per Installment", value: `₹${l.installmentAmount || l.emiAmount}` },
+                                  { label: "Per Installment", value: isRejected ? "₹0" : `₹${l.installmentAmount || l.emiAmount}` },
                                   { label: "Paid / Total", value: `${paidCount} / ${totalCount} Paid` },
-                                  { label: "Remaining Dues", value: `₹${(l.remainingAmount ?? l.amount).toLocaleString("en-IN")}` },
+                                  { label: "Remaining Dues", value: isRejected ? "₹0 (Rejected)" : `₹${(l.remainingAmount ?? l.amount).toLocaleString("en-IN")}` },
                                 ].map(({ label, value, highlight }) => (
                                   <div key={label} className={highlight ? "bg-emerald-50/60 p-1.5 rounded-lg border border-emerald-200/60" : ""}>
                                     <p className="text-gray-400 text-xs">{label}</p>
@@ -13061,17 +13081,18 @@ export default function AdminPanel() {
 
               {/* High-Level Lending & Investment Summary Card (Kitne ko gaya & Total kitna gaya) */}
               {(() => {
-                const uniqueInvestorIds = new Set(bonds.map(b => String(b.userId?._id || b.userId?.id || b.userId || "")).filter(Boolean));
-                const totalInvestedPrincipal = bonds.reduce((s, b) => s + (b.principalAmount || 0), 0);
+                const validBonds = bonds.filter(b => b.status === "active" || b.status === "approved" || b.status === "completed");
+                const uniqueInvestorIds = new Set(validBonds.map(b => String(b.userId?._id || b.userId?.id || b.userId || "")).filter(Boolean));
+                const totalInvestedPrincipal = validBonds.reduce((s, b) => s + (b.principalAmount || 0), 0);
                 const activeBondsCount = bonds.filter(b => b.status === "active").length;
-                const totalYieldDistributed = bonds.reduce((s, b) => s + (b.accruedInterest || 0), 0);
+                const totalYieldDistributed = validBonds.reduce((s, b) => s + (b.accruedInterest || 0), 0);
 
                 return (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
                     <div className="p-3 sm:p-4 rounded-xl bg-purple-50/80 border border-purple-200/80">
                       <span className="text-[11px] font-bold text-purple-700 block">Kitne Investors Ko Gaya</span>
                       <div className="text-base sm:text-xl font-black text-purple-950 mt-0.5">
-                        {uniqueInvestorIds.size} <span className="text-xs font-semibold text-purple-700">Investors ({bonds.length} Accounts)</span>
+                        {uniqueInvestorIds.size} <span className="text-xs font-semibold text-purple-700">Investors ({validBonds.length} Accounts)</span>
                       </div>
                     </div>
                     <div className="p-3 sm:p-4 rounded-xl bg-indigo-50/80 border border-indigo-200/80">

@@ -2,6 +2,7 @@ import { Suspense, lazy, useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { tokenStorage } from "./utils/tokenStorage";
+import { syncAndroidDeviceUser } from "./utils/androidBridge";
 
 // Self-healing lazy importer: Retries up to 3 times before failing
 function lazyWithRetry(componentImport) {
@@ -186,9 +187,24 @@ function OfflineNotice() {
   );
 }
 
+function AndroidDeviceBridgeSync() {
+  useEffect(() => {
+    try {
+      const token = tokenStorage.getToken();
+      const rawUser = localStorage.getItem("user");
+      if (token && rawUser) {
+        const user = JSON.parse(rawUser);
+        syncAndroidDeviceUser(user, token);
+      }
+    } catch {}
+  }, []);
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <AndroidDeviceBridgeSync />
       <TopProgressBar />
       <OfflineNotice />
       <ErrorBoundary>

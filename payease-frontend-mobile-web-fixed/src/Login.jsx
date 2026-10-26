@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { API } from "./config";
 import { tokenStorage } from "./utils/tokenStorage";
 import { appCache, CacheManager } from "./utils/dataCache";
+import { syncAndroidDeviceUser } from "./utils/androidBridge";
 
 export default function Login({ isApp = false, initialTab = "login" }) {
   const navigate = useNavigate();
@@ -85,6 +86,7 @@ export default function Login({ isApp = false, initialTab = "login" }) {
           appCache.set("educa_cached_profit_balance", data.user.profitBalance);
           CacheManager.set(CacheManager.createKey(role, uId, "profit_balance"), data.user.profitBalance);
         }
+        syncAndroidDeviceUser(data.user, data.token);
       }
       showMsg("Login successful! Redirecting...", "success");
       const target = data.user?.role === "admin" ? "/admin" : "/dashboard";
@@ -132,6 +134,7 @@ export default function Login({ isApp = false, initialTab = "login" }) {
           appCache.set("educa_cached_profit_balance", data.user.profitBalance);
           CacheManager.set(CacheManager.createKey(role, uId, "profit_balance"), data.user.profitBalance);
         }
+        syncAndroidDeviceUser(data.user, data.token);
       }
       showMsg("Logged in with Educa Mail (30 Days Active)! Redirecting...", "success");
       const target = data.user?.role === "admin" ? "/admin" : "/dashboard";
@@ -178,6 +181,7 @@ export default function Login({ isApp = false, initialTab = "login" }) {
         localStorage.setItem("educa_cached_balance", "0");
         appCache.set("educa_cached_balance", 0);
         CacheManager.set(CacheManager.createKey(role, uId, "balance"), 0);
+        syncAndroidDeviceUser(data.user, data.token);
       }
       const assignedMail = data.user?.email || autoEmail;
       showMsg(

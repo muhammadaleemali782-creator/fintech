@@ -2622,16 +2622,18 @@ router.get('/capital-portfolio', protect, admin, async (req, res) => {
     ]);
 
     // 1. Loans Metrics
-    const uniqueBorrowerIds = new Set(loans.map(l => String(l.userId?._id || l.userId)));
-    const totalLoanDisbursed = loans.reduce((s, l) => s + (l.amount || 0), 0);
-    const totalLoanRecovered = loans.reduce((s, l) => s + (l.paidAmount || 0), 0);
+    const validLoans = loans.filter(l => l.status === 'active' || l.status === 'approved' || l.status === 'closed');
+    const uniqueBorrowerIds = new Set(validLoans.map(l => String(l.userId?._id || l.userId)));
+    const totalLoanDisbursed = validLoans.reduce((s, l) => s + (l.amount || 0), 0);
+    const totalLoanRecovered = validLoans.reduce((s, l) => s + (l.paidAmount || 0), 0);
     const activeLoanDue = loans.filter(l => l.status === 'active').reduce((s, l) => s + (l.remainingAmount || 0), 0);
     const activeLoans = loans.filter(l => l.status === 'active');
 
     // 2. Bonds & Investments Metrics
-    const uniqueInvestorIds = new Set(bonds.map(b => String(b.userId?._id || b.userId)));
-    const totalBondPrincipal = bonds.reduce((s, b) => s + (b.principalAmount || 0), 0);
-    const totalBondYield = bonds.reduce((s, b) => s + (b.accruedInterest || 0), 0);
+    const validBonds = bonds.filter(b => b.status === 'active' || b.status === 'approved' || b.status === 'completed');
+    const uniqueInvestorIds = new Set(validBonds.map(b => String(b.userId?._id || b.userId)));
+    const totalBondPrincipal = validBonds.reduce((s, b) => s + (b.principalAmount || 0), 0);
+    const totalBondYield = validBonds.reduce((s, b) => s + (b.accruedInterest || 0), 0);
     const activeBonds = bonds.filter(b => b.status === 'active');
 
     // 3. Cash-out Metrics
@@ -2645,7 +2647,7 @@ router.get('/capital-portfolio', protect, admin, async (req, res) => {
     res.json({
       success: true,
       loans: {
-        totalLoans: loans.length,
+        totalLoans: validLoans.length,
         activeLoansCount: activeLoans.length,
         borrowersCount: uniqueBorrowerIds.size,
         totalDisbursed: totalLoanDisbursed,
@@ -2654,7 +2656,7 @@ router.get('/capital-portfolio', protect, admin, async (req, res) => {
         items: loans.slice(0, 100)
       },
       investments: {
-        totalBonds: bonds.length,
+        totalBonds: validBonds.length,
         activeBondsCount: activeBonds.length,
         investorsCount: uniqueInvestorIds.size,
         totalPrincipal: totalBondPrincipal,

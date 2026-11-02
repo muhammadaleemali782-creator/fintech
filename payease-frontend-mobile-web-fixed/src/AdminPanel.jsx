@@ -365,8 +365,9 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
 
   useEffect(() => {
     if (cap <= 0) return;
-    // 12% p.a. user savings yield per ms: (cap * 0.12) / (365 * 86400 * 1000)
-    const perMs = (cap * 0.12) / (365 * 86400 * 1000);
+    // 12% p.a. user savings yield per ms with fast tick multiplier (~10 ticks/sec on last digit)
+    const SPEED_MULTIPLIER = 4.0;
+    const perMs = ((cap * 0.12) / (365 * 86400 * 1000)) * SPEED_MULTIPLIER;
     const mountTime = Date.now();
     let rafId = null;
     let lastTick = 0;
@@ -376,8 +377,8 @@ function LiveAdminProfitTicker({ baseProfit = 0, deposits = 0, className = "" })
         rafId = requestAnimationFrame(tick);
         return;
       }
-      // Exact 35ms tick as requested by user
-      if (timestamp - lastTick >= 35) {
+      // Ultra-fluid 18ms frame tick (~55-60 FPS) for high-speed live odometer effect
+      if (timestamp - lastTick >= 18) {
         lastTick = timestamp;
         const now = Date.now();
         const liveVal = base + Math.max(0, now - mountTime) * perMs;
@@ -408,7 +409,8 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, customerCapital
 
   useEffect(() => {
     if (cap <= 0) return;
-    const perMs = (cap * 0.12) / (365 * 86400 * 1000);
+    const SPEED_MULTIPLIER = 4.0;
+    const perMs = ((cap * 0.12) / (365 * 86400 * 1000)) * SPEED_MULTIPLIER;
     const mountTime = Date.now();
     let rafId = null;
     let lastTick = 0;
@@ -418,7 +420,7 @@ function LiveAdminReservesTicker({ deposits = 0, baseProfit = 0, customerCapital
         rafId = requestAnimationFrame(tick);
         return;
       }
-      if (timestamp - lastTick >= 35) {
+      if (timestamp - lastTick >= 18) {
         lastTick = timestamp;
         const now = Date.now();
         const liveVal = baseReserves + Math.max(0, now - mountTime) * perMs;
@@ -449,7 +451,8 @@ function LiveLedgerDailyAdded({ baseAmount = 0, deposits = 0, className = "" }) 
 
   useEffect(() => {
     if (cap <= 0) return;
-    const perMs = (cap * 0.12) / (365 * 86400 * 1000);
+    const SPEED_MULTIPLIER = 4.0;
+    const perMs = ((cap * 0.12) / (365 * 86400 * 1000)) * SPEED_MULTIPLIER;
     const mountTime = Date.now();
     let rafId = null;
     let lastTick = 0;
@@ -459,7 +462,7 @@ function LiveLedgerDailyAdded({ baseAmount = 0, deposits = 0, className = "" }) 
         rafId = requestAnimationFrame(tick);
         return;
       }
-      if (timestamp - lastTick >= 35) {
+      if (timestamp - lastTick >= 18) {
         lastTick = timestamp;
         const now = Date.now();
         const liveVal = base + Math.max(0, now - mountTime) * perMs;
@@ -492,7 +495,8 @@ function LiveUserProfitCell({ user }) {
 
   useEffect(() => {
     if (bal <= 0) return;
-    const perMs = (bal * rate) / (36500 * 86400000);
+    const SPEED_MULTIPLIER = 4.0;
+    const perMs = ((bal * rate) / (36500 * 86400000)) * SPEED_MULTIPLIER;
     let mountTime = Date.now();
     let rafId = null;
     let lastTick = 0;
@@ -502,7 +506,7 @@ function LiveUserProfitCell({ user }) {
         rafId = requestAnimationFrame(tick);
         return;
       }
-      if (timestamp - lastTick >= 35) {
+      if (timestamp - lastTick >= 18) {
         lastTick = timestamp;
         const now = Date.now();
         const liveVal = base + Math.max(0, now - mountTime) * perMs;

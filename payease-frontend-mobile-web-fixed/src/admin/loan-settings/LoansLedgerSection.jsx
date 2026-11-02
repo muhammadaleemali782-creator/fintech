@@ -624,38 +624,56 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
                       Har kist subah 10:00 AM se pehle bharni hoti hai. <strong>10:00 AM ke baad 2% penalty</strong> lagti hai. Agar 1 kist chhoot gayi to agle installment me rollover hokar jud jayegi.
                     </p>
                     {Boolean(l.penaltyDue > 0 || l.overdueInstallmentsCount > 0 || l.overdueCount > 0) && (
-                      <div className="mt-2 p-2.5 bg-white rounded-lg border border-rose-200 text-[11px] space-y-1 font-mono">
-                        <div className="flex justify-between text-gray-700">
-                          <span>Chhooti Hui Kist (Missed EMIs):</span>
-                          <span className="font-bold text-gray-900">₹{(((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)).toLocaleString("en-IN")} ({l.overdueInstallmentsCount || l.overdueCount || 1} Kist)</span>
+                      <div className="mt-2 p-2.5 bg-white rounded-lg border-2 border-rose-300 text-[11px] space-y-1.5 font-mono shadow-2xs">
+                        <div className="flex justify-between items-center text-gray-700">
+                          <span className="text-amber-900 font-bold flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.2 rounded bg-amber-400 text-amber-950 font-black text-[9px]">PENDING</span>
+                            <span>Chhooti Hui Kist (Missed EMIs):</span>
+                          </span>
+                          <span className="font-bold text-amber-950 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded">₹{(((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)).toLocaleString("en-IN")} ({l.overdueInstallmentsCount || l.overdueCount || 1} Kist)</span>
                         </div>
-                        <div className="flex justify-between text-rose-700">
-                          <span>2% Overdue Penalty:</span>
-                          <span className="font-bold text-rose-700">+₹{Number(l.penaltyDue || 0).toLocaleString("en-IN")}</span>
+                        <div className="flex justify-between items-center text-rose-700">
+                          <span className="text-rose-700 font-bold flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.2 rounded bg-rose-600 text-white font-black text-[9px] animate-pulse">OVERDUE</span>
+                            <span>2% Overdue Penalty:</span>
+                          </span>
+                          <span className="font-bold text-rose-700 bg-rose-50 border border-rose-300 px-2 py-0.5 rounded">+₹{Number(l.penaltyDue || 0).toLocaleString("en-IN")}</span>
                         </div>
-                        <div className="flex justify-between text-indigo-950 font-black pt-1 border-t border-rose-100 text-xs">
+                        <div className="flex justify-between items-center text-indigo-950 font-black pt-1.5 border-t border-rose-100 text-xs">
                           <span>Kul Vasooli (EMI + Penalty Abhi Lena Hai):</span>
-                          <span className="text-emerald-700 font-black">₹{((((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)) + Number(l.penaltyDue || 0)).toLocaleString("en-IN")}</span>
+                          <span className="text-rose-900 bg-gradient-to-r from-amber-100 to-rose-200 border border-rose-300 px-2.5 py-0.5 rounded-md font-black">₹{((((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)) + Number(l.penaltyDue || 0)).toLocaleString("en-IN")}</span>
                         </div>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* 4. Overdue Penalty Controller & Banner */}
+                {/* 4. Overdue Penalty Controller & Banner (Yellow + Red Dual Theme) */}
                 {l.status === "active" && (l.penaltyDue > 0 || l.overdueInstallmentsCount > 0 || l.penaltyWaived) && (
-                  <div className={`mb-3 p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
-                    l.penaltyWaived ? "bg-amber-50 border-amber-200 text-amber-900" : "bg-rose-50 border-rose-200 text-rose-900"
+                  <div className={`mb-3 p-3.5 rounded-xl border-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-sm ${
+                    l.penaltyWaived
+                      ? "bg-amber-50 border-amber-300 text-amber-900"
+                      : "bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border-rose-500 text-rose-950"
                   }`}>
                     <div>
-                      <span className="font-extrabold flex items-center gap-1.5">
+                      {!l.penaltyWaived && (
+                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-amber-950 border border-amber-500 shadow-2xs">
+                            ⏳ PENDING DUE
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-600 text-white shadow-2xs animate-pulse">
+                            🚨 OVERDUE (+2% PENALTY)
+                          </span>
+                        </div>
+                      )}
+                      <span className="font-extrabold flex items-center gap-1.5 text-xs text-rose-950">
                         <span>{l.penaltyWaived ? "⏸️" : "⚠️"}</span>
                         <span>{l.penaltyWaived ? "Overdue Penalty Waived / On Hold" : `Active Overdue Penalty: ₹${Number(l.penaltyDue || 0).toLocaleString("en-IN")}`}</span>
                       </span>
-                      <p className="text-[11px] opacity-80 mt-0.5">
+                      <p className="text-[11px] text-rose-900 mt-0.5 font-medium">
                         {l.penaltyWaived
                           ? "Admin authority se penalty waive kar rakhi hai. Borrower se penalty nahi li jayegi."
-                          : `${l.overdueInstallmentsCount || l.overdueCount || 1} overdue installment par 2% per installment jod kar penalty calculate hui hai.`}
+                          : `${l.overdueInstallmentsCount || l.overdueCount || 1} overdue installment par 10:00 AM cutoff ke baad 2% penalty calculate hui hai.`}
                       </p>
                     </div>
                     <button
@@ -996,23 +1014,34 @@ export default function LoansLedgerSection({ onSwitchToIssueLoan, showToast }) {
                                 key={inst.installmentNo}
                                 className={`p-3 rounded-xl border text-xs flex flex-col justify-between gap-2 shadow-2xs ${
                                   isPaid
-                                    ? "bg-emerald-50/60 border-emerald-200 text-emerald-950"
+                                    ? "bg-emerald-50/60 border-emerald-300 text-emerald-950"
                                     : isSubmitted
-                                    ? "bg-amber-50 border-amber-300 text-amber-950"
+                                    ? "bg-amber-100/70 border-2 border-amber-400 text-amber-950"
                                     : isOverdue
-                                    ? "bg-rose-50 border-rose-200 text-rose-950"
-                                    : "bg-white border-slate-200 text-slate-900"
+                                    ? "bg-rose-50/90 border-2 border-rose-500 text-rose-950 ring-1 ring-amber-300"
+                                    : "bg-amber-50/80 border-2 border-amber-300 text-amber-950"
                                 }`}
                               >
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between gap-1">
                                   <span className="font-extrabold">Installment #{inst.installmentNo}</span>
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                    isPaid ? "bg-emerald-200 text-emerald-900" :
-                                    isSubmitted ? "bg-amber-200 text-amber-900" :
-                                    isOverdue ? "bg-rose-200 text-rose-900" : "bg-slate-100 text-slate-700"
-                                  }`}>
-                                    {inst.status}
-                                  </span>
+                                  {isOverdue ? (
+                                    <div className="flex items-center gap-1">
+                                      <span className="px-1.5 py-0.2 rounded bg-amber-400 text-amber-950 font-black text-[9px] border border-amber-500">
+                                        PENDING
+                                      </span>
+                                      <span className="px-1.5 py-0.2 rounded bg-rose-600 text-white font-black text-[9px] animate-pulse">
+                                        OVERDUE
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                      isPaid ? "bg-emerald-200 text-emerald-900 border border-emerald-300" :
+                                      isSubmitted ? "bg-amber-300 text-amber-950 border border-amber-400" :
+                                      "bg-amber-200 text-amber-950 border border-amber-400"
+                                    }`}>
+                                      {inst.status}
+                                    </span>
+                                  )}
                                 </div>
 
                                 <div className="space-y-0.5 text-[11px] text-slate-600">

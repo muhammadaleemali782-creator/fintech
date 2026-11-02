@@ -1633,16 +1633,6 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
       }
     }
 
-    // Ensure all completed past calendar days reflect the full 12% p.a. daily compounding yield
-    const fullDayCompoundingYield = Number(((customerDepositsYieldEligible * 0.12) / 365).toFixed(2));
-    if (fullDayCompoundingYield > 0) {
-      for (const dKey of Object.keys(dailyMap)) {
-        if (dKey < todayStr && dKey >= '2026-10-09') {
-          dailyMap[dKey].amount = Math.max(dailyMap[dKey].amount, fullDayCompoundingYield);
-        }
-      }
-    }
-
     let runningYieldSum = 0;
     let runningDepositSum = 0;
     const sortedDailyList = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
@@ -1770,6 +1760,25 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
       }));
 
     const depositMovementHistory = [
+      ...depositTxns.map(d => {
+        const isSeed = !d.userId || d.userId.role === 'admin' || String(d.utrNumber || '').includes('EDUCA-CAP');
+        return {
+          id: String(d._id),
+          type: isSeed ? 'seed_capital' : 'customer_deposit',
+          direction: 'in',
+          title: isSeed ? 'Initial Company Capital Deposit' : `${d.userId?.name || 'Customer'} (Customer Deposit)`,
+          description: isSeed
+            ? 'Company capital seed deposit injected via Bank Transfer into Fintech Reserve'
+            : `Verified Customer Inflow via ${(d.method || 'UPI').toUpperCase()} • Wallet Credit`,
+          recipient: isSeed ? 'Educa Deposit Treasury' : 'Customer Account Treasury',
+          amount: d.amount,
+          amountFormatted: `+₹${Number(d.amount).toLocaleString('en-IN')}`,
+          date: d.createdAt,
+          status: 'Approved',
+          utrNumber: d.utrNumber || (isSeed ? 'EDUCA-CAP-1000000' : 'Direct'),
+          badge: isSeed ? 'Company Seed' : 'Customer Deposit'
+        };
+      }),
       {
         id: 'tx-dept-transfer-loan',
         type: 'transfer_out',
@@ -1777,28 +1786,14 @@ router.get('/analytics', protect, staffOrAdmin, async (req, res) => {
         title: 'Transferred to Loan Department',
         description: 'Allocated to EFS Loan Department operations pool for issuing loans',
         recipient: 'EFS Loan Department Pool',
-        amount: -1000000,
-        amountFormatted: '-₹10,00,000.00',
+        amount: -loanPoolBase,
+        amountFormatted: `-₹${Number(loanPoolBase).toLocaleString('en-IN')}.00`,
         date: '2026-10-26T12:00:00.000Z',
         status: 'Completed',
         utrNumber: 'EDUCA-CAP-1000000',
         badge: 'Transferred Out'
-      },
-      ...depositTxns.map(d => ({
-        id: String(d._id),
-        type: 'deposit_in',
-        direction: 'in',
-        title: 'Initial Capital Injection',
-        description: `Verified Capital Inflow via ${(d.method || 'Bank Transfer').toUpperCase()}`,
-        recipient: 'Educa Deposit Treasury',
-        amount: d.amount,
-        amountFormatted: `+₹${Number(d.amount).toLocaleString('en-IN')}`,
-        date: d.createdAt,
-        status: 'Approved',
-        utrNumber: d.utrNumber || 'EDUCA-CAP-1000000',
-        badge: 'Approved Inflow'
-      }))
-    ];
+      }
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const payload = {
       success: true,

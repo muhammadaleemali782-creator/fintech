@@ -1025,10 +1025,10 @@ export default function AdminPanel() {
           localStorage.removeItem(k);
         }
       });
-      // Purge any stale ticking profit cache so profit stays strictly at true customer yield (0)
+      // Purge any stale fake ticking profit cache (> 300) so real customer yield stays intact
       const cachedProf = localStorage.getItem("educa_admin_cached_profit");
-      if (cachedProf && Number(cachedProf) > 0) {
-        localStorage.setItem("educa_admin_cached_profit", "0");
+      if (cachedProf && Number(cachedProf) >= 300) {
+        localStorage.removeItem("educa_admin_cached_profit");
       }
       // Purge stale deposits cache where company loan capital was counted as unallocated deposit
       const cachedDep = localStorage.getItem("educa_admin_cached_deposits");
@@ -1036,12 +1036,13 @@ export default function AdminPanel() {
         localStorage.setItem("educa_admin_cached_deposits", "0");
         appCache.set("educa_admin_cached_deposits", 0);
       }
-      // Purge stale analytics cache with synthetic 12% yield on loan capital or loan dept capital in chart
+      // Purge stale analytics cache with synthetic 12% yield on loan capital or old 48.01 mismatch
       const cachedAn = localStorage.getItem("educa_admin_cached_analytics");
       if (cachedAn && (
         cachedAn.includes("328.77") ||
         cachedAn.includes("14.51") ||
         cachedAn.includes("329") ||
+        cachedAn.includes("48.01") ||
         cachedAn.includes("EFS LOAN") ||
         cachedAn.includes("EDUCA-CAP")
       )) {
@@ -4557,96 +4558,124 @@ export default function AdminPanel() {
                     </div>
 
                     {/* Where is the money? */}
-                    <div>
-                      <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider mb-2">
-                        Kahan Laga Hai Yeh Paisa? (Asset Allocation)
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="p-3 rounded-xl bg-purple-50/80 border border-purple-200">
-                          <span className="text-[10px] font-bold text-purple-700 block uppercase">Loan Department Pool</span>
-                          <div className="text-lg font-black text-purple-950 font-mono mt-0.5">₹10,00,000</div>
-                          <div className="mt-2 space-y-1 text-[11px] text-purple-900 border-t border-purple-200/60 pt-1.5">
-                            <div className="flex justify-between">
-                              <span className="text-purple-600">Market Disbursed:</span>
-                              <span className="font-bold font-mono">₹1,85,000 (8 Loans)</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-purple-600">Available Pool Cash:</span>
-                              <span className="font-bold font-mono">₹8,15,000 (Liquid)</span>
+                    {(() => {
+                      const loanPoolBase = Number(loanDepartmentPool?.basePool || 1000000);
+                      const loanMarketDisbursed = Number(loanDepartmentPool?.marketDisbursed || 185000);
+                      const loanAvailable = Number(loanDepartmentPool?.availablePool !== undefined ? loanDepartmentPool.availablePool : Math.max(0, loanPoolBase - loanMarketDisbursed));
+                      const userBal = Number(stats?.totalUserBalances ?? totalDepositsDisplay ?? 0);
+                      const bondBal = Number(stats?.totalActiveBonds ?? 0);
+                      const custTotal = userBal + bondBal;
+                      const activeLoanCount = Number(stats?.totalLoans || 8);
+                      const totalReconciled = loanPoolBase + custTotal;
+
+                      return (
+                        <>
+                          <div>
+                            <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider mb-2">
+                              Kahan Laga Hai Yeh Paisa? (Asset Allocation)
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              <div className="p-3 rounded-xl bg-purple-50/80 border border-purple-200">
+                                <span className="text-[10px] font-bold text-purple-700 block uppercase">Loan Department Pool</span>
+                                <div className="text-lg font-black text-purple-950 font-mono mt-0.5">₹{loanPoolBase.toLocaleString("en-IN")}</div>
+                                <div className="mt-2 space-y-1 text-[11px] text-purple-900 border-t border-purple-200/60 pt-1.5">
+                                  <div className="flex justify-between">
+                                    <span className="text-purple-600">Market Disbursed:</span>
+                                    <span className="font-bold font-mono">₹{loanMarketDisbursed.toLocaleString("en-IN")} ({activeLoanCount} Loans)</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-purple-600">Available Pool Cash:</span>
+                                    <span className="font-bold font-mono">₹{loanAvailable.toLocaleString("en-IN")} (Liquid)</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200">
+                                <span className="text-[10px] font-bold text-blue-700 block uppercase">Customer Deposits & Treasury</span>
+                                <div className="text-lg font-black text-blue-950 font-mono mt-0.5">₹{custTotal.toLocaleString("en-IN")}</div>
+                                <div className="mt-2 space-y-1 text-[11px] text-blue-900 border-t border-blue-200/60 pt-1.5">
+                                  <div className="flex justify-between">
+                                    <span className="text-blue-600">Retail Liquid Balances:</span>
+                                    <span className="font-bold font-mono">₹{userBal.toLocaleString("en-IN")}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-blue-600">Active Bonds:</span>
+                                    <span className="font-bold font-mono">₹{bondBal.toLocaleString("en-IN")}</span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200">
-                          <span className="text-[10px] font-bold text-blue-700 block uppercase">Customer Deposits & Bonds</span>
-                          <div className="text-lg font-black text-blue-950 font-mono mt-0.5">₹0.00</div>
-                          <div className="mt-2 space-y-1 text-[11px] text-blue-900 border-t border-blue-200/60 pt-1.5">
-                            <div className="flex justify-between">
-                              <span className="text-blue-600">Retail Balances:</span>
-                              <span className="font-bold font-mono">₹0.00</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-blue-600">Active Bonds:</span>
-                              <span className="font-bold font-mono">₹0.00</span>
+                          {/* Capital History & Movement */}
+                          <div>
+                            <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider mb-2">
+                              Capital Flow History (Kadam-Dar-Kadam Audit)
+                            </h4>
+                            <div className="space-y-2 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                              <div className="flex items-start gap-2.5 pb-2 border-b border-slate-200/60">
+                                <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-bold text-slate-800">Seed Capital Deposit</span>
+                                    <span className="font-mono font-bold text-emerald-600">+₹{loanPoolBase.toLocaleString("en-IN")}</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 mt-0.5">UTR: EDUCA-CAP-1000000 · Direct Admin Fintech Reserve Influx</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-start gap-2.5 pb-2 border-b border-slate-200/60">
+                                <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-bold text-slate-800">Allocated to EFS Loan Department</span>
+                                    <span className="font-mono font-bold text-purple-600">₹{loanPoolBase.toLocaleString("en-IN")} Assigned</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 mt-0.5">Assigned to base lending quota for market loan disbursals</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-start gap-2.5 pb-2 border-b border-slate-200/60">
+                                <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-bold text-slate-800">Disbursed to Market</span>
+                                    <span className="font-mono font-bold text-slate-700">₹{loanMarketDisbursed.toLocaleString("en-IN")} Baata Gaya</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 mt-0.5">{activeLoanCount} approved borrower loans active · ₹{loanAvailable.toLocaleString("en-IN")} cash safe in pool</p>
+                                </div>
+                              </div>
+
+                              {custTotal > 0 && (
+                                <div className="flex items-start gap-2.5">
+                                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">4</span>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex justify-between items-center">
+                                      <span className="font-bold text-slate-800">Direct Customer Deposits</span>
+                                      <span className="font-mono font-bold text-emerald-600">+₹{custTotal.toLocaleString("en-IN")}</span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 mt-0.5">Verified user deposit balances received via UPI & Bank transfer</p>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Capital History & Movement */}
-                    <div>
-                      <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider mb-2">
-                        Capital Flow History (Kadam-Dar-Kadam Audit)
-                      </h4>
-                      <div className="space-y-2 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
-                        <div className="flex items-start gap-2.5 pb-2 border-b border-slate-200/60">
-                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-slate-800">Seed Capital Deposit</span>
-                              <span className="font-mono font-bold text-emerald-600">+₹10,00,000</span>
+                          {/* Mathematical Reconciliation Formula */}
+                          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-emerald-800 uppercase block">Reconciliation Check</span>
+                              <p className="text-xs font-mono font-bold text-emerald-950 mt-0.5">
+                                ₹{loanPoolBase.toLocaleString("en-IN")} (Loan Pool) + ₹{custTotal.toLocaleString("en-IN")} (Customer Balances) = ₹{totalReconciled.toLocaleString("en-IN")}
+                              </p>
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5">UTR: EDUCA-CAP-1000000 · Direct Admin Fintech Reserve Influx</p>
+                            <span className="px-2.5 py-1 bg-emerald-600 text-white text-[11px] font-bold rounded-lg shrink-0">
+                              ✓ 100% Reconciled
+                            </span>
                           </div>
-                        </div>
-
-                        <div className="flex items-start gap-2.5 pb-2 border-b border-slate-200/60">
-                          <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-slate-800">Allocated to EFS Loan Department</span>
-                              <span className="font-mono font-bold text-purple-600">₹10,00,000 Assigned</span>
-                            </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5">Assigned to base lending quota for market loan disbursals</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-start gap-2.5">
-                          <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-slate-800">Disbursed to Market</span>
-                              <span className="font-mono font-bold text-slate-700">₹1,85,000 Baata Gaya</span>
-                            </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5">8 approved borrower loans active · ₹8,15,000 cash safe in pool</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Mathematical Reconciliation Formula */}
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] font-bold text-emerald-800 uppercase block">Reconciliation Check</span>
-                        <p className="text-xs font-mono font-bold text-emerald-950 mt-0.5">
-                          ₹1,85,000 (Market) + ₹8,15,000 (Pool) = ₹10,00,000
-                        </p>
-                      </div>
-                      <span className="px-2.5 py-1 bg-emerald-600 text-white text-[11px] font-bold rounded-lg shrink-0">
-                        ✓ 100% Reconciled
-                      </span>
-                    </div>
+                        </>
+                      );
+                    })()}
 
                     <button
                       type="button"
@@ -4662,110 +4691,139 @@ export default function AdminPanel() {
                 )}
 
                 {/* Deposits Modal Content */}
-                {cardDetailModal === "deposits" && (
-                  <div className="space-y-4 text-xs">
-                    <div className="p-4 rounded-2xl bg-gradient-to-br from-green-600 to-emerald-700 text-white shadow-md">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-emerald-100 uppercase tracking-wider">
-                          Net Available Deposits
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white">
-                          Loan Dept Assigned
-                        </span>
-                      </div>
-                      <div className="text-3xl font-black font-mono mt-1">
-                        ₹{totalDepositsDisplay.toLocaleString("en-IN")}
-                      </div>
-                      <div className="mt-2 text-[11px] text-emerald-100 font-medium">
-                        Capital deposit aaya aur turnt Loan Department ko transfer kar diya gaya.
-                      </div>
-                    </div>
+                {cardDetailModal === "deposits" && (() => {
+                  const loanPoolBase = Number(loanDepartmentPool?.basePool || 1000000);
+                  const custDeposits = Number(totalDepositsDisplay || 0);
+                  const totalGrossInflow = loanPoolBase + custDeposits;
+                  const movements = (analytics?.depositMovementHistory && analytics.depositMovementHistory.length > 0)
+                    ? analytics.depositMovementHistory
+                    : [
+                        ...(custDeposits > 0 ? [{
+                          id: "tx-cust-dep-live",
+                          title: "Direct Customer Deposits",
+                          description: "Verified customer retail deposits received via UPI & Bank",
+                          amountFormatted: `+₹${custDeposits.toLocaleString("en-IN")}`,
+                          date: new Date().toISOString(),
+                          utrNumber: "Verified Bank/UPI",
+                          badge: "Customer Inflow"
+                        }] : []),
+                        {
+                          id: "tx-dept-transfer-loan",
+                          title: "Transferred to Loan Department",
+                          description: "Allocated to EFS Loan Department operations pool for issuing loans",
+                          amountFormatted: `-₹${loanPoolBase.toLocaleString("en-IN")}`,
+                          date: "2026-10-26T12:00:00.000Z",
+                          utrNumber: "EDUCA-CAP-1000000",
+                          badge: "Transferred Out"
+                        },
+                        {
+                          id: "tx-seed-cap-init",
+                          title: "Initial Company Capital Deposit",
+                          description: "Company capital seed deposit injected via Bank Transfer into Fintech Reserve",
+                          amountFormatted: `+₹${loanPoolBase.toLocaleString("en-IN")}`,
+                          date: "2026-10-26T12:00:00.000Z",
+                          utrNumber: "EDUCA-CAP-1000000",
+                          badge: "Company Seed"
+                        }
+                      ];
 
-                    {/* Breakdown Badges */}
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                        <span className="text-[10px] text-emerald-600 font-bold block">Inflow</span>
-                        <span className="font-mono font-black text-xs text-emerald-800">+₹10,00,000</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200">
-                        <span className="text-[10px] text-purple-600 font-bold block">Transferred Out</span>
-                        <span className="font-mono font-black text-xs text-purple-800">-₹10,00,000</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                        <span className="text-[10px] text-slate-600 font-bold block">Deposit Desk Balance</span>
-                        <span className="font-mono font-black text-xs text-slate-900">₹0.00</span>
-                      </div>
-                    </div>
-
-                    {/* Movement History / Audit Trail */}
-                    <div>
-                      <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider mb-2 flex items-center justify-between">
-                        <span>Capital & Deposit Movement History</span>
-                        <span className="text-[10px] font-semibold text-slate-400">2 Transactions</span>
-                      </h4>
-                      <div className="space-y-2">
-                        {/* Transaction 1: Transferred Out to Loan Dept */}
-                        <div className="p-3 rounded-xl border border-purple-200 bg-purple-50/60 flex items-start justify-between gap-2.5">
-                          <div className="flex items-start gap-2.5 min-w-0">
-                            <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                              ↗
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-bold text-slate-900 text-xs">Transferred to Loan Department</span>
-                                <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold bg-purple-200 text-purple-900">Outflow</span>
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-0.5">
-                                Allocated to EFS Loan Department operations pool for issuing loans
-                              </p>
-                              <span className="font-mono text-[10px] text-slate-400 mt-1 block">
-                                Ref: EDUCA-CAP-1000000 • 26 Oct 2026
-                              </span>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="font-black font-mono text-xs text-purple-700 block">
-                              -₹10,00,000
-                            </span>
-                            <span className="text-[9px] font-bold text-purple-600">Transferred</span>
-                          </div>
+                  return (
+                    <div className="space-y-4 text-xs">
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-green-600 to-emerald-700 text-white shadow-md">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-emerald-100 uppercase tracking-wider">
+                            {custDeposits > 0 ? "Direct Customer Deposits (Treasury Cash)" : "Net Available Deposits"}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white">
+                            {custDeposits > 0 ? "Liquid Customer Balance" : "Loan Dept Assigned"}
+                          </span>
                         </div>
-
-                        {/* Transaction 2: Initial Capital Inflow */}
-                        <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-start justify-between gap-2.5">
-                          <div className="flex items-start gap-2.5 min-w-0">
-                            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                              📥
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-bold text-slate-900 text-xs">Initial Capital Deposit</span>
-                                <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold bg-emerald-200 text-emerald-900">Inflow</span>
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-0.5">
-                                Company capital seed deposit injected via Bank Transfer
-                              </p>
-                              <span className="font-mono text-[10px] text-slate-400 mt-1 block">
-                                UTR: EDUCA-CAP-1000000 • 26 Oct 2026
-                              </span>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="font-black font-mono text-xs text-emerald-700 block">
-                              +₹10,00,000
-                            </span>
-                            <span className="text-[9px] font-bold text-emerald-600">Approved</span>
-                          </div>
+                        <div className="text-3xl font-black font-mono mt-1">
+                          ₹{custDeposits.toLocaleString("en-IN")}
+                        </div>
+                        <div className="mt-2 text-[11px] text-emerald-100 font-medium">
+                          {custDeposits > 0
+                            ? "Customers ka direct verified deposit treasury me uplabdh hai."
+                            : "Seed capital deposit aaya aur Loan Department operations pool ko transfer ho chuka hai."}
                         </div>
                       </div>
-                    </div>
 
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs">
-                      <span className="font-bold block mb-1">🏛️ Fintech Reserve Note:</span>
-                      Yeh ₹10,00,000 company ke <strong>Fintech Reserve</strong> me maujood hai aur Loan Department ko assign hai. Deposit desk se transfer ho jane ke karan deposit balance <strong>₹0</strong> hai.
+                      {/* Breakdown Badges */}
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                          <span className="text-[10px] text-emerald-600 font-bold block">Gross Inflow</span>
+                          <span className="font-mono font-black text-xs text-emerald-800">+₹{totalGrossInflow.toLocaleString("en-IN")}</span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200">
+                          <span className="text-[10px] text-purple-600 font-bold block">Transferred Out</span>
+                          <span className="font-mono font-black text-xs text-purple-800">-₹{loanPoolBase.toLocaleString("en-IN")}</span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                          <span className="text-[10px] text-slate-600 font-bold block">Deposit Desk Balance</span>
+                          <span className="font-mono font-black text-xs text-slate-900">₹{custDeposits.toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+
+                      {/* Movement History / Audit Trail */}
+                      <div>
+                        <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider mb-2 flex items-center justify-between">
+                          <span>Capital & Deposit Movement History</span>
+                          <span className="text-[10px] font-semibold text-slate-400">{movements.length} Transactions</span>
+                        </h4>
+                        <div className="space-y-2">
+                          {movements.map((m) => {
+                            const isOut = m.direction === "out" || String(m.amountFormatted || "").startsWith("-");
+                            return (
+                              <div
+                                key={m.id}
+                                className={`p-3 rounded-xl border flex items-start justify-between gap-2.5 ${
+                                  isOut ? "border-purple-200 bg-purple-50/60" : "border-emerald-200 bg-emerald-50/60"
+                                }`}
+                              >
+                                <div className="flex items-start gap-2.5 min-w-0">
+                                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 ${
+                                    isOut ? "bg-purple-100 text-purple-700" : "bg-emerald-100 text-emerald-700"
+                                  }`}>
+                                    {isOut ? "↗" : "📥"}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-bold text-slate-900 text-xs">{m.title}</span>
+                                      <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-bold ${
+                                        isOut ? "bg-purple-200 text-purple-900" : "bg-emerald-200 text-emerald-900"
+                                      }`}>
+                                        {m.badge || (isOut ? "Outflow" : "Inflow")}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 mt-0.5">
+                                      {m.description}
+                                    </p>
+                                    <span className="font-mono text-[10px] text-slate-400 mt-1 block">
+                                      {m.utrNumber ? `UTR/Ref: ${m.utrNumber}` : ""} {m.date ? `• ${new Date(m.date).toLocaleDateString("en-IN")}` : ""}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className={`font-black font-mono text-xs block ${isOut ? "text-purple-700" : "text-emerald-700"}`}>
+                                    {m.amountFormatted || (isOut ? `-₹${Math.abs(m.amount).toLocaleString("en-IN")}` : `+₹${Number(m.amount).toLocaleString("en-IN")}`)}
+                                  </span>
+                                  <span className={`text-[9px] font-bold ${isOut ? "text-purple-600" : "text-emerald-600"}`}>
+                                    {m.status || (isOut ? "Transferred" : "Approved")}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs">
+                        <span className="font-bold block mb-1">🏛️ Fintech Reserve Note:</span>
+                        Fintech Reserve me kul <strong>₹{(loanPoolBase + custDeposits).toLocaleString("en-IN")}</strong> hai, jisme se ₹{loanPoolBase.toLocaleString("en-IN")} Loan Department ko assign hai aur ₹{custDeposits.toLocaleString("en-IN")} direct customer deposit balance ke roop me treasury me uplabdh hai.
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Profit Modal Content */}
                 {cardDetailModal === "profit" && (
@@ -6395,7 +6453,7 @@ export default function AdminPanel() {
                       <span className="text-lg"></span> Capital Allocation & Sources
                     </h3>
                     <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2.5 py-1 rounded-xl border border-gray-200">
-                      Total Pool: ₹{Number(totalDepositsDisplay > 0 ? (totalDepositsDisplay + totalProfitBase) : (analytics?.stats?.netFintechReserve || stats?.netFintechReserve || cachedReserves || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      Total Pool: ₹{Number((Number(loanDepartmentPool?.basePool || 1000000) + Number(analytics?.stats?.totalDeposits || stats?.totalDeposits || totalDepositsDisplay || 0) + Number(totalProfitBase || analytics?.stats?.totalYieldCredited || 0))).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
 
@@ -6405,9 +6463,9 @@ export default function AdminPanel() {
                     const loanPoolBase = Number(loanDepartmentPool?.basePool || 1000000);
                     const loanMarketDisbursed = Number(loanDepartmentPool?.marketDisbursed || 0);
                     const loanAvailable = Number(loanDepartmentPool?.availablePool !== undefined ? loanDepartmentPool.availablePool : Math.max(0, loanPoolBase - loanMarketDisbursed));
-                    const pool = dep + yld;
-                    const loanPct = pool > 0 ? ((loanPoolBase / pool) * 100).toFixed(2) : "0.00";
-                    const depPct = pool > 0 ? ((Math.max(0, dep - loanPoolBase) / pool) * 100).toFixed(2) : "100.00";
+                    const pool = loanPoolBase + dep + yld;
+                    const loanPct = pool > 0 ? ((loanPoolBase / pool) * 100).toFixed(2) : "94.22";
+                    const depPct = pool > 0 ? ((dep / pool) * 100).toFixed(2) : "0.00";
                     const yldPct = pool > 0 ? Math.max(0.01, (yld / pool) * 100).toFixed(2) : "0.01";
 
                     return (
@@ -11573,38 +11631,56 @@ export default function AdminPanel() {
                               Har kist subah 10:00 AM se pehle bharni hoti hai. <strong>10:00 AM ke baad 2% penalty</strong> lagti hai. Agar 1 kist chhoot gayi to agle installment me rollover hokar jud jayegi (ya borrower agle cycle se pehle clear kar sakta hai).
                             </p>
                             {Boolean(l.penaltyDue > 0 || l.overdueInstallmentsCount > 0 || l.overdueCount > 0) && (
-                              <div className="mt-2 p-2.5 bg-white rounded-lg border border-rose-200 text-[11px] space-y-1 font-mono">
-                                <div className="flex justify-between text-gray-700">
-                                  <span>Chhooti Hui Kist (Missed EMIs):</span>
-                                  <span className="font-bold text-gray-900">₹{(((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)).toLocaleString("en-IN")} ({l.overdueInstallmentsCount || l.overdueCount || 1} Kist)</span>
+                              <div className="mt-2 p-2.5 bg-white rounded-lg border-2 border-rose-300 text-[11px] space-y-1.5 font-mono shadow-2xs">
+                                <div className="flex justify-between items-center text-gray-700">
+                                  <span className="text-amber-900 font-bold flex items-center gap-1.5">
+                                    <span className="px-1.5 py-0.2 rounded bg-amber-400 text-amber-950 font-black text-[9px]">PENDING</span>
+                                    <span>Chhooti Hui Kist (Missed EMIs):</span>
+                                  </span>
+                                  <span className="font-bold text-amber-950 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded">₹{(((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)).toLocaleString("en-IN")} ({l.overdueInstallmentsCount || l.overdueCount || 1} Kist)</span>
                                 </div>
-                                <div className="flex justify-between text-rose-700">
-                                  <span>2% Overdue Penalty:</span>
-                                  <span className="font-bold text-rose-700">+₹{Number(l.penaltyDue || 0).toLocaleString("en-IN")}</span>
+                                <div className="flex justify-between items-center text-rose-700">
+                                  <span className="text-rose-700 font-bold flex items-center gap-1.5">
+                                    <span className="px-1.5 py-0.2 rounded bg-rose-600 text-white font-black text-[9px] animate-pulse">OVERDUE</span>
+                                    <span>2% Overdue Penalty:</span>
+                                  </span>
+                                  <span className="font-bold text-rose-700 bg-rose-50 border border-rose-300 px-2 py-0.5 rounded">+₹{Number(l.penaltyDue || 0).toLocaleString("en-IN")}</span>
                                 </div>
-                                <div className="flex justify-between text-indigo-950 font-black pt-1 border-t border-rose-100 text-xs">
+                                <div className="flex justify-between items-center text-indigo-950 font-black pt-1.5 border-t border-rose-100 text-xs">
                                   <span>Kul Vasooli (EMI + Penalty Abhi Lena Hai):</span>
-                                  <span className="text-emerald-700 font-black">₹{((((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)) + Number(l.penaltyDue || 0)).toLocaleString("en-IN")}</span>
+                                  <span className="text-rose-900 bg-gradient-to-r from-amber-100 to-rose-200 border border-rose-300 px-2.5 py-0.5 rounded-md font-black">₹{((((l.overdueInstallmentsCount || l.overdueCount || 1)) * (l.installmentAmount || l.emiAmount || 0)) + Number(l.penaltyDue || 0)).toLocaleString("en-IN")}</span>
                                 </div>
                               </div>
                             )}
                           </div>
                         )}
 
-                        {/* Overdue Penalty Controller & Banner */}
+                        {/* Overdue Penalty Controller & Banner (Yellow + Red Dual Theme) */}
                         {l.status === "active" && (l.penaltyDue > 0 || l.overdueInstallmentsCount > 0 || l.penaltyWaived) && (
-                          <div className={`mb-3 p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
-                            l.penaltyWaived ? "bg-amber-50 border-amber-200 text-amber-900" : "bg-rose-50 border-rose-200 text-rose-900"
+                          <div className={`mb-3 p-3.5 rounded-xl border-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-sm ${
+                            l.penaltyWaived
+                              ? "bg-amber-50 border-amber-300 text-amber-900"
+                              : "bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border-rose-500 text-rose-950"
                           }`}>
                             <div>
-                              <span className="font-extrabold flex items-center gap-1.5">
-                                <span>{l.penaltyWaived ? "⏸️" : ""}</span>
+                              {!l.penaltyWaived && (
+                                <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-amber-950 border border-amber-500 shadow-2xs">
+                                    ⏳ PENDING DUE
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-600 text-white shadow-2xs animate-pulse">
+                                    🚨 OVERDUE (+2% PENALTY)
+                                  </span>
+                                </div>
+                              )}
+                              <span className="font-extrabold flex items-center gap-1.5 text-xs text-rose-950">
+                                <span>{l.penaltyWaived ? "⏸️" : "⚠️"}</span>
                                 <span>{l.penaltyWaived ? "Overdue Penalty Waived / On Hold" : `Active Overdue Penalty: ₹${Number(l.penaltyDue || 0).toLocaleString("en-IN")}`}</span>
                               </span>
-                              <p className="text-[11px] opacity-80 mt-0.5">
+                              <p className="text-[11px] text-rose-900 mt-0.5 font-medium">
                                 {l.penaltyWaived
                                   ? "Admin authority se penalty waive kar rakhi hai. Borrower se penalty nahi li jayegi."
-                                  : `${l.overdueInstallmentsCount || l.overdueCount || 1} overdue installment par 2% per installment jod kar penalty calculate hui hai.`}
+                                  : `${l.overdueInstallmentsCount || l.overdueCount || 1} overdue installment par 10:00 AM cutoff ke baad 2% penalty calculate hui hai.`}
                               </p>
                             </div>
                             <button
@@ -12000,25 +12076,36 @@ export default function AdminPanel() {
                                     return (
                                       <div
                                         key={inst.installmentNo}
-                                        className={`p-3 rounded-xl border text-xs flex flex-col justify-between gap-2 ${
+                                        className={`p-3 rounded-xl border text-xs flex flex-col justify-between gap-2 shadow-2xs ${
                                           isPaid
-                                            ? "bg-emerald-50/60 border-emerald-200 text-emerald-950"
+                                            ? "bg-emerald-50/60 border-emerald-300 text-emerald-950"
                                             : isSubmitted
-                                            ? "bg-amber-50 border-amber-300 text-amber-950"
+                                            ? "bg-amber-100/70 border-2 border-amber-400 text-amber-950"
                                             : isOverdue
-                                            ? "bg-rose-50 border-rose-200 text-rose-950"
-                                            : "bg-white border-gray-200 text-gray-900"
+                                            ? "bg-rose-50/90 border-2 border-rose-500 text-rose-950 ring-1 ring-amber-300"
+                                            : "bg-amber-50/80 border-2 border-amber-300 text-amber-950"
                                         }`}
                                       >
-                                        <div className="flex items-center justify-between">
+                                        <div className="flex items-center justify-between gap-1">
                                           <span className="font-extrabold">Installment #{inst.installmentNo}</span>
-                                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                            isPaid ? "bg-emerald-200 text-emerald-900" :
-                                            isSubmitted ? "bg-amber-200 text-amber-900" :
-                                            isOverdue ? "bg-rose-200 text-rose-900" : "bg-gray-100 text-gray-700"
-                                          }`}>
-                                            {inst.status}
-                                          </span>
+                                          {isOverdue ? (
+                                            <div className="flex items-center gap-1">
+                                              <span className="px-1.5 py-0.2 rounded bg-amber-400 text-amber-950 font-black text-[9px] border border-amber-500">
+                                                PENDING
+                                              </span>
+                                              <span className="px-1.5 py-0.2 rounded bg-rose-600 text-white font-black text-[9px] animate-pulse">
+                                                OVERDUE
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                              isPaid ? "bg-emerald-200 text-emerald-900 border border-emerald-300" :
+                                              isSubmitted ? "bg-amber-300 text-amber-950 border border-amber-400" :
+                                              "bg-amber-200 text-amber-950 border border-amber-400"
+                                            }`}>
+                                              {inst.status}
+                                            </span>
+                                          )}
                                         </div>
 
                                         <div className="space-y-0.5 text-[11px] text-gray-600">

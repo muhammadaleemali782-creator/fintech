@@ -95,8 +95,8 @@ function LiveRollingProfit({ activeCapital = 0, baseProfit = 0, isAdmin = false,
 
     const update = () => {
       const now = Date.now();
-      // Tick at fluid ~55-60fps directly in DOM (18ms) - zero React re-render lag across forms/modals
-      if (now - lastTick >= 18) {
+      // Tick at fluid 60fps directly in DOM (16ms) - zero React re-render lag across forms/modals
+      if (now - lastTick >= 16) {
         lastTick = now;
         const liveTodayEarned = Math.max(0, now - startOfToday) * perMsYield;
         const totalProfit = parsedBase + liveTodayEarned;
@@ -182,8 +182,8 @@ function LiveTodayAccrued({ activeCapital = 0, isAdmin = false }) {
 
     const update = () => {
       const now = Date.now();
-      // Tick at fluid ~55-60fps directly in DOM (18ms)
-      if (now - lastTick >= 18) {
+      // Tick at fluid 60fps directly in DOM (16ms)
+      if (now - lastTick >= 16) {
         lastTick = now;
         const liveTodayEarned = Math.max(0, now - startOfToday) * perMsYield;
         if (spanRef.current) {

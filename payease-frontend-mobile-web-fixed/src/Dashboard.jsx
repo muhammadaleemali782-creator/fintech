@@ -6733,9 +6733,20 @@ export default function Dashboard() {
             <div className="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-2xl p-5 text-white shadow-md">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-100">Loan Account</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white uppercase">
-                  {activePersonalLoan.status}
-                </span>
+                {activePersonalLoan.status === "active" && (activePersonalLoan.penaltyDue > 0 || (activePersonalLoan.overdueCount || 0) > 0) ? (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-amber-950 border border-amber-500 shadow-2xs">
+                      ⏳ PENDING DUE
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-600 text-white shadow-2xs animate-pulse">
+                      🚨 OVERDUE
+                    </span>
+                  </div>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white uppercase">
+                    {activePersonalLoan.status}
+                  </span>
+                )}
               </div>
               <div className="text-2xl sm:text-3xl font-black font-mono my-1 tracking-wider">
                 {activePersonalLoan.accountNumber || "EFS0000001"}
@@ -6831,30 +6842,41 @@ export default function Dashboard() {
               if (penalty <= 0 && overdueCount <= 0) return null;
 
               return (
-                <div className="p-3.5 bg-rose-50 border-2 border-rose-300 rounded-2xl text-xs space-y-2 text-rose-950">
-                  <div className="flex items-center justify-between font-black">
-                    <span className="flex items-center gap-1.5 text-rose-700">
-                       Overdue & Rollover Notice
-                    </span>
-                    <span className="bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full text-[10px] font-mono font-black">
+                <div className="p-3.5 bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border-2 border-rose-400 rounded-2xl text-xs space-y-2 text-rose-950 shadow-xs">
+                  <div className="flex items-center justify-between font-black flex-wrap gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-amber-950 border border-amber-500 shadow-2xs">
+                        ⏳ PENDING DUE
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-600 text-white shadow-2xs animate-pulse">
+                        🚨 OVERDUE (+2% PENALTY)
+                      </span>
+                    </div>
+                    <span className="bg-rose-200 text-rose-900 border border-rose-300 px-2 py-0.5 rounded-full text-[10px] font-mono font-black">
                       {overdueCount} Kist Missed
                     </span>
                   </div>
-                  <p className="text-[11px] text-rose-800 leading-tight">
+                  <p className="text-[11px] text-rose-800 leading-tight font-medium">
                     Kist subah 10:00 AM se pehle jama nahi hui. Niyam ke mutabiq <strong>chhooti hui kist agli kist me jud jayegi</strong> ya aap agli kist se pehle bhi bhar sakte hain!
                   </p>
-                  <div className="bg-white/90 p-2.5 rounded-xl border border-rose-200 space-y-1 text-[11px] font-mono">
-                    <div className="flex justify-between text-gray-700">
-                      <span>Chhooti Hui Kist (Missed EMI):</span>
-                      <span className="font-bold text-gray-900">₹{missedAmt.toLocaleString("en-IN")}</span>
+                  <div className="bg-white/95 p-2.5 rounded-xl border-2 border-rose-300 space-y-1.5 text-[11px] font-mono shadow-2xs">
+                    <div className="flex justify-between items-center text-gray-700">
+                      <span className="text-amber-900 font-bold flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.2 rounded bg-amber-400 text-amber-950 font-black text-[9px]">PENDING</span>
+                        <span>Chhooti Hui Kist (Missed EMI):</span>
+                      </span>
+                      <span className="font-bold text-amber-950 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded">₹{missedAmt.toLocaleString("en-IN")}</span>
                     </div>
-                    <div className="flex justify-between text-rose-700">
-                      <span>2% Overdue Penalty:</span>
-                      <span className="font-bold text-rose-700">+₹{penalty.toLocaleString("en-IN")}</span>
+                    <div className="flex justify-between items-center text-rose-700">
+                      <span className="text-rose-700 font-bold flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.2 rounded bg-rose-600 text-white font-black text-[9px] animate-pulse">OVERDUE</span>
+                        <span>2% Overdue Penalty:</span>
+                      </span>
+                      <span className="font-bold text-rose-700 bg-rose-50 border border-rose-300 px-2 py-0.5 rounded">+₹{penalty.toLocaleString("en-IN")}</span>
                     </div>
-                    <div className="flex justify-between text-indigo-950 font-extrabold pt-1.5 border-t border-rose-100 text-xs">
+                    <div className="flex justify-between items-center text-indigo-950 font-black pt-1.5 border-t border-rose-100 text-xs">
                       <span>Abhi Kul Bharna Hoga (EMI + Penalty):</span>
-                      <span className="text-emerald-700 font-black">₹{(missedAmt + penalty).toLocaleString("en-IN")}</span>
+                      <span className="text-rose-900 bg-gradient-to-r from-amber-100 to-rose-200 border border-rose-300 px-2.5 py-0.5 rounded-md font-black">₹{(missedAmt + penalty).toLocaleString("en-IN")}</span>
                     </div>
                   </div>
                 </div>
@@ -6953,12 +6975,12 @@ export default function Dashboard() {
                         key={inst.installmentNo}
                         className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
                           isPaid
-                            ? "bg-emerald-50/70 border-emerald-200"
+                            ? "bg-emerald-50/70 border-emerald-300 text-emerald-950"
                             : isSubmitted
-                            ? "bg-amber-50 border-amber-300"
+                            ? "bg-amber-100/70 border-2 border-amber-400 text-amber-950"
                             : isOverdue
-                            ? "bg-rose-50 border-rose-200"
-                            : "bg-white border-gray-200"
+                            ? "bg-rose-50/90 border-2 border-rose-500 text-rose-950 ring-1 ring-amber-300"
+                            : "bg-amber-50/80 border-2 border-amber-300 text-amber-950"
                         }`}
                       >
                         <div className="space-y-0.5">
@@ -7004,13 +7026,24 @@ export default function Dashboard() {
                         </div>
 
                         <div className="shrink-0 flex flex-col items-end gap-1">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                            isPaid ? "bg-emerald-200 text-emerald-900" :
-                            isSubmitted ? "bg-amber-200 text-amber-900" :
-                            isOverdue ? "bg-rose-200 text-rose-900" : "bg-gray-100 text-gray-700"
-                          }`}>
-                            {isOverdue ? "OVERDUE (10 AM)" : inst.status}
-                          </span>
+                          {isOverdue ? (
+                            <div className="flex items-center gap-1">
+                              <span className="px-1.5 py-0.2 rounded bg-amber-400 text-amber-950 font-black text-[9px] border border-amber-500">
+                                PENDING
+                              </span>
+                              <span className="px-1.5 py-0.2 rounded bg-rose-600 text-white font-black text-[9px] animate-pulse">
+                                OVERDUE
+                              </span>
+                            </div>
+                          ) : (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              isPaid ? "bg-emerald-200 text-emerald-900 border border-emerald-300" :
+                              isSubmitted ? "bg-amber-300 text-amber-950 border border-amber-400" :
+                              "bg-amber-200 text-amber-950 border border-amber-400"
+                            }`}>
+                              {inst.status}
+                            </span>
+                          )}
 
                           {!isPaid && !isSubmitted && activePersonalLoan.status === "active" && (
                             <button

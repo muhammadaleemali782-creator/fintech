@@ -11519,7 +11519,35 @@ export default function AdminPanel() {
                             </div>
                             <p className="text-xs text-gray-400">{l.userId?.email} • Phone: {l.userId?.phone || "N/A"}</p>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${loanStatusColor[l.status] || "bg-gray-100"}`}>{l.status.toUpperCase()}</span>
+                          {/* Status Badge (Pending = Yellow, Overdue = Dual Yellow + Red) */}
+                          <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto shrink-0">
+                            {l.status === "rejected" ? (
+                              <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                REJECTED
+                              </span>
+                            ) : l.status === "active" && Boolean(l.penaltyDue > 0 || l.overdueInstallmentsCount > 0 || l.overdueCount > 0) ? (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-400 text-amber-950 border border-amber-500 shadow-2xs flex items-center gap-1">
+                                  <span>⏳</span> PENDING DUE
+                                </span>
+                                <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-rose-600 text-white border border-rose-700 shadow-2xs animate-pulse flex items-center gap-1">
+                                  <span>🚨</span> OVERDUE
+                                </span>
+                              </div>
+                            ) : l.status === "pending" ? (
+                              <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-400 text-amber-950 border border-amber-500 shadow-2xs flex items-center gap-1">
+                                <span>⏳</span> PENDING APPROVAL
+                              </span>
+                            ) : (
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${
+                                l.status === "active"
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                  : "bg-slate-100 text-slate-800 border border-slate-300"
+                              }`}>
+                                {l.status.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Compact Actor Line (Raised By & Approved By + Collapsible Audit) */}

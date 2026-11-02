@@ -1409,17 +1409,98 @@ export default function AdminPanel() {
     return users.filter(u => u.bankChangeRequest && u.bankChangeRequest.status === "pending");
   }, [users]);
   const [userFilter, setUserFilter] = useState("all"); // 'all' | 'customers' | 'agents'
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userQuickFilter, setUserQuickFilter] = useState("all"); // 'all' | 'with_balance' | 'kyc_verified' | 'kyc_pending' | 'vip' | 'staff'
   const [agentFilter, setAgentFilter] = useState("all"); // 'all' | 'approved' | 'pending'
 
   const filteredUsers = useMemo(() => {
     if (!Array.isArray(users)) return [];
+    const q = userSearchQuery.trim().toLowerCase();
+    const terms = q ? q.split(/\s+/).filter(Boolean) : [];
+
     return users.filter(u => {
+      // 1. Role pill filter
       const isAgent = u.role === "agent" || u.agentProfile?.status === "approved";
-      if (userFilter === "agents") return isAgent;
-      if (userFilter === "customers") return !isAgent;
+      if (userFilter === "agents" && !isAgent) return false;
+      if (userFilter === "customers" && isAgent) return false;
+
+      // 2. Quick filter chip
+      if (userQuickFilter === "with_balance") {
+        const bal = Number(u.depositBalance ?? u.balance ?? 0);
+        if (bal <= 0) return false;
+      } else if (userQuickFilter === "kyc_verified") {
+        if (u.kycStatus !== "verified") return false;
+      } else if (userQuickFilter === "kyc_pending") {
+        if (u.kycStatus !== "pending") return false;
+      } else if (userQuickFilter === "vip") {
+        if (!u.isVip && !u.cardTierVip) return false;
+      } else if (userQuickFilter === "staff") {
+        if (u.role !== "staff") return false;
+      }
+
+      // 3. Universal Search query across all fields ("hr types se search")
+      if (terms.length > 0) {
+        const lineage = getUserLineage(u, users, agents);
+        const name = (u.name || "").toLowerCase();
+        const acct = (u.accountNumber || `EFS${String(u._id).slice(-7).toUpperCase()}`).toLowerCase();
+        const phone = (u.phone || "").toLowerCase();
+        const email = (u.email || "").toLowerCase();
+        const kyc = (u.kycStatus || "none").toLowerCase();
+        const aadhar = (u.kycDocuments?.aadharNumber || "").toLowerCase();
+        const pan = (u.kycDocuments?.panNumber || "").toLowerCase();
+        const role = (u.role || "customer").toLowerCase();
+        const cardTier = (u.cardTier || "silver").toLowerCase();
+        const refCode = (u.referralCode || "").toLowerCase();
+        const refBy = (u.referredByCode || (typeof u.referredBy === "string" ? u.referredBy : u.referredBy?.referralCode || "") || "").toLowerCase();
+        const agentName = (lineage?.agentName || "").toLowerCase();
+        const agentLabel = (lineage?.label || "").toLowerCase();
+        const depts = (u.staffProfile?.departments || []).join(" ").toLowerCase();
+        const balanceStr = String(u.depositBalance ?? u.balance ?? 0);
+        const apyStr = String(u.customInterestRate ?? u.interestRate ?? 12);
+
+        const isMatch = terms.every(term => {
+          if (term === "vip") {
+            return Boolean(u.isVip || u.cardTierVip || cardTier.includes("vip"));
+          }
+          if (term === "verified" || term === "pending" || term === "rejected") {
+            return kyc.includes(term);
+          }
+          if (term === "agent") {
+            return isAgent || agentName.length > 0 || agentLabel.includes("agent");
+          }
+          if (term === "staff") {
+            return u.role === "staff";
+          }
+          if (term === "customer") {
+            return !isAgent && u.role !== "staff" && u.role !== "admin";
+          }
+
+          return (
+            name.includes(term) ||
+            acct.includes(term) ||
+            phone.includes(term) ||
+            email.includes(term) ||
+            kyc.includes(term) ||
+            aadhar.includes(term) ||
+            pan.includes(term) ||
+            role.includes(term) ||
+            cardTier.includes(term) ||
+            refCode.includes(term) ||
+            refBy.includes(term) ||
+            agentName.includes(term) ||
+            agentLabel.includes(term) ||
+            depts.includes(term) ||
+            balanceStr.includes(term) ||
+            apyStr.includes(term)
+          );
+        });
+
+        if (!isMatch) return false;
+      }
+
       return true;
     });
-  }, [users, userFilter]);
+  }, [users, userFilter, userQuickFilter, userSearchQuery, agents]);
 
   const filteredAgents = useMemo(() => {
     if (!Array.isArray(agents)) return [];
@@ -10625,8 +10706,110 @@ export default function AdminPanel() {
                 </button>
               </div>
 
+              {/* UNIVERSAL SEARCH BAR & QUICK FILTERS (Desktop & Mobile Optimized) */}
+              <div className="mb-4 space-y-2.5">
+                <div className="relative flex items-center">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 text-sm">
+                    🔍
+                  </span>
+                  <input
+                    type="text"
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    placeholder="Search by Name, A/C (e.g. EFS0000051), Phone, Email, UID/Aadhaar, Tier, Agent, Role..."
+                    className="w-full pl-10 pr-28 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-500 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-2xs transition"
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1.5">
+                    {userSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setUserSearchQuery("")}
+                        className="w-5 h-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center text-[11px] font-bold transition cursor-pointer active:scale-90"
+                        title="Clear search"
+                      >
+                        ✕
+                      </button>
+                    )}
+                    <span className="text-[10px] font-mono font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
+                      {filteredUsers.length} Found
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Filters Row */}
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                      <span>⚡</span> Quick:
+                    </span>
+                    {[
+                      { key: "all", label: "All" },
+                      { key: "with_balance", label: "₹ With Capital" },
+                      { key: "kyc_verified", label: "✓ Verified KYC" },
+                      { key: "kyc_pending", label: "⏳ Pending KYC" },
+                      { key: "vip", label: "👑 VIP Tier" },
+                      { key: "staff", label: "🛡️ Staff Desk" },
+                    ].map((chip) => {
+                      const isSelected = userQuickFilter === chip.key;
+                      return (
+                        <button
+                          key={chip.key}
+                          type="button"
+                          onClick={() => setUserQuickFilter(chip.key)}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer active:scale-95 ${
+                            isSelected
+                              ? "bg-slate-900 text-white shadow-2xs"
+                              : "bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/80"
+                          }`}
+                        >
+                          {chip.label}
+                        </button>
+                      );
+                    })}
+                    {(userSearchQuery || userQuickFilter !== "all" || userFilter !== "all") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserSearchQuery("");
+                          setUserQuickFilter("all");
+                          setUserFilter("all");
+                        }}
+                        className="px-2 py-0.5 text-[10px] font-extrabold text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-md transition cursor-pointer"
+                      >
+                        Reset All ✕
+                      </button>
+                    )}
+                  </div>
+
+                  <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+                    Showing <strong className="text-slate-900 font-bold">{filteredUsers.length}</strong> of {users.length} users
+                  </span>
+                </div>
+              </div>
+
               {filteredUsers.length === 0 ? (
-                <p className="py-10 text-center text-gray-400 text-sm">No users found for this filter</p>
+                <div className="py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                  <span className="text-3xl block">🔍</span>
+                  <p className="font-extrabold text-slate-800 text-sm">
+                    {userSearchQuery ? `"${userSearchQuery}" ke liye koi user nahi mila` : "Koi user nahi mila is filter ke sath"}
+                  </p>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Kripya search spelling check karein ya filters reset karein. Aap Name, Account Number, Phone, Email, UID, Tier ya Agent se search kar sakte hain.
+                  </p>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserSearchQuery("");
+                        setUserQuickFilter("all");
+                        setUserFilter("all");
+                      }}
+                      className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                    >
+                      Clear Search & Show All Users
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <>
                   <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/80 shadow-xs bg-white">

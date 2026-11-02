@@ -1257,6 +1257,8 @@ export default function AdminPanel() {
   const [approvedLoading, setApprovedLoading] = useState(false);
   const [approvedFilter, setApprovedFilter] = useState("all");
   const [approvedSearch, setApprovedSearch] = useState("");
+  const [pendingUserFilter, setPendingUserFilter] = useState("all"); // 'all' | 'kyc' | 'bank' | 'agent'
+  const [pendingUserSearch, setPendingUserSearch] = useState("");
   const [holdData, setHoldData] = useState(() => appCache.get("educa_admin_cached_hold", { holdCount: 0, groups: [] }));
   const [loadingHold, setLoadingHold] = useState(false);
   const [agents, setAgents] = useState(() => {
@@ -2207,13 +2209,13 @@ export default function AdminPanel() {
   }, [headers]); // eslint-disable-line
 
   const viewKycDocInLightbox = useCallback(async (item, docKey) => {
-    const directUrl = item?.documents?.[docKey];
+    const directUrl = item?.documents?.[docKey] || item?.kycDocuments?.[docKey];
     if (directUrl && (directUrl.startsWith("http://") || directUrl.startsWith("https://") || directUrl.startsWith("data:"))) {
       setLightboxImg(directUrl);
       setZoomLevel(1);
       return;
     }
-    const rawId = (item.id || "").toString().replace("kyc_", "");
+    const rawId = (item.id || item._id || "").toString().replace("kyc_", "");
     if (!rawId) return;
     try {
       showToast("Loading document image...", "info");
@@ -3087,6 +3089,7 @@ export default function AdminPanel() {
         loadPending(true);
         if (pendingSubTab === "loans") loadLoans(true);
         else if (pendingSubTab === "bonds") loadBonds(true);
+        else if (pendingSubTab === "users") loadUsers(true);
         else if (pendingSubTab === "hold") loadHoldData(true);
         else if (pendingSubTab === "approved") loadApprovedRequests(true);
       } else if (tab === "analytics") {
@@ -3111,6 +3114,7 @@ export default function AdminPanel() {
           loadPending(true);
           if (pendingSubTab === "loans") loadLoans(true);
           else if (pendingSubTab === "bonds") loadBonds(true);
+          else if (pendingSubTab === "users") loadUsers(true);
           else if (pendingSubTab === "hold") loadHoldData(true);
           else if (pendingSubTab === "approved") loadApprovedRequests(true);
         } else if (tab === "analytics") {
@@ -3606,12 +3610,16 @@ export default function AdminPanel() {
       if (res.ok) {
         apiCache.clear();
         loadUsers(true);
+        loadApprovedRequests(true);
+        loadPendingDeskCounts(true);
       } else {
         loadUsers(true);
+        loadPendingDeskCounts(true);
       }
     } catch {
       showToast("Failed to approve KYC", "error");
       loadUsers(true);
+      loadPendingDeskCounts(true);
     }
   };
 
@@ -3632,12 +3640,16 @@ export default function AdminPanel() {
       if (res.ok) {
         apiCache.clear();
         loadUsers(true);
+        loadApprovedRequests(true);
+        loadPendingDeskCounts(true);
       } else {
         loadUsers(true);
+        loadPendingDeskCounts(true);
       }
     } catch {
       showToast("Failed to reject KYC", "error");
       loadUsers(true);
+      loadPendingDeskCounts(true);
     }
   };
 
@@ -3653,12 +3665,16 @@ export default function AdminPanel() {
       if (res.ok) {
         apiCache.clear();
         loadUsers(true);
+        loadApprovedRequests(true);
+        loadPendingDeskCounts(true);
       } else {
         loadUsers(true);
+        loadPendingDeskCounts(true);
       }
     } catch (err) {
       showToast("Failed to approve bank change: " + err.message, "error");
       loadUsers(true);
+      loadPendingDeskCounts(true);
     }
   };
 
@@ -3674,12 +3690,16 @@ export default function AdminPanel() {
       if (res.ok) {
         apiCache.clear();
         loadUsers(true);
+        loadApprovedRequests(true);
+        loadPendingDeskCounts(true);
       } else {
         loadUsers(true);
+        loadPendingDeskCounts(true);
       }
     } catch (err) {
       showToast("Failed to reject bank change: " + err.message, "error");
       loadUsers(true);
+      loadPendingDeskCounts(true);
     }
   };
 
@@ -7229,6 +7249,31 @@ export default function AdminPanel() {
                     </span>
                   </button>
 
+                  {/* Users / KYC Pill */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingSubTab("users");
+                      loadUsers(true);
+                    }}
+                    className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 ${
+                      pendingSubTab === "users"
+                        ? "bg-purple-600 text-white shadow-xs"
+                        : "text-purple-700 hover:text-purple-900 hover:bg-purple-50"
+                    }`}
+                  >
+                    <span>Users / KYC</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black min-w-[20px] text-center inline-flex items-center justify-center ${
+                      (pendingKycCount + pendingBankChangeUsers.length > 0 || (pendingDeskCounts?.users || 0) > 0)
+                        ? pendingSubTab === "users"
+                          ? "bg-white text-purple-900 animate-pulse"
+                          : "bg-purple-100 text-purple-900 animate-pulse border border-purple-300 font-extrabold"
+                        : "bg-slate-200 text-slate-600"
+                    }`}>
+                      {pendingDeskCounts?.users ?? (pendingKycCount + pendingBankChangeUsers.length)}
+                    </span>
+                  </button>
+
                   {/* On Hold Pill */}
                   <button
                     type="button"
@@ -7296,6 +7341,7 @@ export default function AdminPanel() {
                       if (pendingSubTab === "hold") loadHoldData(true);
                       else if (pendingSubTab === "loans") loadLoans(true);
                       else if (pendingSubTab === "bonds") loadBonds(true);
+                      else if (pendingSubTab === "users") loadUsers(true);
                       else if (pendingSubTab === "approved") loadApprovedRequests(true);
                       else loadPending(true);
                     }}
@@ -8191,6 +8237,393 @@ export default function AdminPanel() {
               )}
 
               {/* ══════════════════════════════════════════════════════
+                  VIEW 3.5: PENDING USERS & KYC DESK
+              ══════════════════════════════════════════════════════ */}
+              {pendingSubTab === "users" && (() => {
+                const pendingKycList = (Array.isArray(users) ? users : []).filter(u => u.kycStatus === "pending");
+                const pendingBankList = (Array.isArray(users) ? users : []).filter(u => u.bankChangeRequest && u.bankChangeRequest.status === "pending");
+                const pendingAgentList = (Array.isArray(users) ? users : []).filter(u => u.agentProfile && u.agentProfile.status === "pending");
+
+                // Unified pending user action items
+                const allPendingUserItems = [];
+                for (const u of pendingKycList) {
+                  allPendingUserItems.push({
+                    type: "kyc",
+                    user: u,
+                    id: "pending_kyc_" + u._id,
+                    title: "KYC Verification",
+                    badge: "Pending KYC",
+                    badgeColor: "bg-amber-100 text-amber-900 border-amber-300",
+                    timestamp: u.kycDocuments?.submittedAt || u.createdAt
+                  });
+                }
+                for (const u of pendingBankList) {
+                  allPendingUserItems.push({
+                    type: "bank",
+                    user: u,
+                    id: "pending_bank_" + u._id,
+                    title: "Bank Account Change",
+                    badge: "Bank Change",
+                    badgeColor: "bg-blue-100 text-blue-900 border-blue-300",
+                    timestamp: u.bankChangeRequest?.requestedAt || u.createdAt
+                  });
+                }
+                for (const u of pendingAgentList) {
+                  allPendingUserItems.push({
+                    type: "agent",
+                    user: u,
+                    id: "pending_agent_" + u._id,
+                    title: "Agent Application",
+                    badge: "Agent Application",
+                    badgeColor: "bg-purple-100 text-purple-900 border-purple-300",
+                    timestamp: u.agentProfile?.appliedAt || u.createdAt
+                  });
+                }
+
+                // Sub-filter
+                let filteredItems = allPendingUserItems;
+                if (pendingUserFilter === "kyc") filteredItems = filteredItems.filter(i => i.type === "kyc");
+                else if (pendingUserFilter === "bank") filteredItems = filteredItems.filter(i => i.type === "bank");
+                else if (pendingUserFilter === "agent") filteredItems = filteredItems.filter(i => i.type === "agent");
+
+                // Search
+                if (pendingUserSearch && pendingUserSearch.trim()) {
+                  const s = pendingUserSearch.trim().toLowerCase();
+                  filteredItems = filteredItems.filter(i => {
+                    const u = i.user;
+                    return (
+                      (u.name || "").toLowerCase().includes(s) ||
+                      (u.phone || "").toLowerCase().includes(s) ||
+                      (u.email || "").toLowerCase().includes(s) ||
+                      (u.accountNumber || "").toLowerCase().includes(s) ||
+                      (u.kycDocuments?.aadharNumber || "").toLowerCase().includes(s) ||
+                      (u.kycDocuments?.panNumber || "").toLowerCase().includes(s) ||
+                      (u.bankChangeRequest?.bankName || "").toLowerCase().includes(s) ||
+                      (u.bankChangeRequest?.accountNumber || "").toLowerCase().includes(s)
+                    );
+                  });
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {/* Header Banner */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-purple-50 via-indigo-50 to-pink-50 border border-purple-200 p-4 rounded-2xl shadow-2xs">
+                      <div>
+                        <h3 className="text-base sm:text-lg font-bold font-display text-purple-950 flex items-center gap-2">
+                          <span>👤</span> Pending Users & KYC Desk
+                        </h3>
+                        <p className="text-xs text-purple-800 mt-0.5 font-medium">
+                          Review Aadhaar / PAN identity documents, bank changes, and agent partner applications.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            loadUsers(true);
+                            loadPendingDeskCounts(true);
+                          }}
+                          className="px-3.5 py-2 bg-white hover:bg-purple-50 text-purple-800 border border-purple-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
+                        >
+                          <span>Refresh Users</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Filter Pills Bar */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                      <button
+                        type="button"
+                        onClick={() => setPendingUserFilter("all")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          pendingUserFilter === "all"
+                            ? "bg-purple-700 text-white shadow-xs"
+                            : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                        }`}
+                      >
+                        All Pending ({allPendingUserItems.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingUserFilter("kyc")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          pendingUserFilter === "kyc"
+                            ? "bg-amber-600 text-white shadow-xs"
+                            : "bg-white text-amber-800 hover:bg-amber-50 border border-amber-200"
+                        }`}
+                      >
+                        🪪 Pending KYC ({pendingKycList.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingUserFilter("bank")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          pendingUserFilter === "bank"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "bg-white text-blue-800 hover:bg-blue-50 border border-blue-200"
+                        }`}
+                      >
+                        🏦 Bank Change ({pendingBankList.length})
+                      </button>
+                      {pendingAgentList.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setPendingUserFilter("agent")}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                            pendingUserFilter === "agent"
+                              ? "bg-indigo-600 text-white shadow-xs"
+                              : "bg-white text-indigo-800 hover:bg-indigo-50 border border-indigo-200"
+                          }`}
+                        >
+                          🤝 Agents ({pendingAgentList.length})
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={pendingUserSearch}
+                        onChange={(e) => setPendingUserSearch(e.target.value)}
+                        placeholder="Search pending users by name, phone, email, A/C number, Aadhaar UID, PAN..."
+                        className="w-full pl-4 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
+                      />
+                    </div>
+
+                    {/* Cards List */}
+                    {filteredItems.length === 0 ? (
+                      <div className="py-12 text-center text-gray-400 bg-slate-50 rounded-2xl border border-dashed border-gray-200 space-y-2">
+                        <span className="text-3xl block">✓</span>
+                        <p className="text-sm font-semibold text-gray-700">Koi pending user ya KYC request nahi hai.</p>
+                        <p className="text-xs text-gray-400">Sabhi users verify aur process ho chuke hain.</p>
+                        <button
+                          type="button"
+                          onClick={() => setPendingSubTab("approved")}
+                          className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+                        >
+                          View Approved Requests Console →
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {filteredItems.map(item => {
+                          const u = item.user;
+                          return (
+                            <div
+                              key={item.id}
+                              className="bg-white border border-purple-200/80 hover:border-purple-300 rounded-2xl p-4 shadow-2xs space-y-3 transition"
+                            >
+                              {/* Top Bar: Icon + Badge + Date */}
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base">{item.type === "kyc" ? "🪪" : item.type === "bank" ? "🏦" : "🤝"}</span>
+                                  <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${item.badgeColor}`}>
+                                    {item.badge}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-medium">
+                                  <span>{item.timestamp ? new Date(item.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Recent"}</span>
+                                </div>
+                              </div>
+
+                              {/* Middle: User Info Strip */}
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-purple-50/50 rounded-xl border border-purple-100">
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-slate-900 text-sm sm:text-base">{u.name}</span>
+                                    {u.accountNumber && (
+                                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded border text-purple-700 bg-white border-purple-200">
+                                        {u.accountNumber}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-600 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                                    <span>📞 {u.phone}</span>
+                                    <span>✉️ {u.email}</span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {item.type === "kyc" && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setKycReviewRemarks(u.kycDocuments?.adminRemarks || "");
+                                          setPreviewKycUser(u);
+                                        }}
+                                        className="px-3 py-1.5 bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                                      >
+                                        🔍 Inspect Dossier
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => approveKyc(u._id)}
+                                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition cursor-pointer active:scale-95"
+                                      >
+                                        ✓ Approve KYC
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const reason = window.prompt("KYC reject karne ka reason likhein:", "Aadhaar / PAN document unclear");
+                                          if (reason !== null) rejectKyc(u._id, reason);
+                                        }}
+                                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95"
+                                      >
+                                        ✕ Reject
+                                      </button>
+                                    </>
+                                  )}
+
+                                  {item.type === "bank" && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => approveBankChange(u._id, "Bank change approved")}
+                                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition cursor-pointer active:scale-95"
+                                      >
+                                        ✓ Approve Bank Change
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const reason = window.prompt("Bank change reject karne ka reason likhein:", "Bank details could not be verified");
+                                          if (reason !== null) rejectBankChange(u._id, reason);
+                                        }}
+                                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95"
+                                      >
+                                        ✕ Reject
+                                      </button>
+                                    </>
+                                  )}
+
+                                  {item.type === "agent" && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => approveAgent(u._id)}
+                                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition cursor-pointer active:scale-95"
+                                      >
+                                        ✓ Approve Agent
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => rejectAgent(u._id)}
+                                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95"
+                                      >
+                                        ✕ Reject
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Details Strip */}
+                              {item.type === "kyc" && (
+                                <div className="text-xs space-y-2">
+                                  <div className="flex flex-wrap items-center gap-3 text-slate-700">
+                                    {u.kycDocuments?.aadharNumber && (
+                                      <div className="bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                        <span className="text-[10px] text-slate-400 block font-bold">Aadhaar UID</span>
+                                        <span className="font-mono font-bold text-slate-800">{u.kycDocuments.aadharNumber}</span>
+                                      </div>
+                                    )}
+                                    {u.kycDocuments?.panNumber && (
+                                      <div className="bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                        <span className="text-[10px] text-slate-400 block font-bold">PAN Card</span>
+                                        <span className="font-mono font-bold text-slate-800">{u.kycDocuments.panNumber}</span>
+                                      </div>
+                                    )}
+                                    {u.kycDocuments?.chequeNumber && (
+                                      <div className="bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                        <span className="text-[10px] text-slate-400 block font-bold">Cheque No</span>
+                                        <span className="font-mono font-bold text-slate-800">{u.kycDocuments.chequeNumber}</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Document Preview Buttons */}
+                                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Documents:</span>
+                                    {u.kycDocuments?.doc1Url && (
+                                      <button
+                                        type="button"
+                                        onClick={() => viewKycDocInLightbox(u, "doc1Url")}
+                                        className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer"
+                                      >
+                                        🪪 Aadhaar Front
+                                      </button>
+                                    )}
+                                    {u.kycDocuments?.doc1BackUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() => viewKycDocInLightbox(u, "doc1BackUrl")}
+                                        className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer"
+                                      >
+                                        Aadhaar Back
+                                      </button>
+                                    )}
+                                    {u.kycDocuments?.doc2Url && (
+                                      <button
+                                        type="button"
+                                        onClick={() => viewKycDocInLightbox(u, "doc2Url")}
+                                        className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer"
+                                      >
+                                        PAN Front
+                                      </button>
+                                    )}
+                                    {u.kycDocuments?.doc2BackUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() => viewKycDocInLightbox(u, "doc2BackUrl")}
+                                        className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:text-blue-700 transition cursor-pointer"
+                                      >
+                                        PAN Back
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {item.type === "bank" && u.bankChangeRequest && (
+                                <div className="text-xs p-3 bg-blue-50/60 rounded-xl border border-blue-100 space-y-1">
+                                  <div className="font-extrabold text-blue-950">
+                                    New Bank: {u.bankChangeRequest.bankName || "—"} • A/C: {u.bankChangeRequest.accountNumber || "—"}
+                                  </div>
+                                  <div className="text-blue-800 text-[11px] font-mono">
+                                    IFSC: {u.bankChangeRequest.ifsc || "—"} • Holder: {u.bankChangeRequest.holderName || "—"}
+                                    {u.bankChangeRequest.upiId ? ` • UPI: ${u.bankChangeRequest.upiId}` : ""}
+                                  </div>
+                                  {u.bankChangeRequest.reason && (
+                                    <div className="text-slate-600 text-[11px] italic mt-1">
+                                      User's Reason: "{u.bankChangeRequest.reason}"
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {item.type === "agent" && u.agentProfile && (
+                                <div className="text-xs p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-1">
+                                  <div className="font-extrabold text-indigo-950">
+                                    Business: {u.agentProfile.businessName || u.name}
+                                  </div>
+                                  <div className="text-indigo-800 text-[11px]">
+                                    Mobile: {u.agentProfile.mobile || u.phone} • Address: {u.agentProfile.businessAddress || "—"}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ══════════════════════════════════════════════════════
                   VIEW 4: ON HOLD — DUPLICATE UTR CONFLICTS
               ══════════════════════════════════════════════════════ */}
               {pendingSubTab === "hold" && (
@@ -8428,13 +8861,67 @@ export default function AdminPanel() {
 
               {/* SUB-TAB 5: APPROVED REQUESTS DESK (With Granular Universal Filters) */}
               {pendingSubTab === "approved" && (() => {
-                const depCount = approvedRequests.filter(i => (i.category === "deposit" || i.type === "deposit") && !i.isLoanRejected && !i.isRejected).length;
-                const withCount = approvedRequests.filter(i => (i.category === "withdrawal" || i.type === "withdrawal") && !i.isLoanRejected && !i.isRejected).length;
-                const normKycCount = approvedRequests.filter(i => i.category === "kyc" && i.subCategory === "normal_kyc" && !i.isLoanRejected && !i.isRejected).length;
-                const fullKycCount = approvedRequests.filter(i => i.category === "kyc" && i.subCategory === "loan_lending_kyc" && !i.isLoanRejected && !i.isRejected).length;
-                const loanCount = approvedRequests.filter(i => i.category === "loan" && !i.isLoanRejected && !i.isRejected).length;
-                const bondCount = approvedRequests.filter(i => i.category === "bond").length;
-                const rejectedCount = approvedRequests.filter(i =>
+                // Synthesize verified users from users state if not yet in audit-history
+                const combinedApproved = (() => {
+                  const list = [...approvedRequests];
+                  const existingUserIds = new Set(
+                    list
+                      .filter(i => i.category === "kyc" || i.category === "user")
+                      .map(i => String(i.id || "").replace("kyc_", "").replace("user_", ""))
+                  );
+                  if (Array.isArray(users)) {
+                    for (const u of users) {
+                      if (u.kycStatus === "verified" && !existingUserIds.has(String(u._id))) {
+                        list.push({
+                          id: 'kyc_' + u._id,
+                          category: 'kyc',
+                          subCategory: 'normal_kyc',
+                          type: 'kyc_verification',
+                          title: 'Normal User KYC',
+                          userName: u.name,
+                          userEmail: u.email,
+                          userPhone: u.phone,
+                          accountNumber: u.accountNumber || '—',
+                          amount: 0,
+                          status: 'approved',
+                          isLoanRejected: false,
+                          isRejected: false,
+                          timestamp: u.kycVerifiedAt || u.createdAt || new Date(),
+                          createdAt: u.createdAt || new Date(),
+                          requestedAt: u.createdAt || new Date(),
+                          approvedAt: u.kycVerifiedAt || u.createdAt || new Date(),
+                          turnaround: '',
+                          approverName: u.kycApprovedBy?.name || 'Admin',
+                          approverDevice: u.kycApprovedBy?.device || '💻 Windows PC • Chrome',
+                          proofUrl: '',
+                          screenshotUrl: '',
+                          hasProof: Boolean(u.kycDocuments?.doc1Url || u.kycDocuments?.doc2Url),
+                          reference: u.accountNumber ? `A/C: ${u.accountNumber}` : `UID: ${u.kycDocuments?.aadharNumber || 'Verified'}`,
+                          referenceId: u.accountNumber || `KYC_${u._id.toString().slice(-6)}`,
+                          notes: u.kycDocuments?.adminRemarks || 'User KYC Verified & Active',
+                          remarks: u.kycDocuments?.adminRemarks || 'User KYC Verified & Active',
+                          hasPhotos: Boolean(u.kycDocuments?.doc1Url || u.kycDocuments?.doc2Url),
+                          documents: {
+                            doc1Url: u.kycDocuments?.doc1Url || '',
+                            doc1BackUrl: u.kycDocuments?.doc1BackUrl || '',
+                            doc2Url: u.kycDocuments?.doc2Url || '',
+                            doc2BackUrl: u.kycDocuments?.doc2BackUrl || ''
+                          }
+                        });
+                      }
+                    }
+                  }
+                  return list;
+                })();
+
+                const depCount = combinedApproved.filter(i => (i.category === "deposit" || i.type === "deposit") && !i.isLoanRejected && !i.isRejected).length;
+                const withCount = combinedApproved.filter(i => (i.category === "withdrawal" || i.type === "withdrawal") && !i.isLoanRejected && !i.isRejected).length;
+                const userApprovedCount = combinedApproved.filter(i => (i.category === "kyc" || i.category === "user" || i.category === "agent" || i.type === "kyc_verification" || i.type === "user_approved" || i.type === "bank_change") && !i.isLoanRejected && !i.isRejected).length;
+                const normKycCount = combinedApproved.filter(i => i.category === "kyc" && i.subCategory === "normal_kyc" && !i.isLoanRejected && !i.isRejected).length;
+                const fullKycCount = combinedApproved.filter(i => i.category === "kyc" && (i.subCategory === "loan_lending_kyc" || i.subCategory === "bank_change") && !i.isLoanRejected && !i.isRejected).length;
+                const loanCount = combinedApproved.filter(i => i.category === "loan" && !i.isLoanRejected && !i.isRejected).length;
+                const bondCount = combinedApproved.filter(i => i.category === "bond").length;
+                const rejectedCount = combinedApproved.filter(i =>
                   Boolean(i.isLoanRejected) ||
                   Boolean(i.isRejected) ||
                   i.status === "rejected" ||
@@ -8445,7 +8932,7 @@ export default function AdminPanel() {
                   String(i.title || "").toLowerCase().includes("reject")
                 ).length;
 
-                const filtered = approvedRequests.filter(item => {
+                const filtered = combinedApproved.filter(item => {
                   const isItemRejected = 
                     Boolean(item.isLoanRejected) ||
                     Boolean(item.isRejected) ||
@@ -8459,8 +8946,9 @@ export default function AdminPanel() {
                   if (approvedFilter === "rejected") return isItemRejected;
                   if (approvedFilter === "deposit" && (!(item.category === "deposit" || item.type === "deposit") || isItemRejected)) return false;
                   if (approvedFilter === "withdrawal" && (!(item.category === "withdrawal" || item.type === "withdrawal") || isItemRejected)) return false;
+                  if (approvedFilter === "users" && (!(item.category === "kyc" || item.category === "user" || item.category === "agent" || item.type === "kyc_verification" || item.type === "user_approved" || item.type === "bank_change") || isItemRejected)) return false;
                   if (approvedFilter === "normal_kyc" && (!(item.category === "kyc" && item.subCategory === "normal_kyc") || isItemRejected)) return false;
-                  if (approvedFilter === "loan_kyc" && (!(item.category === "kyc" && item.subCategory === "loan_lending_kyc") || isItemRejected)) return false;
+                  if (approvedFilter === "loan_kyc" && (!(item.category === "kyc" && (item.subCategory === "loan_lending_kyc" || item.subCategory === "bank_change")) || isItemRejected)) return false;
                   if (approvedFilter === "loan" && (item.category !== "loan" || isItemRejected)) return false;
                   if (approvedFilter === "bond" && (item.category !== "bond" || isItemRejected)) return false;
 
@@ -8516,7 +9004,7 @@ export default function AdminPanel() {
                             : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
                         }`}
                       >
-                        All ({approvedRequests.length})
+                        All ({combinedApproved.length})
                       </button>
                       <button
                         type="button"
@@ -8539,6 +9027,17 @@ export default function AdminPanel() {
                         }`}
                       >
                         Withdrawals ({withCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApprovedFilter("users")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                          approvedFilter === "users"
+                            ? "bg-purple-600 text-white shadow-xs"
+                            : "bg-white text-purple-800 hover:bg-purple-50 border border-purple-200"
+                        }`}
+                      >
+                        👤 Users / KYC ({userApprovedCount})
                       </button>
                       <button
                         type="button"
@@ -8636,8 +9135,11 @@ export default function AdminPanel() {
                           const isWithdrawal = item.category === "withdrawal" || item.type === "withdrawal";
                           const isNormalKyc = item.category === "kyc" && item.subCategory === "normal_kyc";
                           const isFullKyc = item.category === "kyc" && item.subCategory === "loan_lending_kyc";
+                          const isBankChange = item.type === "bank_change" || item.subCategory === "bank_change";
+                          const isAgent = item.category === "agent" || item.type === "agent_application";
                           const isLoan = item.category === "loan";
                           const isBond = item.category === "bond";
+                          const isUserApproved = item.category === "user" || item.category === "kyc" || item.type === "kyc_verification" || item.type === "user_approved" || isBankChange || isAgent;
 
                           const isRejectedRecord =
                             Boolean(item.isLoanRejected) ||
@@ -8655,6 +9157,10 @@ export default function AdminPanel() {
                             ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                             : isWithdrawal
                             ? "bg-blue-100 text-blue-800 border-blue-300"
+                            : isBankChange
+                            ? "bg-cyan-100 text-cyan-800 border-cyan-300"
+                            : isAgent
+                            ? "bg-amber-100 text-amber-800 border-amber-300"
                             : isNormalKyc
                             ? "bg-teal-100 text-teal-800 border-teal-300"
                             : isFullKyc
@@ -8663,7 +9169,7 @@ export default function AdminPanel() {
                             ? "bg-indigo-100 text-indigo-800 border-indigo-300"
                             : "bg-violet-100 text-violet-800 border-violet-300";
 
-                          const icon = isRejectedRecord ? "❌" : isDeposit ? "" : isWithdrawal ? "" : isNormalKyc ? "🪪" : isFullKyc ? "" : isLoan ? "" : "";
+                          const icon = isRejectedRecord ? "❌" : isDeposit ? "💰" : isWithdrawal ? "💸" : isBankChange ? "🏦" : isAgent ? "🤝" : isNormalKyc ? "🪪" : isFullKyc ? "🛡️" : isLoan ? "📋" : isBond ? "🏛️" : "👤";
 
                           const badgeLabel = isRejectedRecord
                             ? "LOAN APPLICATION REJECTED (NO DISBURSAL)"
@@ -8671,6 +9177,10 @@ export default function AdminPanel() {
                             ? "Deposit Approved"
                             : isWithdrawal
                             ? "Withdrawal Completed"
+                            : isBankChange
+                            ? "Bank Account Updated"
+                            : isAgent
+                            ? "Agent Partner Approved"
                             : isNormalKyc
                             ? "Normal KYC Verified"
                             : isFullKyc
@@ -8679,6 +9189,8 @@ export default function AdminPanel() {
                             ? "Loan Disbursed"
                             : isBond
                             ? "Bond Activated"
+                            : isUserApproved
+                            ? "User Account Verified"
                             : item.title;
 
                           return (
@@ -8743,6 +9255,13 @@ export default function AdminPanel() {
                                       <span className="block text-[10px] font-black text-rose-600">Disbursed: ₹0</span>
                                     )}
                                   </div>
+                                ) : isUserApproved ? (
+                                  <div className="text-left sm:text-right">
+                                    <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Account Status</span>
+                                    <span className="font-extrabold text-xs text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200 inline-flex items-center gap-1">
+                                      <span>✓ Verified & Active</span>
+                                    </span>
+                                  </div>
                                 ) : isRejectedRecord ? (
                                   <div className="text-left sm:text-right">
                                     <span className="text-[10px] text-rose-600 block font-black uppercase tracking-wider">Disbursal</span>
@@ -8780,7 +9299,7 @@ export default function AdminPanel() {
                               {/* Documents / Proof Actions */}
                               <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-slate-100">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  {item.category === "kyc" && item.documents && (
+                                  {(item.category === "kyc" || item.category === "user") && item.documents && (
                                     <>
                                       {item.documents.doc1Url && (
                                         <button

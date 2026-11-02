@@ -2170,6 +2170,7 @@ router.get('/pending-desk-counts', protect, staffOrAdmin, async (req, res) => {
       depositsCount,
       loansCount,
       bondsCount,
+      usersCount,
       holdCount,
       approvedTxns,
       verifiedUsers,
@@ -2179,6 +2180,13 @@ router.get('/pending-desk-counts', protect, staffOrAdmin, async (req, res) => {
       Transaction.countDocuments({ status: 'pending' }),
       Loan.countDocuments({ status: 'pending' }),
       Bond.countDocuments({ status: 'pending' }),
+      User.countDocuments({
+        $or: [
+          { kycStatus: 'pending' },
+          { 'bankChangeRequest.status': 'pending' },
+          { 'agentProfile.status': 'pending' }
+        ]
+      }),
       Transaction.countDocuments({ status: 'hold' }),
       Transaction.countDocuments({ status: { $in: ['approved', 'completed'] } }),
       User.countDocuments({ kycStatus: 'verified' }),
@@ -2195,6 +2203,7 @@ router.get('/pending-desk-counts', protect, staffOrAdmin, async (req, res) => {
         deposits: depositsCount,
         loans: loansCount,
         bonds: bondsCount,
+        users: usersCount,
         hold: holdCount,
         approved: totalApproved
       },
@@ -2341,13 +2350,14 @@ router.get('/audit-history', protect, admin, async (req, res) => {
     }
 
     // 2. KYC History (Ultra-fast projection without multi-megabyte base64 images)
-    if (category === 'all' || category === 'kyc' || category === 'normal_kyc' || category === 'loan_kyc') {
+    if (['all', 'kyc', 'normal_kyc', 'loan_kyc', 'user', 'users'].includes(category)) {
       const kycUsers = await User.aggregate([
         {
           $match: {
             $or: [
               { kycStatus: { $in: ['verified', 'rejected', 'pending'] } },
-              { 'kycDocuments.submittedAt': { $ne: null } }
+              { 'kycDocuments.submittedAt': { $ne: null } },
+              { 'bankChangeRequest.status': { $in: ['approved', 'pending', 'rejected'] } }
             ]
           }
         },
@@ -2357,6 +2367,7 @@ router.get('/audit-history', protect, admin, async (req, res) => {
             'kycDocuments.docType': 1, 'kycDocuments.doc1Type': 1, 'kycDocuments.doc2Type': 1,
             'kycDocuments.aadharNumber': 1, 'kycDocuments.panNumber': 1, 'kycDocuments.chequeNumber': 1,
             'kycDocuments.submittedAt': 1, 'kycDocuments.adminRemarks': 1,
+            bankChangeRequest: 1,
             hasDoc1: { $gt: [{ $strLenCP: { $ifNull: ['$kycDocuments.doc1Url', ''] } }, 0] },
             hasDoc1Back: { $gt: [{ $strLenCP: { $ifNull: ['$kycDocuments.doc1BackUrl', ''] } }, 0] },
             hasDoc2: { $gt: [{ $strLenCP: { $ifNull: ['$kycDocuments.doc2Url', ''] } }, 0] },
@@ -2411,16 +2422,12 @@ router.get('/audit-history', protect, admin, async (req, res) => {
         if (chequeNo) refParts.push(`Cheque: ${chequeNo}`);
         const kycRef = refParts.join(' • ') || (u.accountNumber || `KYC_${u._id.toString().slice(-6)}`);
 
-        const hasRejectedLoan = userLoans.some(l => l.status === 'rejected');
-        const hasActiveOrApprovedLoan = userLoans.some(l => ['approved', 'active', 'closed'].includes(l.status));
-        const isLoanRejectedOnly = hasRejectedLoan && !hasActiveOrApprovedLoan;
-
         let detailsNote = '';
         if (isLoanLending) {
-          const loanSummary = userLoans.map(l => `Loan ₹${Number(l.amount || 0).toLocaleString('en-IN')} (${l.status === 'rejected' ? 'REJECTED' : l.status})`).join(', ');
+          const loanSummary = userLoans.map(l => `Loan ₹${Number(l.amount || 0).toLocaleString('en-IN')} (${l.status})`).join(', ');
           const bondSummary = userBonds.map(b => `Lending ₹${Number(b.principalAmount || 0).toLocaleString('en-IN')} (${b.status})`).join(', ');
           detailsNote = [loanSummary, bondSummary, docs.adminRemarks ? `Admin: ${docs.adminRemarks}` : ''].filter(Boolean).join(' • ');
-          if (!detailsNote) detailsNote = isLoanRejectedOnly ? 'Loan Application Rejected' : 'Lending / Loan Barrier Cheque KYC';
+          if (!detailsNote) detailsNote = 'Lending / Loan Barrier Cheque KYC';
         } else {
           detailsNote = docs.adminRemarks ? `Admin: ${docs.adminRemarks}` : (hasPhotos ? 'Aadhaar + PAN Documents Attached' : 'Details Submitted (No photos uploaded)');
         }
@@ -2442,15 +2449,15 @@ router.get('/audit-history', protect, admin, async (req, res) => {
           category: 'kyc',
           subCategory: isLoanLending ? 'loan_lending_kyc' : 'normal_kyc',
           type: 'kyc_verification',
-          title: isLoanRejectedOnly ? 'Loan Application Rejected (No Disbursal)' : (isLoanLending ? 'Lending / Loan KYC' : 'Normal User KYC'),
+          title: isLoanLending ? 'Lending / Loan KYC' : 'Normal User KYC',
           userName: u.name,
           userEmail: u.email,
           userPhone: u.phone,
           accountNumber: u.accountNumber || '—',
           amount: userLoans.length > 0 ? (userLoans[0].amount || 0) : 0,
-          status: isLoanRejectedOnly ? 'rejected' : (u.kycStatus === 'verified' ? 'approved' : u.kycStatus),
-          isLoanRejected: isLoanRejectedOnly,
-          isRejected: isLoanRejectedOnly,
+          status: isVerifiedKyc ? 'approved' : u.kycStatus,
+          isLoanRejected: false,
+          isRejected: u.kycStatus === 'rejected',
           timestamp: ts,
           createdAt: ts,
           requestedAt: reqDate,
@@ -2479,6 +2486,43 @@ router.get('/audit-history', protect, admin, async (req, res) => {
             doc2Back: isLoanLending ? 'Cheque / PAN Back' : 'PAN Back'
           }
         });
+
+        // Also push approved Bank Change Request if present
+        if (u.bankChangeRequest && (u.bankChangeRequest.status === 'approved' || (status === 'all' && ['approved', 'rejected', 'pending'].includes(u.bankChangeRequest.status)))) {
+          if (status === 'all' || (status === 'approved' && u.bankChangeRequest.status === 'approved')) {
+            const bcReqDate = u.bankChangeRequest.requestedAt || u.createdAt;
+            const bcAppDate = u.bankChangeRequest.reviewedAt || bcReqDate;
+            historyItems.push({
+              id: 'bank_change_' + u._id,
+              category: 'kyc',
+              subCategory: 'bank_change',
+              type: 'bank_change',
+              title: `Bank Account Change (${u.bankChangeRequest.bankName || 'Bank'})`,
+              userName: u.name,
+              userEmail: u.email,
+              userPhone: u.phone,
+              accountNumber: u.accountNumber || '—',
+              amount: 0,
+              status: u.bankChangeRequest.status === 'approved' ? 'approved' : u.bankChangeRequest.status,
+              isLoanRejected: false,
+              isRejected: u.bankChangeRequest.status === 'rejected',
+              timestamp: bcAppDate,
+              createdAt: bcReqDate,
+              requestedAt: bcReqDate,
+              approvedAt: bcAppDate,
+              turnaround: '',
+              approverName: u.bankChangeRequest.reviewedBy?.name || 'Admin',
+              approverDevice: '💻 Windows PC • Chrome',
+              proofUrl: '',
+              screenshotUrl: '',
+              hasProof: false,
+              reference: `A/C: ${u.bankChangeRequest.accountNumber || '—'} • IFSC: ${u.bankChangeRequest.ifsc || '—'}`,
+              referenceId: `BANK_${u._id.toString().slice(-6).toUpperCase()}`,
+              notes: `New Bank: ${u.bankChangeRequest.bankName || 'N/A'} • A/C: ${u.bankChangeRequest.accountNumber || '—'} • IFSC: ${u.bankChangeRequest.ifsc || '—'}${u.bankChangeRequest.reason ? ' • Reason: ' + u.bankChangeRequest.reason : ''}`,
+              remarks: u.bankChangeRequest.adminRemarks || 'Bank account updated'
+            });
+          }
+        }
       }
     }
 
